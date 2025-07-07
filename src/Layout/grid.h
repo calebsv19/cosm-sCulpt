@@ -7,7 +7,7 @@
 // Represents the grid state: cell size, pan offset, and zoom scale
 typedef struct {
     float gridSize;    // world units per grid cell
-    float offsetX;     // pan offset in screen pixels
+    float offsetX;     // world offset
     float offsetY;
     float scale;       // screen pixels per world unit
 } Grid;
@@ -16,7 +16,7 @@ typedef struct {
 void Grid_init(Grid *g, float gridSize);
 
 // Pan the view by dx, dy (in screen pixels)
-void Grid_pan(Grid *g, float dx, float dy);
+void Grid_pan(Grid *g, float dx_pixels, float dy_pixels);
 
 // Zoom by factor (e.g. 1.1 to zoom in), centered on screen point (cx, cy)
 void Grid_zoom(Grid *g, float zoomFactor, float cx, float cy);

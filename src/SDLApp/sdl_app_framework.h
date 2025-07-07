@@ -26,7 +26,7 @@ typedef struct {
 
 
 typedef struct {
-    void (*handleInput)(AppContext* ctx);   // SDL event input handling
+    void (*handleInput)(AppContext* ctx, SDL_Event* event);   // SDL event input handling
     void (*handleUpdate)(AppContext* ctx);  // Per-frame logic
     void (*handleRender)(AppContext* ctx);  // Render function
 } AppCallbacks;

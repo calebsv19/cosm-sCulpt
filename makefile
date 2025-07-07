@@ -1,36 +1,36 @@
 # Makefile for LineDrawing project
 
-# Compiler settings
-CC ?= gcc
-CFLAGS = -Wall -Wextra -O2 $(shell sdl2-config --cflags)
-LDFLAGS = $(shell sdl2-config --libs) -lSDL2_ttf -lm
+CC := gcc
+CFLAGS := -Wall -Wextra -O2 -Isrc $(shell sdl2-config --cflags)
+LDFLAGS := $(shell sdl2-config --libs) -lSDL2_ttf -lm
 
-# Source directory
-SRCDIR := src
+# Recursively find all .c files under src/
+SRC_DIR := src
+SRCS := $(shell find $(SRC_DIR) -name '*.c')
 
-# Recursively find all .c source files in SRCDIR
-SRCS := $(shell find $(SRCDIR) -type f -name '*.c')
+# Object files live in build/ with same structure
+OBJ_DIR := build
+OBJS := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRCS))
 
-# Generate object files by replacing .c with .o
-OBJS := $(SRCS:.c=.o)
-
-# Target executable
+# Final executable
 TARGET := LineDrawing
 
 .PHONY: all run clean
 
 all: $(TARGET)
 
-run: all
-	@./$(TARGET)
-
+# Rule to link final binary
 $(TARGET): $(OBJS)
-	$(CC) $(OBJS) -o $@ $(LDFLAGS)
+	$(CC) $^ -o $@ $(LDFLAGS)
 
-# Generic rule for compiling .c to .o
-%.o: %.c
+# Rule to build .o files in build/ from src/
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+run: all
+	./$(TARGET)
+
 clean:
-	rm -f $(OBJS) $(TARGET)
+	rm -rf $(OBJ_DIR) $(TARGET)
 

@@ -46,10 +46,12 @@ void App_Run(AppContext* ctx, AppCallbacks* callbacks) {
             if (event.type == SDL_QUIT) {
                 ctx->quit = true;
             }
-            if (callbacks && callbacks->handleInput) {
-                callbacks->handleInput(ctx);
-            }
+		if (callbacks && callbacks->handleInput) {
+		    callbacks->handleInput(ctx, &event);
+	 	}
+
         }
+
 
         // Delta Time Calculation
         Uint64 now = SDL_GetPerformanceCounter();
