@@ -1,20 +1,25 @@
 // src/main.c
-#include "SDLApp/sdl_app_framework.h"
-#include "Layout/grid.h"
+#include "Core/SDLApp/sdl_app_framework.h"
+#include "Layout/Grid/grid.h"
 #include "Input/input_handler.h"
 #include "Render/render_handler.h"
 #include "Core/global_state.h"
 
 
+#define DEFAULT_WINDOW_WIDTH  1280
+#define DEFAULT_WINDOW_HEIGHT 720
 
 
 static void handleInput(AppContext *ctx, SDL_Event* event) {
     Input_Handle(ctx, event);
 }
 
+
 static void handleUpdate(AppContext *ctx) {
-    (void)ctx;
+    Global_TickSystems(ctx);
+
 }
+
 
 static void handleRender(AppContext *ctx) {
     Render_Frame(ctx);
@@ -22,11 +27,11 @@ static void handleRender(AppContext *ctx) {
 
 int main(void) {
     AppContext app;
-    if (!App_Init(&app, "LineDrawing", 1280, 720, true))
+    if (!App_Init(&app, "LineDrawing", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, true))
         return 1;
 
     // Initialize global program state (grid, layout, editor, etc.)
-    Global_Init();
+    Global_Init(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
 
     AppCallbacks cbs = {
         .handleInput  = handleInput,

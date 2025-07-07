@@ -1,4 +1,5 @@
 #include "sdl_app_framework.h"
+#include "Core/global_state.h"
 #include <SDL2/SDL.h>
 #include <stdio.h>
 
@@ -42,16 +43,22 @@ void App_Run(AppContext* ctx, AppCallbacks* callbacks) {
 
     while (!ctx->quit) {
         // Input Handling
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                ctx->quit = true;
-            }
-		if (callbacks && callbacks->handleInput) {
-		    callbacks->handleInput(ctx, &event);
-	 	}
-
-        }
-
+	while (SDL_PollEvent(&event)) {
+	    if (event.type == SDL_QUIT) {
+	        ctx->quit = true;
+	    }
+	
+	    if (event.type == SDL_WINDOWEVENT &&
+	        event.window.event == SDL_WINDOWEVENT_RESIZED) {
+	        int newW = event.window.data1;
+	        int newH = event.window.data2;
+	        Global_SetWindowSize(newW, newH);
+	    }
+	
+	    if (callbacks && callbacks->handleInput) {
+	        callbacks->handleInput(ctx, &event);
+	    }
+	}
 
         // Delta Time Calculation
         Uint64 now = SDL_GetPerformanceCounter();

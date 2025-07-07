@@ -1,8 +1,13 @@
 // src/Editor/editor.h
 #pragma once
-#include "SDLApp/sdl_app_framework.h"
+#include "Core/SDLApp/sdl_app_framework.h"
 #include "Layout/layout.h"
 #include "Math/math_util.h"
+
+typedef enum {
+    DELETE_MODE_SAFE,      // Only delete selected wall or anchor
+    DELETE_MODE_AUTO_PRUNE // Also delete orphan anchors when wall is removed
+} DeleteMode;
 
 typedef enum {
     TOOL_IDLE,
@@ -11,8 +16,13 @@ typedef enum {
 
 typedef struct {
     ToolMode mode;
-    Vec2 anchor;     // Starting point for wall
-    bool shiftHeld;  // Whether shift-lock is enabled
+    Vec2 anchor;        // Starting point for wall placement
+    bool shiftHeld;     // Whether shift-lock is enabled
+
+    int selectedWallIndex;     // Index of selected wall
+    int selectedAnchorIndex;   // Index of selected anchor (-1 if none)
+
+    DeleteMode deleteMode;
 } EditorState;
 
 void Editor_Init(EditorState* editor);
