@@ -1,9 +1,14 @@
 // src/main.c
 #include "Core/SDLApp/sdl_app_framework.h"
 #include "Layout/Grid/grid.h"
+#include "UI/font_manager.h"
+
+
 #include "Input/input_handler.h"
 #include "Render/render_handler.h"
 #include "Core/global_state.h"
+
+
 
 
 #define DEFAULT_WINDOW_WIDTH  1280
@@ -30,6 +35,9 @@ int main(void) {
     if (!App_Init(&app, "LineDrawing", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, true))
         return 1;
 
+    if (!FontManager_Init()) return 1;
+    if (!FontManager_LoadFonts()) return 1;
+
     // Initialize global program state (grid, layout, editor, etc.)
     Global_Init(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
 
@@ -41,6 +49,7 @@ int main(void) {
     App_SetRenderMode(&app, RENDER_THROTTLED, 1.0f / 60.0f);
     App_Run(&app, &cbs);
 
+    FontManager_Quit();
     Global_Shutdown();  // free layout memory, etc.
     App_Shutdown(&app);
     return 0;

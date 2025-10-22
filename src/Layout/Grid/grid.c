@@ -3,20 +3,15 @@
 
 void Grid_init(Grid* g, float gridSize, int screenW, int screenH) {
     g->gridSize = gridSize;
-    g->scale    = 1.0f;
+    g->scale    = 32.0f;  // Moved here
 
     float pixelsPerUnit = gridSize * g->scale;
 
-    // Calculate center of screen in world units
     float centerWorldX = (float)screenW / 2.0f / pixelsPerUnit;
     float centerWorldY = (float)screenH / 2.0f / pixelsPerUnit;
 
-    // Snap origin to nearest 10x10 world unit cross
-    centerWorldX = roundf(centerWorldX / 10.0f) * 10.0f;
-    centerWorldY = roundf(centerWorldY / 10.0f) * 10.0f;
-
-    g->offsetX = centerWorldX;
-    g->offsetY = centerWorldY;
+    g->offsetX = -centerWorldX;
+    g->offsetY = -centerWorldY;
 }
 
 
@@ -29,16 +24,23 @@ void Grid_pan(Grid* g, float dx_pixels, float dy_pixels) {
 
 void Grid_zoom(Grid *g, float zoomFactor, float cx_px, float cy_px) {
     float oldScale = g->scale;
-    g->scale *= zoomFactor;
+    float newScale = g->scale * zoomFactor;
 
-    if (g->scale < 10.0f) g->scale = 10.0f;
-    if (g->scale > 100.0f) g->scale = 100.0f;
+    if (newScale < 10.0f) newScale = 10.0f;
+    if (newScale > 100.0f) newScale = 100.0f;
 
-    float cx_world = cx_px / (oldScale * g->gridSize);
-    float cy_world = cy_px / (oldScale * g->gridSize);
+    float pixelsPerUnitOld = oldScale * g->gridSize;
+    float pixelsPerUnitNew = newScale * g->gridSize;
 
-    g->offsetX = cx_world + (g->offsetX - cx_world) * (oldScale / g->scale);
-    g->offsetY = cy_world + (g->offsetY - cy_world) * (oldScale / g->scale);
+    // Convert center point to world coords before zoom
+    float cx_world = cx_px / pixelsPerUnitOld + g->offsetX;
+    float cy_world = cy_px / pixelsPerUnitOld + g->offsetY;
 
+    // Update scale
+    g->scale = newScale;
+
+    // After zoom, compute new offset so (cx_world) stays fixed on screen
+    g->offsetX = cx_world - cx_px / pixelsPerUnitNew;
+    g->offsetY = cy_world - cy_px / pixelsPerUnitNew;
 }
 

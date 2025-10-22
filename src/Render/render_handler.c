@@ -1,5 +1,9 @@
 #include "render_handler.h"
 #include "Core/global_state.h"
+
+#include "UI/ui_panel.h"
+#include "UI/render_ui_panel.h"
+
 #include "Layout/Grid/render_grid.h"
 #include "Layout/layout.h"
 #include "Layout/render_layout.h"     // ← NEW: Layout wall + anchor renderer
@@ -29,7 +33,10 @@ void Render_Frame(AppContext* ctx) {
     // ─── Editor Overlay (Ghost Wall, Active Anchor) ─
     Render_Editor_Anchor(editor, ctx);
     Render_Editor_GhostWall(editor, ctx);
-    // Future: Render_Editor_SelectedWall(editor, ctx);
+
+
+    UIPanelState* panel = UIPanel_Get();
+    Render_UIPanel(panel, ctx->renderer);
 
     SDL_RenderPresent(ctx->renderer);
 }

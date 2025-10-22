@@ -1,0 +1,23 @@
+# Source Overview
+
+All engine code lives under `src/`, separated by responsibility so the floor-plan editor can grow into a richer home-monitoring tool.
+
+## Entry Point
+- `main.c` — initialises SDL via the app framework, loads fonts, allocates `GlobalState`, registers callbacks, sets a throttled render mode (60 FPS), and orchestrates shutdown.
+
+## Update Loop
+1. SDL events are routed through `Input_Handle`, which dispatches to mouse and keyboard handlers, updates the grid camera, and mutates layout/editor state.
+2. `Global_TickSystems` compacts deleted layout elements and rebuilds hitboxes so selection stays consistent after edits.
+3. `Render_Frame` clears the screen, draws the grid, layout geometry, editor overlay, and UI panel, then presents the frame.
+
+## Module Directories
+- `Core/` — SDL bootstrapping and the project-wide `GlobalState` singleton.
+- `Input/` — user input handling split across devices.
+- `Layout/` — geometry data structures, rendering, hit detection, and JSON persistence.
+- `Layout/Grid/` — grid camera maths and rendering helpers shared by layout and editor code.
+- `Render/` — top-level frame compositor.
+- `UI/` — UI panel data, rendering, click routing, and font management.
+- `Editor/` — wall-placement state machine and overlay rendering.
+- `Math/` — inline vector utilities and coordinate transforms.
+
+Each directory below has its own README with per-file details and relationships.

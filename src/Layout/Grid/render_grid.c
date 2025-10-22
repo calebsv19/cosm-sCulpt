@@ -63,9 +63,13 @@ void Render_Grid(const Grid* g, SDL_Renderer* renderer, int width, int height, i
     int ox = (int)((0.0f - g->offsetX) * g->gridSize * g->scale);
     int oy = (int)((0.0f - g->offsetY) * g->gridSize * g->scale);
 
+
+    int originSize = 10;
     SDL_SetRenderDrawColor(renderer, 255, 100, 100, 255);
-    SDL_RenderDrawLine(renderer, ox - 3, oy, ox + 3, oy);
-    SDL_RenderDrawLine(renderer, ox, oy - 3, ox, oy + 3);
+    SDL_RenderDrawLine(renderer, ox - originSize, oy, ox + originSize, oy);
+    SDL_RenderDrawLine(renderer, ox, oy - originSize, ox, oy + originSize);
+
+
 }
 
 

@@ -3,6 +3,7 @@
 #include "Core/global_state.h"
 #include "Editor/editor.h"
 #include "Layout/layout.h"
+#include "Layout/layout_origin.h"
 #include "Layout/Grid/grid.h"
 #include <SDL2/SDL.h>
 
@@ -55,6 +56,22 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
             }
         }
 
+
+	if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_o) {
+	    int i = state->editor.selectedAnchorIndex;
+	    if (i >= 0 && i < (int)state->layout.anchorCount) {
+	        Layout_ShiftOriginToAnchor(
+	            &state->layout,
+	            &state->grid,
+	            i,
+	            state->screenWidth,
+	            state->screenHeight
+	        );
+	        printf("[Editor] Origin shifted to anchor %d\n", i);
+	    } else {
+	        printf("[Editor] No anchor selected to shift origin.\n");
+	    }
+	}
 
 	// Toggle pinning of selected anchor
 	if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_p) {

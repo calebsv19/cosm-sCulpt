@@ -1,6 +1,7 @@
 // src/Core/global_state.c
 #include "Core/global_state.h"
 #include "Layout/hitbox_system.h"
+#include "UI/ui_panel.h"
 #include <stdlib.h>
 
 static GlobalState* global = NULL;
@@ -19,6 +20,7 @@ void Global_Init(int screenWidth, int screenHeight) {
 
     Layout_Init(&global->layout, 1.0f);
     Editor_Init(&global->editor);
+    UIPanel_Init(screenWidth, screenHeight);
 }
 
 

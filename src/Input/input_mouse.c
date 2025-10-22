@@ -3,6 +3,8 @@
 #include "Core/global_state.h"
 #include "Editor/editor.h"
 
+#include "UI/input_ui_panel.h"
+
 #include "Layout/Grid/grid.h"
 #include "Layout/hitbox_system.h"  // ← if using hitboxes
 
@@ -32,6 +34,9 @@ static void HandleMouseWheel(AppContext* ctx, SDL_MouseWheelEvent* wheel) {
 //        Left click: select point (priority) or wall
 // ============================================================
 static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
+    if (UIPanel_HandleClick(btn->x, btn->y)) {
+        return;  // UI consumed the click — skip layout/editor input
+    }
     dragging = true;
     lastMx = btn->x;
     lastMy = btn->y;

@@ -1,16 +1,20 @@
 # Makefile for LineDrawing project
 
 CC := gcc
-CFLAGS := -Wall -Wextra -O2 -Isrc $(shell sdl2-config --cflags)
+CFLAGS := -Wall -Wextra -O2 -Isrc -Iexternal $(shell sdl2-config --cflags)
 LDFLAGS := $(shell sdl2-config --libs) -lSDL2_ttf -lm
 
-# Recursively find all .c files under src/
+# Source directories
 SRC_DIR := src
-SRCS := $(shell find $(SRC_DIR) -name '*.c')
+EXT_DIR := external
 
-# Object files live in build/ with same structure
+# Find all project source files
+SRCS := $(shell find $(SRC_DIR) -name '*.c') \
+        $(EXT_DIR)/cjson/cJSON.c
+
+# Build object files in build/
 OBJ_DIR := build
-OBJS := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRCS))
+OBJS := $(patsubst %.c, $(OBJ_DIR)/%.o, $(SRCS))
 
 # Final executable
 TARGET := LineDrawing
@@ -19,12 +23,12 @@ TARGET := LineDrawing
 
 all: $(TARGET)
 
-# Rule to link final binary
+# Link final binary
 $(TARGET): $(OBJS)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
-# Rule to build .o files in build/ from src/
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+# Build rule for source files
+$(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
