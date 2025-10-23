@@ -29,6 +29,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 		    // ─── LEFT PANEL ACTIONS ─────────────────────
     		case 0: { // Save JSON
     		    Layout_CompactDeletedElements(&state->layout);  // Optional: clean before save
+                Global_FlagHitboxesDirty();
     		    if (Layout_SaveToFile(&state->layout, "config/layout_config.json")) {
     		        SDL_Log("[UI] Layout saved to layout_config.json");
     		    } else {
@@ -38,6 +39,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 		}
 		
 		case 1: { // Load JSON
+                Editor_HistoryCapture(editor, &state->layout);
 		        if (Layout_LoadFromFile(&state->layout, "config/layout_config.json")) {
 		            SDL_Log("[UI] Layout loaded from layout_config.json");
 		        } else {
@@ -50,20 +52,24 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 		// ───RIGHT PANEL ACTIONS  ─────────────────────
                 case 10: { // Reset Origin
                     int sel = editor->selectedAnchorIndex;
-                    if (sel >= 0)
+                    if (sel >= 0) {
+                        Editor_HistoryCapture(editor, &state->layout);
                         Layout_ShiftOriginToAnchor(&state->layout, grid, sel, state->screenWidth, state->screenHeight);
+                    }
                     break;
                 }
                 case 11: { // Zoom In
                     int w = state->screenWidth;
                     int h = state->screenHeight;
                     Grid_zoom(grid, 1.1f, w / 2.0f, h / 2.0f);
+                    Global_FlagGridChanged();
                     break;
                 }
                 case 12: { // Zoom Out
                     int w = state->screenWidth;
                     int h = state->screenHeight;
                     Grid_zoom(grid, 0.9f, w / 2.0f, h / 2.0f);
+                    Global_FlagGridChanged();
                     break;
                 }
                 case 13: { // Toggle Delete Mode
@@ -76,8 +82,10 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 case 14: { // Pin Anchor
                     int sel = editor->selectedAnchorIndex;
                     if (sel >= 0 && sel < (int)state->layout.anchorCount) {
+                        Editor_HistoryCapture(editor, &state->layout);
                         Anchor* a = &state->layout.anchors[sel];
                         a->isPersistent = !a->isPersistent;
+                        Global_FlagLayoutChanged();
                     }
                     break;
                 }
@@ -89,4 +97,3 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 
     return false;
 }
-

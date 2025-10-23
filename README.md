@@ -14,25 +14,47 @@ LineDrawing is an SDL2-based floor-plan sketcher used to lay out rooms and ancho
 - `src/Layout/` — anchor/wall data model, JSON IO, hitbox rebuilds, and drawing logic.
 - `src/Layout/Grid/` — camera-style pan/zoom state and grid rendering helpers.
 - `src/Render/` — frame compositor that orders grid, layout, editor, and UI drawing.
-- `src/UI/` — UI panel definition, rendering, click handling, and the font manager.
+- `src/UI/` — UI panel/buttons, top-of-screen info overlay, click handling, and the font manager.
 - `src/Editor/` — two-click wall placement workflow, selection state, and editor overlays.
 - `src/Math/` — lightweight vector helpers used by layout, grid, and editor code.
 - `external/` — third-party libraries (currently cJSON) compiled in by the makefile.
 - `include/` — project assets such as fonts that the font manager loads.
+- `tests/` — lightweight C test harness and suites covering math and layout behaviour.
 
 ## Build & Run
 This project targets SDL2 + SDL2_ttf and is built with `make`.
 
 ```sh
-make        # builds the LineDrawing binary into ./LineDrawing
-make run    # builds then runs the application
-make clean  # removes build artifacts
+make            # builds the LineDrawing binary into build/bin/LineDrawing
+make run        # builds then runs the application
+make debug=1    # builds with debug flags
+make clean      # removes build artifacts
 ```
 
 Compiler and linker flags are pulled from `sdl2-config`, and `external/cjson/cJSON.c` is compiled alongside the in-tree sources.
 
+### Testing
+
+Run the automated checks with:
+
+```sh
+make test       # builds lib objects and executes build/tests/bin/run_tests
+```
+
+The test harness links against the same objects as the runtime (minus `src/main.c`) so behavioural drift is caught quickly.
+
+## Editor Shortcuts & UI
+- `Ctrl+Z` / `Cmd+Z` — undo the last layout mutation (wall/anchor edits, pin toggles, origin shifts, JSON loads).
+- `Ctrl+Shift+Z` or `Ctrl+Y` — redo.
+- `O` — recenter the grid to the selected anchor.
+- `P` — toggle the selected anchor's persistence.
+- `Delete` / `Backspace` — remove the selected wall or anchor.
+
+Selection details (position, connections, wall length, delete mode) appear in the top overlay, while action buttons now sit below it to keep the workspace tidy.
+
 ## Persisted Data
 Layout edits are stored in `config/layout_config.json`, which encodes:
+- `file`: metadata about the save (`schemaVersion` and `gridSize`). Files saved with a future schema version are rejected to avoid corrupting the current runtime.
 - `anchors`: world-space coordinates (floats) plus a `persistent` flag that keeps an anchor alive when auto-prune is enabled.
 - `walls`: index pairs `a`/`b` that connect anchors into wall segments.
 

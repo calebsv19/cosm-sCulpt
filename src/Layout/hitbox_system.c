@@ -2,6 +2,7 @@
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdio.h>
 
 #define MAX_HITBOXES 1024
 static Hitbox hitboxes[MAX_HITBOXES];
@@ -14,6 +15,7 @@ void HitboxSystem_Rebuild(const Layout* layout, float scale, float offsetX, floa
 
     for (size_t i = 0; i < layout->wallCount; ++i) {
         Wall w = layout->walls[i];
+        if (w.isDeleted) continue;
         int a = w.anchorA;
         int b = w.anchorB;
 
@@ -23,8 +25,12 @@ void HitboxSystem_Rebuild(const Layout* layout, float scale, float offsetX, floa
             continue;
         }
 
-        Vec2 from = layout->anchors[a].pos;
-        Vec2 to   = layout->anchors[b].pos;
+        Anchor anchorA = layout->anchors[a];
+        Anchor anchorB = layout->anchors[b];
+        if (anchorA.isDeleted || anchorB.isDeleted) continue;
+
+        Vec2 from = anchorA.pos;
+        Vec2 to   = anchorB.pos;
 
         int x1 = (int)((from.x - offsetX) * gridSize * scale);
         int y1 = (int)((from.y - offsetY) * gridSize * scale);
@@ -51,7 +57,9 @@ void HitboxSystem_Rebuild(const Layout* layout, float scale, float offsetX, floa
         int anchorIDs[2] = { a, b };
         for (int j = 0; j < 2; ++j) {
             int anchorIndex = anchorIDs[j];
-            Vec2 pt = layout->anchors[anchorIndex].pos;
+            Anchor anchor = layout->anchors[anchorIndex];
+            if (anchor.isDeleted) continue;
+            Vec2 pt = anchor.pos;
 
             int cx = (int)((pt.x - offsetX) * gridSize * scale);
             int cy = (int)((pt.y - offsetY) * gridSize * scale);
@@ -80,4 +88,3 @@ Hitbox HitboxSystem_GetHitAt(int mx, int my) {
 
     return (Hitbox){ .type = HITBOX_NONE };
 }
-

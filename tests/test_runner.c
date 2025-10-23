@@ -1,0 +1,20 @@
+#include "test_framework.h"
+
+#include <stdio.h>
+
+bool layout_run_tests(void);
+bool math_run_tests(void);
+
+int main(void) {
+    bool ok = true;
+    ok &= layout_run_tests();
+    ok &= math_run_tests();
+
+    if (ok) {
+        printf("All tests passed\n");
+        return 0;
+    }
+
+    fprintf(stderr, "Tests failed\n");
+    return 1;
+}

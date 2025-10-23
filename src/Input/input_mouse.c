@@ -28,6 +28,7 @@ static void HandleMouseWheel(AppContext* ctx, SDL_MouseWheelEvent* wheel) {
 
     float factor = (wheel->y > 0) ? 1.1f : 0.9f;
     Grid_zoom(grid, factor, w / 2.0f, h / 2.0f);
+    Global_FlagGridChanged();
 }
 
 
@@ -44,6 +45,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     GlobalState* state = Global_Get();
     EditorState* editor = &state->editor;
 
+    Global_RebuildHitboxesIfDirty();
     Hitbox hit = HitboxSystem_GetHitAt(btn->x, btn->y);
 
     // Priority: anchor selection overrides wall
@@ -67,9 +69,6 @@ static void HandleRightMouseDown(SDL_MouseButtonEvent* btn) {
     Grid* grid = &state->grid;
     EditorState* editor = &state->editor;
 
-    float scale = grid->scale;
-    float gridSize = grid->gridSize;
-
     Vec2 world = ScreenToSnappedWorld(btn->x, btn->y, grid);
 
     Editor_ClickAt(editor, world);
@@ -86,6 +85,7 @@ static void HandleMouseDrag(SDL_MouseMotionEvent* motion) {
 
     GlobalState* state = Global_Get();
     Grid_pan(&state->grid, -dx, -dy);
+    Global_FlagGridChanged();
 
     lastMx = motion->x;
     lastMy = motion->y;
@@ -117,4 +117,3 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
             break;
     }
 }
-

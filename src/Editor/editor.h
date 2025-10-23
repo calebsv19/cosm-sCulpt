@@ -1,5 +1,6 @@
 // src/Editor/editor.h
 #pragma once
+#include <stddef.h>
 #include "Core/SDLApp/sdl_app_framework.h"
 #include "Layout/layout.h"
 #include "Math/math_util.h"
@@ -15,6 +16,12 @@ typedef enum {
 } ToolMode;
 
 typedef struct {
+    char** entries;
+    size_t count;
+    size_t capacity;
+} EditorHistoryStack;
+
+typedef struct {
     ToolMode mode;
     Vec2 anchor;        // Starting point for wall placement
     bool shiftHeld;     // Whether shift-lock is enabled
@@ -23,9 +30,15 @@ typedef struct {
     int selectedAnchorIndex;   // Index of selected anchor (-1 if none)
 
     DeleteMode deleteMode;
+
+    EditorHistoryStack undoStack;
+    EditorHistoryStack redoStack;
 } EditorState;
 
+#define EDITOR_HISTORY_MAX 64
+
 void Editor_Init(EditorState* editor);
+void Editor_Free(EditorState* editor);
 
 // Called when a snapped world point is clicked
 void Editor_ClickAt(EditorState* editor, Vec2 worldPos);
@@ -33,6 +46,11 @@ void Editor_ClickAt(EditorState* editor, Vec2 worldPos);
 // Called by input handler on Shift key down/up
 void Editor_SetShiftHeld(EditorState* editor, bool held);
 
+void Editor_HistoryCapture(EditorState* editor, const Layout* layout);
+bool Editor_Undo(EditorState* editor, Layout* layout);
+bool Editor_Redo(EditorState* editor, Layout* layout);
+size_t Editor_UndoCount(const EditorState* editor);
+size_t Editor_RedoCount(const EditorState* editor);
+
 // Renders the ghost wall (anchor → current mouse world pos)
 void Editor_Render(EditorState* editor, AppContext* ctx);
-

@@ -1,5 +1,6 @@
 // src/Layout/layout_origin.c
 #include "layout_origin.h"
+#include "Core/global_state.h"
 
 void Layout_ShiftOriginToAnchor(Layout* layout, Grid* grid, int anchorIndex, int screenW, int screenH) {
     if (anchorIndex < 0 || anchorIndex >= (int)layout->anchorCount) return;
@@ -16,5 +17,7 @@ void Layout_ShiftOriginToAnchor(Layout* layout, Grid* grid, int anchorIndex, int
     float pixelsPerUnit = grid->scale * grid->gridSize;
     grid->offsetX = -((float)screenW / 2.0f) / pixelsPerUnit;
     grid->offsetY = -((float)screenH / 2.0f) / pixelsPerUnit;
-}
 
+    Global_FlagLayoutChanged();
+    Global_FlagGridChanged();
+}

@@ -15,6 +15,9 @@ typedef struct {
 
     int screenWidth;
     int screenHeight;
+
+    bool layoutDirty;
+    bool hitboxDirty;
 } GlobalState;
 
 extern GlobalState* Global_Get(void);
@@ -25,6 +28,10 @@ void Global_Shutdown(void);
 void Global_TickSystems(AppContext* ctx);
 void Global_SetWindowSize(int w, int h);
 
+void Global_FlagLayoutChanged(void);
+void Global_FlagGridChanged(void);
+void Global_FlagHitboxesDirty(void);
+void Global_RebuildHitboxesIfDirty(void);
 
 int Global_GetScreenWidth(void);
 int Global_GetScreenHeight(void);

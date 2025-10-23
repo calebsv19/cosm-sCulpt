@@ -4,6 +4,28 @@
 #include "Math/math_util.h"
 #include <SDL2/SDL.h>
 #include <math.h>
+#include <stdlib.h>
+
+static void DrawLineWithThickness(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, int thickness) {
+    SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
+    if (thickness <= 1) return;
+
+    int dx = abs(x2 - x1);
+    int dy = abs(y2 - y1);
+    int half = thickness / 2;
+
+    if (dx >= dy) {
+        for (int offset = 1; offset <= half; ++offset) {
+            SDL_RenderDrawLine(renderer, x1, y1 + offset, x2, y2 + offset);
+            SDL_RenderDrawLine(renderer, x1, y1 - offset, x2, y2 - offset);
+        }
+    } else {
+        for (int offset = 1; offset <= half; ++offset) {
+            SDL_RenderDrawLine(renderer, x1 + offset, y1, x2 + offset, y2);
+            SDL_RenderDrawLine(renderer, x1 - offset, y1, x2 - offset, y2);
+        }
+    }
+}
 
 //        Draw all walls (selected = yellow, others = gray)
 // ======================================
@@ -13,18 +35,25 @@ static void Layout_RenderWalls(const Layout* layout, SDL_Renderer* renderer){
 
     for (size_t i = 0; i < layout->wallCount; ++i) {
         Wall w = layout->walls[i];
+        if (w.isDeleted) continue;
         Vec2 from = layout->anchors[w.anchorA].pos;
         Vec2 to   = layout->anchors[w.anchorB].pos;
 
-        if ((int)i == selectedIndex)
+        int thickness = 1;
+        if ((int)i == selectedIndex) {
             SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);  // Yellow
-        else
+            thickness = 3;
+        } else {
             SDL_SetRenderDrawColor(renderer, 100, 100, 220, 255);  // Gray
+        }
 
         Vec2 p1 = WorldToScreen(from, grid);
         Vec2 p2 = WorldToScreen(to, grid);
 
-        SDL_RenderDrawLine(renderer, (int)p1.x, (int)p1.y, (int)p2.x, (int)p2.y);
+        DrawLineWithThickness(renderer,
+                              (int)p1.x, (int)p1.y,
+                              (int)p2.x, (int)p2.y,
+                              thickness);
     }
 }
 
@@ -33,7 +62,6 @@ static void Layout_RenderWalls(const Layout* layout, SDL_Renderer* renderer){
 // ======================================
 static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
     const Grid* grid = &Global_Get()->grid;
-    float pixelsPerCell = grid->gridSize * grid->scale;
 
     int r = ANCHOR_RENDER_RADIUS;
 
@@ -41,6 +69,7 @@ static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
 
     for (size_t i = 0; i < layout->anchorCount; ++i) {
         Anchor* anchor = &layout->anchors[i];
+        if (anchor->isDeleted) continue;
         Vec2 screen = WorldToScreen(anchor->pos, grid);
         int cx = (int)screen.x;
         int cy = (int)screen.y;
@@ -66,6 +95,21 @@ static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
                     SDL_RenderDrawPoint(renderer, cx + dx, cy + dy);
             }
         }
+
+        if (isSelected) {
+            SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+            int ringRadius = r + 2;
+            int inner = r * r;
+            int outer = ringRadius * ringRadius;
+            for (int dx = -ringRadius; dx <= ringRadius; ++dx) {
+                for (int dy = -ringRadius; dy <= ringRadius; ++dy) {
+                    int dist = dx * dx + dy * dy;
+                    if (dist <= outer && dist >= inner) {
+                        SDL_RenderDrawPoint(renderer, cx + dx, cy + dy);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -78,4 +122,3 @@ void Layout_Render(const Layout* layout, AppContext* ctx) {
     Layout_RenderWalls(layout, renderer);
     Layout_RenderAnchors(layout, renderer);
 }
-

@@ -41,6 +41,7 @@ int Layout_AddAnchor(Layout* layout, Vec2 pos) {
         .isPersistent = false
     };
     layout->anchors[layout->anchorCount] = newAnchor;
+    Global_FlagLayoutChanged();
     return (int)layout->anchorCount++;
 }
 
@@ -76,8 +77,6 @@ void Layout_RemoveAnchor(Layout* layout, int anchorIndex) {
         }
     }
 
-    free(connected);
-    
     target->isPersistent = false;
     Layout_MarkAnchorDeleted(layout, anchorIndex);
 
@@ -98,6 +97,7 @@ void Layout_RemoveAnchor(Layout* layout, int anchorIndex) {
 		}
         }
     }
+    free(connected);
 }
 
 
@@ -115,6 +115,7 @@ void Layout_MarkAnchorDeleted(Layout* layout, int anchorIndex) {
     free(a->connectedWalls);
     a->connectedWalls = NULL;
     a->connectionCount = 0;
+    Global_FlagLayoutChanged();
 }
 
 
@@ -144,6 +145,7 @@ void Layout_AddWall(Layout* layout, Vec2 from, Vec2 to) {
 
     b->connectedWalls = realloc(b->connectedWalls, sizeof(int) * (b->connectionCount + 1));
     b->connectedWalls[b->connectionCount++] = wallIndex;
+    Global_FlagLayoutChanged();
 }
 
 
@@ -232,6 +234,7 @@ void Layout_MarkWallDeleted(Layout* layout, int wallIndex) {
     if (w->anchorB >= 0 && w->anchorB < (int)layout->anchorCount) {
         RemoveWallFromAnchor(&layout->anchors[w->anchorB], wallIndex);
     }
+    Global_FlagLayoutChanged();
 }
 
 
@@ -342,4 +345,3 @@ void Layout_CompactDeletedElements(Layout* layout) {
     free(wallRemap);
     free(anchorRemap);
 }
-

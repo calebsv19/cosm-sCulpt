@@ -3,6 +3,7 @@
 
 #include "UI/ui_panel.h"
 #include "UI/render_ui_panel.h"
+#include "UI/info_overlay.h"
 
 #include "Layout/Grid/render_grid.h"
 #include "Layout/layout.h"
@@ -13,6 +14,7 @@
 
 void Render_Frame(AppContext* ctx) {
     GlobalState* state = Global_Get();
+    Global_RebuildHitboxesIfDirty();
     Grid* grid = &state->grid;
     Layout* layout = &state->layout;
     EditorState* editor = &state->editor;
@@ -34,10 +36,10 @@ void Render_Frame(AppContext* ctx) {
     Render_Editor_Anchor(editor, ctx);
     Render_Editor_GhostWall(editor, ctx);
 
+    Render_InfoOverlay(ctx->renderer);
 
     UIPanelState* panel = UIPanel_Get();
     Render_UIPanel(panel, ctx->renderer);
 
     SDL_RenderPresent(ctx->renderer);
 }
-
