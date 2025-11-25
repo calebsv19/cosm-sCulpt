@@ -49,7 +49,7 @@ build/obj/src/Input/input_keyboard.o: src/Input/input_keyboard.c \
   /usr/local/include/SDL2/SDL_locale.h \
   /usr/local/include/SDL2/SDL_misc.h src/Core/global_state.h \
   src/Layout/Grid/grid.h src/Layout/layout.h src/Math/math_util.h \
-  src/Editor/editor.h src/Layout/layout_origin.h
+  src/Editor/editor.h src/Layout/layout_origin.h src/UI/ui_panel.h
 
 src/Input/input_keyboard.h:
 
@@ -166,3 +166,5 @@ src/Math/math_util.h:
 src/Editor/editor.h:
 
 src/Layout/layout_origin.h:
+
+src/UI/ui_panel.h:

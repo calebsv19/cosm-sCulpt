@@ -5,6 +5,7 @@
 #include "Layout/layout.h"
 #include "Layout/layout_origin.h"
 #include "Layout/Grid/grid.h"
+#include "UI/ui_panel.h"
 #include <SDL2/SDL.h>
 
 // 		Continuous movement (arrow keys, zoom, quit)
@@ -40,6 +41,14 @@ static void HandleHeldKeys(AppContext* ctx) {
 // 		Public keyboard input dispatcher
 // ============================================================
 void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
+    if (UIPanel_HandleKeyEvent(event)) {
+        return;
+    }
+
+    if (UIPanel_IsCapturingKeyboard()) {
+        return;
+    }
+
     GlobalState* state = Global_Get();
 
     if (event->type == SDL_KEYDOWN || event->type == SDL_KEYUP) {
@@ -112,6 +121,44 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
             Global_FlagLayoutChanged();
 	    }
 	}
+
+        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_c) {
+            int sel = state->editor.selectedAnchorIndex;
+            if (sel >= 0 && sel < (int)state->layout.anchorCount) {
+                Anchor* anchor = &state->layout.anchors[sel];
+                AnchorType target = (anchor->type == ANCHOR_TYPE_CURVE)
+                    ? ANCHOR_TYPE_CORNER
+                    : ANCHOR_TYPE_CURVE;
+                if (target == ANCHOR_TYPE_CURVE &&
+                    !Layout_CanAnchorBecomeCurve(&state->layout, sel)) {
+                    printf("[Editor] Anchor %d needs exactly 2 connections to become curved.\n", sel);
+                } else {
+                    Editor_HistoryCapture(&state->editor, &state->layout);
+                    if (Layout_SetAnchorType(&state->layout, sel, target)) {
+                        printf("[Editor] Anchor %d type: %s\n",
+                               sel,
+                               target == ANCHOR_TYPE_CURVE ? "CURVE" : "CORNER");
+                    }
+                }
+            }
+        }
+
+        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_l) {
+            int sel = state->editor.selectedAnchorIndex;
+            if (sel >= 0 && sel < (int)state->layout.anchorCount) {
+                Anchor* anchor = &state->layout.anchors[sel];
+                if (anchor->type != ANCHOR_TYPE_CURVE) {
+                    printf("[Editor] Anchor %d must be a curve to toggle handle linking.\n", sel);
+                } else {
+                    Editor_HistoryCapture(&state->editor, &state->layout);
+                    bool target = !anchor->handlesLinked;
+                    if (Layout_SetHandlesLinked(&state->layout, sel, target)) {
+                        printf("[Editor] Anchor %d handles: %s\n",
+                               sel, target ? "LINKED" : "UNLINKED");
+                    }
+                }
+            }
+        }
 
         // Delete wall or anchor
         if (event->type == SDL_KEYDOWN &&

@@ -8,6 +8,11 @@
 #include "cjson/cJSON.h"
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+
+static bool nearly_equal(float a, float b) {
+    return fabsf(a - b) < 0.0001f;
+}
 
 static void init_runtime(void) {
     Global_Init(800, 600);
@@ -172,6 +177,67 @@ static bool test_layout_json_missing_version_defaults(void) {
     return true;
 }
 
+static bool test_layout_json_preserves_anchor_handles(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    int idx = Layout_AddAnchor(layout, (Vec2){ 1.0f, 2.0f });
+    Anchor* anchor = &layout->anchors[idx];
+    anchor->type = ANCHOR_TYPE_CURVE;
+    anchor->handlesLinked = false;
+    anchor->handleInLength = 2.5f;
+    anchor->handleInAngleDeg = 45.0f;
+    anchor->handleOutLength = 1.25f;
+    anchor->handleOutAngleDeg = -60.0f;
+
+    char* snapshot = Layout_SaveToString(layout);
+    TEST_ASSERT(snapshot != NULL);
+
+    TEST_ASSERT(Layout_LoadFromString(layout, snapshot));
+    free(snapshot);
+
+    TEST_ASSERT(layout->anchorCount == 1);
+    Anchor* loaded = &layout->anchors[0];
+    TEST_ASSERT(loaded->type == ANCHOR_TYPE_CURVE);
+    TEST_ASSERT(!loaded->handlesLinked);
+    TEST_ASSERT(nearly_equal(loaded->handleInLength, 2.5f));
+    TEST_ASSERT(nearly_equal(loaded->handleInAngleDeg, 45.0f));
+    TEST_ASSERT(nearly_equal(loaded->handleOutLength, 1.25f));
+    TEST_ASSERT(nearly_equal(loaded->handleOutAngleDeg, -60.0f));
+
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_handles_link_toggle(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    int idx = Layout_AddAnchor(layout, (Vec2){ 0.0f, 0.0f });
+    Anchor* anchor = &layout->anchors[idx];
+    anchor->type = ANCHOR_TYPE_CURVE;
+    anchor->handlesLinked = false;
+    anchor->handleInLength = 1.0f;
+    anchor->handleInAngleDeg = 30.0f;
+    anchor->handleOutLength = 2.0f;
+    anchor->handleOutAngleDeg = 120.0f;
+
+    TEST_ASSERT(Layout_SetHandlesLinked(layout, idx, true));
+    TEST_ASSERT(anchor->handlesLinked);
+    TEST_ASSERT(nearly_equal(anchor->handleInLength, 2.0f));
+    TEST_ASSERT(nearly_equal(anchor->handleOutLength, 2.0f));
+    TEST_ASSERT(nearly_equal(anchor->handleOutAngleDeg,
+                             Angle_NormalizeDeg(anchor->handleInAngleDeg + 180.0f)));
+
+    TEST_ASSERT(Layout_SetHandlesLinked(layout, idx, false));
+    TEST_ASSERT(anchor->handlesLinked == false);
+
+    shutdown_runtime();
+    return true;
+}
+
 static bool test_editor_history_limit_enforced(void) {
     init_runtime();
     GlobalState* state = Global_Get();
@@ -201,6 +267,8 @@ bool layout_run_tests(void) {
         { "LayoutJsonEmbedsVersion", test_layout_json_embeds_version },
         { "LayoutJsonFutureVersionRejected", test_layout_json_future_version_rejected },
         { "LayoutJsonMissingVersionDefaults", test_layout_json_missing_version_defaults },
+        { "LayoutJsonPreservesAnchorHandles", test_layout_json_preserves_anchor_handles },
+        { "LayoutHandlesLinkToggle", test_layout_handles_link_toggle },
         { "EditorHistoryLimitEnforced", test_editor_history_limit_enforced }
     };
 

@@ -50,7 +50,7 @@ build/obj/src/Input/input_handler.o: src/Input/input_handler.c \
   /usr/local/include/SDL2/SDL_misc.h src/Input/input_mouse.h \
   src/Input/input_keyboard.h src/Core/global_state.h \
   src/Layout/Grid/grid.h src/Layout/layout.h src/Math/math_util.h \
-  src/Editor/editor.h
+  src/Editor/editor.h src/UI/ui_panel.h
 
 src/Input/input_handler.h:
 
@@ -169,3 +169,5 @@ src/Layout/layout.h:
 src/Math/math_util.h:
 
 src/Editor/editor.h:
+
+src/UI/ui_panel.h:

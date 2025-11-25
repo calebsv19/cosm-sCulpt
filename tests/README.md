@@ -5,7 +5,7 @@ The test harness is a lightweight C executable that links against the engine cod
 ## Files
 - `test_framework.h` / `.c` — minimal assertion macros plus `run_test_cases`, which prints per-group results.
 - `test_math.c` — exercises `Math/math_util.h` helpers (snapping and coordinate conversions).
-- `test_layout.c` — covers layout wall/anchor management, dirty-flag plumbing, JSON string round-trips, and undo/redo history behaviour.
+- `test_layout.c` — covers layout wall/anchor management (including bezier handle seeding/linking), dirty-flag plumbing, JSON string round-trips, schema metadata/version rejection, and undo/redo history behaviour.
 - `test_runner.c` — entry point invoked by `make test`; aggregates all suites and emits a final pass/fail result.
 
 ## Running

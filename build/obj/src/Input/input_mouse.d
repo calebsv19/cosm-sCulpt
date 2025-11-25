@@ -49,7 +49,8 @@ build/obj/src/Input/input_mouse.o: src/Input/input_mouse.c \
   /usr/local/include/SDL2/SDL_locale.h \
   /usr/local/include/SDL2/SDL_misc.h src/Core/global_state.h \
   src/Layout/Grid/grid.h src/Layout/layout.h src/Math/math_util.h \
-  src/Editor/editor.h src/UI/input_ui_panel.h src/Layout/hitbox_system.h
+  src/Editor/editor.h src/UI/input_ui_panel.h src/UI/ui_panel.h \
+  src/Layout/hitbox_system.h
 
 src/Input/input_mouse.h:
 
@@ -166,5 +167,7 @@ src/Math/math_util.h:
 src/Editor/editor.h:
 
 src/UI/input_ui_panel.h:
+
+src/UI/ui_panel.h:
 
 src/Layout/hitbox_system.h:

@@ -78,3 +78,31 @@ void Render_Editor_GhostWall(EditorState* editor, AppContext* ctx) {
         (int)((to.y   - grid->offsetY) * gridSize * scale));
 }
 
+void Render_Editor_SelectionBox(EditorState* editor, AppContext* ctx) {
+    if (!editor->selectionBoxActive) return;
+
+    GlobalState* state = Global_Get();
+    const Grid* grid = &state->grid;
+
+    Vec2 start = WorldToScreen(editor->selectionBoxStart, grid);
+    Vec2 end = WorldToScreen(editor->selectionBoxEnd, grid);
+
+    float minX = fminf(start.x, end.x);
+    float minY = fminf(start.y, end.y);
+    float maxX = fmaxf(start.x, end.x);
+    float maxY = fmaxf(start.y, end.y);
+
+    SDL_Rect rect = {
+        .x = (int)minX,
+        .y = (int)minY,
+        .w = (int)(maxX - minX),
+        .h = (int)(maxY - minY)
+    };
+
+    if (rect.w == 0 || rect.h == 0) return;
+
+    SDL_SetRenderDrawColor(ctx->renderer, 80, 150, 255, 60);
+    SDL_RenderFillRect(ctx->renderer, &rect);
+    SDL_SetRenderDrawColor(ctx->renderer, 80, 150, 255, 200);
+    SDL_RenderDrawRect(ctx->renderer, &rect);
+}

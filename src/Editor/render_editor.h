@@ -9,6 +9,6 @@ void Render_EditorOverlay(EditorState* editor, AppContext* ctx);
 // Modular sub-renders
 void Render_Editor_Anchor(EditorState* editor, AppContext* ctx);
 void Render_Editor_GhostWall(EditorState* editor, AppContext* ctx);
+void Render_Editor_SelectionBox(EditorState* editor, AppContext* ctx);
 // Future:
 void Render_Editor_SelectedWall(EditorState* editor, AppContext* ctx);
-

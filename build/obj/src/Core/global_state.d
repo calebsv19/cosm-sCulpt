@@ -50,7 +50,7 @@ build/obj/src/Core/global_state.o: src/Core/global_state.c \
   /usr/local/include/SDL2/SDL_misc.h src/Layout/layout.h \
   src/Math/math_util.h src/Editor/editor.h \
   src/Core/SDLApp/sdl_app_framework.h src/Layout/hitbox_system.h \
-  src/UI/ui_panel.h
+  src/UI/ui_panel.h src/Layout/layout_json.h
 
 src/Core/global_state.h:
 
@@ -167,3 +167,5 @@ src/Core/SDLApp/sdl_app_framework.h:
 src/Layout/hitbox_system.h:
 
 src/UI/ui_panel.h:
+
+src/Layout/layout_json.h:

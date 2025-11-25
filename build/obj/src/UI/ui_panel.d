@@ -46,7 +46,11 @@ build/obj/src/UI/ui_panel.o: src/UI/ui_panel.c src/UI/ui_panel.h \
   /usr/local/include/SDL2/SDL_timer.h \
   /usr/local/include/SDL2/SDL_version.h \
   /usr/local/include/SDL2/SDL_locale.h \
-  /usr/local/include/SDL2/SDL_misc.h src/UI/info_overlay.h
+  /usr/local/include/SDL2/SDL_misc.h src/UI/info_overlay.h \
+  src/UI/font_manager.h /usr/local/include/SDL2/SDL_ttf.h \
+  src/Core/global_state.h src/Layout/Grid/grid.h src/Layout/layout.h \
+  src/Math/math_util.h src/Editor/editor.h \
+  src/Core/SDLApp/sdl_app_framework.h src/Layout/layout_json.h
 
 src/UI/ui_panel.h:
 
@@ -151,3 +155,21 @@ src/UI/ui_panel.h:
 /usr/local/include/SDL2/SDL_misc.h:
 
 src/UI/info_overlay.h:
+
+src/UI/font_manager.h:
+
+/usr/local/include/SDL2/SDL_ttf.h:
+
+src/Core/global_state.h:
+
+src/Layout/Grid/grid.h:
+
+src/Layout/layout.h:
+
+src/Math/math_util.h:
+
+src/Editor/editor.h:
+
+src/Core/SDLApp/sdl_app_framework.h:
+
+src/Layout/layout_json.h:

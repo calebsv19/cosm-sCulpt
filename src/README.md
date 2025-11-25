@@ -12,12 +12,12 @@ All engine code lives under `src/`, separated by responsibility so the floor-pla
 
 ## Module Directories
 - `Core/` — SDL bootstrapping and the project-wide `GlobalState` singleton.
-- `Input/` — user input handling split across devices.
-- `Layout/` — geometry data structures, rendering, hit detection, and JSON persistence.
+- `Input/` — user input handling split across devices (mouse/keyboard) plus marquee selection and multi-anchor drag plumbing.
+- `Layout/` — geometry data structures, bezier-aware rendering, hit detection (including handle hitboxes), and JSON persistence.
 - `Layout/Grid/` — grid camera maths and rendering helpers shared by layout and editor code.
 - `Render/` — top-level frame compositor.
 - `UI/` — UI panel data, rendering, click routing, and font management.
-- `Editor/` — wall-placement state machine and overlay rendering.
+- `Editor/` — wall-placement state machine, bezier handle/link tracking, multi-selection data structures, and overlay rendering (ghost walls + selection marquee).
 - `Math/` — inline vector utilities and coordinate transforms.
 
 Each directory below has its own README with per-file details and relationships.

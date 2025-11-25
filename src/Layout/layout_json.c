@@ -4,6 +4,8 @@
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <strings.h>
 
 static const char* LAYOUT_JSON_GENERATOR = "LineDrawing";
 
@@ -31,6 +33,13 @@ static cJSON* Layout_CreateJson(const Layout* layout) {
         cJSON_AddNumberToObject(anchor, "x", a->pos.x);
         cJSON_AddNumberToObject(anchor, "y", a->pos.y);
         cJSON_AddBoolToObject(anchor, "persistent", a->isPersistent);
+        cJSON_AddStringToObject(anchor, "type",
+                                a->type == ANCHOR_TYPE_CURVE ? "curve" : "corner");
+        cJSON_AddBoolToObject(anchor, "handlesLinked", a->handlesLinked);
+        cJSON_AddNumberToObject(anchor, "handleInLength", a->handleInLength);
+        cJSON_AddNumberToObject(anchor, "handleInAngleDeg", a->handleInAngleDeg);
+        cJSON_AddNumberToObject(anchor, "handleOutLength", a->handleOutLength);
+        cJSON_AddNumberToObject(anchor, "handleOutAngleDeg", a->handleOutAngleDeg);
         cJSON_AddItemToArray(anchors, anchor);
     }
 
@@ -87,6 +96,13 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
         const cJSON* x = cJSON_GetObjectItem(a, "x");
         const cJSON* y = cJSON_GetObjectItem(a, "y");
         const cJSON* persistent = cJSON_GetObjectItem(a, "persistent");
+        const cJSON* typeNode = cJSON_GetObjectItem(a, "type");
+        const cJSON* curvedNode = cJSON_GetObjectItem(a, "curved"); // legacy bool
+        const cJSON* handlesLinked = cJSON_GetObjectItem(a, "handlesLinked");
+        const cJSON* handleInLength = cJSON_GetObjectItem(a, "handleInLength");
+        const cJSON* handleInAngle = cJSON_GetObjectItem(a, "handleInAngleDeg");
+        const cJSON* handleOutLength = cJSON_GetObjectItem(a, "handleOutLength");
+        const cJSON* handleOutAngle = cJSON_GetObjectItem(a, "handleOutAngleDeg");
         if (!cJSON_IsNumber(x) || !cJSON_IsNumber(y)) continue;
 
         Vec2 pos = {
@@ -95,7 +111,26 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
         };
 
         int idx = Layout_AddAnchor(&temp, pos);
-        temp.anchors[idx].isPersistent = cJSON_IsTrue(persistent);
+        Anchor* anchor = &temp.anchors[idx];
+        anchor->isPersistent = cJSON_IsTrue(persistent);
+
+        AnchorType type = ANCHOR_TYPE_CORNER;
+        if (cJSON_IsString(typeNode) && typeNode->valuestring) {
+            if (strcasecmp(typeNode->valuestring, "curve") == 0) {
+                type = ANCHOR_TYPE_CURVE;
+            }
+        } else if (cJSON_IsBool(curvedNode) && cJSON_IsTrue(curvedNode)) {
+            type = ANCHOR_TYPE_CURVE;
+        }
+        anchor->type = type;
+
+        if (cJSON_IsBool(handlesLinked)) {
+            anchor->handlesLinked = cJSON_IsTrue(handlesLinked);
+        }
+        if (cJSON_IsNumber(handleInLength)) anchor->handleInLength = (float)handleInLength->valuedouble;
+        if (cJSON_IsNumber(handleInAngle))  anchor->handleInAngleDeg = (float)handleInAngle->valuedouble;
+        if (cJSON_IsNumber(handleOutLength)) anchor->handleOutLength = (float)handleOutLength->valuedouble;
+        if (cJSON_IsNumber(handleOutAngle)) anchor->handleOutAngleDeg = (float)handleOutAngle->valuedouble;
     }
 
     const cJSON* walls = cJSON_GetObjectItem(root, "walls");

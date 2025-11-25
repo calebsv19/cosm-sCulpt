@@ -8,15 +8,15 @@
 			"x":	-5,
 			"y":	-2,
 			"persistent":	false,
-			"type":	"corner",
+			"type":	"curve",
 			"handlesLinked":	true,
-			"handleInLength":	0,
-			"handleInAngleDeg":	0,
-			"handleOutLength":	0,
-			"handleOutAngleDeg":	0
+			"handleInLength":	5.07944679260254,
+			"handleInAngleDeg":	-34.472213745117188,
+			"handleOutLength":	5.07944679260254,
+			"handleOutAngleDeg":	145.52778625488281
 		}, {
 			"x":	5,
-			"y":	-2,
+			"y":	-1,
 			"persistent":	false,
 			"type":	"corner",
 			"handlesLinked":	true,
@@ -26,7 +26,7 @@
 			"handleOutAngleDeg":	0
 		}, {
 			"x":	5,
-			"y":	3,
+			"y":	5,
 			"persistent":	false,
 			"type":	"corner",
 			"handlesLinked":	true,
@@ -36,7 +36,7 @@
 			"handleOutAngleDeg":	0
 		}, {
 			"x":	-5,
-			"y":	3,
+			"y":	5,
 			"persistent":	false,
 			"type":	"corner",
 			"handlesLinked":	true,

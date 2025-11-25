@@ -18,6 +18,10 @@ typedef struct {
 
     bool layoutDirty;
     bool hitboxDirty;
+
+    char currentConfigPath[256];
+    bool layoutDirtySinceSave;
+    char* lastSavedSnapshot;
 } GlobalState;
 
 extern GlobalState* Global_Get(void);
@@ -35,3 +39,8 @@ void Global_RebuildHitboxesIfDirty(void);
 
 int Global_GetScreenWidth(void);
 int Global_GetScreenHeight(void);
+
+void Global_OnLayoutSaved(const char* path);
+void Global_OnLayoutLoaded(const char* path);
+const char* Global_GetCurrentConfigPath(void);
+bool Global_IsLayoutDirty(void);

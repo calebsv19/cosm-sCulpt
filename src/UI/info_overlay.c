@@ -3,9 +3,11 @@
 #include "Layout/layout.h"
 #include "Layout/Grid/grid.h"
 #include "UI/font_manager.h"
+#include "Editor/editor.h"
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 static void DrawText(SDL_Renderer* renderer, const char* text, int x, int y, SDL_Color color) {
     if (!text || !renderer) return;
@@ -58,14 +60,41 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
     if (editor->selectedAnchorIndex >= 0 &&
         editor->selectedAnchorIndex < (int)layout->anchorCount) {
         Anchor* anchor = &layout->anchors[editor->selectedAnchorIndex];
-        snprintf(line1, sizeof(line1),
-                 "Anchor #%d  Pos:(%.2f, %.2f)",
-                 editor->selectedAnchorIndex,
-                 anchor->pos.x, anchor->pos.y);
-        snprintf(line2, sizeof(line2),
-                 "Persistent:%s  Connections:%d",
-                 anchor->isPersistent ? "Yes" : "No",
-                 anchor->connectionCount);
+        int selectedCount = Editor_SelectedAnchorCount(editor);
+        if (selectedCount > 1) {
+            snprintf(line1, sizeof(line1),
+                     "Anchor #%d  Pos:(%.2f, %.2f)  Group:%d",
+                     editor->selectedAnchorIndex,
+                     anchor->pos.x, anchor->pos.y,
+                     selectedCount);
+        } else {
+            snprintf(line1, sizeof(line1),
+                     "Anchor #%d  Pos:(%.2f, %.2f)",
+                     editor->selectedAnchorIndex,
+                     anchor->pos.x, anchor->pos.y);
+        }
+        const char* typeLabel = (anchor->type == ANCHOR_TYPE_CURVE) ? "Curve" : "Corner";
+        bool draggingSelected = editor->isDraggingAnchor;
+        if (anchor->type == ANCHOR_TYPE_CURVE) {
+            snprintf(line2, sizeof(line2),
+                     "Persistent:%s  Connections:%d  Type:%s%s  Handles: In %.2f@%.1f°  Out %.2f@%.1f°%s",
+                     anchor->isPersistent ? "Yes" : "No",
+                     anchor->connectionCount,
+                     typeLabel,
+                     anchor->handlesLinked ? " (Linked)" : "",
+                     anchor->handleInLength,
+                     anchor->handleInAngleDeg,
+                     anchor->handleOutLength,
+                     anchor->handleOutAngleDeg,
+                     draggingSelected ? (editor->isPreciseDrag ? "  Drag:Precise" : "  Drag:Snapped") : "");
+        } else {
+            snprintf(line2, sizeof(line2),
+                     "Persistent:%s  Connections:%d  Type:%s%s",
+                     anchor->isPersistent ? "Yes" : "No",
+                     anchor->connectionCount,
+                     typeLabel,
+                     draggingSelected ? (editor->isPreciseDrag ? "  Drag:Precise" : "  Drag:Snapped") : "");
+        }
     } else if (editor->selectedWallIndex >= 0 &&
                editor->selectedWallIndex < (int)layout->wallCount) {
         Wall* wall = &layout->walls[editor->selectedWallIndex];
@@ -87,15 +116,77 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
                      length,
                      wall->lockLength ? "Yes" : "No");
         }
+    } else if (editor->hoveredAnchorIndex >= 0 &&
+               editor->hoveredAnchorIndex < (int)layout->anchorCount) {
+        Anchor* anchor = &layout->anchors[editor->hoveredAnchorIndex];
+        snprintf(line1, sizeof(line1),
+                 "Hover Anchor #%d  Pos:(%.2f, %.2f)",
+                 editor->hoveredAnchorIndex,
+                 anchor->pos.x, anchor->pos.y);
+        const char* typeLabel = (anchor->type == ANCHOR_TYPE_CURVE) ? "Curve" : "Corner";
+        if (anchor->type == ANCHOR_TYPE_CURVE) {
+            snprintf(line2, sizeof(line2),
+                     "Persistent:%s  Connections:%d  Type:%s%s  Handles: In %.2f@%.1f°  Out %.2f@%.1f°",
+                     anchor->isPersistent ? "Yes" : "No",
+                     anchor->connectionCount,
+                     typeLabel,
+                     anchor->handlesLinked ? " (Linked)" : "",
+                     anchor->handleInLength,
+                     anchor->handleInAngleDeg,
+                     anchor->handleOutLength,
+                     anchor->handleOutAngleDeg);
+        } else {
+            snprintf(line2, sizeof(line2),
+                     "Persistent:%s  Connections:%d  Type:%s",
+                     anchor->isPersistent ? "Yes" : "No",
+                     anchor->connectionCount,
+                     typeLabel);
+        }
+    } else if (editor->hoveredWallIndex >= 0 &&
+               editor->hoveredWallIndex < (int)layout->wallCount) {
+        Wall* wall = &layout->walls[editor->hoveredWallIndex];
+        Anchor* a = &layout->anchors[wall->anchorA];
+        Anchor* b = &layout->anchors[wall->anchorB];
+        float dx = b->pos.x - a->pos.x;
+        float dy = b->pos.y - a->pos.y;
+        float length = sqrtf(dx * dx + dy * dy);
+        snprintf(line1, sizeof(line1),
+                 "Hover Wall #%d  A:%d (%.2f, %.2f)  B:%d (%.2f, %.2f)",
+                 editor->hoveredWallIndex,
+                 wall->anchorA, a->pos.x, a->pos.y,
+                 wall->anchorB, b->pos.x, b->pos.y);
+        snprintf(line2, sizeof(line2),
+                 "Length: %.2f units  LockLength:%s",
+                 length,
+                 wall->lockLength ? "Yes" : "No");
     } else {
-        snprintf(line1, sizeof(line1), "Select an anchor or wall to view details.");
-        snprintf(line2, sizeof(line2), "Undo: Ctrl+Z   Redo: Ctrl+Y / Shift+Ctrl+Z   Delete Mode: %s",
-                 editor->deleteMode == DELETE_MODE_SAFE ? "SAFE" : "AUTO_PRUNE");
+        snprintf(line1, sizeof(line1), "Select an anchor or wall to view details. Hover shows quick info.");
     }
+
+    const char* path = Global_GetCurrentConfigPath();
+    const char* base = path ? strrchr(path, '/') : NULL;
+    base = base ? base + 1 : (path ? path : "(unsaved)");
+    bool dirty = Global_IsLayoutDirty();
+    size_t undoCount = Editor_UndoCount(editor);
+    size_t redoCount = Editor_RedoCount(editor);
+
+    char statusLine[256];
+    snprintf(statusLine, sizeof(statusLine),
+             "File: %s%s  |  Undo:%zu  Redo:%zu  |  Delete Mode: %s",
+             base ? base : "(unsaved)",
+             dirty ? " *" : "",
+             undoCount,
+             redoCount,
+             editor->deleteMode == DELETE_MODE_SAFE ? "SAFE" : "AUTO_PRUNE");
 
     SDL_Color textMain = { 230, 230, 230, 255 };
     SDL_Color textSub = { 200, 200, 210, 255 };
     int padding = 12;
     DrawText(renderer, line1, padding, padding, textMain);
-    DrawText(renderer, line2, padding, padding + 20, textSub);
+    if (line2[0]) {
+        DrawText(renderer, line2, padding, padding + 20, textSub);
+        DrawText(renderer, statusLine, padding, padding + 40, textSub);
+    } else {
+        DrawText(renderer, statusLine, padding, padding + 24, textSub);
+    }
 }

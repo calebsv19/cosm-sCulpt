@@ -7,7 +7,110 @@
 #include <string.h>
 #include <math.h>
 
+static const float kAnchorSnapRadius = 0.01f;  // very small world-space threshold
 
+static bool Anchor_CanAcceptConnection(const Anchor* anchor) {
+    if (!anchor) return false;
+    return anchor->connectionCount < 2;
+}
+
+static void Anchor_ResetHandles(Anchor* anchor) {
+    if (!anchor) return;
+    anchor->handleInLength = 0.0f;
+    anchor->handleInAngleDeg = 0.0f;
+    anchor->handleOutLength = 0.0f;
+    anchor->handleOutAngleDeg = 0.0f;
+}
+
+static void Anchor_ForceLinkedHandles(Anchor* anchor) {
+    if (!anchor) return;
+    float baseLen = anchor->handleInLength;
+    float baseAngle = anchor->handleInAngleDeg;
+
+    if (anchor->handleOutLength > baseLen) {
+        baseLen = anchor->handleOutLength;
+        baseAngle = Angle_NormalizeDeg(anchor->handleOutAngleDeg - 180.0f);
+    }
+
+    anchor->handleInLength = baseLen;
+    anchor->handleInAngleDeg = baseAngle;
+    anchor->handleOutLength = baseLen;
+    anchor->handleOutAngleDeg = Angle_NormalizeDeg(baseAngle + 180.0f);
+}
+
+static void Anchor_EnsureHandleForWall(Layout* layout, int anchorIndex, int wallIndex) {
+    if (!layout || wallIndex < 0 || (size_t)wallIndex >= layout->wallCount ||
+        anchorIndex < 0 || (size_t)anchorIndex >= layout->anchorCount) return;
+    Anchor* anchor = &layout->anchors[anchorIndex];
+    if (!anchor || anchor->isDeleted || anchor->type != ANCHOR_TYPE_CURVE) return;
+
+    Wall* wall = &layout->walls[wallIndex];
+    int otherIdx = (wall->anchorA == anchorIndex) ? wall->anchorB : wall->anchorA;
+    if (otherIdx < 0 || (size_t)otherIdx >= layout->anchorCount) return;
+    Anchor* other = &layout->anchors[otherIdx];
+    if (!other || other->isDeleted) return;
+
+    float dist = Vec2_Distance(anchor->pos, other->pos);
+    float handleLen = fmaxf(dist * 0.3f, 0.05f);
+    float handleAngle = Vec2_AngleDeg(anchor->pos, other->pos);
+
+    if (wall->anchorA == anchorIndex) {
+        if (anchor->handleOutLength <= 0.0001f) {
+            anchor->handleOutLength = handleLen;
+            anchor->handleOutAngleDeg = handleAngle;
+            if (anchor->handlesLinked) {
+                Anchor_ForceLinkedHandles(anchor);
+            }
+        }
+    } else {
+        if (anchor->handleInLength <= 0.0001f) {
+            anchor->handleInLength = handleLen;
+            anchor->handleInAngleDeg = handleAngle;
+            if (anchor->handlesLinked) {
+                Anchor_ForceLinkedHandles(anchor);
+            }
+        }
+    }
+}
+
+static void Anchor_SeedHandlesFromWalls(Layout* layout, int anchorIndex) {
+    if (!layout || anchorIndex < 0 || (size_t)anchorIndex >= layout->anchorCount) return;
+    Anchor* anchor = &layout->anchors[anchorIndex];
+    Anchor_ResetHandles(anchor);
+    if (!anchor || anchor->connectionCount == 0) return;
+
+    for (int i = 0; i < anchor->connectionCount && i < 2; ++i) {
+        int wallIdx = anchor->connectedWalls[i];
+        if (wallIdx < 0 || wallIdx >= (int)layout->wallCount) continue;
+        Wall* wall = &layout->walls[wallIdx];
+        int otherIdx = (wall->anchorA == anchorIndex) ? wall->anchorB : wall->anchorA;
+        if (otherIdx < 0 || otherIdx >= (int)layout->anchorCount) continue;
+        Anchor* other = &layout->anchors[otherIdx];
+        if (other->isDeleted) continue;
+
+        float dist = Vec2_Distance(anchor->pos, other->pos);
+        float handleLen = fmaxf(dist * 0.3f, 0.05f);
+        float handleAngle = Vec2_AngleDeg(anchor->pos, other->pos);
+
+        if (wall->anchorA == anchorIndex) {
+            anchor->handleOutLength = handleLen;
+            anchor->handleOutAngleDeg = handleAngle;
+        } else {
+            anchor->handleInLength = handleLen;
+            anchor->handleInAngleDeg = handleAngle;
+        }
+    }
+
+    if (anchor->connectionCount == 1) {
+        if (anchor->handleInLength > 0.0f) {
+            anchor->handleOutLength = anchor->handleInLength;
+            anchor->handleOutAngleDeg = Angle_NormalizeDeg(anchor->handleInAngleDeg + 180.0f);
+        } else {
+            anchor->handleInLength = anchor->handleOutLength;
+            anchor->handleInAngleDeg = Angle_NormalizeDeg(anchor->handleOutAngleDeg - 180.0f);
+        }
+    }
+}
 
 static int FindExistingAnchor(Layout* layout, Vec2 pos, float threshold) {
     for (size_t i = 0; i < layout->anchorCount; ++i) {
@@ -24,9 +127,7 @@ static int FindExistingAnchor(Layout* layout, Vec2 pos, float threshold) {
 // ======================================
 // 	       ANCHOR LOGIC
 int Layout_AddAnchor(Layout* layout, Vec2 pos) {
-    float snapRadius = 0.01f;  // very small world-space threshold
-
-    int existing = FindExistingAnchor(layout, pos, snapRadius);
+    int existing = FindExistingAnchor(layout, pos, kAnchorSnapRadius);
     if (existing >= 0)
         return existing;
 
@@ -38,7 +139,13 @@ int Layout_AddAnchor(Layout* layout, Vec2 pos) {
         .lockAngle = false,
         .angleDeg = 0.0f,
         .isDeleted = false,
-        .isPersistent = false
+        .isPersistent = false,
+        .type = ANCHOR_TYPE_CORNER,
+        .handlesLinked = true,
+        .handleInLength = 0.0f,
+        .handleInAngleDeg = 0.0f,
+        .handleOutLength = 0.0f,
+        .handleOutAngleDeg = 0.0f
     };
     layout->anchors[layout->anchorCount] = newAnchor;
     Global_FlagLayoutChanged();
@@ -118,14 +225,87 @@ void Layout_MarkAnchorDeleted(Layout* layout, int anchorIndex) {
     Global_FlagLayoutChanged();
 }
 
+bool Layout_CanAnchorBecomeCurve(const Layout* layout, int anchorIndex) {
+    if (!layout || anchorIndex < 0 || (size_t)anchorIndex >= layout->anchorCount) return false;
+    const Anchor* anchor = &layout->anchors[anchorIndex];
+    if (anchor->isDeleted) return false;
+    return anchor->connectionCount == 2;
+}
+
+bool Layout_SetAnchorType(Layout* layout, int anchorIndex, AnchorType type) {
+    if (!layout || anchorIndex < 0 || (size_t)anchorIndex >= layout->anchorCount) return false;
+    Anchor* anchor = &layout->anchors[anchorIndex];
+    if (anchor->isDeleted) return false;
+    if (anchor->type == type) return true;
+
+    switch (type) {
+        case ANCHOR_TYPE_CORNER:
+            anchor->type = ANCHOR_TYPE_CORNER;
+            anchor->handlesLinked = true;
+            Anchor_ResetHandles(anchor);
+            Global_FlagLayoutChanged();
+            return true;
+        case ANCHOR_TYPE_CURVE:
+            if (!Layout_CanAnchorBecomeCurve(layout, anchorIndex)) {
+                fprintf(stderr, "[Layout] Anchor %d needs exactly 2 connections to become curved\n", anchorIndex);
+                return false;
+            }
+            anchor->type = ANCHOR_TYPE_CURVE;
+            anchor->handlesLinked = true;
+            Anchor_SeedHandlesFromWalls(layout, anchorIndex);
+            Anchor_ForceLinkedHandles(anchor);
+            Global_FlagLayoutChanged();
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
+bool Layout_SetHandlesLinked(Layout* layout, int anchorIndex, bool linked) {
+    if (!layout || anchorIndex < 0 || (size_t)anchorIndex >= layout->anchorCount) return false;
+    Anchor* anchor = &layout->anchors[anchorIndex];
+    if (anchor->isDeleted || anchor->type != ANCHOR_TYPE_CURVE) return false;
+
+    anchor->handlesLinked = linked;
+    if (linked) {
+        Anchor_ForceLinkedHandles(anchor);
+    }
+
+    Global_FlagLayoutChanged();
+    return true;
+}
+
 
 //             ANCHOR LOGIC
 // ======================================
 //             WALL LOGIC
 
 void Layout_AddWall(Layout* layout, Vec2 from, Vec2 to) {
+    int existingA = FindExistingAnchor(layout, from, kAnchorSnapRadius);
+    int existingB = FindExistingAnchor(layout, to,   kAnchorSnapRadius);
+
+    if (existingA >= 0 && !Anchor_CanAcceptConnection(&layout->anchors[existingA])) {
+        fprintf(stderr, "[Layout] Anchor %d already has 2 connections; curved workflow limits anchors to 2 walls\n",
+                existingA);
+        return;
+    }
+    if (existingB >= 0 && !Anchor_CanAcceptConnection(&layout->anchors[existingB])) {
+        fprintf(stderr, "[Layout] Anchor %d already has 2 connections; curved workflow limits anchors to 2 walls\n",
+                existingB);
+        return;
+    }
+
     int indexA = Layout_AddAnchor(layout, from);
     int indexB = Layout_AddAnchor(layout, to);
+
+    Anchor* anchorA = &layout->anchors[indexA];
+    Anchor* anchorB = &layout->anchors[indexB];
+    if (!Anchor_CanAcceptConnection(anchorA) || !Anchor_CanAcceptConnection(anchorB)) {
+        fprintf(stderr, "[Layout] Refused to connect anchors %d and %d: anchors limited to 2 walls for curve support\n",
+                indexA, indexB);
+        return;
+    }
 
     layout->walls = realloc(layout->walls, sizeof(Wall) * (layout->wallCount + 1));
     Wall newWall = {
@@ -137,8 +317,8 @@ void Layout_AddWall(Layout* layout, Vec2 from, Vec2 to) {
     layout->walls[layout->wallCount++] = newWall;
 
     // Update anchor connections
-    Anchor* a = &layout->anchors[indexA];
-    Anchor* b = &layout->anchors[indexB];
+    Anchor* a = anchorA;
+    Anchor* b = anchorB;
 
     a->connectedWalls = realloc(a->connectedWalls, sizeof(int) * (a->connectionCount + 1));
     a->connectedWalls[a->connectionCount++] = wallIndex;
@@ -146,6 +326,9 @@ void Layout_AddWall(Layout* layout, Vec2 from, Vec2 to) {
     b->connectedWalls = realloc(b->connectedWalls, sizeof(int) * (b->connectionCount + 1));
     b->connectedWalls[b->connectionCount++] = wallIndex;
     Global_FlagLayoutChanged();
+
+    Anchor_EnsureHandleForWall(layout, indexA, wallIndex);
+    Anchor_EnsureHandleForWall(layout, indexB, wallIndex);
 }
 
 

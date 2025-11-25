@@ -35,11 +35,13 @@ void Render_Frame(AppContext* ctx) {
     // ─── Editor Overlay (Ghost Wall, Active Anchor) ─
     Render_Editor_Anchor(editor, ctx);
     Render_Editor_GhostWall(editor, ctx);
+    Render_Editor_SelectionBox(editor, ctx);
 
     Render_InfoOverlay(ctx->renderer);
 
     UIPanelState* panel = UIPanel_Get();
     Render_UIPanel(panel, ctx->renderer);
+    UIPanel_RenderOverlays(ctx->renderer);
 
     SDL_RenderPresent(ctx->renderer);
 }

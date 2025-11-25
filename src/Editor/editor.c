@@ -61,13 +61,71 @@ static char* HistoryStack_Pop(EditorHistoryStack* stack) {
     return stack->entries[--stack->count];
 }
 
+static void AnchorSelection_EnsureCapacity(EditorState* editor, int desired) {
+    if (editor->anchorSelectionCapacity >= desired) return;
+    int newCap = editor->anchorSelectionCapacity ? editor->anchorSelectionCapacity * 2 : 4;
+    while (newCap < desired) newCap *= 2;
+    int* newList = realloc(editor->anchorSelection, newCap * sizeof(int));
+    if (!newList) return;
+    editor->anchorSelection = newList;
+    editor->anchorSelectionCapacity = newCap;
+}
+
+static bool AnchorSelection_Contains(const EditorState* editor, int anchorIndex) {
+    for (int i = 0; i < editor->anchorSelectionCount; ++i) {
+        if (editor->anchorSelection[i] == anchorIndex) return true;
+    }
+    return false;
+}
+
+static void AnchorSelection_Add(EditorState* editor, int anchorIndex) {
+    if (anchorIndex < 0) return;
+    if (AnchorSelection_Contains(editor, anchorIndex)) return;
+    AnchorSelection_EnsureCapacity(editor, editor->anchorSelectionCount + 1);
+    if (!editor->anchorSelection) return;
+    editor->anchorSelection[editor->anchorSelectionCount++] = anchorIndex;
+}
+
+static void AnchorSelection_Clear(EditorState* editor) {
+    editor->anchorSelectionCount = 0;
+}
+
+static void DragSnapshot_EnsureCapacity(EditorState* editor, int desired) {
+    if (editor->dragSnapshotCapacity >= desired) return;
+    int newCap = editor->dragSnapshotCapacity ? editor->dragSnapshotCapacity * 2 : 4;
+    while (newCap < desired) newCap *= 2;
+    AnchorDragSnapshot* newList = realloc(editor->dragSnapshots,
+                                          newCap * sizeof(AnchorDragSnapshot));
+    if (!newList) return;
+    editor->dragSnapshots = newList;
+    editor->dragSnapshotCapacity = newCap;
+}
+
 void Editor_Init(EditorState* editor) {
     editor->mode = TOOL_IDLE;
     editor->shiftHeld = false;
     editor->anchor = (Vec2){0, 0};
+    editor->selectionBoxActive = false;
+    editor->selectionBoxAdditive = false;
+    editor->selectionBoxStart = (Vec2){0, 0};
+    editor->selectionBoxEnd = (Vec2){0, 0};
     editor->selectedWallIndex = -1;
     editor->selectedAnchorIndex = -1;
+    editor->hoveredWallIndex = -1;
+    editor->hoveredAnchorIndex = -1;
+    editor->selectedHandleAnchor = -1;
+    editor->selectedHandleComponent = -1;
+    editor->hoveredHandleAnchor = -1;
+    editor->hoveredHandleComponent = -1;
     editor->deleteMode = DELETE_MODE_SAFE;
+    editor->isDraggingAnchor = false;
+    editor->isPreciseDrag = false;
+    editor->anchorSelection = NULL;
+    editor->anchorSelectionCount = 0;
+    editor->anchorSelectionCapacity = 0;
+    editor->dragSnapshots = NULL;
+    editor->dragSnapshotCount = 0;
+    editor->dragSnapshotCapacity = 0;
     HistoryStack_Init(&editor->undoStack);
     HistoryStack_Init(&editor->redoStack);
 }
@@ -75,6 +133,14 @@ void Editor_Init(EditorState* editor) {
 void Editor_Free(EditorState* editor) {
     HistoryStack_Free(&editor->undoStack);
     HistoryStack_Free(&editor->redoStack);
+    free(editor->anchorSelection);
+    editor->anchorSelection = NULL;
+    editor->anchorSelectionCapacity = 0;
+    editor->anchorSelectionCount = 0;
+    free(editor->dragSnapshots);
+    editor->dragSnapshots = NULL;
+    editor->dragSnapshotCapacity = 0;
+    editor->dragSnapshotCount = 0;
 }
 
 void Editor_SetShiftHeld(EditorState* editor, bool held) {
@@ -91,9 +157,38 @@ void Editor_HistoryCapture(EditorState* editor, const Layout* layout) {
 }
 
 static void Editor_ResetSelection(EditorState* editor) {
-    editor->selectedAnchorIndex = -1;
+    Editor_ClearAnchorSelection(editor);
     editor->selectedWallIndex = -1;
+    editor->selectedHandleAnchor = -1;
+    editor->selectedHandleComponent = -1;
+    editor->isDraggingAnchor = false;
+    editor->isPreciseDrag = false;
+    editor->selectionBoxActive = false;
+    editor->selectionBoxAdditive = false;
     editor->mode = TOOL_IDLE;
+}
+
+void Editor_SelectAnchorsInBox(EditorState* editor, const Layout* layout, Vec2 min, Vec2 max, bool additive) {
+    if (!editor || !layout) return;
+    if (!additive) {
+        AnchorSelection_Clear(editor);
+    }
+
+    for (size_t i = 0; i < layout->anchorCount; ++i) {
+        const Anchor* anchor = &layout->anchors[i];
+        if (anchor->isDeleted) continue;
+        Vec2 pos = anchor->pos;
+        if (pos.x >= min.x && pos.x <= max.x &&
+            pos.y >= min.y && pos.y <= max.y) {
+            AnchorSelection_Add(editor, (int)i);
+        }
+    }
+
+    if (editor->anchorSelectionCount > 0) {
+        editor->selectedAnchorIndex = editor->anchorSelection[editor->anchorSelectionCount - 1];
+    } else {
+        editor->selectedAnchorIndex = -1;
+    }
 }
 
 bool Editor_Undo(EditorState* editor, Layout* layout) {
@@ -142,6 +237,98 @@ size_t Editor_UndoCount(const EditorState* editor) {
 
 size_t Editor_RedoCount(const EditorState* editor) {
     return editor ? editor->redoStack.count : 0;
+}
+
+void Editor_ClearHistory(EditorState* editor) {
+    if (!editor) return;
+    HistoryStack_Reset(&editor->undoStack);
+    HistoryStack_Reset(&editor->redoStack);
+}
+
+void Editor_ClearAnchorSelection(EditorState* editor) {
+    if (!editor) return;
+    AnchorSelection_Clear(editor);
+    editor->selectedAnchorIndex = -1;
+    editor->dragSnapshotCount = 0;
+}
+
+void Editor_SelectAnchor(EditorState* editor, int anchorIndex, bool additive) {
+    if (!editor) return;
+    if (!additive) {
+        AnchorSelection_Clear(editor);
+    }
+    if (anchorIndex < 0) {
+        editor->selectedAnchorIndex = -1;
+        return;
+    }
+    AnchorSelection_Add(editor, anchorIndex);
+    editor->selectedAnchorIndex = anchorIndex;
+}
+
+bool Editor_IsAnchorSelected(const EditorState* editor, int anchorIndex) {
+    if (!editor || anchorIndex < 0) return false;
+    for (int i = 0; i < editor->anchorSelectionCount; ++i) {
+        if (editor->anchorSelection[i] == anchorIndex) return true;
+    }
+    return false;
+}
+
+int Editor_SelectedAnchorCount(const EditorState* editor) {
+    return editor ? editor->anchorSelectionCount : 0;
+}
+
+void Editor_BeginAnchorDrag(EditorState* editor, const Layout* layout) {
+    if (!editor || !layout) return;
+    if (editor->selectedAnchorIndex >= 0 && editor->anchorSelectionCount == 0) {
+        Editor_SelectAnchor(editor, editor->selectedAnchorIndex, false);
+    }
+    int count = editor->anchorSelectionCount;
+    if (count == 0) return;
+    DragSnapshot_EnsureCapacity(editor, count);
+    if (!editor->dragSnapshots) {
+        editor->dragSnapshotCount = 0;
+        return;
+    }
+
+    int primary = editor->selectedAnchorIndex;
+    int write = 0;
+    for (int pass = 0; pass < 2; ++pass) {
+        for (int i = 0; i < editor->anchorSelectionCount; ++i) {
+            int idx = editor->anchorSelection[i];
+            bool isPrimary = (idx == primary);
+            if ((pass == 0 && isPrimary) || (pass == 1 && !isPrimary)) {
+                if (idx >= 0 && (size_t)idx < layout->anchorCount) {
+                    editor->dragSnapshots[write].anchorIndex = idx;
+                    editor->dragSnapshots[write].startPos = layout->anchors[idx].pos;
+                    write++;
+                }
+            }
+        }
+    }
+    editor->dragSnapshotCount = write;
+}
+
+void Editor_UpdateAnchorDrag(EditorState* editor, Layout* layout, Vec2 primaryNewPos) {
+    if (!editor || !layout) return;
+    if (editor->dragSnapshotCount == 0) return;
+
+    int primaryIndex = editor->dragSnapshots[0].anchorIndex;
+    Vec2 primaryStart = editor->dragSnapshots[0].startPos;
+    Vec2 delta = Vec2_Sub(primaryNewPos, primaryStart);
+
+    for (int i = 0; i < editor->dragSnapshotCount; ++i) {
+        int idx = editor->dragSnapshots[i].anchorIndex;
+        if (idx < 0 || (size_t)idx >= layout->anchorCount) continue;
+        Vec2 base = editor->dragSnapshots[i].startPos;
+        Vec2 newPos = (idx == primaryIndex) ? primaryNewPos : Vec2_Add(base, delta);
+        layout->anchors[idx].pos = newPos;
+    }
+    Global_FlagLayoutChanged();
+}
+
+void Editor_EndAnchorDrag(EditorState* editor) {
+    if (!editor) return;
+    editor->dragSnapshotCount = 0;
 }
 
 void Editor_ClickAt(EditorState* editor, Vec2 worldPos) {
