@@ -6,6 +6,7 @@ TEST_OBJ_DIR := $(BUILD_DIR)/tests/obj
 TEST_BIN_DIR := $(BUILD_DIR)/tests/bin
 
 SRC_DIR := src
+TOOLS_DIR := $(SRC_DIR)/Tools
 EXT_DIR := external
 TEST_DIR := tests
 
@@ -24,7 +25,7 @@ endif
 
 LDFLAGS := $(SDL_LDFLAGS) -lSDL2_ttf -lm
 
-APP_SRCS := $(shell find $(SRC_DIR) -name '*.c')
+APP_SRCS := $(shell find $(SRC_DIR) -name '*.c' ! -path '$(TOOLS_DIR)/*')
 EXT_SRCS := $(EXT_DIR)/cjson/cJSON.c
 ALL_SRCS := $(APP_SRCS) $(EXT_SRCS)
 
@@ -76,3 +77,35 @@ clean:
 
 -include $(APP_OBJS:.o=.d)
 -include $(TEST_OBJS:.o=.d)
+
+
+
+###############################################################################
+# Shape Tool
+###############################################################################
+
+# Object files for the shape tool
+SHAPE_TOOL_SRCS := $(wildcard $(TOOLS_DIR)/*.c)
+SHAPE_TOOL_OBJS := $(patsubst $(TOOLS_DIR)/%.c,$(BUILD_DIR)/tools/%.o,$(SHAPE_TOOL_SRCS))
+SHAPE_TOOL_SHARED_OBJS := \
+	$(OBJ_DIR)/external/cjson/cJSON.o \
+	$(OBJ_DIR)/src/Layout/layout.o \
+	$(OBJ_DIR)/src/Layout/layout_json.o
+SHAPE_TOOL_BIN := $(BIN_DIR)/shape_tool
+
+# Compile Tools/*.c into build/tools/*.o
+$(BUILD_DIR)/tools/%.o: $(TOOLS_DIR)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc -MMD -MP -c $< -o $@
+
+# Link the final binary
+$(SHAPE_TOOL_BIN): $(SHAPE_TOOL_OBJS) $(SHAPE_TOOL_SHARED_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $^ -o $@ $(LDFLAGS)
+
+# Public target
+.PHONY: shape_tool
+shape_tool: $(SHAPE_TOOL_BIN)
+	@echo "Built shape_tool successfully."
+
+-include $(SHAPE_TOOL_OBJS:.o=.d)
