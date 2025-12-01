@@ -1,16 +1,14 @@
-// src/Tools/shape_draw_sdl.c
-
-#include "Tools/shape_draw_sdl.h"
-#include "Tools/shape_flatten.h"
+#include "ShapeLib/shape_draw_sdl.h"
+#include "ShapeLib/shape_flatten.h"
 
 #include <float.h>
 #include <math.h>
 
-static void ShapeTool_WorldToScreen(Vec2 pt,
-                                    float centerX, float centerY,
-                                    float scale,
-                                    int screenW, int screenH,
-                                    int* outX, int* outY) {
+static void WorldToScreen(ShapeVec2 pt,
+                          float centerX, float centerY,
+                          float scale,
+                          int screenW, int screenH,
+                          int* outX, int* outY) {
     float sx = (pt.x - centerX) * scale + (float)screenW * 0.5f;
     float sy = (pt.y - centerY) * scale + (float)screenH * 0.5f;
     if (outX) *outX = (int)lroundf(sx);
@@ -29,15 +27,13 @@ bool Shape_DrawToSDL(SDL_Renderer* renderer,
     }
 
     bool hasPoints = false;
-    float minX = FLT_MAX;
-    float maxX = -FLT_MAX;
-    float minY = FLT_MAX;
-    float maxY = -FLT_MAX;
+    float minX = FLT_MAX, maxX = -FLT_MAX;
+    float minY = FLT_MAX, maxY = -FLT_MAX;
 
     for (size_t i = 0; i < set.count; ++i) {
         Polyline* line = &set.lines[i];
         for (size_t j = 0; j < line->count; ++j) {
-            Vec2 p = line->points[j];
+            ShapeVec2 p = line->points[j];
             if (p.x < minX) minX = p.x;
             if (p.x > maxX) maxX = p.x;
             if (p.y < minY) minY = p.y;
@@ -51,7 +47,7 @@ bool Shape_DrawToSDL(SDL_Renderer* renderer,
         return true;
     }
 
-    float width = maxX - minX;
+    float width  = maxX - minX;
     float height = maxY - minY;
     float margin = 0.1f;
     float availW = screenW * (1.0f - margin * 2.0f);
@@ -59,9 +55,9 @@ bool Shape_DrawToSDL(SDL_Renderer* renderer,
     if (availW <= 0.0f) availW = (float)screenW;
     if (availH <= 0.0f) availH = (float)screenH;
 
-    float scaleX = (width > 1e-6f) ? (availW / width) : availW;
+    float scaleX = (width  > 1e-6f) ? (availW / width)  : availW;
     float scaleY = (height > 1e-6f) ? (availH / height) : availH;
-    float scale = fminf(scaleX, scaleY);
+    float scale  = fminf(scaleX, scaleY);
     if (scale <= 0.0f) scale = 1.0f;
 
     float centerX = 0.5f * (minX + maxX);
@@ -73,27 +69,23 @@ bool Shape_DrawToSDL(SDL_Renderer* renderer,
         Polyline* line = &set.lines[i];
         if (line->count < 2) continue;
 
-        Vec2 prev = line->points[0];
-        int prevX = 0;
-        int prevY = 0;
-        ShapeTool_WorldToScreen(prev, centerX, centerY, scale, screenW, screenH, &prevX, &prevY);
+        ShapeVec2 prev = line->points[0];
+        int px = 0, py = 0;
+        WorldToScreen(prev, centerX, centerY, scale, screenW, screenH, &px, &py);
 
         for (size_t j = 1; j < line->count; ++j) {
-            Vec2 curr = line->points[j];
-            int currX = 0;
-            int currY = 0;
-            ShapeTool_WorldToScreen(curr, centerX, centerY, scale, screenW, screenH, &currX, &currY);
-            SDL_RenderDrawLine(renderer, prevX, prevY, currX, currY);
-            prevX = currX;
-            prevY = currY;
+            ShapeVec2 cur = line->points[j];
+            int cx = 0, cy = 0;
+            WorldToScreen(cur, centerX, centerY, scale, screenW, screenH, &cx, &cy);
+            SDL_RenderDrawLine(renderer, px, py, cx, cy);
+            px = cx; py = cy;
         }
 
         if (line->closed && line->count > 1) {
-            Vec2 first = line->points[0];
-            int firstX = 0;
-            int firstY = 0;
-            ShapeTool_WorldToScreen(first, centerX, centerY, scale, screenW, screenH, &firstX, &firstY);
-            SDL_RenderDrawLine(renderer, prevX, prevY, firstX, firstY);
+            ShapeVec2 first = line->points[0];
+            int fx = 0, fy = 0;
+            WorldToScreen(first, centerX, centerY, scale, screenW, screenH, &fx, &fy);
+            SDL_RenderDrawLine(renderer, px, py, fx, fy);
         }
     }
 

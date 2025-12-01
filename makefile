@@ -85,7 +85,7 @@ clean:
 ###############################################################################
 
 # Object files for the shape tool
-SHAPE_TOOL_SRCS := $(wildcard $(TOOLS_DIR)/*.c)
+SHAPE_TOOL_SRCS := $(shell find $(TOOLS_DIR) -name '*.c')
 SHAPE_TOOL_OBJS := $(patsubst $(TOOLS_DIR)/%.c,$(BUILD_DIR)/tools/%.o,$(SHAPE_TOOL_SRCS))
 SHAPE_TOOL_SHARED_OBJS := \
 	$(OBJ_DIR)/external/cjson/cJSON.o \
@@ -96,7 +96,7 @@ SHAPE_TOOL_BIN := $(BIN_DIR)/shape_tool
 # Compile Tools/*.c into build/tools/*.o
 $(BUILD_DIR)/tools/%.o: $(TOOLS_DIR)/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -Isrc -MMD -MP -c $< -o $@
+	$(CC) $(CFLAGS) -Isrc -Isrc/Tools -MMD -MP -c $< -o $@
 
 # Link the final binary
 $(SHAPE_TOOL_BIN): $(SHAPE_TOOL_OBJS) $(SHAPE_TOOL_SHARED_OBJS)

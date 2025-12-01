@@ -48,7 +48,8 @@ build/tools/shape_tool.o: src/Tools/shape_tool.c src/Layout/layout.h \
   /usr/local/include/SDL2/SDL_version.h \
   /usr/local/include/SDL2/SDL_locale.h \
   /usr/local/include/SDL2/SDL_misc.h src/Layout/layout_json.h \
-  src/Tools/shape_asset.h src/Tools/shape_draw_sdl.h
+  src/Tools/ShapeLib/shape_core.h src/Tools/ShapeLib/shape_draw_sdl.h \
+  src/Tools/ShapeLib/shape_json.h src/Tools/shape_from_layout.h
 
 src/Layout/layout.h:
 
@@ -158,6 +159,10 @@ src/Layout/Grid/grid.h:
 
 src/Layout/layout_json.h:
 
-src/Tools/shape_asset.h:
+src/Tools/ShapeLib/shape_core.h:
 
-src/Tools/shape_draw_sdl.h:
+src/Tools/ShapeLib/shape_draw_sdl.h:
+
+src/Tools/ShapeLib/shape_json.h:
+
+src/Tools/shape_from_layout.h:
