@@ -19,5 +19,6 @@ All engine code lives under `src/`, separated by responsibility so the floor-pla
 - `UI/` — UI panel data, rendering, click routing, and font management.
 - `Editor/` — wall-placement state machine, bezier handle/link tracking, multi-selection data structures, and overlay rendering (ghost walls + selection marquee).
 - `Math/` — inline vector utilities and coordinate transforms.
+- `Tools/` — standalone helpers that are also linked into the runtime (ShapeLib core structs/flatteners/JSON, the Layout→Shape adapter, SDL previewer, and the CLI `shape_tool`). This folder keeps the export pipeline reusable across applications.
 
 Each directory below has its own README with per-file details and relationships.

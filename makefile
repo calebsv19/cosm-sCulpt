@@ -14,7 +14,7 @@ SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LDFLAGS := $(shell sdl2-config --libs)
 
 WARN_FLAGS := -Wall -Wextra -Werror -Wpedantic
-BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Isrc -Iexternal $(SDL_CFLAGS)
+BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Isrc -Isrc/Tools -Iexternal $(SDL_CFLAGS)
 DEBUG ?= 0
 
 ifeq ($(DEBUG),1)
@@ -26,8 +26,10 @@ endif
 LDFLAGS := $(SDL_LDFLAGS) -lSDL2_ttf -lm
 
 APP_SRCS := $(shell find $(SRC_DIR) -name '*.c' ! -path '$(TOOLS_DIR)/*')
+SHAPE_LIB_SRCS := $(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
+SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c
 EXT_SRCS := $(EXT_DIR)/cjson/cJSON.c
-ALL_SRCS := $(APP_SRCS) $(EXT_SRCS)
+ALL_SRCS := $(APP_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS)
 
 APP_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(ALL_SRCS))
 APP_TARGET := $(BIN_DIR)/LineDrawing

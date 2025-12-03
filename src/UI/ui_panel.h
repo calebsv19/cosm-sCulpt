@@ -51,6 +51,7 @@ const UIButton* UIPanel_GetButtons(UIPanelState* ui, int* outCount);
 UIPanelState* UIPanel_Get(void);
 void UIPanel_RefreshConfigList(void);
 void UIPanel_BeginSaveDialog(void);
+void UIPanel_ExportShape(void);
 bool UIPanel_IsSaveDialogActive(void);
 bool UIPanel_HandleTextInput(const char* text);
 bool UIPanel_HandleKeyEvent(const SDL_Event* event);

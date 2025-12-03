@@ -50,7 +50,9 @@ build/obj/src/UI/ui_panel.o: src/UI/ui_panel.c src/UI/ui_panel.h \
   src/UI/font_manager.h /usr/local/include/SDL2/SDL_ttf.h \
   src/Core/global_state.h src/Layout/Grid/grid.h src/Layout/layout.h \
   src/Math/math_util.h src/Editor/editor.h \
-  src/Core/SDLApp/sdl_app_framework.h src/Layout/layout_json.h
+  src/Core/SDLApp/sdl_app_framework.h src/Layout/layout_json.h \
+  src/Tools/shape_from_layout.h src/Tools/ShapeLib/shape_core.h \
+  src/Tools/shape_export.h src/Tools/ShapeLib/shape_json.h
 
 src/UI/ui_panel.h:
 
@@ -173,3 +175,11 @@ src/Editor/editor.h:
 src/Core/SDLApp/sdl_app_framework.h:
 
 src/Layout/layout_json.h:
+
+src/Tools/shape_from_layout.h:
+
+src/Tools/ShapeLib/shape_core.h:
+
+src/Tools/shape_export.h:
+
+src/Tools/ShapeLib/shape_json.h:

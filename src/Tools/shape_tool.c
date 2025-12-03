@@ -10,15 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#if defined(_WIN32)
-#include <direct.h>
-#endif
 
-#define EXPORT_DIR "export"
-#define EXPORT_PATH_MAX 512
+#include "Tools/shape_export.h"
 
 static void PrintShapeSummary(const ShapeDocument* doc) {
     if (!doc) {
@@ -48,67 +41,6 @@ static void PrintShapeSummary(const ShapeDocument* doc) {
                    curves);
         }
     }
-}
-
-static bool EnsureDirectoryExists(const char* path) {
-    if (!path || !path[0]) return false;
-    struct stat st;
-    if (stat(path, &st) == 0) {
-        return S_ISDIR(st.st_mode);
-    }
-#if defined(_WIN32)
-    if (_mkdir(path) == 0) {
-        return true;
-    }
-#else
-    if (mkdir(path, 0755) == 0) {
-        return true;
-    }
-#endif
-    if (errno == EEXIST) {
-        return true;
-    }
-    return false;
-}
-
-static const char* ExtractFileName(const char* path) {
-    if (!path) {
-        return NULL;
-    }
-    const char* slash = strrchr(path, '/');
-    const char* backslash = strrchr(path, '\\');
-    const char* start = path;
-    if (slash && backslash) {
-        start = (slash > backslash) ? slash + 1 : backslash + 1;
-    } else if (slash) {
-        start = slash + 1;
-    } else if (backslash) {
-        start = backslash + 1;
-    }
-    return (*start) ? start : NULL;
-}
-
-static bool BuildExportPath(const char* requested,
-                            char* outPath,
-                            size_t outSize) {
-    if (!requested || !outPath || outSize == 0) {
-        return false;
-    }
-
-    const char* name = ExtractFileName(requested);
-    if (!name) {
-        return false;
-    }
-
-    if (!EnsureDirectoryExists(EXPORT_DIR)) {
-        return false;
-    }
-
-    int written = snprintf(outPath, outSize, "%s/%s", EXPORT_DIR, name);
-    if (written <= 0 || (size_t)written >= outSize) {
-        return false;
-    }
-    return true;
 }
 
 int main(int argc, char** argv) {
@@ -156,8 +88,8 @@ int main(int argc, char** argv) {
     PrintShapeSummary(&doc);
 
     if (exportPath) {
-        char finalExportPath[EXPORT_PATH_MAX];
-        if (!BuildExportPath(exportPath, finalExportPath, sizeof(finalExportPath))) {
+        char finalExportPath[SHAPE_EXPORT_PATH_MAX];
+        if (!ShapeExport_BuildPath(exportPath, finalExportPath, sizeof(finalExportPath))) {
             fprintf(stderr, "[shape_tool] ERROR: failed to prepare export path for '%s'\n", exportPath);
         } else if (ShapeDocument_SaveToJsonFile(&doc, finalExportPath)) {
             printf("[shape_tool] Exported Shape JSON to '%s'\n", finalExportPath);

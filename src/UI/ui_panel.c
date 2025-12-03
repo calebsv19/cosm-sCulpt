@@ -4,6 +4,9 @@
 #include "Core/global_state.h"
 #include "Layout/layout_json.h"
 #include "Editor/editor.h"
+#include "Tools/shape_from_layout.h"
+#include "Tools/shape_export.h"
+#include "ShapeLib/shape_json.h"
 #include <dirent.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -153,6 +156,38 @@ static bool UIPanel_PerformSave(UIPanelState* ui) {
     return true;
 }
 
+void UIPanel_ExportShape(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return;
+
+    const char* requested = Global_GetCurrentConfigPath();
+    if (!requested || !*requested) {
+        requested = "layout_export.json";
+    }
+
+    char exportPath[SHAPE_EXPORT_PATH_MAX];
+    if (!ShapeExport_BuildPath(requested, exportPath, sizeof(exportPath))) {
+        SDL_Log("[UI] Export failed: unable to prepare export path for '%s'", requested);
+        return;
+    }
+
+    Layout_CompactDeletedElements(&state->layout);
+
+    ShapeDocument doc;
+    if (!ShapeDocument_FromLayout(requested, &state->layout, &doc)) {
+        SDL_Log("[UI] Export failed: could not build shape data.");
+        return;
+    }
+
+    if (ShapeDocument_SaveToJsonFile(&doc, exportPath)) {
+        SDL_Log("[UI] Exported Shape JSON to %s", exportPath);
+    } else {
+        SDL_Log("[UI] Export failed: could not write %s", exportPath);
+    }
+
+    ShapeDocument_Free(&doc);
+}
+
 void UIPanel_Init(int screenW, int screenH) {
     (void)screenH;
     g_uiPanel.count = 0;
@@ -176,6 +211,8 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "Save JSON", xL, yL, btnW, btnH, UI_PANEL_LEFT, 0);
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Load JSON", xL, yL, btnW, btnH, UI_PANEL_LEFT, 1);
+    yL += btnH + spacing;
+    AddButton(&g_uiPanel, "Export Shape", xL, yL, btnW, btnH, UI_PANEL_LEFT, 2);
 
     int xR = screenW - btnW - padding;
     int yR = topOffset;

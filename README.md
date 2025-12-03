@@ -18,6 +18,8 @@ LineDrawing is an SDL2-based sketcher for layout/geometry prototyping. It now su
 - `src/Editor/` — wall placement workflow, multi-selection state (including undo/redo snapshots), bezier handle tracking, and editor overlays (ghost walls + selection marquee).
 - `src/Math/` — lightweight vector helpers used by layout, grid, and editor code.
 - `external/` — third-party libraries (currently cJSON) compiled in by the makefile.
+- `src/Tools/` — reusable tooling code; houses `ShapeLib/` (pure shape structs + bezier flattening + JSON IO), the Layout→Shape bridge, and helpers shared with other programs.
+- `export/` — auto-created when exporting; stores Shape JSON assets that downstream tools can consume.
 - `include/` — project assets such as fonts that the font manager loads.
 - `tests/` — lightweight C test harness and suites covering math and layout behaviour.
 
@@ -43,6 +45,20 @@ make test       # builds lib objects and executes build/tests/bin/run_tests
 
 The test harness links against the same objects as the runtime (minus `src/main.c`) so behavioural drift is caught quickly.
 
+### Shape Export Tooling
+
+The same shape conversion pipeline that powers the in-app Export button is available as a CLI helper:
+
+```sh
+# Convert a layout JSON into export/<name>.json
+build/bin/shape_tool config/airfoil_basic.json --export-shape airfoil.json
+
+# Preview the resulting geometry in an SDL window
+build/bin/shape_tool config/airfoil_basic.json --view
+```
+
+All exported assets are written to `export/` regardless of the path you pass after `--export-shape`, which keeps them easy to find even when sharing between projects.
+
 ## Editor Shortcuts & UI
 - `Ctrl+Z` / `Cmd+Z` — undo the last layout mutation (wall/anchor edits, pin toggles, origin shifts, JSON loads).
 - `Ctrl+Shift+Z` or `Ctrl+Y` — redo.
@@ -56,6 +72,7 @@ The test harness links against the same objects as the runtime (minus `src/main.
 - Double-click a selected anchor — collapse the multi-selection down to that anchor (single drag target).
 - `Save JSON` button — opens a naming dialog that writes to `config/<name>.json` (layout changes prompt for a new file name).
 - `Load JSON` button — exposes a dropdown of every `.json` layout in `config/` for quick swapping between floor plans.
+- `Export Shape` button — converts the in-memory Layout into a canonical Shape asset and writes it to `export/<current config name>.json` using the shared ShapeLib pipeline (no dialog required).
 
 Selection details (position, connections, bezier handle lengths/angles, drag mode, group count, delete mode) appear in the top overlay, while action buttons sit below it to keep the workspace tidy. Selected anchors glow while dragging, bezier handles render with hover/selection feedback, and the marquee indicates the lasso bounds.
 
@@ -66,3 +83,5 @@ Layout edits are stored in `config/layout_config.json`, which encodes:
 - `walls`: index pairs `a`/`b` that connect anchors into wall segments.
 
 The UI panel exposes "Save JSON" and "Load JSON" buttons, so this file is the primary project state shared between sessions.
+
+When you need the simplified Shape format (paths + cubic segments) for other programs, click "Export Shape" (or run `shape_tool --export-shape ...`). The exporter streams the connected wall graph into a ShapeDocument and saves it next to the layout exports in `export/`.

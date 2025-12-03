@@ -46,6 +46,12 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 			break;
 		}
 
+	case 2: { // Export Shape
+                ui->loadMenu.open = false;
+                UIPanel_ExportShape();
+                break;
+            }
+
 
 		// ───RIGHT PANEL ACTIONS  ─────────────────────
                 case 10: { // Reset Origin
