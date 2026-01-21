@@ -4,6 +4,7 @@
 #include "Layout/Grid/grid.h"
 #include "UI/font_manager.h"
 #include "Editor/editor.h"
+#include "Render/vulkan_adapter.h"
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <math.h>
@@ -14,6 +15,9 @@ static void DrawText(SDL_Renderer* renderer, const char* text, int x, int y, SDL
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     if (!font) return;
 
+#if USE_VULKAN
+    VulkanAdapter_DrawText(renderer, font, text, x, y, color);
+#else
     SDL_Surface* surf = TTF_RenderText_Blended(font, text, color);
     if (!surf) return;
 
@@ -33,6 +37,7 @@ static void DrawText(SDL_Renderer* renderer, const char* text, int x, int y, SDL
     SDL_RenderCopy(renderer, tex, NULL, &dst);
     SDL_DestroyTexture(tex);
     SDL_FreeSurface(surf);
+#endif
 }
 
 void Render_InfoOverlay(SDL_Renderer* renderer) {
@@ -41,8 +46,7 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
     GlobalState* state = Global_Get();
     if (!state) return;
 
-    int width = 0, height = 0;
-    SDL_GetRendererOutputSize(renderer, &width, &height);
+    int width = Global_GetScreenWidth();
 
     SDL_Rect panel = { 0, 0, width, INFO_OVERLAY_HEIGHT };
     SDL_SetRenderDrawColor(renderer, 28, 30, 35, 235);

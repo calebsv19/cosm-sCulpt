@@ -1,0 +1,61 @@
+{
+	"file":	{
+		"schemaVersion":	2,
+		"generator":	"LineDrawing",
+		"gridSize":	1
+	},
+	"anchors":	[{
+			"x":	0,
+			"y":	-5,
+			"persistent":	false,
+			"type":	"curve",
+			"handlesLinked":	true,
+			"handleInLength":	2.9376661777496338,
+			"handleInAngleDeg":	0.6094970703125,
+			"handleOutLength":	2.9376661777496338,
+			"handleOutAngleDeg":	-179.39048767089844
+		}, {
+			"x":	-5,
+			"y":	0,
+			"persistent":	false,
+			"type":	"curve",
+			"handlesLinked":	true,
+			"handleInLength":	2.9375,
+			"handleInAngleDeg":	-90,
+			"handleOutLength":	2.9375,
+			"handleOutAngleDeg":	90
+		}, {
+			"x":	0,
+			"y":	5,
+			"persistent":	false,
+			"type":	"curve",
+			"handlesLinked":	true,
+			"handleInLength":	2.96875,
+			"handleInAngleDeg":	180,
+			"handleOutLength":	2.96875,
+			"handleOutAngleDeg":	0
+		}, {
+			"x":	5,
+			"y":	0,
+			"persistent":	false,
+			"type":	"curve",
+			"handlesLinked":	true,
+			"handleInLength":	2.96891450881958,
+			"handleInAngleDeg":	90.60308837890625,
+			"handleOutLength":	2.96891450881958,
+			"handleOutAngleDeg":	-89.3969039916992
+		}],
+	"walls":	[{
+			"a":	0,
+			"b":	1
+		}, {
+			"a":	1,
+			"b":	2
+		}, {
+			"a":	2,
+			"b":	3
+		}, {
+			"a":	3,
+			"b":	0
+		}]
+}

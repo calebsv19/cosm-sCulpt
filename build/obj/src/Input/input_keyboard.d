@@ -1,5 +1,6 @@
 build/obj/src/Input/input_keyboard.o: src/Input/input_keyboard.c \
-  src/Input/input_keyboard.h src/Core/SDLApp/sdl_app_framework.h \
+  ../shared/vk_renderer/include/vk_renderer_sdl.h \
+  ../shared/vk_renderer/include/vk_renderer.h \
   /opt/homebrew/include/SDL2/SDL.h /opt/homebrew/include/SDL2/SDL_main.h \
   /opt/homebrew/include/SDL2/SDL_stdinc.h \
   /opt/homebrew/include/SDL2/SDL_config.h \
@@ -48,11 +49,37 @@ build/obj/src/Input/input_keyboard.o: src/Input/input_keyboard.c \
   /opt/homebrew/include/SDL2/SDL_timer.h \
   /opt/homebrew/include/SDL2/SDL_version.h \
   /opt/homebrew/include/SDL2/SDL_locale.h \
-  /opt/homebrew/include/SDL2/SDL_misc.h src/Core/global_state.h \
-  src/Layout/Grid/grid.h src/Layout/layout.h src/Math/math_util.h \
-  src/Editor/editor.h src/Layout/layout_origin.h src/UI/ui_panel.h
-src/Input/input_keyboard.h:
-src/Core/SDLApp/sdl_app_framework.h:
+  /opt/homebrew/include/SDL2/SDL_misc.h \
+  /opt/homebrew/include/vulkan/vulkan.h \
+  /opt/homebrew/include/vulkan/vk_platform.h \
+  /opt/homebrew/include/vulkan/vulkan_core.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codec_h264std.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codecs_common.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codec_h264std_encode.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codec_h265std.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codec_h265std_encode.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codec_h264std_decode.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codec_h265std_decode.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codec_av1std.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codec_av1std_decode.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codec_av1std_encode.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codec_vp9std.h \
+  /opt/homebrew/include/vk_video/vulkan_video_codec_vp9std_decode.h \
+  /opt/homebrew/include/vulkan/vulkan_metal.h \
+  ../shared/vk_renderer/include/vk_renderer_config.h \
+  ../shared/vk_renderer/include/vk_renderer_context.h \
+  /opt/homebrew/include/SDL2/SDL_vulkan.h \
+  ../shared/vk_renderer/include/vk_renderer_pipeline.h \
+  ../shared/vk_renderer/include/vk_renderer_commands.h \
+  ../shared/vk_renderer/include/vk_renderer_memory.h \
+  ../shared/vk_renderer/include/vk_renderer_textures.h \
+  ../shared/vk_renderer/include/vk_renderer_compat_sdl.h \
+  src/Input/input_keyboard.h src/Core/SDLApp/sdl_app_framework.h \
+  src/Core/global_state.h src/Layout/Grid/grid.h src/Layout/layout.h \
+  src/Math/math_util.h src/Editor/editor.h src/Layout/layout_origin.h \
+  src/UI/ui_panel.h
+../shared/vk_renderer/include/vk_renderer_sdl.h:
+../shared/vk_renderer/include/vk_renderer.h:
 /opt/homebrew/include/SDL2/SDL.h:
 /opt/homebrew/include/SDL2/SDL_main.h:
 /opt/homebrew/include/SDL2/SDL_stdinc.h:
@@ -103,6 +130,32 @@ src/Core/SDLApp/sdl_app_framework.h:
 /opt/homebrew/include/SDL2/SDL_version.h:
 /opt/homebrew/include/SDL2/SDL_locale.h:
 /opt/homebrew/include/SDL2/SDL_misc.h:
+/opt/homebrew/include/vulkan/vulkan.h:
+/opt/homebrew/include/vulkan/vk_platform.h:
+/opt/homebrew/include/vulkan/vulkan_core.h:
+/opt/homebrew/include/vk_video/vulkan_video_codec_h264std.h:
+/opt/homebrew/include/vk_video/vulkan_video_codecs_common.h:
+/opt/homebrew/include/vk_video/vulkan_video_codec_h264std_encode.h:
+/opt/homebrew/include/vk_video/vulkan_video_codec_h265std.h:
+/opt/homebrew/include/vk_video/vulkan_video_codec_h265std_encode.h:
+/opt/homebrew/include/vk_video/vulkan_video_codec_h264std_decode.h:
+/opt/homebrew/include/vk_video/vulkan_video_codec_h265std_decode.h:
+/opt/homebrew/include/vk_video/vulkan_video_codec_av1std.h:
+/opt/homebrew/include/vk_video/vulkan_video_codec_av1std_decode.h:
+/opt/homebrew/include/vk_video/vulkan_video_codec_av1std_encode.h:
+/opt/homebrew/include/vk_video/vulkan_video_codec_vp9std.h:
+/opt/homebrew/include/vk_video/vulkan_video_codec_vp9std_decode.h:
+/opt/homebrew/include/vulkan/vulkan_metal.h:
+../shared/vk_renderer/include/vk_renderer_config.h:
+../shared/vk_renderer/include/vk_renderer_context.h:
+/opt/homebrew/include/SDL2/SDL_vulkan.h:
+../shared/vk_renderer/include/vk_renderer_pipeline.h:
+../shared/vk_renderer/include/vk_renderer_commands.h:
+../shared/vk_renderer/include/vk_renderer_memory.h:
+../shared/vk_renderer/include/vk_renderer_textures.h:
+../shared/vk_renderer/include/vk_renderer_compat_sdl.h:
+src/Input/input_keyboard.h:
+src/Core/SDLApp/sdl_app_framework.h:
 src/Core/global_state.h:
 src/Layout/Grid/grid.h:
 src/Layout/layout.h:

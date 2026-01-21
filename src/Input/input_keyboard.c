@@ -17,8 +17,8 @@ static void HandleHeldKeys(AppContext* ctx) {
     const Uint8 *keys = SDL_GetKeyboardState(NULL);
     float panSpeed = 300.0f * ctx->deltaTime;
 
-    int w, h;
-    SDL_GetRendererOutputSize(ctx->renderer, &w, &h);
+    int w = Global_GetScreenWidth();
+    int h = Global_GetScreenHeight();
 
     bool gridChanged = false;
 

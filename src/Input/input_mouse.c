@@ -64,9 +64,10 @@ static void UpdateHover(int mx, int my) {
 static void HandleMouseWheel(AppContext* ctx, SDL_MouseWheelEvent* wheel) {
     GlobalState* state = Global_Get();
     Grid* grid = &state->grid;
+    (void)ctx;
 
-    int w, h;
-    SDL_GetRendererOutputSize(ctx->renderer, &w, &h);
+    int w = Global_GetScreenWidth();
+    int h = Global_GetScreenHeight();
 
     float factor = (wheel->y > 0) ? 1.1f : 0.9f;
     Grid_zoom(grid, factor, w / 2.0f, h / 2.0f);

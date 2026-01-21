@@ -10,6 +10,7 @@ SRC_DIR := src
 TOOLS_DIR := $(SRC_DIR)/Tools
 EXT_DIR := external
 TEST_DIR := tests
+VK_RENDERER_DIR := ../shared/vk_renderer
 
 # SDL detection aligned with physics_sim style: explicit macOS paths first,
 # sdl2-config/pkg-config elsewhere.
@@ -18,6 +19,8 @@ SDL_CFLAGS :=
 SDL_LDFLAGS :=
 SDL_LIBS := -lSDL2
 SDL_TTF_LIB := -lSDL2_ttf
+VULKAN_CFLAGS :=
+VULKAN_LIBS :=
 
 ifeq ($(UNAME_S),Darwin)
 	# Prefer explicit Homebrew prefixes so both Intel (/usr/local) and Apple Silicon (/opt/homebrew)
@@ -49,6 +52,13 @@ ifeq ($(UNAME_S),Darwin)
 			SDL_LDFLAGS += $(shell $(SDL_CONFIG) --libs)
 		endif
 	endif
+
+	VULKAN_CFLAGS := $(shell pkg-config --cflags vulkan 2>/dev/null)
+	VULKAN_LIBS := $(shell pkg-config --libs vulkan 2>/dev/null)
+	ifeq ($(strip $(VULKAN_CFLAGS)$(VULKAN_LIBS)),)
+		VULKAN_CFLAGS := -I/opt/homebrew/include
+		VULKAN_LIBS := -L/opt/homebrew/lib -lvulkan
+	endif
 else
 	# Non-macOS: prefer sdl2-config, then pkg-config, then a system fallback.
 	ifneq ($(SDL_CONFIG),)
@@ -64,6 +74,13 @@ else
 			SDL_LDFLAGS += -L/usr/lib
 		endif
 	endif
+
+	VULKAN_CFLAGS := $(shell pkg-config --cflags vulkan 2>/dev/null)
+	VULKAN_LIBS := $(shell pkg-config --libs vulkan 2>/dev/null)
+	ifeq ($(strip $(VULKAN_CFLAGS)$(VULKAN_LIBS)),)
+		VULKAN_CFLAGS := -I/usr/include
+		VULKAN_LIBS := -lvulkan
+	endif
 endif
 
 ifeq ($(strip $(SDL_LDFLAGS)),)
@@ -71,7 +88,7 @@ ifeq ($(strip $(SDL_LDFLAGS)),)
 endif
 
 WARN_FLAGS := -Wall -Wextra -Werror -Wpedantic
-BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Isrc -Isrc/Tools -Iexternal $(SDL_CFLAGS)
+BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Isrc -Isrc/Tools -Iexternal -I$(VK_RENDERER_DIR)/include $(SDL_CFLAGS)
 DEBUG ?= 0
 
 ifeq ($(DEBUG),1)
@@ -80,13 +97,21 @@ else
 	CFLAGS := $(BASE_CFLAGS) -O2
 endif
 
-LDFLAGS := $(SDL_LDFLAGS) $(SDL_LIBS) $(SDL_TTF_LIB) $(SDL_FRAMEWORKS) -lm
+APP_CFLAGS := $(CFLAGS) $(VULKAN_CFLAGS) -DUSE_VULKAN=1 -DVK_RENDERER_SHADER_ROOT=\"$(abspath $(VK_RENDERER_DIR))\" -include $(VK_RENDERER_DIR)/include/vk_renderer_sdl.h
+
+ifeq ($(UNAME_S),Darwin)
+	APP_CFLAGS += -DVK_USE_PLATFORM_METAL_EXT
+	VULKAN_LIBS += -framework Metal -framework QuartzCore -framework Cocoa -framework IOKit -framework CoreVideo
+endif
+
+LDFLAGS := $(SDL_LDFLAGS) $(SDL_LIBS) $(SDL_TTF_LIB) $(SDL_FRAMEWORKS) $(VULKAN_LIBS) -lm
 
 APP_SRCS := $(shell find $(SRC_DIR) -name '*.c' ! -path '$(TOOLS_DIR)/*')
+VK_RENDERER_SRCS := $(shell find $(VK_RENDERER_DIR)/src -name '*.c')
 SHAPE_LIB_SRCS := $(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
 SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c
 EXT_SRCS := $(EXT_DIR)/cjson/cJSON.c
-ALL_SRCS := $(APP_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS)
+ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS)
 
 APP_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(ALL_SRCS))
 APP_TARGET := $(BIN_DIR)/LineDrawing
@@ -97,7 +122,10 @@ TEST_SRCS := $(shell find $(TEST_DIR) -name '*.c')
 TEST_OBJS := $(patsubst $(TEST_DIR)/%.c,$(TEST_OBJ_DIR)/%.o,$(TEST_SRCS))
 TEST_TARGET := $(TEST_BIN_DIR)/run_tests
 
-.PHONY: all run clean test rebuild debug release format lint
+SHAPE_SANITY_BIN := $(BIN_DIR)/shape_sanity_tool
+SHAPE_SYNC_SCRIPT := ../shared/shape/sync_exports.sh
+
+.PHONY: all run clean test rebuild debug release format lint shape-sanity export-assets
 
 all: $(APP_TARGET)
 
@@ -113,6 +141,15 @@ run: $(APP_TARGET)
 test: $(TEST_TARGET)
 	$(TEST_TARGET)
 
+shape-sanity: $(SHAPE_SANITY_BIN)
+
+$(SHAPE_SANITY_BIN): src/Tools/shape_sanity_tool.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $< -o $@ $(LDFLAGS)
+
+export-assets:
+	@SHAPE_ASSET_DIR="$(SHAPE_ASSET_DIR)" $(SHAPE_SYNC_SCRIPT)
+
 rebuild: clean all
 
 $(APP_TARGET): $(APP_OBJS)
@@ -121,7 +158,7 @@ $(APP_TARGET): $(APP_OBJS)
 
 $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+	$(CC) $(APP_CFLAGS) -MMD -MP -c $< -o $@
 
 $(TEST_OBJ_DIR)/%.o: $(TEST_DIR)/%.c
 	@mkdir -p $(dir $@)

@@ -1,6 +1,7 @@
 #include "UI/render_ui_panel.h"
 #include "UI/ui_panel.h"
 #include "UI/font_manager.h"
+#include "Render/vulkan_adapter.h"
 
 #include <SDL2/SDL.h>
 
@@ -20,6 +21,13 @@ void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     if (!font) return;
 
     SDL_Color textColor = { 255, 255, 255, 255 };
+#if USE_VULKAN
+    int textW = 0;
+    int textH = 0;
+    if (TTF_SizeText(font, btn->label, &textW, &textH) != 0) {
+        return;
+    }
+#else
     SDL_Surface* surf = TTF_RenderText_Blended(font, btn->label, textColor);
     if (!surf) return;
 
@@ -31,6 +39,7 @@ void DrawButton(SDL_Renderer* r, const UIButton* btn) {
 
     int textW, textH;
     SDL_QueryTexture(tex, NULL, NULL, &textW, &textH);
+#endif
 
     SDL_Rect dst = {
         btn->bounds.x + (btn->bounds.w - textW) / 2,
@@ -38,10 +47,14 @@ void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         textW, textH
     };
 
+#if USE_VULKAN
+    VulkanAdapter_DrawText(r, font, btn->label, dst.x, dst.y, textColor);
+#else
     SDL_RenderCopy(r, tex, NULL, &dst);
 
     SDL_DestroyTexture(tex);
     SDL_FreeSurface(surf);
+#endif
 }
 
 
@@ -51,4 +64,3 @@ void Render_UIPanel(const UIPanelState* ui, SDL_Renderer* renderer) {
         DrawButton(renderer, btn);
     }
 }
-

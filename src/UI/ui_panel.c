@@ -7,6 +7,7 @@
 #include "Tools/shape_from_layout.h"
 #include "Tools/shape_export.h"
 #include "ShapeLib/shape_json.h"
+#include "Render/vulkan_adapter.h"
 #include <dirent.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -421,6 +422,9 @@ static void DrawText(SDL_Renderer* renderer, const char* text, int x, int y, SDL
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     if (!font) return;
 
+#if USE_VULKAN
+    VulkanAdapter_DrawText(renderer, font, text, x, y, color);
+#else
     SDL_Surface* surf = TTF_RenderText_Blended(font, text, color);
     if (!surf) return;
 
@@ -434,16 +438,19 @@ static void DrawText(SDL_Renderer* renderer, const char* text, int x, int y, SDL
     SDL_RenderCopy(renderer, tex, NULL, &dst);
     SDL_DestroyTexture(tex);
     SDL_FreeSurface(surf);
+#endif
 }
 
 static void RenderSaveDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
     if (!ui->saveDialog.active) return;
 
-    int width, height;
-    SDL_GetRendererOutputSize(renderer, &width, &height);
+    int width = Global_GetScreenWidth();
+    int height = Global_GetScreenHeight();
 
     SDL_Rect backdrop = { 0, 0, width, height };
+#if !USE_VULKAN
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+#endif
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 140);
     SDL_RenderFillRect(renderer, &backdrop);
 
@@ -505,7 +512,9 @@ static void RenderLoadMenu(SDL_Renderer* renderer, const UIPanelState* ui) {
     if (!ui->loadMenu.open) return;
 
     SDL_Rect rect = UIPanel_GetLoadMenuRect(ui);
+#if !USE_VULKAN
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+#endif
     SDL_SetRenderDrawColor(renderer, 28, 32, 40, 240);
     SDL_RenderFillRect(renderer, &rect);
     SDL_SetRenderDrawColor(renderer, 90, 100, 115, 255);

@@ -33,13 +33,10 @@ void Render_Editor_Anchor(EditorState* editor, AppContext* ctx) {
     int radius = (int)(gridSize * scale * 0.15f);
 
     SDL_SetRenderDrawColor(ctx->renderer, 255, 255, 100, 255);  // yellow
-    for (int w = 0; w < radius * 2; w++) {
-        for (int h = 0; h < radius * 2; h++) {
-            int dx = radius - w;
-            int dy = radius - h;
-            if (dx * dx + dy * dy <= radius * radius)
-                SDL_RenderDrawPoint(ctx->renderer, cx + dx, cy + dy);
-        }
+    int r2 = radius * radius;
+    for (int dy = -radius; dy <= radius; ++dy) {
+        int dx = (int)sqrtf((float)(r2 - dy * dy));
+        SDL_RenderDrawLine(ctx->renderer, cx - dx, cy + dy, cx + dx, cy + dy);
     }
 }
 

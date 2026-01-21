@@ -19,7 +19,7 @@ LineDrawing is an SDL2-based sketcher for layout/geometry prototyping. It now su
 - `src/Math/` — lightweight vector helpers used by layout, grid, and editor code.
 - `external/` — third-party libraries (currently cJSON) compiled in by the makefile.
 - `src/Tools/` — reusable tooling code; houses `ShapeLib/` (pure shape structs + bezier flattening + JSON IO), the Layout→Shape bridge, and helpers shared with other programs.
-- `export/` — auto-created when exporting; stores Shape JSON assets that downstream tools can consume.
+- `export/` — auto-created when exporting; stores Shape JSON assets that downstream tools can consume. Run `make export-assets` to convert everything under `export/` into canonical ShapeAssets inside the shared directory (defaults to `shared/assets/shapes`, override with `SHAPE_ASSET_DIR`).
 - `include/` — project assets such as fonts that the font manager loads.
 - `tests/` — lightweight C test harness and suites covering math and layout behaviour.
 
@@ -84,4 +84,4 @@ Layout edits are stored in `config/layout_config.json`, which encodes:
 
 The UI panel exposes "Save JSON" and "Load JSON" buttons, so this file is the primary project state shared between sessions.
 
-When you need the simplified Shape format (paths + cubic segments) for other programs, click "Export Shape" (or run `shape_tool --export-shape ...`). The exporter streams the connected wall graph into a ShapeDocument and saves it next to the layout exports in `export/`.
+When you need the simplified Shape format (paths + cubic segments) for other programs, click "Export Shape" (or run `shape_tool --export-shape ...`). The exporter streams the connected wall graph into a ShapeDocument and saves it next to the layout exports in `export/`. For the shared pipeline, run `make export-assets` (respects `SHAPE_ASSET_DIR`) to convert those exports into canonical ShapeAssets for physics/ray-tracing.

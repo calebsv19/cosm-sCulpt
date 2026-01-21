@@ -1,10 +1,12 @@
 // src/Render/render_grid.c
 #include "Layout/Grid/render_grid.h"
 #include <math.h>
+#include <stdio.h>
 
 
-static void DrawGridLayer(const Grid* g, SDL_Renderer* r, int width, int height, int mod, SDL_Color color) {
+static int DrawGridLayer(const Grid* g, SDL_Renderer* r, int width, int height, int mod, SDL_Color color) {
     float pixelsPerUnit = g->gridSize * g->scale;
+    int line_count = 0;
 
     // Compute world-space bounds of screen
     float worldLeft   = g->offsetX;
@@ -24,6 +26,7 @@ static void DrawGridLayer(const Grid* g, SDL_Renderer* r, int width, int height,
 
         float x = (i - g->offsetX) * pixelsPerUnit;
         SDL_RenderDrawLine(r, (int)x, 0, (int)x, height);
+        line_count++;
     }
 
     // Horizontal lines
@@ -32,31 +35,45 @@ static void DrawGridLayer(const Grid* g, SDL_Renderer* r, int width, int height,
 
         float y = (j - g->offsetY) * pixelsPerUnit;
         SDL_RenderDrawLine(r, 0, (int)y, width, (int)y);
+        line_count++;
     }
+    return line_count;
 }
 
 
 void Render_Grid(const Grid* g, SDL_Renderer* renderer, int width, int height, int drawFlags) {
+    static int logged_grid_debug = 0;
     float step = g->gridSize * g->scale;
     if (step < 10.0f) return;
 
     // Pass 1: Unit lines (1x1, not divisible by 5 or 10)
-        if (drawFlags & GRID_DRAW_UNITS) {
+    int unit_lines = 0;
+    int five_lines = 0;
+    int ten_lines = 0;
+
+    if (drawFlags & GRID_DRAW_UNITS) {
         SDL_Color color = {60, 60, 60, 50};
-        DrawGridLayer(g, renderer, width, height, 1, color);
+        unit_lines = DrawGridLayer(g, renderer, width, height, 1, color);
     }
 
 
     // Pass 2: 5-unit lines (divisible by 5, not 10)
     if (drawFlags & GRID_DRAW_FIVES) {
         SDL_Color color = {130, 130, 130, 180};
-        DrawGridLayer(g, renderer, width, height, 5, color);
+        five_lines = DrawGridLayer(g, renderer, width, height, 5, color);
     }
 
     // Pass 3: 10-unit lines (divisible by 10)
     if (drawFlags & GRID_DRAW_TENS) {
         SDL_Color color = {255, 255, 255, 255};
-        DrawGridLayer(g, renderer, width, height, 10, color);
+        ten_lines = DrawGridLayer(g, renderer, width, height, 10, color);
+    }
+
+    if (!logged_grid_debug) {
+        fprintf(stderr,
+                "[LineDrawing] Grid step=%.2f size=%dx%d units=%d fives=%d tens=%d\n",
+                step, width, height, unit_lines, five_lines, ten_lines);
+        logged_grid_debug = 1;
     }
 
     // Origin "+"
@@ -71,5 +88,3 @@ void Render_Grid(const Grid* g, SDL_Renderer* renderer, int width, int height, i
 
 
 }
-
-

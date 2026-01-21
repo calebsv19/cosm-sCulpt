@@ -29,11 +29,10 @@ static void DrawLineWithThickness(SDL_Renderer* renderer, int x1, int y1, int x2
 }
 
 static void DrawFilledCircle(SDL_Renderer* renderer, int cx, int cy, int r) {
-    for (int dx = -r; dx <= r; ++dx) {
-        for (int dy = -r; dy <= r; ++dy) {
-            if (dx * dx + dy * dy <= r * r)
-                SDL_RenderDrawPoint(renderer, cx + dx, cy + dy);
-        }
+    int r2 = r * r;
+    for (int dy = -r; dy <= r; ++dy) {
+        int dx = (int)sqrtf((float)(r2 - dy * dy));
+        SDL_RenderDrawLine(renderer, cx - dx, cy + dy, cx + dx, cy + dy);
     }
 }
 
@@ -232,12 +231,19 @@ static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
             int ringRadius = r + 2;
             int inner = r * r;
             int outer = ringRadius * ringRadius;
-            for (int dx = -ringRadius; dx <= ringRadius; ++dx) {
-                for (int dy = -ringRadius; dy <= ringRadius; ++dy) {
-                    int dist = dx * dx + dy * dy;
-                    if (dist <= outer && dist >= inner) {
-                        SDL_RenderDrawPoint(renderer, cx + dx, cy + dy);
-                    }
+            for (int dy = -ringRadius; dy <= ringRadius; ++dy) {
+                int outer_dx = (int)sqrtf((float)(outer - dy * dy));
+                int inner_dx = 0;
+                if (dy * dy < inner) {
+                    inner_dx = (int)sqrtf((float)(inner - dy * dy));
+                }
+                if (inner_dx < outer_dx) {
+                    SDL_RenderDrawLine(renderer,
+                                       cx - outer_dx, cy + dy,
+                                       cx - inner_dx, cy + dy);
+                    SDL_RenderDrawLine(renderer,
+                                       cx + inner_dx, cy + dy,
+                                       cx + outer_dx, cy + dy);
                 }
             }
         }
