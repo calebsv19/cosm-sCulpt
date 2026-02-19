@@ -53,6 +53,9 @@ The same shape conversion pipeline that powers the in-app Export button is avail
 # Convert a layout JSON into export/<name>.json
 build/bin/shape_tool config/airfoil_basic.json --export-shape airfoil.json
 
+# Convert using a specific projection plane (xy|yz|xz)
+build/bin/shape_tool config/airfoil_basic.json --plane yz --export-shape airfoil_yz.json
+
 # Preview the resulting geometry in an SDL window
 build/bin/shape_tool config/airfoil_basic.json --view
 ```
@@ -62,6 +65,11 @@ All exported assets are written to `export/` regardless of the path you pass aft
 ## Editor Shortcuts & UI
 - `Ctrl+Z` / `Cmd+Z` — undo the last layout mutation (wall/anchor edits, pin toggles, origin shifts, JSON loads).
 - `Ctrl+Shift+Z` or `Ctrl+Y` — redo.
+- `1` / `2` / `3` — switch active edit plane (`XY`, `YZ`, `XZ`).
+- `[` / `]` — move active plane offset by one grid unit (hold `Shift` for 10x step).
+- `V` — toggle between `PLANE_VIEW` and `FREE_VIEW`.
+- In `FREE_VIEW`: `Q`/`E` yaw, `T`/`G` pitch, `I`/`K` move view target up/down, `J`/`L` move view target left/right.
+- In `FREE_VIEW`: hold `Alt/Option` and move the mouse to orbit around the layout centroid (no click required).
 - `O` — recenter the grid to the selected anchor.
 - `P` — toggle the selected anchor's persistence.
 - `C` — toggle the selected anchor between sharp corner and smooth curve (requires exactly two connected walls).
@@ -72,14 +80,15 @@ All exported assets are written to `export/` regardless of the path you pass aft
 - Double-click a selected anchor — collapse the multi-selection down to that anchor (single drag target).
 - `Save JSON` button — opens a naming dialog that writes to `config/<name>.json` (layout changes prompt for a new file name).
 - `Load JSON` button — exposes a dropdown of every `.json` layout in `config/` for quick swapping between floor plans.
-- `Export Shape` button — converts the in-memory Layout into a canonical Shape asset and writes it to `export/<current config name>.json` using the shared ShapeLib pipeline (no dialog required).
+- `Export Shape` button — converts the in-memory Layout into a canonical Shape asset and writes it to `export/<current config name>.json` using the shared ShapeLib pipeline (no dialog required). Export flattening uses the current active plane (`XY`/`YZ`/`XZ`).
 
 Selection details (position, connections, bezier handle lengths/angles, drag mode, group count, delete mode) appear in the top overlay, while action buttons sit below it to keep the workspace tidy. Selected anchors glow while dragging, bezier handles render with hover/selection feedback, and the marquee indicates the lasso bounds.
+In `PLANE_VIEW`, the background grid is rendered for plane editing. In `FREE_VIEW`, the background grid is hidden and a world-axis gizmo (+X red, +Y green, +Z blue) is rendered around the layout centroid for orientation.
 
 ## Persisted Data
 Layout edits are stored in `config/layout_config.json`, which encodes:
 - `file`: metadata about the save (`schemaVersion` and `gridSize`). Files saved with a future schema version are rejected to avoid corrupting the current runtime.
-- `anchors`: world-space coordinates (floats), a `persistent` flag that keeps an anchor alive when auto-prune is enabled, the anchor `type` (`corner` or `curve`), handle linkage flag, and polar handle definitions (`handleInLength`, `handleInAngleDeg`, `handleOutLength`, `handleOutAngleDeg`). Older JSONs without these fields load as straight segments.
+- `anchors`: world-space coordinates (`x`, `y`, `z` floats in schema v4), a `persistent` flag that keeps an anchor alive when auto-prune is enabled, the anchor `type` (`corner` or `curve`), handle linkage flag, handle basis plane (`handleAxis`: `xy|yz|xz`), and polar handle definitions (`handleInLength`, `handleInAngleDeg`, `handleOutLength`, `handleOutAngleDeg`). Older JSONs that only store `x/y` still load with `z = 0`.
 - `walls`: index pairs `a`/`b` that connect anchors into wall segments.
 
 The UI panel exposes "Save JSON" and "Load JSON" buttons, so this file is the primary project state shared between sessions.

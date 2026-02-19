@@ -1,5 +1,6 @@
 #include "Layout/layout_json.h"
 #include "Core/global_state.h"
+#include "core_scene.h"
 #include "cjson/cJSON.h"
 #include <SDL2/SDL.h>
 #include <stdio.h>
@@ -8,6 +9,22 @@
 #include <strings.h>
 
 static const char* LAYOUT_JSON_GENERATOR = "LineDrawing";
+
+static const char* HandleAxis_ToString(ViewPlaneAxis axis) {
+    switch (axis) {
+        case VIEW_PLANE_YZ: return "yz";
+        case VIEW_PLANE_XZ: return "xz";
+        case VIEW_PLANE_XY:
+        default: return "xy";
+    }
+}
+
+static ViewPlaneAxis HandleAxis_FromJson(const cJSON* node) {
+    if (!cJSON_IsString(node) || !node->valuestring) return VIEW_PLANE_XY;
+    if (strcasecmp(node->valuestring, "yz") == 0) return VIEW_PLANE_YZ;
+    if (strcasecmp(node->valuestring, "xz") == 0) return VIEW_PLANE_XZ;
+    return VIEW_PLANE_XY;
+}
 
 static cJSON* Layout_CreateJson(const Layout* layout) {
     cJSON* root = cJSON_CreateObject();
@@ -32,10 +49,12 @@ static cJSON* Layout_CreateJson(const Layout* layout) {
         cJSON* anchor = cJSON_CreateObject();
         cJSON_AddNumberToObject(anchor, "x", a->pos.x);
         cJSON_AddNumberToObject(anchor, "y", a->pos.y);
+        cJSON_AddNumberToObject(anchor, "z", a->pos.z);
         cJSON_AddBoolToObject(anchor, "persistent", a->isPersistent);
         cJSON_AddStringToObject(anchor, "type",
                                 a->type == ANCHOR_TYPE_CURVE ? "curve" : "corner");
         cJSON_AddBoolToObject(anchor, "handlesLinked", a->handlesLinked);
+        cJSON_AddStringToObject(anchor, "handleAxis", HandleAxis_ToString(a->handleAxis));
         cJSON_AddNumberToObject(anchor, "handleInLength", a->handleInLength);
         cJSON_AddNumberToObject(anchor, "handleInAngleDeg", a->handleInAngleDeg);
         cJSON_AddNumberToObject(anchor, "handleOutLength", a->handleOutLength);
@@ -95,22 +114,28 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
 
         const cJSON* x = cJSON_GetObjectItem(a, "x");
         const cJSON* y = cJSON_GetObjectItem(a, "y");
+        const cJSON* z = cJSON_GetObjectItem(a, "z");
         const cJSON* persistent = cJSON_GetObjectItem(a, "persistent");
         const cJSON* typeNode = cJSON_GetObjectItem(a, "type");
         const cJSON* curvedNode = cJSON_GetObjectItem(a, "curved"); // legacy bool
         const cJSON* handlesLinked = cJSON_GetObjectItem(a, "handlesLinked");
+        const cJSON* handleAxis = cJSON_GetObjectItem(a, "handleAxis");
         const cJSON* handleInLength = cJSON_GetObjectItem(a, "handleInLength");
         const cJSON* handleInAngle = cJSON_GetObjectItem(a, "handleInAngleDeg");
         const cJSON* handleOutLength = cJSON_GetObjectItem(a, "handleOutLength");
         const cJSON* handleOutAngle = cJSON_GetObjectItem(a, "handleOutAngleDeg");
         if (!cJSON_IsNumber(x) || !cJSON_IsNumber(y)) continue;
 
-        Vec2 pos = {
+        Vec3 pos = {
             .x = (float)x->valuedouble,
-            .y = (float)y->valuedouble
+            .y = (float)y->valuedouble,
+            .z = 0.0f
         };
+        if (cJSON_IsNumber(z)) {
+            pos.z = (float)z->valuedouble;
+        }
 
-        int idx = Layout_AddAnchor(&temp, pos);
+        int idx = Layout_AddAnchor3(&temp, pos);
         Anchor* anchor = &temp.anchors[idx];
         anchor->isPersistent = cJSON_IsTrue(persistent);
 
@@ -127,6 +152,7 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
         if (cJSON_IsBool(handlesLinked)) {
             anchor->handlesLinked = cJSON_IsTrue(handlesLinked);
         }
+        anchor->handleAxis = HandleAxis_FromJson(handleAxis);
         if (cJSON_IsNumber(handleInLength)) anchor->handleInLength = (float)handleInLength->valuedouble;
         if (cJSON_IsNumber(handleInAngle))  anchor->handleInAngleDeg = (float)handleInAngle->valuedouble;
         if (cJSON_IsNumber(handleOutLength)) anchor->handleOutLength = (float)handleOutLength->valuedouble;
@@ -152,9 +178,9 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
         int idxB = b->valueint;
         if (idxA >= 0 && idxA < (int)temp.anchorCount &&
             idxB >= 0 && idxB < (int)temp.anchorCount) {
-            Vec2 posA = temp.anchors[idxA].pos;
-            Vec2 posB = temp.anchors[idxB].pos;
-            Layout_AddWall(&temp, posA, posB);
+            Vec3 posA = temp.anchors[idxA].pos;
+            Vec3 posB = temp.anchors[idxB].pos;
+            Layout_AddWall3(&temp, posA, posB);
         } else {
             SDL_Log("[Layout JSON] Skipped wall (%d → %d): invalid index", idxA, idxB);
         }
@@ -190,6 +216,18 @@ bool Layout_SaveToFile(const Layout* layout, const char* path) {
 }
 
 bool Layout_LoadFromFile(Layout* layout, const char* path) {
+    if (core_scene_path_is_scene_bundle(path)) {
+        CoreSceneBundleInfo bundle = {0};
+        CoreResult r = core_scene_bundle_resolve(path, &bundle);
+        if (r.code != CORE_OK) {
+            SDL_Log("[Layout JSON] Failed to resolve scene bundle '%s' (%s)", path, r.message);
+            return false;
+        }
+        SDL_Log("[Layout JSON] Scene bundle resolved to %s", bundle.fluid_source_path);
+        SDL_Log("[Layout JSON] Scene bundle sources are not layout JSON; load a config/*.json file instead.");
+        return false;
+    }
+
     FILE* f = fopen(path, "rb");
     if (!f) return false;
 

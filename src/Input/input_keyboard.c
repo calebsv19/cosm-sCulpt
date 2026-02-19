@@ -92,6 +92,100 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
             }
         }
 
+        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_v) {
+            state->freeViewCamera.enabled = !state->freeViewCamera.enabled;
+            if (state->freeViewCamera.enabled) {
+                bool hasAnchors = false;
+                Vec3 center = Layout_ComputeCentroid(&state->layout, &hasAnchors);
+                if (hasAnchors) {
+                    state->freeViewCamera.target = center;
+                }
+            }
+            Global_FlagHitboxesDirty();
+            printf("[Editor] View mode: %s\n", state->freeViewCamera.enabled ? "FREE_VIEW" : "PLANE_VIEW");
+        }
+
+        if (event->type == SDL_KEYDOWN && state->freeViewCamera.enabled) {
+            bool consumedCameraControl = false;
+            float angleStep = 6.0f;
+            float moveStep = state->grid.gridSize;
+            if (event->key.keysym.sym == SDLK_q) {
+                state->freeViewCamera.yawDeg -= angleStep;
+                consumedCameraControl = true;
+            }
+            if (event->key.keysym.sym == SDLK_e) {
+                state->freeViewCamera.yawDeg += angleStep;
+                consumedCameraControl = true;
+            }
+            if (event->key.keysym.sym == SDLK_t) {
+                state->freeViewCamera.pitchDeg += angleStep;
+                consumedCameraControl = true;
+            }
+            if (event->key.keysym.sym == SDLK_g) {
+                state->freeViewCamera.pitchDeg -= angleStep;
+                consumedCameraControl = true;
+            }
+            FreeView_NormalizeOrbitAngles(&state->freeViewCamera);
+
+            Vec3 right = FreeView_Right(&state->freeViewCamera);
+            Vec3 up = FreeView_Up(&state->freeViewCamera);
+            if (event->key.keysym.sym == SDLK_j) {
+                state->freeViewCamera.target = Vec3_Sub(state->freeViewCamera.target, Vec3_Scale(right, moveStep));
+                consumedCameraControl = true;
+            }
+            if (event->key.keysym.sym == SDLK_l) {
+                state->freeViewCamera.target = Vec3_Add(state->freeViewCamera.target, Vec3_Scale(right, moveStep));
+                consumedCameraControl = true;
+            }
+            if (event->key.keysym.sym == SDLK_i) {
+                state->freeViewCamera.target = Vec3_Add(state->freeViewCamera.target, Vec3_Scale(up, moveStep));
+                consumedCameraControl = true;
+            }
+            if (event->key.keysym.sym == SDLK_k) {
+                state->freeViewCamera.target = Vec3_Sub(state->freeViewCamera.target, Vec3_Scale(up, moveStep));
+                consumedCameraControl = true;
+            }
+            if (consumedCameraControl) {
+                Global_FlagHitboxesDirty();
+                return;
+            }
+        }
+
+        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_1) {
+            state->activePlane.axis = VIEW_PLANE_XY;
+            Global_FlagHitboxesDirty();
+            printf("[Editor] Active plane: XY (z = %.2f)\n", state->activePlane.offset);
+        }
+        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_2) {
+            state->activePlane.axis = VIEW_PLANE_YZ;
+            Global_FlagHitboxesDirty();
+            printf("[Editor] Active plane: YZ (x = %.2f)\n", state->activePlane.offset);
+        }
+        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_3) {
+            state->activePlane.axis = VIEW_PLANE_XZ;
+            Global_FlagHitboxesDirty();
+            printf("[Editor] Active plane: XZ (y = %.2f)\n", state->activePlane.offset);
+        }
+        if (event->type == SDL_KEYDOWN &&
+            (event->key.keysym.sym == SDLK_LEFTBRACKET || event->key.keysym.sym == SDLK_RIGHTBRACKET)) {
+            float step = state->grid.gridSize;
+            if (mods & KMOD_SHIFT) step *= 10.0f;
+            if (event->key.keysym.sym == SDLK_LEFTBRACKET) step = -step;
+            state->activePlane.offset += step;
+            Global_FlagHitboxesDirty();
+            switch (state->activePlane.axis) {
+                case VIEW_PLANE_XY:
+                    printf("[Editor] Active plane offset: z = %.2f\n", state->activePlane.offset);
+                    break;
+                case VIEW_PLANE_YZ:
+                    printf("[Editor] Active plane offset: x = %.2f\n", state->activePlane.offset);
+                    break;
+                case VIEW_PLANE_XZ:
+                    printf("[Editor] Active plane offset: y = %.2f\n", state->activePlane.offset);
+                    break;
+            }
+        }
+
 
 	if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_o) {
 	    int i = state->editor.selectedAnchorIndex;

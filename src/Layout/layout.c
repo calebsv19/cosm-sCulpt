@@ -9,9 +9,30 @@
 
 static const float kAnchorSnapRadius = 0.01f;  // very small world-space threshold
 
+static ViewPlaneAxis Layout_GetActivePlaneAxis(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return VIEW_PLANE_XY;
+    return state->activePlane.axis;
+}
+
+static ViewPlaneAxis Anchor_GetHandleAxis(const Anchor* anchor) {
+    if (!anchor) return VIEW_PLANE_XY;
+    switch (anchor->handleAxis) {
+        case VIEW_PLANE_XY:
+        case VIEW_PLANE_YZ:
+        case VIEW_PLANE_XZ:
+            return anchor->handleAxis;
+        default:
+            return VIEW_PLANE_XY;
+    }
+}
+
 static bool Anchor_CanAcceptConnection(const Anchor* anchor) {
     if (!anchor) return false;
-    return anchor->connectionCount < 2;
+    if (anchor->type == ANCHOR_TYPE_CURVE) {
+        return anchor->connectionCount < 2;
+    }
+    return true;
 }
 
 static void Anchor_ResetHandles(Anchor* anchor) {
@@ -50,9 +71,12 @@ static void Anchor_EnsureHandleForWall(Layout* layout, int anchorIndex, int wall
     Anchor* other = &layout->anchors[otherIdx];
     if (!other || other->isDeleted) return;
 
-    float dist = Vec2_Distance(anchor->pos, other->pos);
-    float handleLen = fmaxf(dist * 0.3f, 0.05f);
-    float handleAngle = Vec2_AngleDeg(anchor->pos, other->pos);
+    Vec3 delta = Vec3_Sub(other->pos, anchor->pos);
+    ViewPlaneAxis handleAxis = Anchor_GetHandleAxis(anchor);
+    float planarDist = 0.0f;
+    float handleAngle = 0.0f;
+    Vec3_HandlePolarFromWorldDelta(delta, handleAxis, &planarDist, &handleAngle);
+    float handleLen = fmaxf(planarDist * 0.3f, 0.05f);
 
     if (wall->anchorA == anchorIndex) {
         if (anchor->handleOutLength <= 0.0001f) {
@@ -79,6 +103,7 @@ static void Anchor_SeedHandlesFromWalls(Layout* layout, int anchorIndex) {
     Anchor_ResetHandles(anchor);
     if (!anchor || anchor->connectionCount == 0) return;
 
+    ViewPlaneAxis handleAxis = Anchor_GetHandleAxis(anchor);
     for (int i = 0; i < anchor->connectionCount && i < 2; ++i) {
         int wallIdx = anchor->connectedWalls[i];
         if (wallIdx < 0 || wallIdx >= (int)layout->wallCount) continue;
@@ -88,9 +113,11 @@ static void Anchor_SeedHandlesFromWalls(Layout* layout, int anchorIndex) {
         Anchor* other = &layout->anchors[otherIdx];
         if (other->isDeleted) continue;
 
-        float dist = Vec2_Distance(anchor->pos, other->pos);
-        float handleLen = fmaxf(dist * 0.3f, 0.05f);
-        float handleAngle = Vec2_AngleDeg(anchor->pos, other->pos);
+        Vec3 delta = Vec3_Sub(other->pos, anchor->pos);
+        float planarDist = 0.0f;
+        float handleAngle = 0.0f;
+        Vec3_HandlePolarFromWorldDelta(delta, handleAxis, &planarDist, &handleAngle);
+        float handleLen = fmaxf(planarDist * 0.3f, 0.05f);
 
         if (wall->anchorA == anchorIndex) {
             anchor->handleOutLength = handleLen;
@@ -112,12 +139,13 @@ static void Anchor_SeedHandlesFromWalls(Layout* layout, int anchorIndex) {
     }
 }
 
-static int FindExistingAnchor(Layout* layout, Vec2 pos, float threshold) {
+static int FindExistingAnchor(Layout* layout, Vec3 pos, float threshold) {
     for (size_t i = 0; i < layout->anchorCount; ++i) {
-        Vec2 existing = layout->anchors[i].pos;
+        Vec3 existing = layout->anchors[i].pos;
         float dx = existing.x - pos.x;
         float dy = existing.y - pos.y;
-        if (dx * dx + dy * dy < threshold * threshold)
+        float dz = existing.z - pos.z;
+        if (dx * dx + dy * dy + dz * dz < threshold * threshold)
             return (int)i;
     }
     return -1;
@@ -126,7 +154,7 @@ static int FindExistingAnchor(Layout* layout, Vec2 pos, float threshold) {
 //		HELPERS
 // ======================================
 // 	       ANCHOR LOGIC
-int Layout_AddAnchor(Layout* layout, Vec2 pos) {
+int Layout_AddAnchor3(Layout* layout, Vec3 pos) {
     int existing = FindExistingAnchor(layout, pos, kAnchorSnapRadius);
     if (existing >= 0)
         return existing;
@@ -142,6 +170,7 @@ int Layout_AddAnchor(Layout* layout, Vec2 pos) {
         .isPersistent = false,
         .type = ANCHOR_TYPE_CORNER,
         .handlesLinked = true,
+        .handleAxis = Layout_GetActivePlaneAxis(),
         .handleInLength = 0.0f,
         .handleInAngleDeg = 0.0f,
         .handleOutLength = 0.0f,
@@ -150,6 +179,10 @@ int Layout_AddAnchor(Layout* layout, Vec2 pos) {
     layout->anchors[layout->anchorCount] = newAnchor;
     Global_FlagLayoutChanged();
     return (int)layout->anchorCount++;
+}
+
+int Layout_AddAnchor(Layout* layout, Vec2 pos) {
+    return Layout_AddAnchor3(layout, Vec3_FromVec2(pos, 0.0f));
 }
 
 void Layout_RemoveAnchor(Layout* layout, int anchorIndex) {
@@ -252,6 +285,7 @@ bool Layout_SetAnchorType(Layout* layout, int anchorIndex, AnchorType type) {
             }
             anchor->type = ANCHOR_TYPE_CURVE;
             anchor->handlesLinked = true;
+            anchor->handleAxis = Layout_GetActivePlaneAxis();
             Anchor_SeedHandlesFromWalls(layout, anchorIndex);
             Anchor_ForceLinkedHandles(anchor);
             Global_FlagLayoutChanged();
@@ -281,28 +315,28 @@ bool Layout_SetHandlesLinked(Layout* layout, int anchorIndex, bool linked) {
 // ======================================
 //             WALL LOGIC
 
-void Layout_AddWall(Layout* layout, Vec2 from, Vec2 to) {
+void Layout_AddWall3(Layout* layout, Vec3 from, Vec3 to) {
     int existingA = FindExistingAnchor(layout, from, kAnchorSnapRadius);
     int existingB = FindExistingAnchor(layout, to,   kAnchorSnapRadius);
 
     if (existingA >= 0 && !Anchor_CanAcceptConnection(&layout->anchors[existingA])) {
-        fprintf(stderr, "[Layout] Anchor %d already has 2 connections; curved workflow limits anchors to 2 walls\n",
+        fprintf(stderr, "[Layout] Anchor %d is a curve anchor and cannot exceed 2 connections\n",
                 existingA);
         return;
     }
     if (existingB >= 0 && !Anchor_CanAcceptConnection(&layout->anchors[existingB])) {
-        fprintf(stderr, "[Layout] Anchor %d already has 2 connections; curved workflow limits anchors to 2 walls\n",
+        fprintf(stderr, "[Layout] Anchor %d is a curve anchor and cannot exceed 2 connections\n",
                 existingB);
         return;
     }
 
-    int indexA = Layout_AddAnchor(layout, from);
-    int indexB = Layout_AddAnchor(layout, to);
+    int indexA = Layout_AddAnchor3(layout, from);
+    int indexB = Layout_AddAnchor3(layout, to);
 
     Anchor* anchorA = &layout->anchors[indexA];
     Anchor* anchorB = &layout->anchors[indexB];
     if (!Anchor_CanAcceptConnection(anchorA) || !Anchor_CanAcceptConnection(anchorB)) {
-        fprintf(stderr, "[Layout] Refused to connect anchors %d and %d: anchors limited to 2 walls for curve support\n",
+        fprintf(stderr, "[Layout] Refused to connect anchors %d and %d: curve anchors are limited to 2 walls\n",
                 indexA, indexB);
         return;
     }
@@ -329,6 +363,10 @@ void Layout_AddWall(Layout* layout, Vec2 from, Vec2 to) {
 
     Anchor_EnsureHandleForWall(layout, indexA, wallIndex);
     Anchor_EnsureHandleForWall(layout, indexB, wallIndex);
+}
+
+void Layout_AddWall(Layout* layout, Vec2 from, Vec2 to) {
+    Layout_AddWall3(layout, Vec3_FromVec2(from, 0.0f), Vec3_FromVec2(to, 0.0f));
 }
 
 
@@ -446,6 +484,30 @@ void Layout_Free(Layout* layout) {
     layout->walls = NULL;
     layout->wallCount = 0;
     layout->anchorCount = 0;
+}
+
+Vec3 Layout_ComputeCentroid(const Layout* layout, bool* outHasAnchors) {
+    if (!layout || layout->anchorCount == 0) {
+        if (outHasAnchors) *outHasAnchors = false;
+        return (Vec3){ 0.0f, 0.0f, 0.0f };
+    }
+
+    Vec3 sum = { 0.0f, 0.0f, 0.0f };
+    size_t count = 0;
+    for (size_t i = 0; i < layout->anchorCount; ++i) {
+        const Anchor* a = &layout->anchors[i];
+        if (a->isDeleted) continue;
+        sum = Vec3_Add(sum, a->pos);
+        ++count;
+    }
+
+    if (count == 0) {
+        if (outHasAnchors) *outHasAnchors = false;
+        return (Vec3){ 0.0f, 0.0f, 0.0f };
+    }
+
+    if (outHasAnchors) *outHasAnchors = true;
+    return Vec3_Scale(sum, 1.0f / (float)count);
 }
 
 

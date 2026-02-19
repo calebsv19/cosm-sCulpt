@@ -9,4 +9,5 @@ The grid submodule manages the viewing transform and draws the background grid t
 ## Usage
 - `GlobalState` owns a single `Grid` instance; input handlers call `Grid_pan`/`Grid_zoom` in response to user actions and immediately raise `Global_FlagGridChanged` so hitboxes rebuild with the new camera transform.
 - Rendering invokes `Render_Grid` before drawing the layout so walls/anchors sit on top of the grid background.
+- Rendering invokes `Render_Grid` in `PLANE_VIEW` to preserve slice-edit context; in `FREE_VIEW` the background grid is intentionally hidden so orientation comes from the world-axis gizmo.
 - Other modules use helper functions from `Math/math_util.h` to convert between grid world space and screen coordinates using this grid state.

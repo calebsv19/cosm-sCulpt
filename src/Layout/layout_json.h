@@ -3,7 +3,7 @@
 #include "layout.h"
 #include <stdbool.h>
 
-#define LAYOUT_JSON_SCHEMA_VERSION 2
+#define LAYOUT_JSON_SCHEMA_VERSION 4
 
 bool Layout_SaveToFile(const Layout* layout, const char* path);
 bool Layout_LoadFromFile(Layout* layout, const char* path);

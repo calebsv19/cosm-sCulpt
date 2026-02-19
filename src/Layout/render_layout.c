@@ -7,6 +7,22 @@
 #include <math.h>
 #include <stdlib.h>
 
+static float DepthVisualFactor(float absDistance) {
+    const float kFadeStart = 0.0f;
+    const float kFadeEnd = 8.0f;
+    float t = (absDistance - kFadeStart) / (kFadeEnd - kFadeStart);
+    if (t < 0.0f) t = 0.0f;
+    if (t > 1.0f) t = 1.0f;
+    return 1.0f - (0.65f * t);
+}
+
+static Uint8 ApplyDepthToChannel(Uint8 base, float depthFactor) {
+    float v = (float)base * depthFactor;
+    if (v < 0.0f) v = 0.0f;
+    if (v > 255.0f) v = 255.0f;
+    return (Uint8)v;
+}
+
 static void DrawLineWithThickness(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, int thickness) {
     SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
     if (thickness <= 1) return;
@@ -51,7 +67,9 @@ static bool Anchor_GetHandleForWall(const Layout* layout,
     float angle = isAnchorA ? anchor->handleOutAngleDeg : anchor->handleInAngleDeg;
     if (length <= 0.0001f) return false;
 
-    *outHandle = Vec2_HandleAbsolute(anchor->pos, length, angle);
+    GlobalState* state = Global_Get();
+    Vec3 handleWorld = Vec3_HandleWorldPosition(anchor->pos, anchor->handleAxis, length, angle);
+    *outHandle = Vec3_ProjectToView(handleWorld, state->activePlane, &state->freeViewCamera);
     return true;
 }
 
@@ -103,14 +121,18 @@ static void Layout_RenderWalls(const Layout* layout, SDL_Renderer* renderer){
     GlobalState* state = Global_Get();
     const Grid* grid = &state->grid;
     EditorState* editor = &state->editor;
+    ViewPlane plane = state->activePlane;
     int selectedIndex = editor->selectedWallIndex;
     int hoveredIndex = editor->hoveredWallIndex;
 
     for (size_t i = 0; i < layout->wallCount; ++i) {
         Wall w = layout->walls[i];
         if (w.isDeleted) continue;
-        Vec2 from = layout->anchors[w.anchorA].pos;
-        Vec2 to   = layout->anchors[w.anchorB].pos;
+        Vec2 from = Vec3_ProjectToView(layout->anchors[w.anchorA].pos, plane, &state->freeViewCamera);
+        Vec2 to   = Vec3_ProjectToView(layout->anchors[w.anchorB].pos, plane, &state->freeViewCamera);
+        float depthA = ViewPlane_AbsDistance(plane, layout->anchors[w.anchorA].pos);
+        float depthB = ViewPlane_AbsDistance(plane, layout->anchors[w.anchorB].pos);
+        float depthFactor = DepthVisualFactor((depthA + depthB) * 0.5f);
 
         int thickness = 1;
         if ((int)i == selectedIndex) {
@@ -120,7 +142,12 @@ static void Layout_RenderWalls(const Layout* layout, SDL_Renderer* renderer){
             SDL_SetRenderDrawColor(renderer, 180, 220, 255, 255);
             thickness = 2;
         } else {
-            SDL_SetRenderDrawColor(renderer, 100, 100, 220, 255);  // Gray
+            SDL_SetRenderDrawColor(renderer,
+                                   ApplyDepthToChannel(100, depthFactor),
+                                   ApplyDepthToChannel(100, depthFactor),
+                                   ApplyDepthToChannel(220, depthFactor),
+                                   255);
+            thickness = (depthFactor > 0.75f) ? 2 : 1;
         }
 
         Vec2 handleA = from;
@@ -145,22 +172,33 @@ static void Layout_RenderHandles(const Layout* layout, SDL_Renderer* renderer) {
     GlobalState* state = Global_Get();
     const Grid* grid = &state->grid;
     EditorState* editor = &state->editor;
+    ViewPlane plane = state->activePlane;
 
     for (size_t i = 0; i < layout->anchorCount; ++i) {
         const Anchor* anchor = &layout->anchors[i];
         if (anchor->isDeleted || anchor->type != ANCHOR_TYPE_CURVE) continue;
+        float depthFactor = DepthVisualFactor(ViewPlane_AbsDistance(plane, anchor->pos));
 
-        Vec2 anchorScreen = WorldToScreen(anchor->pos, grid);
+        Vec2 anchorPos = Vec3_ProjectToView(anchor->pos, plane, &state->freeViewCamera);
+        Vec2 anchorScreen = WorldToScreen(anchorPos, grid);
         Vec2 handles[2] = {
-            Vec2_HandleAbsolute(anchor->pos, anchor->handleInLength, anchor->handleInAngleDeg),
-            Vec2_HandleAbsolute(anchor->pos, anchor->handleOutLength, anchor->handleOutAngleDeg)
+            Vec3_ProjectToView(Vec3_HandleWorldPosition(anchor->pos, anchor->handleAxis,
+                                                        anchor->handleInLength, anchor->handleInAngleDeg),
+                               plane, &state->freeViewCamera),
+            Vec3_ProjectToView(Vec3_HandleWorldPosition(anchor->pos, anchor->handleAxis,
+                                                        anchor->handleOutLength, anchor->handleOutAngleDeg),
+                               plane, &state->freeViewCamera)
         };
 
         for (int h = 0; h < 2; ++h) {
             Vec2 handlePos = handles[h];
             Vec2 handleScreen = WorldToScreen(handlePos, grid);
 
-            SDL_SetRenderDrawColor(renderer, 120, 120, 180, 255);
+            SDL_SetRenderDrawColor(renderer,
+                                   ApplyDepthToChannel(120, depthFactor),
+                                   ApplyDepthToChannel(120, depthFactor),
+                                   ApplyDepthToChannel(180, depthFactor),
+                                   255);
             DrawLineWithThickness(renderer,
                                   (int)anchorScreen.x, (int)anchorScreen.y,
                                   (int)handleScreen.x, (int)handleScreen.y,
@@ -176,7 +214,11 @@ static void Layout_RenderHandles(const Layout* layout, SDL_Renderer* renderer) {
             } else if (isHovered) {
                 SDL_SetRenderDrawColor(renderer, 200, 220, 255, 255);
             } else {
-                SDL_SetRenderDrawColor(renderer, 150, 150, 220, 255);
+                SDL_SetRenderDrawColor(renderer,
+                                       ApplyDepthToChannel(150, depthFactor),
+                                       ApplyDepthToChannel(150, depthFactor),
+                                       ApplyDepthToChannel(220, depthFactor),
+                                       255);
             }
 
             int radius = SDL_max(3, (int)(grid->gridSize * grid->scale * 0.08f));
@@ -192,6 +234,7 @@ static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
     GlobalState* state = Global_Get();
     const Grid* grid = &state->grid;
     EditorState* editor = &state->editor;
+    ViewPlane plane = state->activePlane;
 
     int r = ANCHOR_RENDER_RADIUS;
 
@@ -200,7 +243,8 @@ static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
     for (size_t i = 0; i < layout->anchorCount; ++i) {
         Anchor* anchor = &layout->anchors[i];
         if (anchor->isDeleted) continue;
-        Vec2 screen = WorldToScreen(anchor->pos, grid);
+        float depthFactor = DepthVisualFactor(ViewPlane_AbsDistance(plane, anchor->pos));
+        Vec2 screen = WorldToScreen(Vec3_ProjectToView(anchor->pos, plane, &state->freeViewCamera), grid);
         int cx = (int)screen.x;
         int cy = (int)screen.y;
 
@@ -221,6 +265,12 @@ static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
             rC = 255; gC = 255; bC = 0;
         } else if (isHovered) {
             rC = 120; gC = 200; bC = 255;
+        }
+
+        if (!isSelected && !isHovered && !isDragging) {
+            rC = ApplyDepthToChannel(rC, depthFactor);
+            gC = ApplyDepthToChannel(gC, depthFactor);
+            bC = ApplyDepthToChannel(bC, depthFactor);
         }
 
         SDL_SetRenderDrawColor(renderer, rC, gC, bC, 255);

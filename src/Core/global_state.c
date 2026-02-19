@@ -34,6 +34,13 @@ void Global_Init(int screenWidth, int screenHeight) {
     global->screenHeight = screenHeight;
     global->layoutDirty = true;
     global->hitboxDirty = true;
+    global->activePlane = (ViewPlane){ .axis = VIEW_PLANE_XY, .offset = 0.0f };
+    global->freeViewCamera = (FreeViewCamera){
+        .enabled = false,
+        .yawDeg = 35.0f,
+        .pitchDeg = 20.0f,
+        .target = {0.0f, 0.0f, 0.0f}
+    };
     global->layoutDirtySinceSave = false;
     global->lastSavedSnapshot = NULL;
     memset(global->currentConfigPath, 0, sizeof(global->currentConfigPath));
@@ -110,7 +117,12 @@ void Global_RebuildHitboxesIfDirty(void) {
     Global_ProcessLayoutChanges(state);
 
     if (!state->hitboxDirty) return;
-    HitboxSystem_Rebuild(&state->layout, state->grid.scale, state->grid.offsetX, state->grid.offsetY);
+    HitboxSystem_Rebuild(&state->layout,
+                         state->grid.scale,
+                         state->grid.offsetX,
+                         state->grid.offsetY,
+                         state->activePlane,
+                         &state->freeViewCamera);
     state->hitboxDirty = false;
 }
 

@@ -104,7 +104,7 @@ static void DragSnapshot_EnsureCapacity(EditorState* editor, int desired) {
 void Editor_Init(EditorState* editor) {
     editor->mode = TOOL_IDLE;
     editor->shiftHeld = false;
-    editor->anchor = (Vec2){0, 0};
+    editor->anchor = (Vec3){0, 0, 0};
     editor->selectionBoxActive = false;
     editor->selectionBoxAdditive = false;
     editor->selectionBoxStart = (Vec2){0, 0};
@@ -173,11 +173,13 @@ void Editor_SelectAnchorsInBox(EditorState* editor, const Layout* layout, Vec2 m
     if (!additive) {
         AnchorSelection_Clear(editor);
     }
+    GlobalState* state = Global_Get();
+    ViewPlane plane = state->activePlane;
 
     for (size_t i = 0; i < layout->anchorCount; ++i) {
         const Anchor* anchor = &layout->anchors[i];
         if (anchor->isDeleted) continue;
-        Vec2 pos = anchor->pos;
+        Vec2 pos = Vec3_ProjectToView(anchor->pos, plane, &state->freeViewCamera);
         if (pos.x >= min.x && pos.x <= max.x &&
             pos.y >= min.y && pos.y <= max.y) {
             AnchorSelection_Add(editor, (int)i);
@@ -308,19 +310,19 @@ void Editor_BeginAnchorDrag(EditorState* editor, const Layout* layout) {
     editor->dragSnapshotCount = write;
 }
 
-void Editor_UpdateAnchorDrag(EditorState* editor, Layout* layout, Vec2 primaryNewPos) {
+void Editor_UpdateAnchorDrag(EditorState* editor, Layout* layout, Vec3 primaryNewPos) {
     if (!editor || !layout) return;
     if (editor->dragSnapshotCount == 0) return;
 
     int primaryIndex = editor->dragSnapshots[0].anchorIndex;
-    Vec2 primaryStart = editor->dragSnapshots[0].startPos;
-    Vec2 delta = Vec2_Sub(primaryNewPos, primaryStart);
+    Vec3 primaryStart = editor->dragSnapshots[0].startPos;
+    Vec3 delta = Vec3_Sub(primaryNewPos, primaryStart);
 
     for (int i = 0; i < editor->dragSnapshotCount; ++i) {
         int idx = editor->dragSnapshots[i].anchorIndex;
         if (idx < 0 || (size_t)idx >= layout->anchorCount) continue;
-        Vec2 base = editor->dragSnapshots[i].startPos;
-        Vec2 newPos = (idx == primaryIndex) ? primaryNewPos : Vec2_Add(base, delta);
+        Vec3 base = editor->dragSnapshots[i].startPos;
+        Vec3 newPos = (idx == primaryIndex) ? primaryNewPos : Vec3_Add(base, delta);
         layout->anchors[idx].pos = newPos;
     }
     Global_FlagLayoutChanged();
@@ -331,7 +333,7 @@ void Editor_EndAnchorDrag(EditorState* editor) {
     editor->dragSnapshotCount = 0;
 }
 
-void Editor_ClickAt(EditorState* editor, Vec2 worldPos) {
+void Editor_ClickAt(EditorState* editor, Vec3 worldPos) {
     GlobalState* state = Global_Get();
     Layout* layout = &state->layout;
 
@@ -339,18 +341,22 @@ void Editor_ClickAt(EditorState* editor, Vec2 worldPos) {
         editor->anchor = worldPos;
         editor->mode = TOOL_PLACING_WALL;
     } else if (editor->mode == TOOL_PLACING_WALL) {
-        Vec2 from = editor->anchor;
-        Vec2 to = worldPos;
+        Vec3 from = editor->anchor;
+        Vec3 to = worldPos;
+        ViewPlaneAxis planeAxis = state->activePlane.axis;
 
         if (editor->shiftHeld) {
-            float dx = fabsf(to.x - from.x);
-            float dy = fabsf(to.y - from.y);
-            if (dx > dy) to.y = from.y;
-            else         to.x = from.x;
+            Vec2 from2 = Vec3_ProjectToPlane(from, planeAxis);
+            Vec2 to2 = Vec3_ProjectToPlane(to, planeAxis);
+            float dx = fabsf(to2.x - from2.x);
+            float dy = fabsf(to2.y - from2.y);
+            if (dx > dy) to2.y = from2.y;
+            else         to2.x = from2.x;
+            to = Vec3_FromPlaneCoords(to2, planeAxis, state->activePlane.offset);
         }
 
         Editor_HistoryCapture(editor, layout);
-        Layout_AddWall(layout, from, to);
+        Layout_AddWall3(layout, from, to);
         editor->mode = TOOL_IDLE;
     }
 }

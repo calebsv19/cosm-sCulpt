@@ -11,6 +11,11 @@ TOOLS_DIR := $(SRC_DIR)/Tools
 EXT_DIR := external
 TEST_DIR := tests
 VK_RENDERER_DIR := ../shared/vk_renderer
+CORE_BASE_DIR := ../shared/core_base
+CORE_SCENE_DIR := ../shared/core_scene
+CORE_PACK_DIR := ../shared/core_pack
+CORE_TRACE_DIR := ../shared/core_trace
+TIMER_HUD_DIR := ../shared/timer_hud
 
 # SDL detection aligned with physics_sim style: explicit macOS paths first,
 # sdl2-config/pkg-config elsewhere.
@@ -88,7 +93,7 @@ ifeq ($(strip $(SDL_LDFLAGS)),)
 endif
 
 WARN_FLAGS := -Wall -Wextra -Werror -Wpedantic
-BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Isrc -Isrc/Tools -Iexternal -I$(VK_RENDERER_DIR)/include $(SDL_CFLAGS)
+BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Isrc -Isrc/Tools -Iexternal -I$(VK_RENDERER_DIR)/include -I$(CORE_BASE_DIR)/include -I$(CORE_SCENE_DIR)/include -I$(TIMER_HUD_DIR)/include $(SDL_CFLAGS)
 DEBUG ?= 0
 
 ifeq ($(DEBUG),1)
@@ -111,7 +116,9 @@ VK_RENDERER_SRCS := $(shell find $(VK_RENDERER_DIR)/src -name '*.c')
 SHAPE_LIB_SRCS := $(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
 SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c
 EXT_SRCS := $(EXT_DIR)/cjson/cJSON.c
-ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS)
+CORE_SRCS := $(CORE_BASE_DIR)/src/core_base.c $(CORE_SCENE_DIR)/src/core_scene.c
+TIMER_HUD_SRCS := $(shell find $(TIMER_HUD_DIR)/src -name '*.c')
+ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
 
 APP_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(ALL_SRCS))
 APP_TARGET := $(BIN_DIR)/LineDrawing
@@ -142,6 +149,18 @@ test: $(TEST_TARGET)
 	$(TEST_TARGET)
 
 shape-sanity: $(SHAPE_SANITY_BIN)
+
+SHAPE_TRACE_TOOL_SRC := $(TOOLS_DIR)/shape_trace_tool.c
+SHAPE_TRACE_TOOL_BIN := $(BIN_DIR)/shape_trace_tool
+SHAPE_TRACE_TOOL_SRCS := \
+	$(SHAPE_TRACE_TOOL_SRC) \
+	$(CORE_TRACE_DIR)/src/core_trace.c \
+	$(CORE_PACK_DIR)/src/core_pack.c \
+	$(CORE_BASE_DIR)/src/core_base.c \
+	$(EXT_DIR)/cjson/cJSON.c
+SHAPE_TRACE_TOOL_INCS := \
+	-I$(SRC_DIR) -I$(EXT_DIR) \
+	-I$(CORE_TRACE_DIR)/include -I$(CORE_PACK_DIR)/include -I$(CORE_BASE_DIR)/include
 
 $(SHAPE_SANITY_BIN): src/Tools/shape_sanity_tool.c
 	@mkdir -p $(dir $@)
@@ -203,5 +222,26 @@ $(SHAPE_TOOL_BIN): $(SHAPE_TOOL_OBJS) $(SHAPE_TOOL_SHARED_OBJS)
 .PHONY: shape_tool
 shape_tool: $(SHAPE_TOOL_BIN)
 	@echo "Built shape_tool successfully."
+
+.PHONY: shape_trace_tool shape_to_trace shape_to_trace_batch
+shape_trace_tool:
+	@mkdir -p $(BIN_DIR)
+	$(CC) -std=c11 -Wall -Wextra -Wpedantic -g $(SHAPE_TRACE_TOOL_INCS) -o $(SHAPE_TRACE_TOOL_BIN) $(SHAPE_TRACE_TOOL_SRCS) -lm
+
+shape_to_trace: shape_trace_tool
+	@if [ -z "$(SHAPE)" ] || [ -z "$(TRACE)" ]; then \
+		echo "usage: make shape_to_trace SHAPE=/path/export_shape.json TRACE=/path/output.trace.pack"; \
+		exit 1; \
+	fi
+	@mkdir -p "$$(dirname "$(TRACE)")"
+	@$(SHAPE_TRACE_TOOL_BIN) "$(SHAPE)" "$(TRACE)"
+
+shape_to_trace_batch: shape_trace_tool
+	@for shape in export/*.json; do \
+		base=$$(basename "$$shape" .json); \
+		out="export/$${base}_trace_v0.pack"; \
+		echo "trace: $$shape -> $$out"; \
+		$(SHAPE_TRACE_TOOL_BIN) "$$shape" "$$out" || exit 1; \
+	done
 
 -include $(SHAPE_TOOL_OBJS:.o=.d)

@@ -7,3 +7,8 @@
 bool ShapeDocument_FromLayout(const char* name,
                               const Layout* layout,
                               ShapeDocument* outDoc);
+
+bool ShapeDocument_FromLayoutProjected(const char* name,
+                                       const Layout* layout,
+                                       ViewPlaneAxis axis,
+                                       ShapeDocument* outDoc);

@@ -23,6 +23,30 @@ static bool anchorDragCaptured = false;
 static bool dragPrecise = false;
 static int lastMx = 0, lastMy = 0;
 
+static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
+    if (!motion) return false;
+    GlobalState* state = Global_Get();
+    if (!state || !state->freeViewCamera.enabled) return false;
+    if (UIPanel_IsSaveDialogActive() || UIPanel_IsLoadMenuOpen()) return false;
+
+    SDL_Keymod mods = SDL_GetModState();
+    if ((mods & KMOD_ALT) == 0) return false;
+
+    // Orbit around current layout centroid while Option/Alt is held.
+    bool hasAnchors = false;
+    Vec3 center = Layout_ComputeCentroid(&state->layout, &hasAnchors);
+    if (hasAnchors) {
+        state->freeViewCamera.target = center;
+    }
+
+    const float orbitSensitivity = 0.35f;
+    state->freeViewCamera.yawDeg += (float)motion->xrel * orbitSensitivity;
+    state->freeViewCamera.pitchDeg -= (float)motion->yrel * orbitSensitivity;
+    FreeView_NormalizeOrbitAngles(&state->freeViewCamera);
+    Global_FlagHitboxesDirty();
+    return true;
+}
+
 static void UpdateHover(int mx, int my) {
     GlobalState* state = Global_Get();
     if (!state) return;
@@ -64,13 +88,24 @@ static void UpdateHover(int mx, int my) {
 static void HandleMouseWheel(AppContext* ctx, SDL_MouseWheelEvent* wheel) {
     GlobalState* state = Global_Get();
     Grid* grid = &state->grid;
-    (void)ctx;
+    int mx = 0;
+    int my = 0;
+    if (ctx && ctx->window) {
+        SDL_GetMouseState(&mx, &my);
+    } else {
+        mx = Global_GetScreenWidth() / 2;
+        my = Global_GetScreenHeight() / 2;
+    }
 
-    int w = Global_GetScreenWidth();
-    int h = Global_GetScreenHeight();
+    float delta = (wheel->preciseY != 0.0f) ? wheel->preciseY : (float)wheel->y;
+    if (wheel->direction == SDL_MOUSEWHEEL_FLIPPED) {
+        delta = -delta;
+    }
+    if (fabsf(delta) <= 0.0001f) return;
 
-    float factor = (wheel->y > 0) ? 1.1f : 0.9f;
-    Grid_zoom(grid, factor, w / 2.0f, h / 2.0f);
+    // Exponential zoom for smoother high-precision wheel/trackpad input.
+    float factor = powf(1.08f, delta);
+    Grid_zoom(grid, factor, (float)mx, (float)my);
     Global_FlagGridChanged();
 }
 
@@ -179,10 +214,9 @@ static void HandleRightMouseDown(SDL_MouseButtonEvent* btn) {
     GlobalState* state = Global_Get();
     Grid* grid = &state->grid;
     EditorState* editor = &state->editor;
-
-    Vec2 world = ScreenToSnappedWorld(btn->x, btn->y, grid);
-
-    Editor_ClickAt(editor, world);
+    Vec3 world3 = {0};
+    if (!ScreenToPlaneWorld(btn->x, btn->y, grid, state->activePlane, &state->freeViewCamera, true, &world3)) return;
+    Editor_ClickAt(editor, world3);
 }
 
 static void UpdateAnchorDragPosition(int mx, int my) {
@@ -201,9 +235,8 @@ static void UpdateAnchorDragPosition(int mx, int my) {
     bool precise = (SDL_GetModState() & KMOD_ALT) != 0;
     dragPrecise = precise;
     state->editor.isPreciseDrag = precise;
-    Vec2 snapped = ScreenToSnappedWorld(mx, my, &state->grid);
-    Vec2 world = ScreenToWorld(mx, my, &state->grid);
-    Vec2 primaryPos = precise ? world : snapped;
+    Vec3 primaryPos = {0};
+    if (!ScreenToPlaneWorld(mx, my, &state->grid, state->activePlane, &state->freeViewCamera, !precise, &primaryPos)) return;
 
     Editor_UpdateAnchorDrag(&state->editor, &state->layout, primaryPos);
 }
@@ -217,10 +250,13 @@ static void UpdateHandleDragPosition(int mx, int my) {
     Anchor* anchor = &state->layout.anchors[editor->selectedHandleAnchor];
     if (anchor->isDeleted || anchor->type != ANCHOR_TYPE_CURVE) return;
 
-    Vec2 world = ScreenToWorld(mx, my, &state->grid);
-    Vec2 delta = Vec2_Sub(world, anchor->pos);
-    float length = sqrtf(delta.x * delta.x + delta.y * delta.y);
-    float angle = RadToDeg(atan2f(delta.y, delta.x));
+    Vec3 world3 = {0};
+    if (!ScreenToPlaneWorld(mx, my, &state->grid, state->activePlane, &state->freeViewCamera, false, &world3)) return;
+    Vec3 deltaWorld = Vec3_Sub(world3, anchor->pos);
+    float length = 0.0f;
+    float angle = 0.0f;
+    anchor->handleAxis = state->activePlane.axis;
+    Vec3_HandlePolarFromWorldDelta(deltaWorld, anchor->handleAxis, &length, &angle);
 
     if (editor->selectedHandleComponent == 0) {
         anchor->handleInLength = length;
@@ -319,6 +355,10 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
             break;
 
         case SDL_MOUSEMOTION:
+            if (HandleFreeViewOrbitMotion(&event->motion)) {
+                UpdateHover(event->motion.x, event->motion.y);
+                break;
+            }
             HandleMouseDrag(&event->motion);
             UpdateHover(event->motion.x, event->motion.y);
             break;

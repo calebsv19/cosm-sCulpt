@@ -15,8 +15,9 @@ typedef struct {
     bool   closed;
 } AnchorPath;
 
-static ShapeVec2 ShapeVec2_FromLayoutVec(Vec2 v) {
-    ShapeVec2 r = { v.x, v.y };
+static ShapeVec2 ShapeVec2_FromLayoutVec(Vec3 v, ViewPlaneAxis axis) {
+    Vec2 p = Vec3_ProjectToPlane(v, axis);
+    ShapeVec2 r = { p.x, p.y };
     return r;
 }
 
@@ -212,7 +213,8 @@ static bool DetermineWallDirection(const Layout* layout,
 
 static ShapeSegment MakeSegmentFromAnchors(const Layout* layout,
                                            int anchorIndexA,
-                                           int anchorIndexB) {
+                                           int anchorIndexB,
+                                           ViewPlaneAxis axis) {
     ShapeSegment seg;
     memset(&seg, 0, sizeof(seg));
     if (!layout ||
@@ -224,8 +226,8 @@ static ShapeSegment MakeSegmentFromAnchors(const Layout* layout,
     const Anchor* a = &layout->anchors[anchorIndexA];
     const Anchor* b = &layout->anchors[anchorIndexB];
 
-    seg.p0 = ShapeVec2_FromLayoutVec(a->pos);
-    seg.p1 = ShapeVec2_FromLayoutVec(b->pos);
+    seg.p0 = ShapeVec2_FromLayoutVec(a->pos, axis);
+    seg.p1 = ShapeVec2_FromLayoutVec(b->pos, axis);
 
     bool forward = true;
     DetermineWallDirection(layout, anchorIndexA, anchorIndexB, &forward);
@@ -242,9 +244,11 @@ static ShapeSegment MakeSegmentFromAnchors(const Layout* layout,
         float len = useAOut ? a->handleOutLength : a->handleInLength;
         float ang = useAOut ? a->handleOutAngleDeg : a->handleInAngleDeg;
         if (len > 0.0f) {
-            Vec2 off = Vec2_FromPolar(len, ang);
-            c1.x += off.x;
-            c1.y += off.y;
+            ViewPlaneAxis handleAxis = a->handleAxis;
+            Vec3 hWorld = Vec3_HandleWorldPosition(a->pos, handleAxis, len, ang);
+            Vec2 hProj = Vec3_ProjectToPlane(hWorld, axis);
+            c1.x = hProj.x;
+            c1.y = hProj.y;
             aHasHandle = true;
         }
     }
@@ -253,9 +257,11 @@ static ShapeSegment MakeSegmentFromAnchors(const Layout* layout,
         float len = useBIn ? b->handleInLength : b->handleOutLength;
         float ang = useBIn ? b->handleInAngleDeg : b->handleOutAngleDeg;
         if (len > 0.0f) {
-            Vec2 off = Vec2_FromPolar(len, ang);
-            c2.x += off.x;
-            c2.y += off.y;
+            ViewPlaneAxis handleAxis = b->handleAxis;
+            Vec3 hWorld = Vec3_HandleWorldPosition(b->pos, handleAxis, len, ang);
+            Vec2 hProj = Vec3_ProjectToPlane(hWorld, axis);
+            c2.x = hProj.x;
+            c2.y = hProj.y;
             bHasHandle = true;
         }
     }
@@ -271,9 +277,10 @@ static ShapeSegment MakeSegmentFromAnchors(const Layout* layout,
     return seg;
 }
 
-bool ShapeDocument_FromLayout(const char* name,
-                              const Layout* layout,
-                              ShapeDocument* outDoc) {
+bool ShapeDocument_FromLayoutProjected(const char* name,
+                                       const Layout* layout,
+                                       ViewPlaneAxis axis,
+                                       ShapeDocument* outDoc) {
     if (!layout || !outDoc) return false;
     memset(outDoc, 0, sizeof(*outDoc));
 
@@ -345,7 +352,7 @@ bool ShapeDocument_FromLayout(const char* name,
                 continue;
             }
 
-            sp->segments[si] = MakeSegmentFromAnchors(layout, idxA, idxB);
+            sp->segments[si] = MakeSegmentFromAnchors(layout, idxA, idxB, axis);
         }
 
         AnchorPath_Free(ap);
@@ -355,4 +362,10 @@ bool ShapeDocument_FromLayout(const char* name,
     outDoc->shapeCount = 1;
     outDoc->shapes = shapes;
     return true;
+}
+
+bool ShapeDocument_FromLayout(const char* name,
+                              const Layout* layout,
+                              ShapeDocument* outDoc) {
+    return ShapeDocument_FromLayoutProjected(name, layout, VIEW_PLANE_XY, outDoc);
 }

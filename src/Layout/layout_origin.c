@@ -5,12 +5,13 @@
 void Layout_ShiftOriginToAnchor(Layout* layout, Grid* grid, int anchorIndex, int screenW, int screenH) {
     if (anchorIndex < 0 || anchorIndex >= (int)layout->anchorCount) return;
     Anchor* target = &layout->anchors[anchorIndex];
-    Vec2 originShift = target->pos;
+    Vec3 originShift = target->pos;
 
     // Shift all anchors
     for (size_t i = 0; i < layout->anchorCount; ++i) {
         layout->anchors[i].pos.x -= originShift.x;
         layout->anchors[i].pos.y -= originShift.y;
+        layout->anchors[i].pos.z -= originShift.z;
     }
 
     // Center origin visually on screen

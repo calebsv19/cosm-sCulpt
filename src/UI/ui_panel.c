@@ -175,7 +175,8 @@ void UIPanel_ExportShape(void) {
     Layout_CompactDeletedElements(&state->layout);
 
     ShapeDocument doc;
-    if (!ShapeDocument_FromLayout(requested, &state->layout, &doc)) {
+    ViewPlaneAxis exportAxis = state->activePlane.axis;
+    if (!ShapeDocument_FromLayoutProjected(requested, &state->layout, exportAxis, &doc)) {
         SDL_Log("[UI] Export failed: could not build shape data.");
         return;
     }

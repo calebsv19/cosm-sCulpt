@@ -9,8 +9,45 @@
 static Hitbox hitboxes[MAX_HITBOXES];
 static size_t hitboxCount = 0;
 
+static int Hitbox_TypePriority(HitboxType type) {
+    switch (type) {
+        case HITBOX_HANDLE: return 0;
+        case HITBOX_POINT: return 1;
+        case HITBOX_WALL: return 2;
+        case HITBOX_NONE:
+        default: return 3;
+    }
+}
 
-void HitboxSystem_Rebuild(const Layout* layout, float scale, float offsetX, float offsetY) {
+static float Hitbox_CenterDistanceSq(const Hitbox* h, int mx, int my) {
+    float cx = (float)h->bounds.x + (float)h->bounds.w * 0.5f;
+    float cy = (float)h->bounds.y + (float)h->bounds.h * 0.5f;
+    float dx = (float)mx - cx;
+    float dy = (float)my - cy;
+    return dx * dx + dy * dy;
+}
+
+static void Hitbox_Add(HitboxType type,
+                       int index,
+                       int subIndex,
+                       SDL_Rect bounds,
+                       float depthDistance) {
+    if (hitboxCount >= MAX_HITBOXES) return;
+    hitboxes[hitboxCount++] = (Hitbox){
+        .type = type,
+        .index = index,
+        .subIndex = subIndex,
+        .bounds = bounds,
+        .depthDistance = depthDistance
+    };
+}
+
+void HitboxSystem_Rebuild(const Layout* layout,
+                         float scale,
+                         float offsetX,
+                         float offsetY,
+                         ViewPlane plane,
+                         const FreeViewCamera* camera) {
     hitboxCount = 0;
     float gridSize = layout->gridSize;
     bool* anchorHasHitbox = NULL;
@@ -34,8 +71,8 @@ void HitboxSystem_Rebuild(const Layout* layout, float scale, float offsetX, floa
         Anchor anchorB = layout->anchors[b];
         if (anchorA.isDeleted || anchorB.isDeleted) continue;
 
-        Vec2 from = anchorA.pos;
-        Vec2 to   = anchorB.pos;
+        Vec2 from = Vec3_ProjectToView(anchorA.pos, plane, camera);
+        Vec2 to   = Vec3_ProjectToView(anchorB.pos, plane, camera);
 
         int x1 = (int)((from.x - offsetX) * gridSize * scale);
         int y1 = (int)((from.y - offsetY) * gridSize * scale);
@@ -48,14 +85,13 @@ void HitboxSystem_Rebuild(const Layout* layout, float scale, float offsetX, floa
         int minY = SDL_min(y1, y2) - 6;
         int maxY = SDL_max(y1, y2) + 6;
 
-        if (hitboxCount < MAX_HITBOXES) {
-            hitboxes[hitboxCount++] = (Hitbox){
-                .type = HITBOX_WALL,
-                .index = (int)i,  // wall index
-                .subIndex = -1,
-                .bounds = { minX, minY, maxX - minX, maxY - minY }
-            };
-        }
+        float wallDepth = 0.5f * (ViewPlane_AbsDistance(plane, anchorA.pos) +
+                                  ViewPlane_AbsDistance(plane, anchorB.pos));
+        Hitbox_Add(HITBOX_WALL,
+                   (int)i,
+                   -1,
+                   (SDL_Rect){ minX, minY, maxX - minX, maxY - minY },
+                   wallDepth);
 
         // ── Anchor points hitboxes (large circular area) ──
         int r = (int)(gridSize * scale * 0.15f);
@@ -65,19 +101,16 @@ void HitboxSystem_Rebuild(const Layout* layout, float scale, float offsetX, floa
             int anchorIndex = anchorIDs[j];
             Anchor anchor = layout->anchors[anchorIndex];
             if (anchor.isDeleted) continue;
-            Vec2 pt = anchor.pos;
+            Vec2 pt = Vec3_ProjectToView(anchor.pos, plane, camera);
 
             int cx = (int)((pt.x - offsetX) * gridSize * scale);
             int cy = (int)((pt.y - offsetY) * gridSize * scale);
 
-            if (hitboxCount < MAX_HITBOXES) {
-                hitboxes[hitboxCount++] = (Hitbox){
-                    .type = HITBOX_POINT,
-                    .index = anchorIndex,  // anchor index, not wall
-                    .subIndex = -1,
-                    .bounds = { cx - r, cy - r, r * 2, r * 2 }
-                };
-            }
+            Hitbox_Add(HITBOX_POINT,
+                       anchorIndex,
+                       -1,
+                       (SDL_Rect){ cx - r, cy - r, r * 2, r * 2 },
+                       ViewPlane_AbsDistance(plane, anchor.pos));
             if (anchorHasHitbox) anchorHasHitbox[anchorIndex] = true;
         }
     }
@@ -88,19 +121,16 @@ void HitboxSystem_Rebuild(const Layout* layout, float scale, float offsetX, floa
             const Anchor* anchor = &layout->anchors[i];
             if (anchor->isDeleted) continue;
 
-            Vec2 pt = anchor->pos;
+            Vec2 pt = Vec3_ProjectToView(anchor->pos, plane, camera);
             int r = (int)(gridSize * scale * 0.15f);
             int cx = (int)((pt.x - offsetX) * gridSize * scale);
             int cy = (int)((pt.y - offsetY) * gridSize * scale);
 
-            if (hitboxCount < MAX_HITBOXES) {
-                hitboxes[hitboxCount++] = (Hitbox){
-                    .type = HITBOX_POINT,
-                    .index = (int)i,
-                    .subIndex = -1,
-                    .bounds = { cx - r, cy - r, r * 2, r * 2 }
-                };
-            }
+            Hitbox_Add(HITBOX_POINT,
+                       (int)i,
+                       -1,
+                       (SDL_Rect){ cx - r, cy - r, r * 2, r * 2 },
+                       ViewPlane_AbsDistance(plane, anchor->pos));
         }
     }
 
@@ -110,8 +140,12 @@ void HitboxSystem_Rebuild(const Layout* layout, float scale, float offsetX, floa
         if (anchor->type != ANCHOR_TYPE_CURVE) continue;
 
         Vec2 handles[2] = {
-            Vec2_HandleAbsolute(anchor->pos, anchor->handleInLength, anchor->handleInAngleDeg),
-            Vec2_HandleAbsolute(anchor->pos, anchor->handleOutLength, anchor->handleOutAngleDeg)
+            Vec3_ProjectToView(Vec3_HandleWorldPosition(anchor->pos, anchor->handleAxis,
+                                                        anchor->handleInLength, anchor->handleInAngleDeg),
+                               plane, camera),
+            Vec3_ProjectToView(Vec3_HandleWorldPosition(anchor->pos, anchor->handleAxis,
+                                                        anchor->handleOutLength, anchor->handleOutAngleDeg),
+                               plane, camera)
         };
 
         for (int h = 0; h < 2; ++h) {
@@ -120,14 +154,11 @@ void HitboxSystem_Rebuild(const Layout* layout, float scale, float offsetX, floa
             int hy = (int)((handlePos.y - offsetY) * gridSize * scale);
             int hr = SDL_max(4, (int)(gridSize * scale * 0.1f));
 
-            if (hitboxCount < MAX_HITBOXES) {
-                hitboxes[hitboxCount++] = (Hitbox){
-                    .type = HITBOX_HANDLE,
-                    .index = (int)i,
-                    .subIndex = h,
-                    .bounds = { hx - hr, hy - hr, hr * 2, hr * 2 }
-                };
-            }
+            Hitbox_Add(HITBOX_HANDLE,
+                       (int)i,
+                       h,
+                       (SDL_Rect){ hx - hr, hy - hr, hr * 2, hr * 2 },
+                       ViewPlane_AbsDistance(plane, anchor->pos));
         }
     }
 
@@ -136,14 +167,56 @@ void HitboxSystem_Rebuild(const Layout* layout, float scale, float offsetX, floa
 
 
 Hitbox HitboxSystem_GetHitAt(int mx, int my) {
-    for (int i = (int)hitboxCount - 1; i >= 0; --i) {  // reversed
+    int bestIdx = -1;
+    int bestTypePriority = 0;
+    float bestDepth = 0.0f;
+    float bestDist = 0.0f;
+
+    for (int i = 0; i < (int)hitboxCount; ++i) {
         SDL_Rect r = hitboxes[i].bounds;
         if (mx >= r.x && mx <= r.x + r.w &&
-            my >= r.y && my <= r.y + r.h)
-        {
-            return hitboxes[i];
+            my >= r.y && my <= r.y + r.h) {
+            int typePriority = Hitbox_TypePriority(hitboxes[i].type);
+            float depth = hitboxes[i].depthDistance;
+            float dist = Hitbox_CenterDistanceSq(&hitboxes[i], mx, my);
+
+            if (bestIdx < 0) {
+                bestIdx = i;
+                bestTypePriority = typePriority;
+                bestDepth = depth;
+                bestDist = dist;
+                continue;
+            }
+
+            if (typePriority < bestTypePriority) {
+                bestIdx = i;
+                bestTypePriority = typePriority;
+                bestDepth = depth;
+                bestDist = dist;
+                continue;
+            }
+            if (typePriority > bestTypePriority) continue;
+
+            if (depth + 1e-4f < bestDepth) {
+                bestIdx = i;
+                bestDepth = depth;
+                bestDist = dist;
+                continue;
+            }
+            if (bestDepth + 1e-4f < depth) continue;
+
+            if (dist + 0.25f < bestDist) {
+                bestIdx = i;
+                bestDist = dist;
+                continue;
+            }
+            if (bestDist + 0.25f < dist) continue;
+
+            // Stable deterministic tie-breaker: prefer most recently inserted.
+            bestIdx = i;
         }
     }
 
+    if (bestIdx >= 0) return hitboxes[bestIdx];
     return (Hitbox){ .type = HITBOX_NONE, .index = -1, .subIndex = -1 };
 }

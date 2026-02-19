@@ -3,7 +3,7 @@
 The editor layer manages the wall-placement workflow, bezier anchor editing, multi-anchor selection/dragging, and overlay rendering for in-progress actions.
 
 ## Files
-- `editor.h` / `editor.c` — define `EditorState`, track the current tool mode, anchor/hover selections, delete mode, shift-state, marquee selection bounds, and multi-selection arrays. Maintain undo/redo stacks (JSON snapshots of the layout), expose `Editor_HistoryCapture`, `Editor_Undo`, `Editor_Redo`, `Editor_ClearHistory`, and implement helpers for selection editing (`Editor_SelectAnchor`, `Editor_SelectAnchorsInBox`, `Editor_BeginAnchorDrag`, etc.). `Editor_ClickAt` still powers two-click wall placement with optional axis locking.
+- `editor.h` / `editor.c` — define `EditorState`, track the current tool mode, anchor/hover selections, delete mode, shift-state, marquee selection bounds, and multi-selection arrays. Maintain undo/redo stacks (JSON snapshots of the layout), expose `Editor_HistoryCapture`, `Editor_Undo`, `Editor_Redo`, `Editor_ClearHistory`, and implement helpers for selection editing (`Editor_SelectAnchor`, `Editor_SelectAnchorsInBox`, `Editor_BeginAnchorDrag`, etc.). The placement and drag paths are now 3D-ready (`Vec3` world positions), while current interaction behavior remains XY-constrained for compatibility.
 - `render_editor.h` / `render_editor.c` — render helper functions: `Render_Editor_Anchor` shows the starting anchor while placing a wall, `Render_Editor_GhostWall` draws the snapped preview line (respecting shift locking), `Render_Editor_SelectionBox` draws the translucent marquee while lasso selecting, and `Render_EditorOverlay` bundles the overlay calls. A placeholder exists for future selected-wall highlighting.
 
 ## Interactions

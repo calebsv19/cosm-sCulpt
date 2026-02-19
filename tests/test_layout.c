@@ -3,8 +3,10 @@
 #include "Core/global_state.h"
 #include "Layout/layout.h"
 #include "Layout/layout_json.h"
+#include "Layout/hitbox_system.h"
 #include "Editor/editor.h"
 #include "Math/math_util.h"
+#include "Tools/shape_from_layout.h"
 #include "cjson/cJSON.h"
 #include <stdlib.h>
 #include <string.h>
@@ -172,6 +174,8 @@ static bool test_layout_json_missing_version_defaults(void) {
     TEST_ASSERT(layout->anchorCount == 1);
     TEST_ASSERT(layout->anchors[0].isPersistent == true);
     TEST_ASSERT(layout->gridSize == 1.0f);
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.z, 0.0f));
+    TEST_ASSERT(layout->anchors[0].handleAxis == VIEW_PLANE_XY);
 
     shutdown_runtime();
     return true;
@@ -186,6 +190,7 @@ static bool test_layout_json_preserves_anchor_handles(void) {
     Anchor* anchor = &layout->anchors[idx];
     anchor->type = ANCHOR_TYPE_CURVE;
     anchor->handlesLinked = false;
+    anchor->handleAxis = VIEW_PLANE_YZ;
     anchor->handleInLength = 2.5f;
     anchor->handleInAngleDeg = 45.0f;
     anchor->handleOutLength = 1.25f;
@@ -201,10 +206,55 @@ static bool test_layout_json_preserves_anchor_handles(void) {
     Anchor* loaded = &layout->anchors[0];
     TEST_ASSERT(loaded->type == ANCHOR_TYPE_CURVE);
     TEST_ASSERT(!loaded->handlesLinked);
+    TEST_ASSERT(loaded->handleAxis == VIEW_PLANE_YZ);
     TEST_ASSERT(nearly_equal(loaded->handleInLength, 2.5f));
     TEST_ASSERT(nearly_equal(loaded->handleInAngleDeg, 45.0f));
     TEST_ASSERT(nearly_equal(loaded->handleOutLength, 1.25f));
     TEST_ASSERT(nearly_equal(loaded->handleOutAngleDeg, -60.0f));
+
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_json_v3_persists_anchor_z(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    int idx = Layout_AddAnchor3(layout, (Vec3){ 1.0f, 2.0f, 7.25f });
+    TEST_ASSERT(idx >= 0);
+
+    char* snapshot = Layout_SaveToString(layout);
+    TEST_ASSERT(snapshot != NULL);
+    TEST_ASSERT(Layout_LoadFromString(layout, snapshot));
+    free(snapshot);
+
+    TEST_ASSERT(layout->anchorCount == 1);
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.x, 1.0f));
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.y, 2.0f));
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.z, 7.25f));
+
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_json_v2_defaults_z_to_zero(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    const char* v2Json =
+        "{"
+        "\"file\":{\"schemaVersion\":2,\"gridSize\":1},"
+        "\"anchors\":[{\"x\":3,\"y\":4,\"persistent\":false}],"
+        "\"walls\":[]"
+        "}";
+
+    TEST_ASSERT(Layout_LoadFromString(layout, v2Json));
+    TEST_ASSERT(layout->anchorCount == 1);
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.x, 3.0f));
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.y, 4.0f));
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.z, 0.0f));
 
     shutdown_runtime();
     return true;
@@ -258,6 +308,108 @@ static bool test_editor_history_limit_enforced(void) {
     return true;
 }
 
+static bool test_layout_add_anchor3_preserves_z(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    int idx = Layout_AddAnchor3(layout, (Vec3){ 1.0f, 2.0f, 3.5f });
+    TEST_ASSERT(idx >= 0);
+    TEST_ASSERT(layout->anchorCount == 1);
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.x, 1.0f));
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.y, 2.0f));
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.z, 3.5f));
+
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_corner_anchor_allows_more_than_two_connections(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    Vec3 center = { 0.0f, 0.0f, 0.0f };
+    Layout_AddWall3(layout, center, (Vec3){ 1.0f, 0.0f, 0.0f });
+    Layout_AddWall3(layout, center, (Vec3){ 0.0f, 1.0f, 0.0f });
+    Layout_AddWall3(layout, center, (Vec3){ -1.0f, 0.0f, 0.0f });
+
+    int centerIdx = Layout_AddAnchor3(layout, center);
+    TEST_ASSERT(centerIdx >= 0);
+    TEST_ASSERT(layout->anchors[centerIdx].connectionCount == 3);
+
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_hitbox_prefers_nearer_plane_depth_for_overlapping_points(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    int nearIdx = Layout_AddAnchor3(layout, (Vec3){ 1.0f, 1.0f, 0.0f });
+    int farIdx = Layout_AddAnchor3(layout, (Vec3){ 1.0f, 1.0f, 5.0f });
+    TEST_ASSERT(nearIdx >= 0);
+    TEST_ASSERT(farIdx >= 0);
+
+    Global_RebuildHitboxesIfDirty();
+
+    Vec2 screen = WorldToScreen((Vec2){ 1.0f, 1.0f }, &state->grid);
+    Hitbox hit = HitboxSystem_GetHitAt((int)screen.x, (int)screen.y);
+
+    TEST_ASSERT(hit.type == HITBOX_POINT);
+    TEST_ASSERT(hit.index == nearIdx);
+
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_compute_centroid_ignores_deleted_anchors(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    int a = Layout_AddAnchor3(layout, (Vec3){ 0.0f, 0.0f, 0.0f });
+    int b = Layout_AddAnchor3(layout, (Vec3){ 10.0f, 2.0f, 4.0f });
+    int c = Layout_AddAnchor3(layout, (Vec3){ 20.0f, 6.0f, 8.0f });
+    TEST_ASSERT(a >= 0 && b >= 0 && c >= 0);
+
+    Layout_MarkAnchorDeleted(layout, c);
+    bool hasAnchors = false;
+    Vec3 center = Layout_ComputeCentroid(layout, &hasAnchors);
+    TEST_ASSERT(hasAnchors);
+    TEST_ASSERT(nearly_equal(center.x, 5.0f));
+    TEST_ASSERT(nearly_equal(center.y, 1.0f));
+    TEST_ASSERT(nearly_equal(center.z, 2.0f));
+
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_shape_export_projection_axis_mapping(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    Layout_AddWall3(layout, (Vec3){ 2.0f, 1.0f, 3.0f }, (Vec3){ 2.0f, 4.0f, 5.0f });
+
+    ShapeDocument doc = {0};
+    TEST_ASSERT(ShapeDocument_FromLayoutProjected("plane_yz", layout, VIEW_PLANE_YZ, &doc));
+    TEST_ASSERT(doc.shapeCount == 1);
+    TEST_ASSERT(doc.shapes[0].pathCount == 1);
+    TEST_ASSERT(doc.shapes[0].paths[0].segmentCount == 1);
+
+    const ShapeSegment* seg = &doc.shapes[0].paths[0].segments[0];
+    TEST_ASSERT(nearly_equal(seg->p0.x, 1.0f));
+    TEST_ASSERT(nearly_equal(seg->p0.y, 3.0f));
+    TEST_ASSERT(nearly_equal(seg->p1.x, 4.0f));
+    TEST_ASSERT(nearly_equal(seg->p1.y, 5.0f));
+
+    ShapeDocument_Free(&doc);
+    shutdown_runtime();
+    return true;
+}
+
 bool layout_run_tests(void) {
     const TestCase cases[] = {
         { "AddWallReusesAnchors", test_layout_add_wall_reuses_anchors },
@@ -268,8 +420,15 @@ bool layout_run_tests(void) {
         { "LayoutJsonFutureVersionRejected", test_layout_json_future_version_rejected },
         { "LayoutJsonMissingVersionDefaults", test_layout_json_missing_version_defaults },
         { "LayoutJsonPreservesAnchorHandles", test_layout_json_preserves_anchor_handles },
+        { "LayoutJsonV3PersistsAnchorZ", test_layout_json_v3_persists_anchor_z },
+        { "LayoutJsonV2DefaultsZToZero", test_layout_json_v2_defaults_z_to_zero },
         { "LayoutHandlesLinkToggle", test_layout_handles_link_toggle },
-        { "EditorHistoryLimitEnforced", test_editor_history_limit_enforced }
+        { "EditorHistoryLimitEnforced", test_editor_history_limit_enforced },
+        { "LayoutAddAnchor3PreservesZ", test_layout_add_anchor3_preserves_z },
+        { "LayoutCornerAnchorAllowsMoreThanTwoConnections", test_layout_corner_anchor_allows_more_than_two_connections },
+        { "HitboxPrefersNearerPlaneDepthForOverlappingPoints", test_hitbox_prefers_nearer_plane_depth_for_overlapping_points },
+        { "LayoutComputeCentroidIgnoresDeletedAnchors", test_layout_compute_centroid_ignores_deleted_anchors },
+        { "ShapeExportProjectionAxisMapping", test_shape_export_projection_axis_mapping }
     };
 
     return run_test_cases("Layout", cases, sizeof(cases) / sizeof(cases[0]));

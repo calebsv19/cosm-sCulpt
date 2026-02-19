@@ -47,11 +47,29 @@ int main(int argc, char** argv) {
     bool viewMode = false;
     const char* layoutPath = "config/layout_config.json";
     const char* exportPath = NULL;
+    ViewPlaneAxis exportAxis = VIEW_PLANE_XY;
 
     for (int i = 1; i < argc; ++i) {
         const char* arg = argv[i];
         if (strcmp(arg, "--view") == 0) {
             viewMode = true;
+        } else if (strcmp(arg, "--plane") == 0) {
+            if (i + 1 < argc) {
+                const char* label = argv[++i];
+                if (strcmp(label, "xy") == 0) {
+                    exportAxis = VIEW_PLANE_XY;
+                } else if (strcmp(label, "yz") == 0) {
+                    exportAxis = VIEW_PLANE_YZ;
+                } else if (strcmp(label, "xz") == 0) {
+                    exportAxis = VIEW_PLANE_XZ;
+                } else {
+                    fprintf(stderr, "[shape_tool] ERROR: --plane must be one of: xy, yz, xz\n");
+                    return 1;
+                }
+            } else {
+                fprintf(stderr, "[shape_tool] ERROR: --plane requires a value (xy|yz|xz)\n");
+                return 1;
+            }
         } else if (strcmp(arg, "--export-shape") == 0) {
             if (i + 1 < argc) {
                 exportPath = argv[++i];
@@ -65,6 +83,9 @@ int main(int argc, char** argv) {
     }
 
     printf("[shape_tool] Using Layout JSON file: %s\n", layoutPath);
+    printf("[shape_tool] Projection plane: %s\n",
+           exportAxis == VIEW_PLANE_YZ ? "YZ" :
+           exportAxis == VIEW_PLANE_XZ ? "XZ" : "XY");
 
     Layout layout;
     Layout_Init(&layout, 1.0f);
@@ -79,7 +100,7 @@ int main(int argc, char** argv) {
            layout.anchorCount, layout.wallCount);
 
     ShapeDocument doc;
-    if (!ShapeDocument_FromLayout(layoutPath, &layout, &doc)) {
+    if (!ShapeDocument_FromLayoutProjected(layoutPath, &layout, exportAxis, &doc)) {
         fprintf(stderr, "[shape_tool] ERROR: failed to convert Layout to ShapeDocument\n");
         Layout_Free(&layout);
         return 1;

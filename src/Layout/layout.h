@@ -13,7 +13,7 @@ typedef enum {
 } AnchorType;
 
 typedef struct {
-    Vec2 pos;               // Position in world space
+    Vec3 pos;               // Position in world space
     int* connectedWalls;    // Dynamic array of wall indices
     int  connectionCount;
 
@@ -24,6 +24,7 @@ typedef struct {
 
     AnchorType type;        // Corner or smooth curve
     bool handlesLinked;     // When true, in/out handle angles mirror
+    ViewPlaneAxis handleAxis; // Plane basis used to interpret handle polar angles
     float handleInLength;   // Polar length for incoming handle
     float handleInAngleDeg; // Angle in degrees relative to +X
     float handleOutLength;  // Polar length for outgoing handle
@@ -59,11 +60,13 @@ typedef struct {
 void Layout_Init(Layout* layout, float gridSize);
 void Layout_Free(Layout* layout);
 void Layout_CompactDeletedElements(Layout* layout);
+Vec3 Layout_ComputeCentroid(const Layout* layout, bool* outHasAnchors);
 
 
 //        Anchor management
 // ======================================
 int  Layout_AddAnchor(Layout* layout, Vec2 pos);
+int  Layout_AddAnchor3(Layout* layout, Vec3 pos);
 void Layout_RemoveAnchor(Layout* layout, int anchorIndex);
 void Layout_MarkAnchorDeleted(Layout* layout, int anchorIndex);
 bool Layout_SetAnchorType(Layout* layout, int anchorIndex, AnchorType type);
@@ -74,5 +77,6 @@ bool Layout_SetHandlesLinked(Layout* layout, int anchorIndex, bool linked);
 //        Wall management
 // ======================================
 void Layout_AddWall(Layout* layout, Vec2 from, Vec2 to);
+void Layout_AddWall3(Layout* layout, Vec3 from, Vec3 to);
 void Layout_RemoveWall(Layout* layout, int wallIndex);
 void Layout_MarkWallDeleted(Layout* layout, int wallIndex);

@@ -57,6 +57,16 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
 
     EditorState* editor = &state->editor;
     Layout* layout = &state->layout;
+    ViewPlane plane = state->activePlane;
+    const char* planeLabel = "XY";
+    const char* planeCoordLabel = "z";
+    if (plane.axis == VIEW_PLANE_YZ) {
+        planeLabel = "YZ";
+        planeCoordLabel = "x";
+    } else if (plane.axis == VIEW_PLANE_XZ) {
+        planeLabel = "XZ";
+        planeCoordLabel = "y";
+    }
 
     char line1[256] = {0};
     char line2[256] = {0};
@@ -67,15 +77,15 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
         int selectedCount = Editor_SelectedAnchorCount(editor);
         if (selectedCount > 1) {
             snprintf(line1, sizeof(line1),
-                     "Anchor #%d  Pos:(%.2f, %.2f)  Group:%d",
+                     "Anchor #%d  Pos:(%.2f, %.2f, %.2f)  Group:%d",
                      editor->selectedAnchorIndex,
-                     anchor->pos.x, anchor->pos.y,
+                     anchor->pos.x, anchor->pos.y, anchor->pos.z,
                      selectedCount);
         } else {
             snprintf(line1, sizeof(line1),
-                     "Anchor #%d  Pos:(%.2f, %.2f)",
+                     "Anchor #%d  Pos:(%.2f, %.2f, %.2f)",
                      editor->selectedAnchorIndex,
-                     anchor->pos.x, anchor->pos.y);
+                     anchor->pos.x, anchor->pos.y, anchor->pos.z);
         }
         const char* typeLabel = (anchor->type == ANCHOR_TYPE_CURVE) ? "Curve" : "Corner";
         bool draggingSelected = editor->isDraggingAnchor;
@@ -109,12 +119,13 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
             Anchor* b = &layout->anchors[wall->anchorB];
             float dx = b->pos.x - a->pos.x;
             float dy = b->pos.y - a->pos.y;
-            float length = sqrtf(dx * dx + dy * dy);
+            float dz = b->pos.z - a->pos.z;
+            float length = sqrtf(dx * dx + dy * dy + dz * dz);
             snprintf(line1, sizeof(line1),
-                     "Wall #%d  A:%d (%.2f, %.2f)  B:%d (%.2f, %.2f)",
+                     "Wall #%d  A:%d (%.2f, %.2f, %.2f)  B:%d (%.2f, %.2f, %.2f)",
                      editor->selectedWallIndex,
-                     wall->anchorA, a->pos.x, a->pos.y,
-                     wall->anchorB, b->pos.x, b->pos.y);
+                     wall->anchorA, a->pos.x, a->pos.y, a->pos.z,
+                     wall->anchorB, b->pos.x, b->pos.y, b->pos.z);
             snprintf(line2, sizeof(line2),
                      "Length: %.2f units  LockLength:%s",
                      length,
@@ -124,9 +135,9 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
                editor->hoveredAnchorIndex < (int)layout->anchorCount) {
         Anchor* anchor = &layout->anchors[editor->hoveredAnchorIndex];
         snprintf(line1, sizeof(line1),
-                 "Hover Anchor #%d  Pos:(%.2f, %.2f)",
+                 "Hover Anchor #%d  Pos:(%.2f, %.2f, %.2f)",
                  editor->hoveredAnchorIndex,
-                 anchor->pos.x, anchor->pos.y);
+                 anchor->pos.x, anchor->pos.y, anchor->pos.z);
         const char* typeLabel = (anchor->type == ANCHOR_TYPE_CURVE) ? "Curve" : "Corner";
         if (anchor->type == ANCHOR_TYPE_CURVE) {
             snprintf(line2, sizeof(line2),
@@ -153,12 +164,13 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
         Anchor* b = &layout->anchors[wall->anchorB];
         float dx = b->pos.x - a->pos.x;
         float dy = b->pos.y - a->pos.y;
-        float length = sqrtf(dx * dx + dy * dy);
+        float dz = b->pos.z - a->pos.z;
+        float length = sqrtf(dx * dx + dy * dy + dz * dz);
         snprintf(line1, sizeof(line1),
-                 "Hover Wall #%d  A:%d (%.2f, %.2f)  B:%d (%.2f, %.2f)",
+                 "Hover Wall #%d  A:%d (%.2f, %.2f, %.2f)  B:%d (%.2f, %.2f, %.2f)",
                  editor->hoveredWallIndex,
-                 wall->anchorA, a->pos.x, a->pos.y,
-                 wall->anchorB, b->pos.x, b->pos.y);
+                 wall->anchorA, a->pos.x, a->pos.y, a->pos.z,
+                 wall->anchorB, b->pos.x, b->pos.y, b->pos.z);
         snprintf(line2, sizeof(line2),
                  "Length: %.2f units  LockLength:%s",
                  length,
@@ -175,10 +187,15 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
     size_t redoCount = Editor_RedoCount(editor);
 
     char statusLine[256];
+    const char* viewLabel = state->freeViewCamera.enabled ? "FREE" : "PLANE";
     snprintf(statusLine, sizeof(statusLine),
-             "File: %s%s  |  Undo:%zu  Redo:%zu  |  Delete Mode: %s",
+             "File: %s%s  |  View:%s  Plane: %s (%s=%.2f)  |  Undo:%zu  Redo:%zu  |  Delete Mode: %s",
              base ? base : "(unsaved)",
              dirty ? " *" : "",
+             viewLabel,
+             planeLabel,
+             planeCoordLabel,
+             plane.offset,
              undoCount,
              redoCount,
              editor->deleteMode == DELETE_MODE_SAFE ? "SAFE" : "AUTO_PRUNE");

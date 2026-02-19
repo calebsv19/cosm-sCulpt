@@ -22,11 +22,12 @@ void Render_Editor_Anchor(EditorState* editor, AppContext* ctx) {
 
     GlobalState* state = Global_Get();
     Grid* grid = &state->grid;
+    ViewPlane plane = state->activePlane;
 
     float gridSize = grid->gridSize;
     float scale = grid->scale;
 
-    Vec2 from = editor->anchor;
+    Vec2 from = Vec3_ProjectToView(editor->anchor, plane, &state->freeViewCamera);
 
     int cx = (int)((from.x - grid->offsetX) * gridSize * scale);
     int cy = (int)((from.y - grid->offsetY) * gridSize * scale);
@@ -47,19 +48,18 @@ void Render_Editor_GhostWall(EditorState* editor, AppContext* ctx) {
 
     GlobalState* state = Global_Get();
     Grid* grid = &state->grid;
+    ViewPlane plane = state->activePlane;
 
     float gridSize = grid->gridSize;
     float scale = grid->scale;
 
     int mx, my;
     SDL_GetMouseState(&mx, &my);
-    Vec2 to = {
-        .x = mx / (gridSize * scale) + grid->offsetX,
-        .y = my / (gridSize * scale) + grid->offsetY
-    };
-    to = Vec2_Snap(to, gridSize);
+    Vec3 toWorld = {0};
+    if (!ScreenToPlaneWorld(mx, my, grid, plane, &state->freeViewCamera, true, &toWorld)) return;
+    Vec2 to = Vec3_ProjectToView(toWorld, plane, &state->freeViewCamera);
 
-    Vec2 from = editor->anchor;
+    Vec2 from = Vec3_ProjectToView(editor->anchor, plane, &state->freeViewCamera);
     if (editor->shiftHeld) {
         float dx = fabsf(to.x - from.x);
         float dy = fabsf(to.y - from.y);

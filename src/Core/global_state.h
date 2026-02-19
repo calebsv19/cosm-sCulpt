@@ -12,6 +12,8 @@ typedef struct {
     Grid grid;
     Layout layout;
     EditorState editor;
+    ViewPlane activePlane;
+    FreeViewCamera freeViewCamera;
 
     int screenWidth;
     int screenHeight;

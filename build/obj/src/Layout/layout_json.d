@@ -69,6 +69,7 @@ build/obj/src/Layout/layout_json.o: src/Layout/layout_json.c \
   ../shared/vk_renderer/include/vk_renderer_config.h \
   ../shared/vk_renderer/include/vk_renderer_context.h \
   /opt/homebrew/include/SDL2/SDL_vulkan.h \
+  ../shared/vk_renderer/include/vk_renderer_device.h \
   ../shared/vk_renderer/include/vk_renderer_pipeline.h \
   ../shared/vk_renderer/include/vk_renderer_commands.h \
   ../shared/vk_renderer/include/vk_renderer_memory.h \
@@ -76,7 +77,9 @@ build/obj/src/Layout/layout_json.o: src/Layout/layout_json.c \
   ../shared/vk_renderer/include/vk_renderer_compat_sdl.h \
   src/Layout/layout_json.h src/Layout/layout.h src/Math/math_util.h \
   src/Layout/Grid/grid.h src/Core/global_state.h src/Editor/editor.h \
-  src/Core/SDLApp/sdl_app_framework.h external/cjson/cJSON.h
+  src/Core/SDLApp/sdl_app_framework.h \
+  ../shared/core_scene/include/core_scene.h \
+  ../shared/core_base/include/core_base.h external/cjson/cJSON.h
 ../shared/vk_renderer/include/vk_renderer_sdl.h:
 ../shared/vk_renderer/include/vk_renderer.h:
 /opt/homebrew/include/SDL2/SDL.h:
@@ -148,6 +151,7 @@ build/obj/src/Layout/layout_json.o: src/Layout/layout_json.c \
 ../shared/vk_renderer/include/vk_renderer_config.h:
 ../shared/vk_renderer/include/vk_renderer_context.h:
 /opt/homebrew/include/SDL2/SDL_vulkan.h:
+../shared/vk_renderer/include/vk_renderer_device.h:
 ../shared/vk_renderer/include/vk_renderer_pipeline.h:
 ../shared/vk_renderer/include/vk_renderer_commands.h:
 ../shared/vk_renderer/include/vk_renderer_memory.h:
@@ -160,4 +164,6 @@ src/Layout/Grid/grid.h:
 src/Core/global_state.h:
 src/Editor/editor.h:
 src/Core/SDLApp/sdl_app_framework.h:
+../shared/core_scene/include/core_scene.h:
+../shared/core_base/include/core_base.h:
 external/cjson/cJSON.h:
