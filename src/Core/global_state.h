@@ -8,10 +8,16 @@
 
 #define ANCHOR_RENDER_RADIUS 5
 
-typedef struct {
+typedef enum {
+    SPACE_MODE_2D = 0,
+    SPACE_MODE_3D = 1
+} SpaceMode;
+
+typedef struct GlobalState {
     Grid grid;
     Layout layout;
     EditorState editor;
+    SpaceMode spaceMode;
     ViewPlane activePlane;
     FreeViewCamera freeViewCamera;
 
@@ -46,3 +52,9 @@ void Global_OnLayoutSaved(const char* path);
 void Global_OnLayoutLoaded(const char* path);
 const char* Global_GetCurrentConfigPath(void);
 bool Global_IsLayoutDirty(void);
+SpaceMode Global_GetSpaceMode(void);
+const char* Global_GetSpaceModeLabel(SpaceMode mode);
+bool Global_SetSpaceMode(SpaceMode mode, bool persist);
+bool Global_ToggleSpaceMode(bool persist);
+bool Global_LoadSpaceMode(void);
+bool Global_SaveSpaceMode(void);

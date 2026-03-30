@@ -1,12 +1,99 @@
 // src/Core/global_state.c
 #include "Core/global_state.h"
+#include "Core/space_mode_adapter.h"
 #include "Layout/hitbox_system.h"
 #include "UI/ui_panel.h"
 #include "Layout/layout_json.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <ctype.h>
 
 static GlobalState* global = NULL;
+static const char* k_space_mode_config_path = "config/space_mode.txt";
+
+const char* Global_GetSpaceModeLabel(SpaceMode mode) {
+    return mode == SPACE_MODE_2D ? "2D" : "3D";
+}
+
+static bool SpaceMode_Parse(const char* text, SpaceMode* out_mode) {
+    if (!text || !out_mode) return false;
+
+    char normalized[16];
+    size_t count = 0;
+    for (const char* p = text; *p && count + 1 < sizeof(normalized); ++p) {
+        unsigned char c = (unsigned char)*p;
+        if (isspace(c)) continue;
+        normalized[count++] = (char)tolower(c);
+    }
+    normalized[count] = '\0';
+
+    if (strcmp(normalized, "2d") == 0) {
+        *out_mode = SPACE_MODE_2D;
+        return true;
+    }
+    if (strcmp(normalized, "3d") == 0) {
+        *out_mode = SPACE_MODE_3D;
+        return true;
+    }
+    return false;
+}
+
+SpaceMode Global_GetSpaceMode(void) {
+    if (!global) return SPACE_MODE_3D;
+    return global->spaceMode;
+}
+
+bool Global_SaveSpaceMode(void) {
+    if (!global) return false;
+    FILE* fp = fopen(k_space_mode_config_path, "wb");
+    if (!fp) return false;
+    const char* mode_text = (global->spaceMode == SPACE_MODE_2D) ? "2d\n" : "3d\n";
+    const size_t mode_len = strlen(mode_text);
+    const bool ok = fwrite(mode_text, 1, mode_len, fp) == mode_len;
+    fclose(fp);
+    return ok;
+}
+
+bool Global_SetSpaceMode(SpaceMode mode, bool persist) {
+    if (!global) return false;
+    if (mode != SPACE_MODE_2D && mode != SPACE_MODE_3D) return false;
+
+    global->spaceMode = mode;
+    if (mode == SPACE_MODE_2D) {
+        // 2D mode is always XY at z=0 with no free-view camera controls.
+        global->activePlane.axis = VIEW_PLANE_XY;
+        global->activePlane.offset = 0.0f;
+        global->freeViewCamera.enabled = false;
+    }
+
+    Global_FlagHitboxesDirty();
+    if (persist) {
+        return Global_SaveSpaceMode();
+    }
+    return true;
+}
+
+bool Global_ToggleSpaceMode(bool persist) {
+    if (!global) return false;
+    SpaceMode next = (global->spaceMode == SPACE_MODE_2D) ? SPACE_MODE_3D : SPACE_MODE_2D;
+    return Global_SetSpaceMode(next, persist);
+}
+
+bool Global_LoadSpaceMode(void) {
+    if (!global) return false;
+    FILE* fp = fopen(k_space_mode_config_path, "rb");
+    if (!fp) return false;
+
+    char buffer[32];
+    const size_t count = fread(buffer, 1, sizeof(buffer) - 1, fp);
+    buffer[count] = '\0';
+    fclose(fp);
+
+    SpaceMode loaded = SPACE_MODE_3D;
+    if (!SpaceMode_Parse(buffer, &loaded)) return false;
+    return Global_SetSpaceMode(loaded, false);
+}
 
 static void Global_UpdateSavedSnapshot(void) {
     if (!global) return;
@@ -34,6 +121,7 @@ void Global_Init(int screenWidth, int screenHeight) {
     global->screenHeight = screenHeight;
     global->layoutDirty = true;
     global->hitboxDirty = true;
+    global->spaceMode = SPACE_MODE_3D;
     global->activePlane = (ViewPlane){ .axis = VIEW_PLANE_XY, .offset = 0.0f };
     global->freeViewCamera = (FreeViewCamera){
         .enabled = false,
@@ -51,6 +139,9 @@ void Global_Init(int screenWidth, int screenHeight) {
     Layout_Init(&global->layout, 1.0f);
     Editor_Init(&global->editor);
     UIPanel_Init(screenWidth, screenHeight);
+
+    Global_SetSpaceMode(global->spaceMode, false);
+    Global_LoadSpaceMode();
     Editor_HistoryCapture(&global->editor, &global->layout);
     Global_UpdateSavedSnapshot();
 }
@@ -117,12 +208,13 @@ void Global_RebuildHitboxesIfDirty(void) {
     Global_ProcessLayoutChanges(state);
 
     if (!state->hitboxDirty) return;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     HitboxSystem_Rebuild(&state->layout,
                          state->grid.scale,
                          state->grid.offsetX,
                          state->grid.offsetY,
-                         state->activePlane,
-                         &state->freeViewCamera);
+                         viewCtx.plane,
+                         SpaceAdapter_Camera(&viewCtx));
     state->hitboxDirty = false;
 }
 

@@ -1,6 +1,7 @@
 // src/Render/render_editor.c
 #include "Editor/render_editor.h"
 #include "Core/global_state.h"
+#include "Core/space_mode_adapter.h"
 #include "Layout/Grid/grid.h"
 #include "Math/math_util.h"
 #include <SDL2/SDL.h>
@@ -22,12 +23,12 @@ void Render_Editor_Anchor(EditorState* editor, AppContext* ctx) {
 
     GlobalState* state = Global_Get();
     Grid* grid = &state->grid;
-    ViewPlane plane = state->activePlane;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
 
     float gridSize = grid->gridSize;
     float scale = grid->scale;
 
-    Vec2 from = Vec3_ProjectToView(editor->anchor, plane, &state->freeViewCamera);
+    Vec2 from = SpaceAdapter_ProjectToView(editor->anchor, &viewCtx);
 
     int cx = (int)((from.x - grid->offsetX) * gridSize * scale);
     int cy = (int)((from.y - grid->offsetY) * gridSize * scale);
@@ -48,7 +49,7 @@ void Render_Editor_GhostWall(EditorState* editor, AppContext* ctx) {
 
     GlobalState* state = Global_Get();
     Grid* grid = &state->grid;
-    ViewPlane plane = state->activePlane;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
 
     float gridSize = grid->gridSize;
     float scale = grid->scale;
@@ -56,10 +57,10 @@ void Render_Editor_GhostWall(EditorState* editor, AppContext* ctx) {
     int mx, my;
     SDL_GetMouseState(&mx, &my);
     Vec3 toWorld = {0};
-    if (!ScreenToPlaneWorld(mx, my, grid, plane, &state->freeViewCamera, true, &toWorld)) return;
-    Vec2 to = Vec3_ProjectToView(toWorld, plane, &state->freeViewCamera);
+    if (!SpaceAdapter_ScreenToWorld(mx, my, grid, &viewCtx, true, &toWorld)) return;
+    Vec2 to = SpaceAdapter_ProjectToView(toWorld, &viewCtx);
 
-    Vec2 from = Vec3_ProjectToView(editor->anchor, plane, &state->freeViewCamera);
+    Vec2 from = SpaceAdapter_ProjectToView(editor->anchor, &viewCtx);
     if (editor->shiftHeld) {
         float dx = fabsf(to.x - from.x);
         float dy = fabsf(to.y - from.y);

@@ -1,5 +1,6 @@
 #include "render_handler.h"
 #include "Core/global_state.h"
+#include "Core/space_mode_adapter.h"
 
 #include "UI/ui_panel.h"
 #include "UI/render_ui_panel.h"
@@ -55,34 +56,37 @@ static void DrawAxisArrow(SDL_Renderer* renderer,
 }
 
 static void Render_FreeViewAxisGizmo(SDL_Renderer* renderer, const GlobalState* state) {
-    if (!renderer || !state || !state->freeViewCamera.enabled) return;
+    if (!renderer || !state) return;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    if (!SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
 
     bool hasAnchors = false;
     Vec3 center = Layout_ComputeCentroid(&state->layout, &hasAnchors);
-    if (!hasAnchors) center = state->freeViewCamera.target;
+    if (!hasAnchors) center = viewCtx.camera.target;
 
     float axisLen = fmaxf(state->grid.gridSize * 4.0f, 2.0f);
     Vec3 xEnd = Vec3_Add(center, (Vec3){ axisLen, 0.0f, 0.0f });
     Vec3 yEnd = Vec3_Add(center, (Vec3){ 0.0f, axisLen, 0.0f });
     Vec3 zEnd = Vec3_Add(center, (Vec3){ 0.0f, 0.0f, axisLen });
 
-    Vec2 c2 = Vec3_ProjectToView(center, state->activePlane, &state->freeViewCamera);
-    Vec2 x2 = Vec3_ProjectToView(xEnd, state->activePlane, &state->freeViewCamera);
-    Vec2 y2 = Vec3_ProjectToView(yEnd, state->activePlane, &state->freeViewCamera);
-    Vec2 z2 = Vec3_ProjectToView(zEnd, state->activePlane, &state->freeViewCamera);
+    Vec2 c2 = SpaceAdapter_ProjectToView(center, &viewCtx);
+    Vec2 x2 = SpaceAdapter_ProjectToView(xEnd, &viewCtx);
+    Vec2 y2 = SpaceAdapter_ProjectToView(yEnd, &viewCtx);
+    Vec2 z2 = SpaceAdapter_ProjectToView(zEnd, &viewCtx);
 
     DrawAxisArrow(renderer, &state->grid, c2, x2, (SDL_Color){ 255, 70, 70, 255 },
-                  (Vec3){ 1.0f, 0.0f, 0.0f }, &state->freeViewCamera);   // +X
+                  (Vec3){ 1.0f, 0.0f, 0.0f }, SpaceAdapter_Camera(&viewCtx));   // +X
     DrawAxisArrow(renderer, &state->grid, c2, y2, (SDL_Color){ 70, 255, 70, 255 },
-                  (Vec3){ 0.0f, 1.0f, 0.0f }, &state->freeViewCamera);   // +Y
+                  (Vec3){ 0.0f, 1.0f, 0.0f }, SpaceAdapter_Camera(&viewCtx));   // +Y
     DrawAxisArrow(renderer, &state->grid, c2, z2, (SDL_Color){ 90, 160, 255, 255 },
-                  (Vec3){ 0.0f, 0.0f, 1.0f }, &state->freeViewCamera);  // +Z
+                  (Vec3){ 0.0f, 0.0f, 1.0f }, SpaceAdapter_Camera(&viewCtx));  // +Z
 }
 
 void Render_Frame(AppContext* ctx) {
     static int logged_counts = 0;
 
     GlobalState* state = Global_Get();
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     Global_RebuildHitboxesIfDirty();
     Grid* grid = &state->grid;
     Layout* layout = &state->layout;
@@ -102,7 +106,7 @@ void Render_Frame(AppContext* ctx) {
 
     // ─── Grid ────────────────────────────────────
     // Render_Grid(grid, ctx->renderer, w, h, GRID_DRAW_UNITS);
-    if (!state->freeViewCamera.enabled) {
+    if (!SpaceAdapter_IsFreeViewEnabled(&viewCtx)) {
         Render_Grid(grid, ctx->renderer, w, h, GRID_DRAW_UNITS | GRID_DRAW_FIVES);
     }
     // Render_Grid(grid, ctx->renderer, w, h, GRID_DRAW_UNITS | GRID_DRAW_FIVES | GRID_DRAW_TENS);

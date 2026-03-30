@@ -1,6 +1,7 @@
 // src/Editor/editor.c
 #include "Editor/editor.h"
 #include "Core/global_state.h"
+#include "Core/space_mode_adapter.h"
 #include "Math/math_util.h"
 #include "Layout/layout.h"
 #include "Layout/layout_json.h"
@@ -174,12 +175,12 @@ void Editor_SelectAnchorsInBox(EditorState* editor, const Layout* layout, Vec2 m
         AnchorSelection_Clear(editor);
     }
     GlobalState* state = Global_Get();
-    ViewPlane plane = state->activePlane;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
 
     for (size_t i = 0; i < layout->anchorCount; ++i) {
         const Anchor* anchor = &layout->anchors[i];
         if (anchor->isDeleted) continue;
-        Vec2 pos = Vec3_ProjectToView(anchor->pos, plane, &state->freeViewCamera);
+        Vec2 pos = SpaceAdapter_ProjectToView(anchor->pos, &viewCtx);
         if (pos.x >= min.x && pos.x <= max.x &&
             pos.y >= min.y && pos.y <= max.y) {
             AnchorSelection_Add(editor, (int)i);
@@ -335,6 +336,7 @@ void Editor_EndAnchorDrag(EditorState* editor) {
 
 void Editor_ClickAt(EditorState* editor, Vec3 worldPos) {
     GlobalState* state = Global_Get();
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     Layout* layout = &state->layout;
 
     if (editor->mode == TOOL_IDLE) {
@@ -343,7 +345,8 @@ void Editor_ClickAt(EditorState* editor, Vec3 worldPos) {
     } else if (editor->mode == TOOL_PLACING_WALL) {
         Vec3 from = editor->anchor;
         Vec3 to = worldPos;
-        ViewPlaneAxis planeAxis = state->activePlane.axis;
+        ViewPlaneAxis planeAxis = SpaceAdapter_ActivePlaneAxis(&viewCtx);
+        float planeOffset = SpaceAdapter_ActivePlaneOffset(&viewCtx);
 
         if (editor->shiftHeld) {
             Vec2 from2 = Vec3_ProjectToPlane(from, planeAxis);
@@ -352,7 +355,7 @@ void Editor_ClickAt(EditorState* editor, Vec3 worldPos) {
             float dy = fabsf(to2.y - from2.y);
             if (dx > dy) to2.y = from2.y;
             else         to2.x = from2.x;
-            to = Vec3_FromPlaneCoords(to2, planeAxis, state->activePlane.offset);
+            to = Vec3_FromPlaneCoords(to2, planeAxis, planeOffset);
         }
 
         Editor_HistoryCapture(editor, layout);

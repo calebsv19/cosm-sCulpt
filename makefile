@@ -243,6 +243,7 @@ SHAPE_TOOL_SRCS := \
 SHAPE_TOOL_OBJS := $(patsubst $(TOOLS_DIR)/%.c,$(BUILD_DIR)/tools/%.o,$(SHAPE_TOOL_SRCS))
 SHAPE_TOOL_SHARED_OBJS := \
 	$(OBJ_DIR)/external/cjson/cJSON.o \
+	$(OBJ_DIR)/src/Core/space_mode_adapter.o \
 	$(OBJ_DIR)/src/Layout/layout.o \
 	$(OBJ_DIR)/src/Layout/layout_json.o \
 	$(OBJ_DIR)/../shared/core/core_base/src/core_base.o \
@@ -272,6 +273,7 @@ SHAPE_PACK_TOOL_SRCS := \
 	$(TOOLS_DIR)/shape_pack_tool.c \
 	$(TOOLS_DIR)/shape_dataset.c \
 	$(TOOLS_DIR)/global_state_stub.c \
+	$(SRC_DIR)/Core/space_mode_adapter.c \
 	$(SRC_DIR)/Layout/layout.c \
 	$(SRC_DIR)/Layout/layout_json.c \
 	$(EXT_DIR)/cjson/cJSON.c \

@@ -99,9 +99,12 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
         if (cJSON_IsNumber(gridNode)) targetGrid = (float)gridNode->valuedouble;
     }
 
-    if (schemaVersion > LAYOUT_JSON_SCHEMA_VERSION) {
-        SDL_Log("[Layout JSON] Unsupported schema version %d (max %d)",
-                schemaVersion, LAYOUT_JSON_SCHEMA_VERSION);
+    if (schemaVersion < LAYOUT_JSON_SCHEMA_VERSION_MIN_SUPPORTED ||
+        schemaVersion > LAYOUT_JSON_SCHEMA_VERSION) {
+        SDL_Log("[Layout JSON] Unsupported schema version %d (supported %d..%d)",
+                schemaVersion,
+                LAYOUT_JSON_SCHEMA_VERSION_MIN_SUPPORTED,
+                LAYOUT_JSON_SCHEMA_VERSION);
         return false;
     }
 

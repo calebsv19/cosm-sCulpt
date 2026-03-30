@@ -3,6 +3,7 @@
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
 #include "Core/global_state.h"
+#include "Core/space_mode_adapter.h"
 #include "Layout/layout_json.h"
 #include "Editor/editor.h"
 #include "Tools/shape_from_layout.h"
@@ -176,7 +177,8 @@ void UIPanel_ExportShape(void) {
     Layout_CompactDeletedElements(&state->layout);
 
     ShapeDocument doc;
-    ViewPlaneAxis exportAxis = state->activePlane.axis;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    ViewPlaneAxis exportAxis = SpaceAdapter_ActivePlaneAxis(&viewCtx);
     if (!ShapeDocument_FromLayoutProjected(requested, &state->layout, exportAxis, &doc)) {
         SDL_Log("[UI] Export failed: could not build shape data.");
         return;
@@ -230,6 +232,8 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "Pin Anchor (P)", xR, yR, btnW, btnH, UI_PANEL_RIGHT, 14);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Link Handles (L)", xR, yR, btnW, btnH, UI_PANEL_RIGHT, 15);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Mode: 3D (M)", xR, yR, btnW, btnH, UI_PANEL_RIGHT, 16);
 
     UIPanel_RefreshConfigList();
 }

@@ -2,9 +2,11 @@
 #include "UI/ui_panel.h"
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
+#include "Core/global_state.h"
 #include "Render/vulkan_adapter.h"
 
 #include <SDL2/SDL.h>
+#include <stdio.h>
 
 #include "UI/font_manager.h"  // Ensure this is included
 
@@ -31,14 +33,23 @@ void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     if (!font) return;
 
+    char dynamicLabel[64];
+    const char* label = btn->label;
+    if (btn->id == 16) {
+        GlobalState* state = Global_Get();
+        const char* modeLabel = state ? Global_GetSpaceModeLabel(state->spaceMode) : "3D";
+        snprintf(dynamicLabel, sizeof(dynamicLabel), "Mode: %s (M)", modeLabel);
+        label = dynamicLabel;
+    }
+
 #if USE_VULKAN
     int textW = 0;
     int textH = 0;
-    if (TTF_SizeText(font, btn->label, &textW, &textH) != 0) {
+    if (TTF_SizeText(font, label, &textW, &textH) != 0) {
         return;
     }
 #else
-    SDL_Surface* surf = TTF_RenderText_Blended(font, btn->label, textColor);
+    SDL_Surface* surf = TTF_RenderText_Blended(font, label, textColor);
     if (!surf) return;
 
     SDL_Texture* tex = SDL_CreateTextureFromSurface(r, surf);
@@ -58,7 +69,7 @@ void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     };
 
 #if USE_VULKAN
-    VulkanAdapter_DrawText(r, font, btn->label, dst.x, dst.y, textColor);
+    VulkanAdapter_DrawText(r, font, label, dst.x, dst.y, textColor);
 #else
     SDL_RenderCopy(r, tex, NULL, &dst);
 

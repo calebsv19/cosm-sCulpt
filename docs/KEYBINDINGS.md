@@ -3,12 +3,21 @@
 This file is the single reference for keyboard and mouse interactions in the editor.
 
 ## View And Camera
+- `M`: Toggle space mode between `2D` and `3D`.
 - `V`: Toggle view mode between `PLANE_VIEW` and `FREE_VIEW`.
 - `1`: Set active edit plane to `XY`.
 - `2`: Set active edit plane to `YZ`.
 - `3`: Set active edit plane to `XZ`.
 - `[` / `]`: Move active plane offset by one grid unit.
 - `Shift + [` / `Shift + ]`: Move active plane offset by 10 grid units.
+
+### Mode Rules
+- In `2D` mode:
+  - active plane is locked to `XY (z=0)`,
+  - free-view camera controls are disabled,
+  - `V`, `1/2/3`, and `[`/`]` plane controls are blocked.
+- In `3D` mode:
+  - free-view and plane controls are enabled.
 
 ### Free View Mode Controls
 These controls apply when view mode is `FREE_VIEW`.
@@ -59,6 +68,7 @@ These controls apply when view mode is `FREE_VIEW`.
 - `Toggle Delete (D)`: Same action as `D`.
 - `Pin Anchor (P)`: Same action as `P`.
 - `Link Handles (L)`: Same action as `L`.
+- `Mode: <2D|3D> (M)`: Same action as `M`.
 
 ## Notes
 - Selection prefers: handles, then points, then walls.

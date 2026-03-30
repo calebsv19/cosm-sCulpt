@@ -260,6 +260,64 @@ static bool test_layout_json_v2_defaults_z_to_zero(void) {
     return true;
 }
 
+static bool test_layout_json_v4_defaults_z_to_zero_when_omitted(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    const char* v4JsonWithoutZ =
+        "{"
+        "\"file\":{\"schemaVersion\":4,\"gridSize\":2},"
+        "\"anchors\":[{\"x\":9,\"y\":-3,\"persistent\":true,\"futureTag\":\"keep_ignored\"}],"
+        "\"walls\":[]"
+        "}";
+
+    TEST_ASSERT(Layout_LoadFromString(layout, v4JsonWithoutZ));
+    TEST_ASSERT(layout->anchorCount == 1);
+    TEST_ASSERT(nearly_equal(layout->gridSize, 2.0f));
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.x, 9.0f));
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.y, -3.0f));
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.z, 0.0f));
+
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_json_accepts_additive_unknown_fields(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    const char* additiveJson =
+        "{"
+        "\"file\":{\"schemaVersion\":4,\"gridSize\":1.5,\"futureFlag\":true},"
+        "\"scene\":{\"space\":\"3d\",\"up\":\"z\"},"
+        "\"anchors\":["
+        "{\"x\":0,\"y\":1,\"z\":2,\"persistent\":false,\"type\":\"curve\","
+        "\"handlesLinked\":false,\"handleAxis\":\"xz\","
+        "\"handleInLength\":1.25,\"handleInAngleDeg\":15,"
+        "\"handleOutLength\":2.5,\"handleOutAngleDeg\":-75,"
+        "\"futureAnchorField\":\"ok\"},"
+        "{\"x\":4,\"y\":5,\"z\":6,\"persistent\":true}"
+        "],"
+        "\"walls\":[{\"a\":0,\"b\":1,\"futureWallField\":7}]"
+        "}";
+
+    TEST_ASSERT(Layout_LoadFromString(layout, additiveJson));
+    TEST_ASSERT(layout->anchorCount == 2);
+    TEST_ASSERT(layout->wallCount == 1);
+    TEST_ASSERT(nearly_equal(layout->gridSize, 1.5f));
+    TEST_ASSERT(nearly_equal(layout->anchors[0].pos.z, 2.0f));
+    TEST_ASSERT(layout->anchors[0].type == ANCHOR_TYPE_CURVE);
+    TEST_ASSERT(layout->anchors[0].handleAxis == VIEW_PLANE_XZ);
+    TEST_ASSERT(nearly_equal(layout->anchors[0].handleInLength, 1.25f));
+    TEST_ASSERT(nearly_equal(layout->anchors[0].handleOutAngleDeg, -75.0f));
+    TEST_ASSERT(layout->anchors[1].isPersistent == true);
+
+    shutdown_runtime();
+    return true;
+}
+
 static bool test_layout_handles_link_toggle(void) {
     init_runtime();
     GlobalState* state = Global_Get();
@@ -422,6 +480,8 @@ bool layout_run_tests(void) {
         { "LayoutJsonPreservesAnchorHandles", test_layout_json_preserves_anchor_handles },
         { "LayoutJsonV3PersistsAnchorZ", test_layout_json_v3_persists_anchor_z },
         { "LayoutJsonV2DefaultsZToZero", test_layout_json_v2_defaults_z_to_zero },
+        { "LayoutJsonV4DefaultsZOmitted", test_layout_json_v4_defaults_z_to_zero_when_omitted },
+        { "LayoutJsonAcceptsAdditiveUnknownFields", test_layout_json_accepts_additive_unknown_fields },
         { "LayoutHandlesLinkToggle", test_layout_handles_link_toggle },
         { "EditorHistoryLimitEnforced", test_editor_history_limit_enforced },
         { "LayoutAddAnchor3PreservesZ", test_layout_add_anchor3_preserves_z },

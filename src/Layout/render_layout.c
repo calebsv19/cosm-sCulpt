@@ -1,6 +1,7 @@
 // src/Layout/layout_render.c
 #include "Layout/render_layout.h"
 #include "Core/global_state.h"
+#include "Core/space_mode_adapter.h"
 #include "Editor/editor.h"
 #include "Math/math_util.h"
 #include <SDL2/SDL.h>
@@ -56,6 +57,7 @@ static bool Anchor_GetHandleForWall(const Layout* layout,
                                     int anchorIndex,
                                     const Anchor* anchor,
                                     int wallIndex,
+                                    const SpaceViewContext* viewCtx,
                                     Vec2* outHandle) {
     if (!layout || !anchor || anchor->type != ANCHOR_TYPE_CURVE || !outHandle) return false;
     if (wallIndex < 0 || (size_t)wallIndex >= layout->wallCount) return false;
@@ -67,9 +69,8 @@ static bool Anchor_GetHandleForWall(const Layout* layout,
     float angle = isAnchorA ? anchor->handleOutAngleDeg : anchor->handleInAngleDeg;
     if (length <= 0.0001f) return false;
 
-    GlobalState* state = Global_Get();
     Vec3 handleWorld = Vec3_HandleWorldPosition(anchor->pos, anchor->handleAxis, length, angle);
-    *outHandle = Vec3_ProjectToView(handleWorld, state->activePlane, &state->freeViewCamera);
+    *outHandle = SpaceAdapter_ProjectToView(handleWorld, viewCtx);
     return true;
 }
 
@@ -121,15 +122,16 @@ static void Layout_RenderWalls(const Layout* layout, SDL_Renderer* renderer){
     GlobalState* state = Global_Get();
     const Grid* grid = &state->grid;
     EditorState* editor = &state->editor;
-    ViewPlane plane = state->activePlane;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    ViewPlane plane = viewCtx.plane;
     int selectedIndex = editor->selectedWallIndex;
     int hoveredIndex = editor->hoveredWallIndex;
 
     for (size_t i = 0; i < layout->wallCount; ++i) {
         Wall w = layout->walls[i];
         if (w.isDeleted) continue;
-        Vec2 from = Vec3_ProjectToView(layout->anchors[w.anchorA].pos, plane, &state->freeViewCamera);
-        Vec2 to   = Vec3_ProjectToView(layout->anchors[w.anchorB].pos, plane, &state->freeViewCamera);
+        Vec2 from = SpaceAdapter_ProjectToView(layout->anchors[w.anchorA].pos, &viewCtx);
+        Vec2 to   = SpaceAdapter_ProjectToView(layout->anchors[w.anchorB].pos, &viewCtx);
         float depthA = ViewPlane_AbsDistance(plane, layout->anchors[w.anchorA].pos);
         float depthB = ViewPlane_AbsDistance(plane, layout->anchors[w.anchorB].pos);
         float depthFactor = DepthVisualFactor((depthA + depthB) * 0.5f);
@@ -152,8 +154,8 @@ static void Layout_RenderWalls(const Layout* layout, SDL_Renderer* renderer){
 
         Vec2 handleA = from;
         Vec2 handleB = to;
-        bool hasHandleA = Anchor_GetHandleForWall(layout, w.anchorA, &layout->anchors[w.anchorA], (int)i, &handleA);
-        bool hasHandleB = Anchor_GetHandleForWall(layout, w.anchorB, &layout->anchors[w.anchorB], (int)i, &handleB);
+        bool hasHandleA = Anchor_GetHandleForWall(layout, w.anchorA, &layout->anchors[w.anchorA], (int)i, &viewCtx, &handleA);
+        bool hasHandleB = Anchor_GetHandleForWall(layout, w.anchorB, &layout->anchors[w.anchorB], (int)i, &viewCtx, &handleB);
 
         if (hasHandleA || hasHandleB) {
             RenderBezier(renderer, grid, from, handleA, handleB, to, thickness);
@@ -172,22 +174,23 @@ static void Layout_RenderHandles(const Layout* layout, SDL_Renderer* renderer) {
     GlobalState* state = Global_Get();
     const Grid* grid = &state->grid;
     EditorState* editor = &state->editor;
-    ViewPlane plane = state->activePlane;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    ViewPlane plane = viewCtx.plane;
 
     for (size_t i = 0; i < layout->anchorCount; ++i) {
         const Anchor* anchor = &layout->anchors[i];
         if (anchor->isDeleted || anchor->type != ANCHOR_TYPE_CURVE) continue;
         float depthFactor = DepthVisualFactor(ViewPlane_AbsDistance(plane, anchor->pos));
 
-        Vec2 anchorPos = Vec3_ProjectToView(anchor->pos, plane, &state->freeViewCamera);
+        Vec2 anchorPos = SpaceAdapter_ProjectToView(anchor->pos, &viewCtx);
         Vec2 anchorScreen = WorldToScreen(anchorPos, grid);
         Vec2 handles[2] = {
-            Vec3_ProjectToView(Vec3_HandleWorldPosition(anchor->pos, anchor->handleAxis,
-                                                        anchor->handleInLength, anchor->handleInAngleDeg),
-                               plane, &state->freeViewCamera),
-            Vec3_ProjectToView(Vec3_HandleWorldPosition(anchor->pos, anchor->handleAxis,
-                                                        anchor->handleOutLength, anchor->handleOutAngleDeg),
-                               plane, &state->freeViewCamera)
+            SpaceAdapter_ProjectToView(Vec3_HandleWorldPosition(anchor->pos, anchor->handleAxis,
+                                                                anchor->handleInLength, anchor->handleInAngleDeg),
+                                       &viewCtx),
+            SpaceAdapter_ProjectToView(Vec3_HandleWorldPosition(anchor->pos, anchor->handleAxis,
+                                                                anchor->handleOutLength, anchor->handleOutAngleDeg),
+                                       &viewCtx)
         };
 
         for (int h = 0; h < 2; ++h) {
@@ -234,7 +237,8 @@ static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
     GlobalState* state = Global_Get();
     const Grid* grid = &state->grid;
     EditorState* editor = &state->editor;
-    ViewPlane plane = state->activePlane;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    ViewPlane plane = viewCtx.plane;
 
     int r = ANCHOR_RENDER_RADIUS;
 
@@ -244,7 +248,7 @@ static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
         Anchor* anchor = &layout->anchors[i];
         if (anchor->isDeleted) continue;
         float depthFactor = DepthVisualFactor(ViewPlane_AbsDistance(plane, anchor->pos));
-        Vec2 screen = WorldToScreen(Vec3_ProjectToView(anchor->pos, plane, &state->freeViewCamera), grid);
+        Vec2 screen = WorldToScreen(SpaceAdapter_ProjectToView(anchor->pos, &viewCtx), grid);
         int cx = (int)screen.x;
         int cy = (int)screen.y;
 

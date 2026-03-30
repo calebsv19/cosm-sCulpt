@@ -38,6 +38,9 @@ static void HandleHeldKeys(AppContext* ctx) {
     if (keys[SDL_SCANCODE_ESCAPE]) ctx->quit = true;
 }
 
+static bool Input_Is3DMode(const GlobalState* state) {
+    return state && state->spaceMode == SPACE_MODE_3D;
+}
 
 // 		Public keyboard input dispatcher
 // ============================================================
@@ -101,7 +104,18 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
             }
         }
 
+        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_m) {
+            if (Global_ToggleSpaceMode(true)) {
+                printf("[Editor] Space mode: %s\n", Global_GetSpaceModeLabel(state->spaceMode));
+            }
+            return;
+        }
+
         if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_v) {
+            if (!Input_Is3DMode(state)) {
+                printf("[Editor] View toggle requires SPACE_MODE_3D.\n");
+                return;
+            }
             state->freeViewCamera.enabled = !state->freeViewCamera.enabled;
             if (state->freeViewCamera.enabled) {
                 bool hasAnchors = false;
@@ -114,7 +128,7 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
             printf("[Editor] View mode: %s\n", state->freeViewCamera.enabled ? "FREE_VIEW" : "PLANE_VIEW");
         }
 
-        if (event->type == SDL_KEYDOWN && state->freeViewCamera.enabled) {
+        if (event->type == SDL_KEYDOWN && Input_Is3DMode(state) && state->freeViewCamera.enabled) {
             bool consumedCameraControl = false;
             float angleStep = 6.0f;
             float moveStep = state->grid.gridSize;
@@ -158,6 +172,17 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
                 Global_FlagHitboxesDirty();
                 return;
             }
+        }
+
+        if (event->type == SDL_KEYDOWN &&
+            (event->key.keysym.sym == SDLK_1 ||
+             event->key.keysym.sym == SDLK_2 ||
+             event->key.keysym.sym == SDLK_3 ||
+             event->key.keysym.sym == SDLK_LEFTBRACKET ||
+             event->key.keysym.sym == SDLK_RIGHTBRACKET) &&
+            !Input_Is3DMode(state)) {
+            printf("[Editor] Plane controls require SPACE_MODE_3D.\n");
+            return;
         }
 
         if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_1) {

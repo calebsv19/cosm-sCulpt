@@ -1,6 +1,7 @@
 // src/Input/input_mouse.c
 #include "input_mouse.h"
 #include "Core/global_state.h"
+#include "Core/space_mode_adapter.h"
 #include "Editor/editor.h"
 
 #include "UI/input_ui_panel.h"
@@ -26,7 +27,8 @@ static int lastMx = 0, lastMy = 0;
 static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
     if (!motion) return false;
     GlobalState* state = Global_Get();
-    if (!state || !state->freeViewCamera.enabled) return false;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    if (!state || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
     if (UIPanel_IsSaveDialogActive() || UIPanel_IsLoadMenuOpen()) return false;
 
     SDL_Keymod mods = SDL_GetModState();
@@ -37,6 +39,7 @@ static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
     Vec3 center = Layout_ComputeCentroid(&state->layout, &hasAnchors);
     if (hasAnchors) {
         state->freeViewCamera.target = center;
+        viewCtx.camera.target = center;
     }
 
     const float orbitSensitivity = 0.35f;
@@ -214,8 +217,9 @@ static void HandleRightMouseDown(SDL_MouseButtonEvent* btn) {
     GlobalState* state = Global_Get();
     Grid* grid = &state->grid;
     EditorState* editor = &state->editor;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     Vec3 world3 = {0};
-    if (!ScreenToPlaneWorld(btn->x, btn->y, grid, state->activePlane, &state->freeViewCamera, true, &world3)) return;
+    if (!SpaceAdapter_ScreenToWorld(btn->x, btn->y, grid, &viewCtx, true, &world3)) return;
     Editor_ClickAt(editor, world3);
 }
 
@@ -235,8 +239,9 @@ static void UpdateAnchorDragPosition(int mx, int my) {
     bool precise = (SDL_GetModState() & KMOD_ALT) != 0;
     dragPrecise = precise;
     state->editor.isPreciseDrag = precise;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     Vec3 primaryPos = {0};
-    if (!ScreenToPlaneWorld(mx, my, &state->grid, state->activePlane, &state->freeViewCamera, !precise, &primaryPos)) return;
+    if (!SpaceAdapter_ScreenToWorld(mx, my, &state->grid, &viewCtx, !precise, &primaryPos)) return;
 
     Editor_UpdateAnchorDrag(&state->editor, &state->layout, primaryPos);
 }
@@ -250,12 +255,13 @@ static void UpdateHandleDragPosition(int mx, int my) {
     Anchor* anchor = &state->layout.anchors[editor->selectedHandleAnchor];
     if (anchor->isDeleted || anchor->type != ANCHOR_TYPE_CURVE) return;
 
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     Vec3 world3 = {0};
-    if (!ScreenToPlaneWorld(mx, my, &state->grid, state->activePlane, &state->freeViewCamera, false, &world3)) return;
+    if (!SpaceAdapter_ScreenToWorld(mx, my, &state->grid, &viewCtx, false, &world3)) return;
     Vec3 deltaWorld = Vec3_Sub(world3, anchor->pos);
     float length = 0.0f;
     float angle = 0.0f;
-    anchor->handleAxis = state->activePlane.axis;
+    anchor->handleAxis = SpaceAdapter_ActivePlaneAxis(&viewCtx);
     Vec3_HandlePolarFromWorldDelta(deltaWorld, anchor->handleAxis, &length, &angle);
 
     if (editor->selectedHandleComponent == 0) {

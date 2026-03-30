@@ -1,6 +1,7 @@
 // src/Layout/layout.c
 #include "layout.h"
 #include "Core/global_state.h"
+#include "Core/space_mode_adapter.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,8 +12,8 @@ static const float kAnchorSnapRadius = 0.01f;  // very small world-space thresho
 
 static ViewPlaneAxis Layout_GetActivePlaneAxis(void) {
     GlobalState* state = Global_Get();
-    if (!state) return VIEW_PLANE_XY;
-    return state->activePlane.axis;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    return SpaceAdapter_ActivePlaneAxis(&viewCtx);
 }
 
 static ViewPlaneAxis Anchor_GetHandleAxis(const Anchor* anchor) {

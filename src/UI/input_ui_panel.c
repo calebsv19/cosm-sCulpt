@@ -111,6 +111,13 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     }
                     break;
                 }
+                case 16: { // Toggle 2D/3D mode
+                    ui->loadMenu.open = false;
+                    if (Global_ToggleSpaceMode(true)) {
+                        SDL_Log("[UI] Space mode: %s", Global_GetSpaceModeLabel(state->spaceMode));
+                    }
+                    break;
+                }
             }
 
             return true;

@@ -1,5 +1,6 @@
 #include "UI/info_overlay.h"
 #include "Core/global_state.h"
+#include "Core/space_mode_adapter.h"
 #include "Layout/layout.h"
 #include "Layout/Grid/grid.h"
 #include "UI/font_manager.h"
@@ -72,7 +73,8 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
 
     EditorState* editor = &state->editor;
     Layout* layout = &state->layout;
-    ViewPlane plane = state->activePlane;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    ViewPlane plane = viewCtx.plane;
     const char* planeLabel = "XY";
     const char* planeCoordLabel = "z";
     if (plane.axis == VIEW_PLANE_YZ) {
@@ -202,11 +204,13 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
     size_t redoCount = Editor_RedoCount(editor);
 
     char statusLine[256];
-    const char* viewLabel = state->freeViewCamera.enabled ? "FREE" : "PLANE";
+    const char* modeLabel = Global_GetSpaceModeLabel(state->spaceMode);
+    const char* viewLabel = SpaceAdapter_IsFreeViewEnabled(&viewCtx) ? "FREE" : "PLANE";
     snprintf(statusLine, sizeof(statusLine),
-             "File: %s%s  |  View:%s  Plane: %s (%s=%.2f)  |  Undo:%zu  Redo:%zu  |  Delete Mode: %s",
+             "File: %s%s  |  Mode:%s  View:%s  Plane: %s (%s=%.2f)  |  Undo:%zu  Redo:%zu  |  Delete Mode: %s",
              base ? base : "(unsaved)",
              dirty ? " *" : "",
+             modeLabel,
              viewLabel,
              planeLabel,
              planeCoordLabel,
