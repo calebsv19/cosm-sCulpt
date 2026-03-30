@@ -76,10 +76,11 @@ build/obj/src/Layout/layout_json.o: src/Layout/layout_json.c \
   ../shared/vk_renderer/include/vk_renderer_textures.h \
   ../shared/vk_renderer/include/vk_renderer_compat_sdl.h \
   src/Layout/layout_json.h src/Layout/layout.h src/Math/math_util.h \
-  src/Layout/Grid/grid.h src/Core/global_state.h src/Editor/editor.h \
-  src/Core/SDLApp/sdl_app_framework.h \
-  ../shared/core_scene/include/core_scene.h \
-  ../shared/core_base/include/core_base.h external/cjson/cJSON.h
+  src/Layout/Grid/grid.h ../shared/core/core_math/include/core_math.h \
+  ../shared/core/core_base/include/core_base.h src/Core/global_state.h \
+  src/Editor/editor.h src/Core/SDLApp/sdl_app_framework.h \
+  ../shared/core/core_io/include/core_io.h \
+  ../shared/core/core_scene/include/core_scene.h external/cjson/cJSON.h
 ../shared/vk_renderer/include/vk_renderer_sdl.h:
 ../shared/vk_renderer/include/vk_renderer.h:
 /opt/homebrew/include/SDL2/SDL.h:
@@ -161,9 +162,11 @@ src/Layout/layout_json.h:
 src/Layout/layout.h:
 src/Math/math_util.h:
 src/Layout/Grid/grid.h:
+../shared/core/core_math/include/core_math.h:
+../shared/core/core_base/include/core_base.h:
 src/Core/global_state.h:
 src/Editor/editor.h:
 src/Core/SDLApp/sdl_app_framework.h:
-../shared/core_scene/include/core_scene.h:
-../shared/core_base/include/core_base.h:
+../shared/core/core_io/include/core_io.h:
+../shared/core/core_scene/include/core_scene.h:
 external/cjson/cJSON.h:

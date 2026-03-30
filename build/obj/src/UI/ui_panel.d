@@ -76,11 +76,13 @@ build/obj/src/UI/ui_panel.o: src/UI/ui_panel.c \
   ../shared/vk_renderer/include/vk_renderer_textures.h \
   ../shared/vk_renderer/include/vk_renderer_compat_sdl.h \
   src/UI/ui_panel.h src/UI/info_overlay.h src/UI/font_manager.h \
-  /opt/homebrew/include/SDL2/SDL_ttf.h src/Core/global_state.h \
+  /opt/homebrew/include/SDL2/SDL_ttf.h \
+  src/UI/shared_theme_font_adapter.h src/Core/global_state.h \
   src/Layout/Grid/grid.h src/Layout/layout.h src/Math/math_util.h \
-  src/Editor/editor.h src/Core/SDLApp/sdl_app_framework.h \
-  src/Layout/layout_json.h src/Tools/shape_from_layout.h \
-  src/Tools/ShapeLib/shape_core.h \
+  ../shared/core/core_math/include/core_math.h \
+  ../shared/core/core_base/include/core_base.h src/Editor/editor.h \
+  src/Core/SDLApp/sdl_app_framework.h src/Layout/layout_json.h \
+  src/Tools/shape_from_layout.h src/Tools/ShapeLib/shape_core.h \
   src/Tools/ShapeLib/../../../../shared/shape/ShapeLib/shape_core.h \
   src/Tools/shape_export.h src/Tools/ShapeLib/shape_json.h \
   src/Tools/ShapeLib/../../../../shared/shape/ShapeLib/shape_json.h \
@@ -166,10 +168,13 @@ src/UI/ui_panel.h:
 src/UI/info_overlay.h:
 src/UI/font_manager.h:
 /opt/homebrew/include/SDL2/SDL_ttf.h:
+src/UI/shared_theme_font_adapter.h:
 src/Core/global_state.h:
 src/Layout/Grid/grid.h:
 src/Layout/layout.h:
 src/Math/math_util.h:
+../shared/core/core_math/include/core_math.h:
+../shared/core/core_base/include/core_base.h:
 src/Editor/editor.h:
 src/Core/SDLApp/sdl_app_framework.h:
 src/Layout/layout_json.h:

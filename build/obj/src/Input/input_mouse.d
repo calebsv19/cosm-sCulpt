@@ -77,8 +77,9 @@ build/obj/src/Input/input_mouse.o: src/Input/input_mouse.c \
   ../shared/vk_renderer/include/vk_renderer_compat_sdl.h \
   src/Input/input_mouse.h src/Core/SDLApp/sdl_app_framework.h \
   src/Core/global_state.h src/Layout/Grid/grid.h src/Layout/layout.h \
-  src/Math/math_util.h src/Editor/editor.h src/UI/input_ui_panel.h \
-  src/UI/ui_panel.h src/Layout/hitbox_system.h
+  src/Math/math_util.h ../shared/core/core_math/include/core_math.h \
+  ../shared/core/core_base/include/core_base.h src/Editor/editor.h \
+  src/UI/input_ui_panel.h src/UI/ui_panel.h src/Layout/hitbox_system.h
 ../shared/vk_renderer/include/vk_renderer_sdl.h:
 ../shared/vk_renderer/include/vk_renderer.h:
 /opt/homebrew/include/SDL2/SDL.h:
@@ -162,6 +163,8 @@ src/Core/global_state.h:
 src/Layout/Grid/grid.h:
 src/Layout/layout.h:
 src/Math/math_util.h:
+../shared/core/core_math/include/core_math.h:
+../shared/core/core_base/include/core_base.h:
 src/Editor/editor.h:
 src/UI/input_ui_panel.h:
 src/UI/ui_panel.h:

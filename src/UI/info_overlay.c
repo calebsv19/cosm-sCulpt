@@ -3,6 +3,7 @@
 #include "Layout/layout.h"
 #include "Layout/Grid/grid.h"
 #include "UI/font_manager.h"
+#include "UI/shared_theme_font_adapter.h"
 #include "Editor/editor.h"
 #include "Render/vulkan_adapter.h"
 #include <SDL2/SDL.h>
@@ -47,12 +48,26 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
     if (!state) return;
 
     int width = Global_GetScreenWidth();
+    LineDrawing3dThemePalette palette = {0};
+    const bool has_shared_palette = line_drawing3d_shared_theme_resolve_palette(&palette);
 
     SDL_Rect panel = { 0, 0, width, INFO_OVERLAY_HEIGHT };
-    SDL_SetRenderDrawColor(renderer, 28, 30, 35, 235);
+    if (has_shared_palette) {
+        SDL_SetRenderDrawColor(renderer,
+                               palette.panel_fill.r, palette.panel_fill.g,
+                               palette.panel_fill.b, palette.panel_fill.a);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 28, 30, 35, 235);
+    }
     SDL_RenderFillRect(renderer, &panel);
 
-    SDL_SetRenderDrawColor(renderer, 60, 62, 70, 255);
+    if (has_shared_palette) {
+        SDL_SetRenderDrawColor(renderer,
+                               palette.panel_border.r, palette.panel_border.g,
+                               palette.panel_border.b, palette.panel_border.a);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 60, 62, 70, 255);
+    }
     SDL_RenderDrawRect(renderer, &panel);
 
     EditorState* editor = &state->editor;
@@ -200,8 +215,8 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
              redoCount,
              editor->deleteMode == DELETE_MODE_SAFE ? "SAFE" : "AUTO_PRUNE");
 
-    SDL_Color textMain = { 230, 230, 230, 255 };
-    SDL_Color textSub = { 200, 200, 210, 255 };
+    SDL_Color textMain = has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 230, 255};
+    SDL_Color textSub = has_shared_palette ? palette.text_muted : (SDL_Color){200, 200, 210, 255};
     int padding = 12;
     DrawText(renderer, line1, padding, padding, textMain);
     if (line2[0]) {

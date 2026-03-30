@@ -42,4 +42,4 @@ URGENT NOTE FOR GIT COMMITS
 ONLY MAKE COMMIT AFTER EXPLICIT PERMISSION IS ASKED AND GIVEN BY THE USER, SO THAT NO UNNECCESSARY COMMITS ARE MADE
 
 ## Environment & Dependency Notes
-The `makefile` references sibling shared modules (for example `../shared/vk_renderer`, `../shared/core_base`, `../shared/timer_hud`)
+The `makefile` references sibling shared modules (for example `../shared/vk_renderer`, `../shared/core/core_base`, `../shared/timer_hud`)

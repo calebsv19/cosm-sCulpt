@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Layout/Grid/grid.h"
+#include "core_math.h"
 #include <math.h>
 #include <stdbool.h>
 
@@ -28,38 +29,56 @@ typedef struct {
     Vec3 target;
 } FreeViewCamera;
 
+static inline CoreMathVec2f CoreMathVec2_FromVec2(Vec2 v) {
+    CoreMathVec2f out = { v.x, v.y };
+    return out;
+}
+
+static inline Vec2 Vec2_FromCoreMathVec2(CoreMathVec2f v) {
+    Vec2 out = { v.x, v.y };
+    return out;
+}
+
+static inline CoreMathVec3f CoreMathVec3_FromVec3(Vec3 v) {
+    CoreMathVec3f out = { v.x, v.y, v.z };
+    return out;
+}
+
+static inline Vec3 Vec3_FromCoreMathVec3(CoreMathVec3f v) {
+    Vec3 out = { v.x, v.y, v.z };
+    return out;
+}
+
 static inline float Vec2_Distance(Vec2 a, Vec2 b) {
-    float dx = a.x - b.x;
-    float dy = a.y - b.y;
-    return sqrtf(dx*dx + dy*dy);
+    return core_math_vec2_length(core_math_vec2_sub(CoreMathVec2_FromVec2(a),
+                                                    CoreMathVec2_FromVec2(b)));
 }
 
 static inline Vec3 Vec3_Add(Vec3 a, Vec3 b) {
-    return (Vec3){ a.x + b.x, a.y + b.y, a.z + b.z };
+    return Vec3_FromCoreMathVec3(core_math_vec3_add(CoreMathVec3_FromVec3(a),
+                                                    CoreMathVec3_FromVec3(b)));
 }
 
 static inline Vec3 Vec3_Sub(Vec3 a, Vec3 b) {
-    return (Vec3){ a.x - b.x, a.y - b.y, a.z - b.z };
+    return Vec3_FromCoreMathVec3(core_math_vec3_sub(CoreMathVec3_FromVec3(a),
+                                                    CoreMathVec3_FromVec3(b)));
 }
 
 static inline Vec3 Vec3_Scale(Vec3 v, float s) {
-    return (Vec3){ v.x * s, v.y * s, v.z * s };
+    return Vec3_FromCoreMathVec3(core_math_vec3_scale(CoreMathVec3_FromVec3(v), s));
 }
 
 static inline float Vec3_Dot(Vec3 a, Vec3 b) {
-    return a.x * b.x + a.y * b.y + a.z * b.z;
+    return core_math_vec3_dot(CoreMathVec3_FromVec3(a), CoreMathVec3_FromVec3(b));
 }
 
 static inline Vec3 Vec3_Cross(Vec3 a, Vec3 b) {
-    return (Vec3){
-        .x = a.y * b.z - a.z * b.y,
-        .y = a.z * b.x - a.x * b.z,
-        .z = a.x * b.y - a.y * b.x
-    };
+    return Vec3_FromCoreMathVec3(core_math_vec3_cross(CoreMathVec3_FromVec3(a),
+                                                      CoreMathVec3_FromVec3(b)));
 }
 
 static inline float Vec3_Length(Vec3 v) {
-    return sqrtf(Vec3_Dot(v, v));
+    return core_math_vec3_length(CoreMathVec3_FromVec3(v));
 }
 
 static inline float Vec3_Distance(Vec3 a, Vec3 b) {
@@ -69,7 +88,8 @@ static inline float Vec3_Distance(Vec3 a, Vec3 b) {
 static inline Vec3 Vec3_Normalize(Vec3 v) {
     const float len = Vec3_Length(v);
     if (len <= 1e-6f) return (Vec3){0.0f, 0.0f, 0.0f};
-    return Vec3_Scale(v, 1.0f / len);
+    return Vec3_FromCoreMathVec3(core_math_vec3_scale(CoreMathVec3_FromVec3(v),
+                                                      1.0f / len));
 }
 
 static inline Vec2 Vec2_Snap(Vec2 pt, float gridSize) {
@@ -95,11 +115,13 @@ static inline Vec2 Vec2_FromPolar(float length, float angleDeg) {
 }
 
 static inline Vec2 Vec2_Add(Vec2 a, Vec2 b) {
-    return (Vec2){ a.x + b.x, a.y + b.y };
+    return Vec2_FromCoreMathVec2(core_math_vec2_add(CoreMathVec2_FromVec2(a),
+                                                    CoreMathVec2_FromVec2(b)));
 }
 
 static inline Vec2 Vec2_Sub(Vec2 a, Vec2 b) {
-    return (Vec2){ a.x - b.x, a.y - b.y };
+    return Vec2_FromCoreMathVec2(core_math_vec2_sub(CoreMathVec2_FromVec2(a),
+                                                    CoreMathVec2_FromVec2(b)));
 }
 
 static inline Vec2 Vec2_HandleAbsolute(Vec2 anchorPos, float length, float angleDeg) {

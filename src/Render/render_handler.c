@@ -4,6 +4,7 @@
 #include "UI/ui_panel.h"
 #include "UI/render_ui_panel.h"
 #include "UI/info_overlay.h"
+#include "UI/shared_theme_font_adapter.h"
 
 #include "Layout/Grid/render_grid.h"
 #include "Layout/layout.h"
@@ -92,7 +93,12 @@ void Render_Frame(AppContext* ctx) {
 
     int w = Global_GetScreenWidth();
     int h = Global_GetScreenHeight();
-    VulkanAdapter_Clear(ctx->renderer, w, h, (SDL_Color){20, 20, 23, 255});
+    LineDrawing3dThemePalette palette = {0};
+    SDL_Color background = {20, 20, 23, 255};
+    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
+        background = palette.background_fill;
+    }
+    VulkanAdapter_Clear(ctx->renderer, w, h, background);
 
     // ─── Grid ────────────────────────────────────
     // Render_Grid(grid, ctx->renderer, w, h, GRID_DRAW_UNITS);

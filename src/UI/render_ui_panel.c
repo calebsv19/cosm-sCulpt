@@ -1,6 +1,7 @@
 #include "UI/render_ui_panel.h"
 #include "UI/ui_panel.h"
 #include "UI/font_manager.h"
+#include "UI/shared_theme_font_adapter.h"
 #include "Render/vulkan_adapter.h"
 
 #include <SDL2/SDL.h>
@@ -8,19 +9,28 @@
 #include "UI/font_manager.h"  // Ensure this is included
 
 void DrawButton(SDL_Renderer* r, const UIButton* btn) {
+    LineDrawing3dThemePalette palette = {0};
+    SDL_Color button_fill = {70, 70, 70, 200};
+    SDL_Color button_border = {180, 180, 180, 255};
+    SDL_Color textColor = {255, 255, 255, 255};
+    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
+        button_fill = palette.button_fill;
+        button_border = palette.button_border;
+        textColor = palette.button_text;
+    }
+
     // ─── Button Background ─────────────────────
-    SDL_SetRenderDrawColor(r, 70, 70, 70, 200);
+    SDL_SetRenderDrawColor(r, button_fill.r, button_fill.g, button_fill.b, button_fill.a);
     SDL_RenderFillRect(r, &btn->bounds);
 
     // ─── Button Border ─────────────────────────
-    SDL_SetRenderDrawColor(r, 180, 180, 180, 255);
+    SDL_SetRenderDrawColor(r, button_border.r, button_border.g, button_border.b, button_border.a);
     SDL_RenderDrawRect(r, &btn->bounds);
 
     // ─── Button Label Text ─────────────────────
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     if (!font) return;
 
-    SDL_Color textColor = { 255, 255, 255, 255 };
 #if USE_VULKAN
     int textW = 0;
     int textH = 0;

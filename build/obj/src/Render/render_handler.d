@@ -77,11 +77,12 @@ build/obj/src/Render/render_handler.o: src/Render/render_handler.c \
   ../shared/vk_renderer/include/vk_renderer_compat_sdl.h \
   src/Render/render_handler.h src/Core/SDLApp/sdl_app_framework.h \
   src/Core/global_state.h src/Layout/Grid/grid.h src/Layout/layout.h \
-  src/Math/math_util.h src/Editor/editor.h src/UI/ui_panel.h \
-  src/UI/render_ui_panel.h src/UI/info_overlay.h \
-  src/Layout/Grid/render_grid.h src/Layout/render_layout.h \
-  src/Render/vulkan_adapter.h /opt/homebrew/include/SDL2/SDL_ttf.h \
-  src/Editor/render_editor.h
+  src/Math/math_util.h ../shared/core/core_math/include/core_math.h \
+  ../shared/core/core_base/include/core_base.h src/Editor/editor.h \
+  src/UI/ui_panel.h src/UI/render_ui_panel.h src/UI/info_overlay.h \
+  src/UI/shared_theme_font_adapter.h src/Layout/Grid/render_grid.h \
+  src/Layout/render_layout.h src/Render/vulkan_adapter.h \
+  /opt/homebrew/include/SDL2/SDL_ttf.h src/Editor/render_editor.h
 ../shared/vk_renderer/include/vk_renderer_sdl.h:
 ../shared/vk_renderer/include/vk_renderer.h:
 /opt/homebrew/include/SDL2/SDL.h:
@@ -165,10 +166,13 @@ src/Core/global_state.h:
 src/Layout/Grid/grid.h:
 src/Layout/layout.h:
 src/Math/math_util.h:
+../shared/core/core_math/include/core_math.h:
+../shared/core/core_base/include/core_base.h:
 src/Editor/editor.h:
 src/UI/ui_panel.h:
 src/UI/render_ui_panel.h:
 src/UI/info_overlay.h:
+src/UI/shared_theme_font_adapter.h:
 src/Layout/Grid/render_grid.h:
 src/Layout/render_layout.h:
 src/Render/vulkan_adapter.h:

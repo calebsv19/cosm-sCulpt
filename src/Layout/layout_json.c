@@ -1,14 +1,21 @@
 #include "Layout/layout_json.h"
 #include "Core/global_state.h"
+#include "core_io.h"
 #include "core_scene.h"
 #include "cjson/cJSON.h"
 #include <SDL2/SDL.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 
 static const char* LAYOUT_JSON_GENERATOR = "LineDrawing";
+
+static bool Layout_PathIsPack(const char* path) {
+    if (!path || !path[0]) return false;
+    const char* dot = strrchr(path, '.');
+    if (!dot) return false;
+    return strcasecmp(dot, ".pack") == 0;
+}
 
 static const char* HandleAxis_ToString(ViewPlaneAxis axis) {
     switch (axis) {
@@ -203,19 +210,17 @@ bool Layout_SaveToFile(const Layout* layout, const char* path) {
     cJSON_Delete(root);
     if (!out) return false;
 
-    FILE* f = fopen(path, "w");
-    if (!f) {
-        free(out);
-        return false;
-    }
-
-    fputs(out, f);
-    fclose(f);
+    CoreResult write_result = core_io_write_all(path, out, strlen(out));
     free(out);
-    return true;
+    return write_result.code == CORE_OK;
 }
 
 bool Layout_LoadFromFile(Layout* layout, const char* path) {
+    if (Layout_PathIsPack(path)) {
+        SDL_Log("[Layout JSON] Runtime import policy is JSON-only; .pack is diagnostics-tooling only (%s)", path);
+        return false;
+    }
+
     if (core_scene_path_is_scene_bundle(path)) {
         CoreSceneBundleInfo bundle = {0};
         CoreResult r = core_scene_bundle_resolve(path, &bundle);
@@ -228,22 +233,18 @@ bool Layout_LoadFromFile(Layout* layout, const char* path) {
         return false;
     }
 
-    FILE* f = fopen(path, "rb");
-    if (!f) return false;
+    CoreBuffer file_data = {0};
+    CoreResult read_result = core_io_read_all(path, &file_data);
+    if (read_result.code != CORE_OK) return false;
 
-    fseek(f, 0, SEEK_END);
-    long len = ftell(f);
-    rewind(f);
-
-    char* data = malloc((size_t)len + 1);
+    char* data = malloc(file_data.size + 1);
     if (!data) {
-        fclose(f);
+        core_io_buffer_free(&file_data);
         return false;
     }
-
-    fread(data, 1, (size_t)len, f);
-    data[len] = '\0';
-    fclose(f);
+    memcpy(data, file_data.data, file_data.size);
+    data[file_data.size] = '\0';
+    core_io_buffer_free(&file_data);
 
     bool ok = Layout_LoadFromString(layout, data);
     free(data);

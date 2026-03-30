@@ -62,6 +62,88 @@ build/bin/shape_tool config/airfoil_basic.json --view
 
 All exported assets are written to `export/` regardless of the path you pass after `--export-shape`, which keeps them easy to find even when sharing between projects.
 
+### Shape Diagnostics Pack Tooling
+
+`line_drawing3d` now includes an additive diagnostics export path based on shared `core_data` + `core_pack`.
+
+```sh
+# Build the diagnostics pack tool
+make shape_pack_tool
+
+# Export a layout snapshot as a diagnostics .pack file
+make shape_to_pack LAYOUT=config/layout_config.json PACK=export/layout_diag.pack AXIS=xy
+```
+
+Pack output includes:
+- `LDHD` header chunk (schema + counts)
+- `LDMJ` metadata JSON (`profile`, `schema_family`, `schema_variant`, axis, bounds, counts)
+- `LDAN` shared base anchor rows (`x`, `y`, handle values, persistent/type)
+- `LDWL` compact wall rows
+- `LDA3` additive 3D extension rows (`z`, `handle_axis`)
+
+This does not replace existing JSON export paths; it is additive for shared-pipeline diagnostics and cross-program inspection.
+
+### Runtime Import Policy (Slice 1, 2026-03-10)
+
+Runtime layout loading is JSON-only.
+
+- Accepted runtime sources: `config/*.json` layout files
+- Rejected runtime sources: `.pack` diagnostics artifacts
+- `.pack` remains tooling-only for diagnostics and cross-program inspection
+
+### Shape Trace Tooling (Slice 2, 2026-03-10)
+
+Trace tooling is now aligned for 2D/3D with the same CLI and output contract.
+
+```sh
+make shape_trace_tool
+make shape_to_trace SHAPE=export/example.json TRACE=export/example_trace_v0.pack
+make shape_to_trace_batch
+```
+
+Tool output lanes:
+- `seg_type` (0=line, 1=cubic)
+- `seg_len` (approx segment length)
+- `path_index`
+- `segment_index`
+
+Tool marker lane:
+- `shape_marker` (profile/shape/path boundaries)
+
+### Shape Dataset Schema Parity (Slice 3, 2026-03-10)
+
+`core_data` schema parity is now locked between 2D and 3D for shared tables/metadata.
+
+Shared metadata keys:
+- `profile` (`line_drawing_shape_diag_v1`)
+- `schema_family` (`line_drawing_shape_diag`)
+- `schema_variant` (`3d` for this app, `2d` in the 2D app)
+- `schema_version`, `projection_axis`
+- `active_anchor_count`, `active_wall_count`, `curved_anchor_count`, `persistent_anchor_count`
+- `bounds_min_x`, `bounds_min_y`, `bounds_min_z`, `bounds_max_x`, `bounds_max_y`, `bounds_max_z`
+
+Shared typed tables:
+- `anchors_v1` (`x`, `y`, `persistent`, `anchor_type`, `handle_in_length`, `handle_in_angle_deg`, `handle_out_length`, `handle_out_angle_deg`)
+- `walls_v1` (`a`, `b`, `lock_length`)
+
+3D-only additive extension table:
+- `anchors_3d_ext_v1` (`anchor_index`, `z`, `handle_axis`)
+
+### Shape Pack Contract Parity (Slice 4, 2026-03-10)
+
+`core_pack` diagnostics contract is now aligned for 2D/3D:
+- same chunk sequence: `LDHD`, `LDMJ`, `LDAN`, `LDWL`, `LDA3`
+- same `LDAN` base row binary layout across both apps
+- `LDA3` carries additive 3D extension payload (`z`, `handle_axis`)
+
+### Core IO Cleanup (Slice 5, 2026-03-10)
+
+Low-risk theme preset persistence paths now use shared `core_io`:
+- path-exists checks use `core_io_path_exists`
+- preset load/save uses `core_io_read_all` / `core_io_write_all`
+- runtime behavior remains unchanged (single preset-name line with trailing newline trimmed on load)
+
+
 ## Editor Shortcuts & UI
 - `Ctrl+Z` / `Cmd+Z` — undo the last layout mutation (wall/anchor edits, pin toggles, origin shifts, JSON loads).
 - `Ctrl+Shift+Z` or `Ctrl+Y` — redo.

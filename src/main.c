@@ -2,6 +2,7 @@
 #include "Core/SDLApp/sdl_app_framework.h"
 #include "Layout/Grid/grid.h"
 #include "UI/font_manager.h"
+#include "UI/shared_theme_font_adapter.h"
 
 
 #include "Input/input_handler.h"
@@ -35,6 +36,7 @@ int main(void) {
     if (!App_Init(&app, "LineDrawing", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, true))
         return 1;
 
+    line_drawing3d_shared_theme_load_persisted();
     if (!FontManager_Init()) return 1;
     if (!FontManager_LoadFonts()) return 1;
 
@@ -49,6 +51,7 @@ int main(void) {
     App_SetRenderMode(&app, RENDER_THROTTLED, 1.0f / 60.0f);
     App_Run(&app, &cbs);
 
+    line_drawing3d_shared_theme_save_persisted();
     FontManager_Quit();
     Global_Shutdown();  // free layout memory, etc.
     App_Shutdown(&app);

@@ -1,6 +1,7 @@
 #include "UI/ui_panel.h"
 #include "UI/info_overlay.h"
 #include "UI/font_manager.h"
+#include "UI/shared_theme_font_adapter.h"
 #include "Core/global_state.h"
 #include "Layout/layout_json.h"
 #include "Editor/editor.h"
@@ -444,6 +445,8 @@ static void DrawText(SDL_Renderer* renderer, const char* text, int x, int y, SDL
 
 static void RenderSaveDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
     if (!ui->saveDialog.active) return;
+    LineDrawing3dThemePalette palette = {0};
+    const bool has_shared_palette = line_drawing3d_shared_theme_resolve_palette(&palette);
 
     int width = Global_GetScreenWidth();
     int height = Global_GetScreenHeight();
@@ -452,7 +455,13 @@ static void RenderSaveDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
 #if !USE_VULKAN
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 #endif
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 140);
+    if (has_shared_palette) {
+        SDL_SetRenderDrawColor(renderer,
+                               palette.modal_scrim.r, palette.modal_scrim.g,
+                               palette.modal_scrim.b, palette.modal_scrim.a);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 140);
+    }
     SDL_RenderFillRect(renderer, &backdrop);
 
     SDL_Rect panel = {
@@ -462,9 +471,21 @@ static void RenderSaveDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
         130
     };
 
-    SDL_SetRenderDrawColor(renderer, 35, 40, 48, 240);
+    if (has_shared_palette) {
+        SDL_SetRenderDrawColor(renderer,
+                               palette.panel_fill.r, palette.panel_fill.g,
+                               palette.panel_fill.b, palette.panel_fill.a);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 35, 40, 48, 240);
+    }
     SDL_RenderFillRect(renderer, &panel);
-    SDL_SetRenderDrawColor(renderer, 90, 100, 115, 255);
+    if (has_shared_palette) {
+        SDL_SetRenderDrawColor(renderer,
+                               palette.panel_border.r, palette.panel_border.g,
+                               palette.panel_border.b, palette.panel_border.a);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 90, 100, 115, 255);
+    }
     SDL_RenderDrawRect(renderer, &panel);
 
     int textX = panel.x + 16;
@@ -472,7 +493,8 @@ static void RenderSaveDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
     char line[256];
 
     snprintf(line, sizeof(line), "Save layout as (*.json):");
-    DrawText(renderer, line, textX, textY, (SDL_Color){ 230, 230, 235, 255 });
+    DrawText(renderer, line, textX, textY,
+             has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 235, 255});
 
     SDL_Rect inputRect = {
         panel.x + 14,
@@ -480,14 +502,27 @@ static void RenderSaveDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
         panel.w - 28,
         32
     };
-    SDL_SetRenderDrawColor(renderer, 20, 20, 24, 255);
+    if (has_shared_palette) {
+        SDL_SetRenderDrawColor(renderer,
+                               palette.background_fill.r, palette.background_fill.g,
+                               palette.background_fill.b, palette.background_fill.a);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 20, 20, 24, 255);
+    }
     SDL_RenderFillRect(renderer, &inputRect);
-    SDL_SetRenderDrawColor(renderer, 130, 140, 155, 255);
+    if (has_shared_palette) {
+        SDL_SetRenderDrawColor(renderer,
+                               palette.panel_border.r, palette.panel_border.g,
+                               palette.panel_border.b, palette.panel_border.a);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 130, 140, 155, 255);
+    }
     SDL_RenderDrawRect(renderer, &inputRect);
 
     char buffer[200];
     snprintf(buffer, sizeof(buffer), "%s", ui->saveDialog.buffer);
-    DrawText(renderer, buffer, inputRect.x + 8, inputRect.y + 6, (SDL_Color){ 255, 255, 255, 255 });
+    DrawText(renderer, buffer, inputRect.x + 8, inputRect.y + 6,
+             has_shared_palette ? palette.text_primary : (SDL_Color){255, 255, 255, 255});
 
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     if (font) {
@@ -501,41 +536,70 @@ static void RenderSaveDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
         int caretX = inputRect.x + 8 + caretOffset;
         int caretTop = inputRect.y + 4;
         int caretBottom = inputRect.y + inputRect.h - 4;
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 220);
+        if (has_shared_palette) {
+            SDL_SetRenderDrawColor(renderer,
+                                   palette.text_primary.r, palette.text_primary.g,
+                                   palette.text_primary.b, 220);
+        } else {
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 220);
+        }
         SDL_RenderDrawLine(renderer, caretX, caretTop, caretX, caretBottom);
     }
 
     snprintf(line, sizeof(line), "Press Enter to confirm, Esc to cancel.");
-    DrawText(renderer, line, textX, panel.y + panel.h - 36, (SDL_Color){ 180, 180, 190, 255 });
+    DrawText(renderer, line, textX, panel.y + panel.h - 36,
+             has_shared_palette ? palette.text_muted : (SDL_Color){180, 180, 190, 255});
 }
 
 static void RenderLoadMenu(SDL_Renderer* renderer, const UIPanelState* ui) {
     if (!ui->loadMenu.open) return;
+    LineDrawing3dThemePalette palette = {0};
+    const bool has_shared_palette = line_drawing3d_shared_theme_resolve_palette(&palette);
 
     SDL_Rect rect = UIPanel_GetLoadMenuRect(ui);
 #if !USE_VULKAN
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 #endif
-    SDL_SetRenderDrawColor(renderer, 28, 32, 40, 240);
+    if (has_shared_palette) {
+        SDL_SetRenderDrawColor(renderer,
+                               palette.panel_fill.r, palette.panel_fill.g,
+                               palette.panel_fill.b, palette.panel_fill.a);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 28, 32, 40, 240);
+    }
     SDL_RenderFillRect(renderer, &rect);
-    SDL_SetRenderDrawColor(renderer, 90, 100, 115, 255);
+    if (has_shared_palette) {
+        SDL_SetRenderDrawColor(renderer,
+                               palette.panel_border.r, palette.panel_border.g,
+                               palette.panel_border.b, palette.panel_border.a);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 90, 100, 115, 255);
+    }
     SDL_RenderDrawRect(renderer, &rect);
 
     int itemHeight = 24;
     int y = rect.y + 6;
 
     if (ui->loadMenu.count == 0) {
-        DrawText(renderer, "(No layouts found)", rect.x + 10, y, (SDL_Color){ 190, 190, 195, 255 });
+        DrawText(renderer, "(No layouts found)", rect.x + 10, y,
+                 has_shared_palette ? palette.text_muted : (SDL_Color){190, 190, 195, 255});
         return;
     }
 
     for (int i = 0; i < ui->loadMenu.count; ++i) {
         if (i == ui->loadMenu.hoverIndex) {
             SDL_Rect highlight = { rect.x + 2, y - 2, rect.w - 4, itemHeight };
-            SDL_SetRenderDrawColor(renderer, 60, 90, 140, 180);
+            if (has_shared_palette) {
+                SDL_SetRenderDrawColor(renderer,
+                                       palette.menu_highlight.r, palette.menu_highlight.g,
+                                       palette.menu_highlight.b, palette.menu_highlight.a);
+            } else {
+                SDL_SetRenderDrawColor(renderer, 60, 90, 140, 180);
+            }
             SDL_RenderFillRect(renderer, &highlight);
         }
-        DrawText(renderer, ui->loadMenu.entries[i], rect.x + 10, y + 2, (SDL_Color){ 230, 230, 235, 255 });
+        DrawText(renderer, ui->loadMenu.entries[i], rect.x + 10, y + 2,
+                 has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 235, 255});
         y += itemHeight;
     }
 }

@@ -77,7 +77,8 @@ build/obj/src/UI/render_ui_panel.o: src/UI/render_ui_panel.c \
   ../shared/vk_renderer/include/vk_renderer_compat_sdl.h \
   src/UI/render_ui_panel.h src/Core/SDLApp/sdl_app_framework.h \
   src/UI/ui_panel.h src/UI/font_manager.h \
-  /opt/homebrew/include/SDL2/SDL_ttf.h src/Render/vulkan_adapter.h
+  /opt/homebrew/include/SDL2/SDL_ttf.h \
+  src/UI/shared_theme_font_adapter.h src/Render/vulkan_adapter.h
 ../shared/vk_renderer/include/vk_renderer_sdl.h:
 ../shared/vk_renderer/include/vk_renderer.h:
 /opt/homebrew/include/SDL2/SDL.h:
@@ -160,4 +161,5 @@ src/Core/SDLApp/sdl_app_framework.h:
 src/UI/ui_panel.h:
 src/UI/font_manager.h:
 /opt/homebrew/include/SDL2/SDL_ttf.h:
+src/UI/shared_theme_font_adapter.h:
 src/Render/vulkan_adapter.h:
