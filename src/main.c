@@ -1,4 +1,5 @@
 // src/main.c
+#include "line_drawing/line_drawing_app_main.h"
 #include "Core/SDLApp/sdl_app_framework.h"
 #include "Layout/Grid/grid.h"
 #include "UI/font_manager.h"
@@ -31,7 +32,9 @@ static void handleRender(AppContext *ctx) {
     Render_Frame(ctx);
 }
 
-int main(void) {
+int line_drawing_app_main_legacy(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
     AppContext app;
     if (!App_Init(&app, "LineDrawing", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, true))
         return 1;
@@ -56,4 +59,8 @@ int main(void) {
     Global_Shutdown();  // free layout memory, etc.
     App_Shutdown(&app);
     return 0;
+}
+
+int main(int argc, char **argv) {
+    return line_drawing_app_main(argc, argv);
 }

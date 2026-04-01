@@ -2,6 +2,12 @@
 
 LineDrawing is an SDL2-based sketcher for layout/geometry prototyping. It now supports snap-to-grid wall drafting, bezier-curved anchors (with editable handles), multi-anchor selection/dragging, JSON persistence, and an overlay UI that can host diagnostics or future sensor readouts.
 
+## Docs
+- docs index: `docs/README.md`
+- current state: `docs/current_truth.md`
+- future intent: `docs/future_intent.md`
+- keybinds: `docs/KEYBINDINGS.md`
+
 ## Run-time Flow
 1. `src/main.c` boots the SDL app framework, loads fonts, and initialises `GlobalState` (grid, layout, editor, UI).
 2. The custom SDL loop (`App_Run`) pumps events into the input system, calls `Global_TickSystems` to clean layout data, and triggers `Render_Frame`.

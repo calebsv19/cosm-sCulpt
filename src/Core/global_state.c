@@ -8,9 +8,22 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <errno.h>
+#include <sys/stat.h>
 
 static GlobalState* global = NULL;
-static const char* k_space_mode_config_path = "config/space_mode.txt";
+static const char* k_space_mode_runtime_path = "data/runtime/space_mode.txt";
+static const char* k_space_mode_legacy_path = "config/space_mode.txt";
+
+static bool EnsureRuntimeDir(void) {
+    if (mkdir("data", 0755) != 0 && errno != EEXIST) {
+        return false;
+    }
+    if (mkdir("data/runtime", 0755) != 0 && errno != EEXIST) {
+        return false;
+    }
+    return true;
+}
 
 const char* Global_GetSpaceModeLabel(SpaceMode mode) {
     return mode == SPACE_MODE_2D ? "2D" : "3D";
@@ -46,7 +59,8 @@ SpaceMode Global_GetSpaceMode(void) {
 
 bool Global_SaveSpaceMode(void) {
     if (!global) return false;
-    FILE* fp = fopen(k_space_mode_config_path, "wb");
+    if (!EnsureRuntimeDir()) return false;
+    FILE* fp = fopen(k_space_mode_runtime_path, "wb");
     if (!fp) return false;
     const char* mode_text = (global->spaceMode == SPACE_MODE_2D) ? "2d\n" : "3d\n";
     const size_t mode_len = strlen(mode_text);
@@ -82,7 +96,10 @@ bool Global_ToggleSpaceMode(bool persist) {
 
 bool Global_LoadSpaceMode(void) {
     if (!global) return false;
-    FILE* fp = fopen(k_space_mode_config_path, "rb");
+    FILE* fp = fopen(k_space_mode_runtime_path, "rb");
+    if (!fp) {
+        fp = fopen(k_space_mode_legacy_path, "rb");
+    }
     if (!fp) return false;
 
     char buffer[32];
@@ -93,6 +110,23 @@ bool Global_LoadSpaceMode(void) {
     SpaceMode loaded = SPACE_MODE_3D;
     if (!SpaceMode_Parse(buffer, &loaded)) return false;
     return Global_SetSpaceMode(loaded, false);
+}
+
+bool Global_IsCenterCrosshairEnabled(void) {
+    if (!global) return false;
+    return global->centerCrosshairEnabled;
+}
+
+bool Global_SetCenterCrosshairEnabled(bool enabled) {
+    if (!global) return false;
+    global->centerCrosshairEnabled = enabled;
+    return true;
+}
+
+bool Global_ToggleCenterCrosshair(void) {
+    if (!global) return false;
+    global->centerCrosshairEnabled = !global->centerCrosshairEnabled;
+    return true;
 }
 
 static void Global_UpdateSavedSnapshot(void) {
@@ -129,6 +163,7 @@ void Global_Init(int screenWidth, int screenHeight) {
         .pitchDeg = 20.0f,
         .target = {0.0f, 0.0f, 0.0f}
     };
+    global->centerCrosshairEnabled = true;
     global->layoutDirtySinceSave = false;
     global->lastSavedSnapshot = NULL;
     memset(global->currentConfigPath, 0, sizeof(global->currentConfigPath));
@@ -209,12 +244,16 @@ void Global_RebuildHitboxesIfDirty(void) {
 
     if (!state->hitboxDirty) return;
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    bool gizmoEnabled = (state->spaceMode == SPACE_MODE_3D) &&
+                        SpaceAdapter_IsFreeViewEnabled(&viewCtx);
     HitboxSystem_Rebuild(&state->layout,
                          state->grid.scale,
                          state->grid.offsetX,
                          state->grid.offsetY,
                          viewCtx.plane,
-                         SpaceAdapter_Camera(&viewCtx));
+                         SpaceAdapter_Camera(&viewCtx),
+                         state->editor.selectedAnchorIndex,
+                         gizmoEnabled);
     state->hitboxDirty = false;
 }
 

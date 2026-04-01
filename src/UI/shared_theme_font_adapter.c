@@ -5,13 +5,16 @@
 #include "core_theme.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 static bool g_theme_runtime_initialized = false;
 static CoreThemePresetId g_theme_runtime_preset = CORE_THEME_PRESET_DARK_DEFAULT;
-static const char* k_theme_persist_path = "theme_preset.txt";
+static const char* k_theme_runtime_path = "data/runtime/theme_preset.txt";
+static const char* k_theme_legacy_path = "theme_preset.txt";
 static const CoreThemePresetId k_theme_cycle_order[] = {
     CORE_THEME_PRESET_DAW_DEFAULT,
     CORE_THEME_PRESET_MAP_FORGE_DEFAULT,
@@ -43,6 +46,16 @@ static bool parse_bool_env(const char* value, bool* out_value) {
         return true;
     }
     return false;
+}
+
+static bool ensure_runtime_dir(void) {
+    if (mkdir("data", 0755) != 0 && errno != EEXIST) {
+        return false;
+    }
+    if (mkdir("data/runtime", 0755) != 0 && errno != EEXIST) {
+        return false;
+    }
+    return true;
 }
 
 static bool is_shared_toggle_enabled(const char* override_var_name) {
@@ -228,10 +241,15 @@ bool line_drawing3d_shared_theme_load_persisted(void) {
     CoreResult read_result;
     char preset_name[64];
     size_t copy_len = 0;
-    if (!core_io_path_exists(k_theme_persist_path)) {
+    const char* path = NULL;
+    if (core_io_path_exists(k_theme_runtime_path)) {
+        path = k_theme_runtime_path;
+    } else if (core_io_path_exists(k_theme_legacy_path)) {
+        path = k_theme_legacy_path;
+    } else {
         return false;
     }
-    read_result = core_io_read_all(k_theme_persist_path, &file_data);
+    read_result = core_io_read_all(path, &file_data);
     if (read_result.code != CORE_OK || !file_data.data) {
         return false;
     }
@@ -264,7 +282,10 @@ bool line_drawing3d_shared_theme_save_persisted(void) {
     if (written <= 0 || (size_t)written >= sizeof(payload)) {
         return false;
     }
-    return core_io_write_all(k_theme_persist_path, payload, (size_t)written).code == CORE_OK;
+    if (!ensure_runtime_dir()) {
+        return false;
+    }
+    return core_io_write_all(k_theme_runtime_path, payload, (size_t)written).code == CORE_OK;
 }
 
 bool line_drawing3d_shared_theme_cycle_next(void) {

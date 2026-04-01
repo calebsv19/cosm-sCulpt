@@ -1,1 +1,24 @@
-build/*
+# Build artifacts
+build/
+LineDrawing
+
+# Runtime/local state
+data/runtime/
+data/snapshots/
+tmp/
+ide_files/
+export/
+theme_preset.txt
+config/space_mode.txt
+
+# Local config/session variants
+config/Carbon.json
+
+# Toolchain/editor noise
+.DS_Store
+**/.DS_Store
+*.dSYM/
+*.log
+*.tmp
+*.swp
+*.swo
