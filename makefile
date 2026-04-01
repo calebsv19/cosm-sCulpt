@@ -17,6 +17,8 @@ CORE_DATA_DIR := ../shared/core/core_data
 CORE_MATH_DIR := ../shared/core/core_math
 CORE_TIME_DIR := ../shared/core/core_time
 CORE_SCENE_DIR := ../shared/core/core_scene
+CORE_OBJECT_DIR := ../shared/core/core_object
+CORE_UNITS_DIR := ../shared/core/core_units
 CORE_PACK_DIR := ../shared/core/core_pack
 CORE_TRACE_DIR := ../shared/core/core_trace
 CORE_THEME_DIR := ../shared/core/core_theme
@@ -99,7 +101,7 @@ ifeq ($(strip $(SDL_LDFLAGS)),)
 endif
 
 WARN_FLAGS := -Wall -Wextra -Werror -Wpedantic
-BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Iinclude -Isrc -Isrc/Tools -Iexternal -I$(VK_RENDERER_DIR)/include -I$(CORE_BASE_DIR)/include -I$(CORE_IO_DIR)/include -I$(CORE_DATA_DIR)/include -I$(CORE_MATH_DIR)/include -I$(CORE_TIME_DIR)/include -I$(CORE_SCENE_DIR)/include -I$(CORE_PACK_DIR)/include -I$(CORE_TRACE_DIR)/include -I$(CORE_THEME_DIR)/include -I$(CORE_FONT_DIR)/include -I$(TIMER_HUD_DIR)/include $(SDL_CFLAGS)
+BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Iinclude -Isrc -Isrc/Tools -Iexternal -I$(VK_RENDERER_DIR)/include -I$(CORE_BASE_DIR)/include -I$(CORE_IO_DIR)/include -I$(CORE_DATA_DIR)/include -I$(CORE_MATH_DIR)/include -I$(CORE_TIME_DIR)/include -I$(CORE_SCENE_DIR)/include -I$(CORE_OBJECT_DIR)/include -I$(CORE_UNITS_DIR)/include -I$(CORE_PACK_DIR)/include -I$(CORE_TRACE_DIR)/include -I$(CORE_THEME_DIR)/include -I$(CORE_FONT_DIR)/include -I$(TIMER_HUD_DIR)/include $(SDL_CFLAGS)
 DEBUG ?= 0
 
 ifeq ($(DEBUG),1)
@@ -120,7 +122,7 @@ LDFLAGS := $(SDL_LDFLAGS) $(SDL_LIBS) $(SDL_TTF_LIB) $(SDL_FRAMEWORKS) $(VULKAN_
 APP_SRCS := $(shell find $(SRC_DIR) -name '*.c' ! -path '$(TOOLS_DIR)/*')
 VK_RENDERER_SRCS := $(shell find $(VK_RENDERER_DIR)/src -name '*.c')
 SHAPE_LIB_SRCS := $(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
-SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c
+SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c $(TOOLS_DIR)/canonical_scene_export.c
 EXT_SRCS := $(EXT_DIR)/cjson/cJSON.c
 CORE_TIME_SRCS := $(CORE_TIME_DIR)/src/core_time.c
 ifeq ($(UNAME_S),Darwin)
@@ -128,12 +130,21 @@ ifeq ($(UNAME_S),Darwin)
 else
 	CORE_TIME_SRCS += $(CORE_TIME_DIR)/src/core_time_posix.c
 endif
-CORE_SRCS := $(CORE_BASE_DIR)/src/core_base.c $(CORE_IO_DIR)/src/core_io.c $(CORE_DATA_DIR)/src/core_data.c $(CORE_PACK_DIR)/src/core_pack.c $(CORE_MATH_DIR)/src/core_math.c $(CORE_TIME_SRCS) $(CORE_SCENE_DIR)/src/core_scene.c $(CORE_THEME_DIR)/src/core_theme.c $(CORE_FONT_DIR)/src/core_font.c
+CORE_SRCS := $(CORE_BASE_DIR)/src/core_base.c $(CORE_IO_DIR)/src/core_io.c $(CORE_DATA_DIR)/src/core_data.c $(CORE_PACK_DIR)/src/core_pack.c $(CORE_MATH_DIR)/src/core_math.c $(CORE_TIME_SRCS) $(CORE_SCENE_DIR)/src/core_scene.c $(CORE_OBJECT_DIR)/src/core_object.c $(CORE_UNITS_DIR)/src/core_units.c $(CORE_THEME_DIR)/src/core_theme.c $(CORE_FONT_DIR)/src/core_font.c
 TIMER_HUD_SRCS := $(shell find $(TIMER_HUD_DIR)/src -name '*.c')
 ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
 
 APP_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(ALL_SRCS))
 APP_TARGET := $(BIN_DIR)/LineDrawing
+DIST_DIR := dist
+PACKAGE_APP_NAME := LineDrawing.app
+PACKAGE_APP_DIR := $(DIST_DIR)/$(PACKAGE_APP_NAME)
+PACKAGE_CONTENTS_DIR := $(PACKAGE_APP_DIR)/Contents
+PACKAGE_MACOS_DIR := $(PACKAGE_CONTENTS_DIR)/MacOS
+PACKAGE_RESOURCES_DIR := $(PACKAGE_CONTENTS_DIR)/Resources
+PACKAGE_INFO_PLIST_SRC := tools/packaging/macos/Info.plist
+PACKAGE_LAUNCHER_SRC := tools/packaging/macos/line-drawing-launcher
+DESKTOP_APP_DIR ?= $(HOME)/Desktop/$(PACKAGE_APP_NAME)
 
 NON_APP_OBJS := $(filter-out $(OBJ_DIR)/src/main.o,$(APP_OBJS))
 
@@ -147,7 +158,7 @@ SHAPE_SYNC_SCRIPT := ../shared/shape/sync_exports.sh
 
 .DEFAULT_GOAL := all
 
-.PHONY: all run run-ide-theme run-daw-theme clean test rebuild debug release format lint shape-sanity shape_pack_tool shape_to_pack export-assets test-shared-theme-font-adapter run-headless-smoke visual-harness test-stable test-legacy
+.PHONY: all run run-ide-theme run-daw-theme clean test rebuild debug release format lint shape-sanity shape_pack_tool shape_to_pack export-assets test-shared-theme-font-adapter run-headless-smoke visual-harness test-stable test-legacy package-desktop package-desktop-smoke package-desktop-self-test package-desktop-copy-desktop package-desktop-sync package-desktop-open package-desktop-remove package-desktop-refresh
 
 all: $(APP_TARGET)
 
@@ -174,6 +185,65 @@ run-headless-smoke:
 
 visual-harness:
 	@$(MAKE) all
+
+package-desktop: all
+	@echo "Preparing desktop package..."
+	@rm -rf "$(PACKAGE_APP_DIR)"
+	@mkdir -p "$(PACKAGE_MACOS_DIR)" "$(PACKAGE_RESOURCES_DIR)"
+	@cp "$(PACKAGE_INFO_PLIST_SRC)" "$(PACKAGE_CONTENTS_DIR)/Info.plist"
+	@cp "$(APP_TARGET)" "$(PACKAGE_MACOS_DIR)/line-drawing-bin"
+	@cp "$(PACKAGE_LAUNCHER_SRC)" "$(PACKAGE_MACOS_DIR)/line-drawing-launcher"
+	@chmod +x "$(PACKAGE_MACOS_DIR)/line-drawing-bin" "$(PACKAGE_MACOS_DIR)/line-drawing-launcher"
+	@cp -R config "$(PACKAGE_RESOURCES_DIR)/"
+	@mkdir -p "$(PACKAGE_RESOURCES_DIR)/include"
+	@cp -R include/fonts "$(PACKAGE_RESOURCES_DIR)/include/"
+	@mkdir -p "$(PACKAGE_RESOURCES_DIR)/shared/assets/fonts"
+	@cp -R "../shared/assets/fonts/." "$(PACKAGE_RESOURCES_DIR)/shared/assets/fonts/"
+	@mkdir -p "$(PACKAGE_RESOURCES_DIR)/data/runtime" "$(PACKAGE_RESOURCES_DIR)/data/snapshots" "$(PACKAGE_RESOURCES_DIR)/export"
+	@mkdir -p "$(PACKAGE_RESOURCES_DIR)/vk_renderer" "$(PACKAGE_RESOURCES_DIR)/shaders"
+	@cp -R "$(VK_RENDERER_DIR)/shaders" "$(PACKAGE_RESOURCES_DIR)/vk_renderer/"
+	@cp -R "$(VK_RENDERER_DIR)/shaders/." "$(PACKAGE_RESOURCES_DIR)/shaders/"
+	@echo "Desktop package ready: $(PACKAGE_APP_DIR)"
+
+package-desktop-smoke: package-desktop
+	@test -x "$(PACKAGE_MACOS_DIR)/line-drawing-launcher" || (echo "Missing launcher"; exit 1)
+	@test -x "$(PACKAGE_MACOS_DIR)/line-drawing-bin" || (echo "Missing app binary"; exit 1)
+	@test -f "$(PACKAGE_CONTENTS_DIR)/Info.plist" || (echo "Missing Info.plist"; exit 1)
+	@test -f "$(PACKAGE_RESOURCES_DIR)/config/layout_config.json" || (echo "Missing config/layout_config.json"; exit 1)
+	@test -f "$(PACKAGE_RESOURCES_DIR)/include/fonts/Lato/Lato-Regular.ttf" || (echo "Missing bundled local font"; exit 1)
+	@test -f "$(PACKAGE_RESOURCES_DIR)/shared/assets/fonts/Montserrat-Regular.ttf" || (echo "Missing bundled shared font"; exit 1)
+	@test -d "$(PACKAGE_RESOURCES_DIR)/data/runtime" || (echo "Missing runtime lane"; exit 1)
+	@test -d "$(PACKAGE_RESOURCES_DIR)/data/snapshots" || (echo "Missing snapshots lane"; exit 1)
+	@test -d "$(PACKAGE_RESOURCES_DIR)/export" || (echo "Missing export lane"; exit 1)
+	@test -f "$(PACKAGE_RESOURCES_DIR)/vk_renderer/shaders/textured.vert.spv" || (echo "Missing bundled vk renderer shader"; exit 1)
+	@test -f "$(PACKAGE_RESOURCES_DIR)/shaders/textured.vert.spv" || (echo "Missing bundled runtime shader"; exit 1)
+	@echo "package-desktop-smoke passed."
+
+package-desktop-self-test: package-desktop-smoke
+	@"$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --self-test || (echo "package-desktop self-test failed."; exit 1)
+	@echo "package-desktop-self-test passed."
+
+package-desktop-copy-desktop: package-desktop
+	@mkdir -p "$(dir $(DESKTOP_APP_DIR))"
+	@rm -rf "$(DESKTOP_APP_DIR)"
+	@cp -R "$(PACKAGE_APP_DIR)" "$(DESKTOP_APP_DIR)"
+	@echo "Copied $(PACKAGE_APP_NAME) to $(DESKTOP_APP_DIR)"
+
+package-desktop-sync: package-desktop-copy-desktop
+	@echo "Desktop package synchronized: $(DESKTOP_APP_DIR)"
+
+package-desktop-open: package-desktop
+	@open "$(PACKAGE_APP_DIR)"
+
+package-desktop-remove:
+	@rm -rf "$(PACKAGE_APP_DIR)"
+	@echo "Removed desktop package: $(PACKAGE_APP_DIR)"
+
+package-desktop-refresh: package-desktop
+	@mkdir -p "$(dir $(DESKTOP_APP_DIR))"
+	@rm -rf "$(DESKTOP_APP_DIR)"
+	@cp -R "$(PACKAGE_APP_DIR)" "$(DESKTOP_APP_DIR)"
+	@echo "Refreshed $(PACKAGE_APP_NAME) at $(DESKTOP_APP_DIR)"
 
 test-stable: test
 
@@ -250,6 +320,7 @@ SHAPE_TOOL_SRCS := \
 	$(TOOLS_DIR)/shape_tool.c \
 	$(TOOLS_DIR)/shape_from_layout.c \
 	$(TOOLS_DIR)/shape_export.c \
+	$(TOOLS_DIR)/canonical_scene_export.c \
 	$(TOOLS_DIR)/shape_dataset.c \
 	$(TOOLS_DIR)/global_state_stub.c \
 	$(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
@@ -264,7 +335,9 @@ SHAPE_TOOL_SHARED_OBJS := \
 	$(OBJ_DIR)/../shared/core/core_data/src/core_data.o \
 	$(OBJ_DIR)/../shared/core/core_pack/src/core_pack.o \
 	$(OBJ_DIR)/../shared/core/core_math/src/core_math.o \
-	$(OBJ_DIR)/../shared/core/core_scene/src/core_scene.o
+	$(OBJ_DIR)/../shared/core/core_scene/src/core_scene.o \
+	$(OBJ_DIR)/../shared/core/core_object/src/core_object.o \
+	$(OBJ_DIR)/../shared/core/core_units/src/core_units.o
 SHAPE_TOOL_BIN := $(BIN_DIR)/shape_tool
 
 # Compile Tools/*.c into build/tools/*.o

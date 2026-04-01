@@ -40,6 +40,15 @@ Legacy test lane:
 - current composition:
   - `test-shared-theme-font-adapter` (currently failing expectation and quarantined to legacy lane)
 
+Desktop packaging lane:
+- `make -C line_drawing package-desktop`
+- `make -C line_drawing package-desktop-smoke`
+- `make -C line_drawing package-desktop-self-test`
+- `make -C line_drawing package-desktop-refresh`
+- launcher diagnostics:
+  - `/Users/<user>/Desktop/LineDrawing.app/Contents/MacOS/line-drawing-launcher --print-config`
+  - `tail -n 120 ~/Library/Logs/LineDrawing/launcher.log`
+
 ## Lifecycle Wrapper Snapshot
 - locked lifecycle wrapper symbols are active:
   - `line_drawing_app_bootstrap`
@@ -80,3 +89,11 @@ Legacy test lane:
   - `LD-S3` complete
   - `LD-S4` complete
   - `LD-S5` pending closeout verification + tracker sync + final scaffold commit
+
+## App Packaging State
+- private execution plan:
+  - `../docs/private_program_docs/line_drawing/2026-04-01_line_drawing_app_packaging_execution_plan.md`
+- packaging rollout status:
+  - `LD-PK0` complete
+  - `LD-PK1` complete
+  - `LD-PK2` complete

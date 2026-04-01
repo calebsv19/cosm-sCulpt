@@ -43,6 +43,13 @@ Last updated: 2026-04-01
   - closeout commit after user confirmation with exact title:
     - `Project Scaffold Standardization`
 
+## Desktop Packaging Intent
+- packaging baseline is complete (`LD-PK0` through `LD-PK2`) with standardized `package-desktop*` targets and launcher diagnostics.
+- near-term follow-up:
+  - apply canonical product-name rename for packaged app:
+    - `LineDrawing.app` -> `sketCh.app`
+  - keep rename as a separate cleanup pass from functional packaging closeout.
+
 ## Non-Goals During Scaffold Migration
 - no new editor features
 - no 2D/3D behavior redesign

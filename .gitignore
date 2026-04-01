@@ -1,6 +1,7 @@
 # Build artifacts
 build/
 LineDrawing
+/dist/
 
 # Runtime/local state
 data/runtime/
