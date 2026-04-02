@@ -1,6 +1,6 @@
 # Line Drawing Future Intent
 
-Last updated: 2026-04-01
+Last updated: 2026-04-02
 
 ## Scaffold Alignment Intent
 1. Keep existing 2D/3D parity behavior unchanged while normalizing scaffold contracts.
@@ -35,13 +35,19 @@ Last updated: 2026-04-01
   - locked runtime/temp ignore policy in `.gitignore` (`tmp/`, `data/runtime/`, `data/snapshots/`, `ide_files/`)
   - moved runtime persistence targets to `data/runtime/*` with fallback compatibility from legacy paths
 
-- `LD-S5` (pending):
+- `LD-S5` (completed):
   - run full verification sweep and sync closeout docs:
     - private plan + private index
     - `line_drawing/docs/current_truth.md`
     - global scaffold matrix/backlog trackers
   - closeout commit after user confirmation with exact title:
     - `Project Scaffold Standardization`
+  - verification snapshot (2026-04-02):
+    - `make -C line_drawing clean && make -C line_drawing` pass
+    - `make -C line_drawing run-headless-smoke` pass
+    - `make -C line_drawing visual-harness` pass
+    - `make -C line_drawing test-stable` pass
+    - `make -C line_drawing test-legacy` keeps expected quarantined shared-theme adapter failure lane
 
 ## Desktop Packaging Intent
 - packaging baseline is complete (`LD-PK0` through `LD-PK2`) with standardized `package-desktop*` targets and launcher diagnostics.
@@ -49,6 +55,16 @@ Last updated: 2026-04-01
   - apply canonical product-name rename for packaged app:
     - `LineDrawing.app` -> `sketCh.app`
   - keep rename as a separate cleanup pass from functional packaging closeout.
+
+## Connection Pass Intent
+- baseline complete:
+  - `LD-CP0` baseline routing/ownership map captured
+  - `LD-CP1` stage/context ownership lock landed in wrapper
+  - `LD-CP2` explicit runtime dispatch seam landed with typed request/outcome contract
+  - execution note:
+    - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_connection_pass_cp0_cp2_execution.md`
+- next:
+  - optional `LD-CP3+` extraction only if deeper wrapper/runtime ownership split is needed
 
 ## Non-Goals During Scaffold Migration
 - no new editor features

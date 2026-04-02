@@ -1,6 +1,6 @@
 # Line Drawing Current Truth
 
-Last updated: 2026-04-01
+Last updated: 2026-04-02
 
 ## Program Identity
 - repository directory: `line_drawing/`
@@ -88,7 +88,7 @@ Desktop packaging lane:
   - `LD-S2` complete
   - `LD-S3` complete
   - `LD-S4` complete
-  - `LD-S5` complete
+  - `LD-S5` complete (verification/docs closeout synchronized; stable canonical-scene-export lane revalidated)
 
 ## App Packaging State
 - private execution plan:
@@ -97,3 +97,18 @@ Desktop packaging lane:
   - `LD-PK0` complete
   - `LD-PK1` complete
   - `LD-PK2` complete
+
+## Connection Pass State
+- baseline kickoff status:
+  - `LD-CP0` mapped
+  - `LD-CP1` and `LD-CP2` wrapper implementation landed in `src/app/line_drawing_app_main.c`
+  - execution note:
+    - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_connection_pass_cp0_cp2_execution.md`
+- verification snapshot (2026-04-02):
+  - `make -C line_drawing clean && make -C line_drawing` pass
+  - `make -C line_drawing run-headless-smoke` pass
+  - `make -C line_drawing visual-harness` pass
+  - `make -C line_drawing test-stable` pass
+  - `make -C line_drawing test-legacy` retains expected quarantined shared-theme adapter failure lane
+- next:
+  - optional `LD-CP3+` extraction if deeper runtime/update/render ownership split is needed
