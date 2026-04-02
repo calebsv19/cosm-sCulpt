@@ -34,6 +34,8 @@ Stable test lane:
 - `make -C line_drawing test-stable`
 - current composition:
   - `test`
+- scene export/compile smoke lane:
+  - `make -C line_drawing scene-pipeline-smoke`
 
 Legacy test lane:
 - `make -C line_drawing test-legacy`
@@ -75,7 +77,25 @@ Desktop packaging lane:
 ## 2D/3D Parity Snapshot
 - canonical parity lane is complete (`LD-U0` through `LD-U6.6`) in private docs:
   - `../docs/private_program_docs/line_drawing/`
+- trio scene-authoring execution lane is complete (`LD3D-0` through `LD3D-4`) in private docs:
+  - `../docs/private_program_docs/line_drawing/2026-04-02_ld3d4_scene_authoring_closeout.md`
 - free-view axis gizmo drag contract and `Shift+C` center crosshair toggle are active.
+- canonical scene authoring export contract currently includes explicit mode intent fields:
+  - root: `space_mode_intent` + `space_mode_default`
+  - objects: `space_mode_intent` + `dimensional_mode`
+- canonical conversion contract is explicit (no hidden conversion):
+  - root: `conversion_policy=explicit_only`
+  - objects: explicit `projection_policy` + `extrusion_policy`
+- canonical scene ID immutability is enforced on re-export:
+  - when exporting to an existing scene file, existing `scene_id` is preserved.
+- scene-level canonical metadata is authorable in tooling:
+  - `shape_tool --export-scene ...` supports `--scene-material-id|type`, `--scene-light-id|type`, `--scene-camera-id|type`.
+- canonical export enforces pre-persistence validation:
+  - option-level validation (IDs/type allow-list) and payload-level validation run before scene files are written.
+- local line_drawing export->compile command path is wired:
+  - `tools/scene_export_compile_pipeline.sh`
+  - `make -C line_drawing scene-export-compile`
+  - runtime compile path uses shared `core_scene_compile` tool boundary.
 
 ## Scaffold Migration State
 - private migration plan:

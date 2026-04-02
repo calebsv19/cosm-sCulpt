@@ -158,7 +158,7 @@ SHAPE_SYNC_SCRIPT := ../shared/shape/sync_exports.sh
 
 .DEFAULT_GOAL := all
 
-.PHONY: all run run-ide-theme run-daw-theme clean test rebuild debug release format lint shape-sanity shape_pack_tool shape_to_pack export-assets test-shared-theme-font-adapter run-headless-smoke visual-harness test-stable test-legacy package-desktop package-desktop-smoke package-desktop-self-test package-desktop-copy-desktop package-desktop-sync package-desktop-open package-desktop-remove package-desktop-refresh
+.PHONY: all run run-ide-theme run-daw-theme clean test rebuild debug release format lint shape-sanity shape_pack_tool shape_to_pack export-assets test-shared-theme-font-adapter run-headless-smoke visual-harness test-stable test-legacy package-desktop package-desktop-smoke package-desktop-self-test package-desktop-copy-desktop package-desktop-sync package-desktop-open package-desktop-remove package-desktop-refresh scene-export-compile scene-pipeline-smoke
 
 all: $(APP_TARGET)
 
@@ -182,6 +182,21 @@ test: $(TEST_TARGET)
 
 run-headless-smoke:
 	@$(MAKE) test-stable
+
+scene-export-compile:
+	@./tools/scene_export_compile_pipeline.sh \
+		--layout ./tests/fixtures/ld3d2_layout_fixture.json \
+		--scene-id scene_line_drawing_ld3d2 \
+		--authoring-out ./tmp/ld3d2/scene_authoring.json \
+		--runtime-out ./tmp/ld3d2/scene_runtime.json
+
+scene-pipeline-smoke:
+	@./tools/scene_export_compile_pipeline.sh \
+		--layout ./tests/fixtures/ld3d2_layout_fixture.json \
+		--scene-id scene_line_drawing_ld3d2_smoke \
+		--authoring-out ./tmp/ld3d2_smoke/scene_authoring.json \
+		--runtime-out ./tmp/ld3d2_smoke/scene_runtime.json \
+		--determinism-check
 
 visual-harness:
 	@$(MAKE) all

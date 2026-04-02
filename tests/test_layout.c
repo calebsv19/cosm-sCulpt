@@ -542,6 +542,30 @@ static bool test_shape_export_projection_axis_mapping(void) {
     return true;
 }
 
+static bool test_space_mode_toggle_contract_2d_resets_plane_and_free_view(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+
+    state->activePlane.axis = VIEW_PLANE_YZ;
+    state->activePlane.offset = 9.0f;
+    state->freeViewCamera.enabled = true;
+
+    TEST_ASSERT(Global_SetSpaceMode(SPACE_MODE_2D, false));
+    TEST_ASSERT(state->spaceMode == SPACE_MODE_2D);
+    TEST_ASSERT(state->activePlane.axis == VIEW_PLANE_XY);
+    TEST_ASSERT(nearly_equal(state->activePlane.offset, 0.0f));
+    TEST_ASSERT(!state->freeViewCamera.enabled);
+
+    TEST_ASSERT(Global_ToggleSpaceMode(false));
+    TEST_ASSERT(state->spaceMode == SPACE_MODE_3D);
+    TEST_ASSERT(state->activePlane.axis == VIEW_PLANE_XY);
+    TEST_ASSERT(nearly_equal(state->activePlane.offset, 0.0f));
+    TEST_ASSERT(!state->freeViewCamera.enabled);
+
+    shutdown_runtime();
+    return true;
+}
+
 static bool test_canonical_scene_export_2d_payload(void) {
     init_runtime();
     GlobalState* state = Global_Get();
@@ -560,17 +584,23 @@ static bool test_canonical_scene_export_2d_payload(void) {
         cJSON* schema_family = cJSON_GetObjectItem(root, "schema_family");
         cJSON* schema_variant = cJSON_GetObjectItem(root, "schema_variant");
         cJSON* scene_id = cJSON_GetObjectItem(root, "scene_id");
+        cJSON* space_mode_intent = cJSON_GetObjectItem(root, "space_mode_intent");
         cJSON* space_mode_default = cJSON_GetObjectItem(root, "space_mode_default");
+        cJSON* conversion_policy = cJSON_GetObjectItem(root, "conversion_policy");
         cJSON* unit_system = cJSON_GetObjectItem(root, "unit_system");
         TEST_ASSERT(cJSON_IsString(schema_family));
         TEST_ASSERT(cJSON_IsString(schema_variant));
         TEST_ASSERT(cJSON_IsString(scene_id));
+        TEST_ASSERT(cJSON_IsString(space_mode_intent));
         TEST_ASSERT(cJSON_IsString(space_mode_default));
+        TEST_ASSERT(cJSON_IsString(conversion_policy));
         TEST_ASSERT(cJSON_IsString(unit_system));
         TEST_ASSERT(strcmp(schema_family->valuestring, "codework_scene") == 0);
         TEST_ASSERT(strcmp(schema_variant->valuestring, "scene_authoring_v1") == 0);
         TEST_ASSERT(strcmp(scene_id->valuestring, "scene_test_2d") == 0);
+        TEST_ASSERT(strcmp(space_mode_intent->valuestring, "2d") == 0);
         TEST_ASSERT(strcmp(space_mode_default->valuestring, "2d") == 0);
+        TEST_ASSERT(strcmp(conversion_policy->valuestring, "explicit_only") == 0);
         TEST_ASSERT(strcmp(unit_system->valuestring, "meters") == 0);
     }
 
@@ -589,18 +619,27 @@ static bool test_canonical_scene_export_2d_payload(void) {
     cJSON* obj = find_object_by_id(objects, "obj_line_drawing_layout");
     TEST_ASSERT(cJSON_IsObject(obj));
     {
+        cJSON* object_mode_intent = cJSON_GetObjectItem(obj, "space_mode_intent");
         cJSON* object_id = cJSON_GetObjectItem(obj, "object_id");
         cJSON* dimensional_mode = cJSON_GetObjectItem(obj, "dimensional_mode");
         cJSON* locked_plane = cJSON_GetObjectItem(obj, "locked_plane");
+        cJSON* projection_policy = cJSON_GetObjectItem(obj, "projection_policy");
+        cJSON* extrusion_policy = cJSON_GetObjectItem(obj, "extrusion_policy");
         cJSON* material_ref = cJSON_GetObjectItem(obj, "material_ref");
+        TEST_ASSERT(cJSON_IsString(object_mode_intent));
         TEST_ASSERT(cJSON_IsString(object_id));
         TEST_ASSERT(cJSON_IsString(dimensional_mode));
         TEST_ASSERT(cJSON_IsString(locked_plane));
+        TEST_ASSERT(cJSON_IsString(projection_policy));
+        TEST_ASSERT(cJSON_IsString(extrusion_policy));
         TEST_ASSERT(cJSON_IsObject(material_ref));
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(material_ref, "id")->valuestring, "mat_line_drawing_default") == 0);
+        TEST_ASSERT(strcmp(object_mode_intent->valuestring, "2d") == 0);
         TEST_ASSERT(strcmp(object_id->valuestring, "obj_line_drawing_layout") == 0);
         TEST_ASSERT(strcmp(dimensional_mode->valuestring, "plane_locked") == 0);
         TEST_ASSERT(strcmp(locked_plane->valuestring, "xy") == 0);
+        TEST_ASSERT(strcmp(projection_policy->valuestring, "plane_xy_lock") == 0);
+        TEST_ASSERT(strcmp(extrusion_policy->valuestring, "none") == 0);
     }
 
     cJSON* transform = cJSON_GetObjectItem(obj, "transform");
@@ -639,9 +678,15 @@ static bool test_canonical_scene_export_3d_payload(void) {
     free(scene_json);
 
     {
+        cJSON* space_mode_intent = cJSON_GetObjectItem(root, "space_mode_intent");
         cJSON* space_mode_default = cJSON_GetObjectItem(root, "space_mode_default");
+        cJSON* conversion_policy = cJSON_GetObjectItem(root, "conversion_policy");
+        TEST_ASSERT(cJSON_IsString(space_mode_intent));
         TEST_ASSERT(cJSON_IsString(space_mode_default));
+        TEST_ASSERT(cJSON_IsString(conversion_policy));
+        TEST_ASSERT(strcmp(space_mode_intent->valuestring, "3d") == 0);
         TEST_ASSERT(strcmp(space_mode_default->valuestring, "3d") == 0);
+        TEST_ASSERT(strcmp(conversion_policy->valuestring, "explicit_only") == 0);
     }
 
     cJSON* objects = cJSON_GetObjectItem(root, "objects");
@@ -651,9 +696,18 @@ static bool test_canonical_scene_export_3d_payload(void) {
     cJSON* obj = find_object_by_id(objects, "obj_line_drawing_layout");
     TEST_ASSERT(cJSON_IsObject(obj));
     {
+        cJSON* object_mode_intent = cJSON_GetObjectItem(obj, "space_mode_intent");
         cJSON* dimensional_mode = cJSON_GetObjectItem(obj, "dimensional_mode");
+        cJSON* projection_policy = cJSON_GetObjectItem(obj, "projection_policy");
+        cJSON* extrusion_policy = cJSON_GetObjectItem(obj, "extrusion_policy");
+        TEST_ASSERT(cJSON_IsString(object_mode_intent));
         TEST_ASSERT(cJSON_IsString(dimensional_mode));
+        TEST_ASSERT(cJSON_IsString(projection_policy));
+        TEST_ASSERT(cJSON_IsString(extrusion_policy));
+        TEST_ASSERT(strcmp(object_mode_intent->valuestring, "3d") == 0);
         TEST_ASSERT(strcmp(dimensional_mode->valuestring, "full_3d") == 0);
+        TEST_ASSERT(strcmp(projection_policy->valuestring, "none") == 0);
+        TEST_ASSERT(strcmp(extrusion_policy->valuestring, "none") == 0);
     }
     TEST_ASSERT(cJSON_GetObjectItem(obj, "locked_plane") == NULL);
 
@@ -754,6 +808,186 @@ static bool test_canonical_scene_export_preserves_existing_extensions(void) {
     return true;
 }
 
+static bool test_canonical_scene_export_preserves_existing_scene_id_and_canonical_object_ids(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    const char* path = "/tmp/line_drawing_scene_export_id_immutability.json";
+
+    const char* seed_json =
+        "{"
+        "\"schema_family\":\"codework_scene\","
+        "\"schema_variant\":\"scene_authoring_v1\","
+        "\"schema_version\":1,"
+        "\"scene_id\":\"scene_existing_immutable\","
+        "\"space_mode_intent\":\"2d\","
+        "\"space_mode_default\":\"2d\","
+        "\"unit_system\":\"meters\","
+        "\"world_scale\":1.0,"
+        "\"objects\":["
+            "{"
+                "\"object_id\":\"obj_mutated_layout\","
+                "\"object_type\":\"curve_path\","
+                "\"space_mode_intent\":\"2d\","
+                "\"dimensional_mode\":\"plane_locked\""
+            "},"
+            "{"
+                "\"object_id\":\"obj_mutated_anchor_set\","
+                "\"object_type\":\"point_set\","
+                "\"space_mode_intent\":\"2d\","
+                "\"dimensional_mode\":\"plane_locked\""
+            "},"
+            "{"
+                "\"object_id\":\"obj_mutated_wall_set\","
+                "\"object_type\":\"edge_set\","
+                "\"space_mode_intent\":\"2d\","
+                "\"dimensional_mode\":\"plane_locked\""
+            "}"
+        "],"
+        "\"constraints\":[],"
+        "\"extensions\":{}"
+        "}";
+
+    {
+        FILE* f = fopen(path, "wb");
+        TEST_ASSERT(f != NULL);
+        TEST_ASSERT(fwrite(seed_json, 1u, strlen(seed_json), f) == strlen(seed_json));
+        TEST_ASSERT(fclose(f) == 0);
+    }
+
+    Layout_AddWall(layout, (Vec2){ 0.0f, 0.0f }, (Vec2){ 4.0f, 0.0f });
+    TEST_ASSERT(LineDrawingCanonicalScene_ExportLayoutToFile(layout, "scene_attempted_mutation", path));
+
+    {
+        FILE* f = fopen(path, "rb");
+        long len = 0;
+        char* buf = NULL;
+        cJSON* root = NULL;
+        cJSON* scene_id = NULL;
+        cJSON* objects = NULL;
+
+        TEST_ASSERT(f != NULL);
+        TEST_ASSERT(fseek(f, 0, SEEK_END) == 0);
+        len = ftell(f);
+        TEST_ASSERT(len > 0);
+        TEST_ASSERT(fseek(f, 0, SEEK_SET) == 0);
+        buf = (char*)malloc((size_t)len + 1u);
+        TEST_ASSERT(buf != NULL);
+        TEST_ASSERT(fread(buf, 1u, (size_t)len, f) == (size_t)len);
+        buf[len] = '\0';
+        TEST_ASSERT(fclose(f) == 0);
+
+        root = cJSON_Parse(buf);
+        free(buf);
+        TEST_ASSERT(root != NULL);
+
+        scene_id = cJSON_GetObjectItem(root, "scene_id");
+        TEST_ASSERT(cJSON_IsString(scene_id));
+        TEST_ASSERT(strcmp(scene_id->valuestring, "scene_existing_immutable") == 0);
+
+        objects = cJSON_GetObjectItem(root, "objects");
+        TEST_ASSERT(cJSON_IsArray(objects));
+        TEST_ASSERT(cJSON_GetArraySize(objects) == 3);
+        TEST_ASSERT(find_object_by_id(objects, "obj_line_drawing_layout") != NULL);
+        TEST_ASSERT(find_object_by_id(objects, "obj_line_drawing_anchor_set") != NULL);
+        TEST_ASSERT(find_object_by_id(objects, "obj_line_drawing_wall_set") != NULL);
+        TEST_ASSERT(find_object_by_id(objects, "obj_mutated_layout") == NULL);
+        TEST_ASSERT(find_object_by_id(objects, "obj_mutated_anchor_set") == NULL);
+        TEST_ASSERT(find_object_by_id(objects, "obj_mutated_wall_set") == NULL);
+
+        cJSON_Delete(root);
+    }
+
+    remove(path);
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_canonical_scene_export_applies_scene_authoring_options(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    LineDrawingSceneAuthoringOptions options = {
+        .material_id = "mat_custom",
+        .material_type = "flat_color",
+        .light_id = "light_custom",
+        .light_type = "point",
+        .camera_id = "cam_custom",
+        .camera_type = "perspective",
+    };
+
+    Layout_AddWall3(layout, (Vec3){ 0.0f, 0.0f, 0.0f }, (Vec3){ 0.0f, 2.0f, 2.0f });
+
+    char* scene_json =
+        LineDrawingCanonicalScene_ExportLayoutToStringWithOptions(layout, "scene_options", &options);
+    TEST_ASSERT(scene_json != NULL);
+
+    cJSON* root = cJSON_Parse(scene_json);
+    TEST_ASSERT(root != NULL);
+    free(scene_json);
+
+    {
+        cJSON* materials = cJSON_GetObjectItem(root, "materials");
+        cJSON* lights = cJSON_GetObjectItem(root, "lights");
+        cJSON* cameras = cJSON_GetObjectItem(root, "cameras");
+        cJSON* objects = cJSON_GetObjectItem(root, "objects");
+        TEST_ASSERT(cJSON_IsArray(materials));
+        TEST_ASSERT(cJSON_IsArray(lights));
+        TEST_ASSERT(cJSON_IsArray(cameras));
+        TEST_ASSERT(cJSON_IsArray(objects));
+        TEST_ASSERT(cJSON_GetArraySize(materials) == 1);
+        TEST_ASSERT(cJSON_GetArraySize(lights) == 1);
+        TEST_ASSERT(cJSON_GetArraySize(cameras) == 1);
+
+        cJSON* material = cJSON_GetArrayItem(materials, 0);
+        cJSON* light = cJSON_GetArrayItem(lights, 0);
+        cJSON* camera = cJSON_GetArrayItem(cameras, 0);
+        TEST_ASSERT(cJSON_IsObject(material));
+        TEST_ASSERT(cJSON_IsObject(light));
+        TEST_ASSERT(cJSON_IsObject(camera));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(material, "material_id")->valuestring, "mat_custom") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(material, "material_type")->valuestring, "flat_color") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "light_id")->valuestring, "light_custom") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "light_type")->valuestring, "point") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera, "camera_id")->valuestring, "cam_custom") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera, "camera_type")->valuestring, "perspective") == 0);
+
+        cJSON* obj = find_object_by_id(objects, "obj_line_drawing_layout");
+        TEST_ASSERT(cJSON_IsObject(obj));
+        cJSON* mat_ref = cJSON_GetObjectItem(obj, "material_ref");
+        TEST_ASSERT(cJSON_IsObject(mat_ref));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(mat_ref, "id")->valuestring, "mat_custom") == 0);
+    }
+
+    cJSON_Delete(root);
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_canonical_scene_export_rejects_invalid_scene_authoring_options(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    const char* path = "/tmp/line_drawing_scene_export_invalid_options.json";
+    LineDrawingSceneAuthoringOptions bad_options = {
+        .material_id = "bad id",
+        .material_type = "flat_color",
+        .light_id = "light_custom",
+        .light_type = "point",
+        .camera_id = "cam_custom",
+        .camera_type = "perspective",
+    };
+
+    Layout_AddWall(layout, (Vec2){ 0.0f, 0.0f }, (Vec2){ 1.0f, 1.0f });
+    TEST_ASSERT(LineDrawingCanonicalScene_ExportLayoutToStringWithOptions(
+                    layout, "scene_bad_options", &bad_options) == NULL);
+    TEST_ASSERT(!LineDrawingCanonicalScene_ExportLayoutToFileWithOptions(
+        layout, "scene_bad_options", path, &bad_options));
+    remove(path);
+    shutdown_runtime();
+    return true;
+}
+
 bool layout_run_tests(void) {
     const TestCase cases[] = {
         { "AddWallReusesAnchors", test_layout_add_wall_reuses_anchors },
@@ -777,9 +1011,17 @@ bool layout_run_tests(void) {
         { "HitboxGizmoAxisDisabledWhenFreeViewOff", test_hitbox_gizmo_axis_disabled_when_free_view_off },
         { "LayoutComputeCentroidIgnoresDeletedAnchors", test_layout_compute_centroid_ignores_deleted_anchors },
         { "ShapeExportProjectionAxisMapping", test_shape_export_projection_axis_mapping },
+        { "SpaceModeToggleContract2DResetsPlaneAndFreeView",
+          test_space_mode_toggle_contract_2d_resets_plane_and_free_view },
         { "CanonicalSceneExport2DPayload", test_canonical_scene_export_2d_payload },
         { "CanonicalSceneExport3DPayload", test_canonical_scene_export_3d_payload },
-        { "CanonicalSceneExportPreservesExistingExtensions", test_canonical_scene_export_preserves_existing_extensions }
+        { "CanonicalSceneExportPreservesExistingExtensions", test_canonical_scene_export_preserves_existing_extensions },
+        { "CanonicalSceneExportPreservesExistingSceneIdAndCanonicalObjectIds",
+          test_canonical_scene_export_preserves_existing_scene_id_and_canonical_object_ids },
+        { "CanonicalSceneExportAppliesSceneAuthoringOptions",
+          test_canonical_scene_export_applies_scene_authoring_options },
+        { "CanonicalSceneExportRejectsInvalidSceneAuthoringOptions",
+          test_canonical_scene_export_rejects_invalid_scene_authoring_options }
     };
 
     return run_test_cases("Layout", cases, sizeof(cases) / sizeof(cases[0]));

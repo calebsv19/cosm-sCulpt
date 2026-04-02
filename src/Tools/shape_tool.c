@@ -50,6 +50,12 @@ int main(int argc, char** argv) {
     const char* exportPath = NULL;
     const char* exportScenePath = NULL;
     const char* sceneId = NULL;
+    const char* sceneMaterialId = NULL;
+    const char* sceneMaterialType = NULL;
+    const char* sceneLightId = NULL;
+    const char* sceneLightType = NULL;
+    const char* sceneCameraId = NULL;
+    const char* sceneCameraType = NULL;
     ViewPlaneAxis exportAxis = VIEW_PLANE_XY;
 
     for (int i = 1; i < argc; ++i) {
@@ -92,6 +98,48 @@ int main(int argc, char** argv) {
                 sceneId = argv[++i];
             } else {
                 fprintf(stderr, "[shape_tool] ERROR: --scene-id requires a value\n");
+                return 1;
+            }
+        } else if (strcmp(arg, "--scene-material-id") == 0) {
+            if (i + 1 < argc) {
+                sceneMaterialId = argv[++i];
+            } else {
+                fprintf(stderr, "[shape_tool] ERROR: --scene-material-id requires a value\n");
+                return 1;
+            }
+        } else if (strcmp(arg, "--scene-material-type") == 0) {
+            if (i + 1 < argc) {
+                sceneMaterialType = argv[++i];
+            } else {
+                fprintf(stderr, "[shape_tool] ERROR: --scene-material-type requires a value\n");
+                return 1;
+            }
+        } else if (strcmp(arg, "--scene-light-id") == 0) {
+            if (i + 1 < argc) {
+                sceneLightId = argv[++i];
+            } else {
+                fprintf(stderr, "[shape_tool] ERROR: --scene-light-id requires a value\n");
+                return 1;
+            }
+        } else if (strcmp(arg, "--scene-light-type") == 0) {
+            if (i + 1 < argc) {
+                sceneLightType = argv[++i];
+            } else {
+                fprintf(stderr, "[shape_tool] ERROR: --scene-light-type requires a value\n");
+                return 1;
+            }
+        } else if (strcmp(arg, "--scene-camera-id") == 0) {
+            if (i + 1 < argc) {
+                sceneCameraId = argv[++i];
+            } else {
+                fprintf(stderr, "[shape_tool] ERROR: --scene-camera-id requires a value\n");
+                return 1;
+            }
+        } else if (strcmp(arg, "--scene-camera-type") == 0) {
+            if (i + 1 < argc) {
+                sceneCameraType = argv[++i];
+            } else {
+                fprintf(stderr, "[shape_tool] ERROR: --scene-camera-type requires a value\n");
                 return 1;
             }
         } else {
@@ -137,10 +185,19 @@ int main(int argc, char** argv) {
     }
 
     if (exportScenePath) {
+        LineDrawingSceneAuthoringOptions sceneOptions = {
+            .material_id = sceneMaterialId,
+            .material_type = sceneMaterialType,
+            .light_id = sceneLightId,
+            .light_type = sceneLightType,
+            .camera_id = sceneCameraId,
+            .camera_type = sceneCameraType,
+        };
         char finalScenePath[SHAPE_EXPORT_PATH_MAX];
         if (!ShapeExport_BuildPath(exportScenePath, finalScenePath, sizeof(finalScenePath))) {
             fprintf(stderr, "[shape_tool] ERROR: failed to prepare scene export path for '%s'\n", exportScenePath);
-        } else if (LineDrawingCanonicalScene_ExportLayoutToFile(&layout, sceneId, finalScenePath)) {
+        } else if (LineDrawingCanonicalScene_ExportLayoutToFileWithOptions(
+                       &layout, sceneId, finalScenePath, &sceneOptions)) {
             printf("[shape_tool] Exported canonical scene JSON to '%s'\n", finalScenePath);
         } else {
             fprintf(stderr, "[shape_tool] ERROR: failed to export canonical scene JSON to '%s'\n", finalScenePath);

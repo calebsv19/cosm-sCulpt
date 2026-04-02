@@ -13,6 +13,7 @@ Current verification contract:
 - `make -C line_drawing visual-harness`
 - `make -C line_drawing test-stable`
 - `make -C line_drawing test-legacy`
+- `make -C line_drawing scene-pipeline-smoke`
 - `make -C line_drawing package-desktop`
 - `make -C line_drawing package-desktop-self-test`
 - `make -C line_drawing package-desktop-refresh`
