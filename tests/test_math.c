@@ -1,5 +1,6 @@
 #include "test_framework.h"
 
+#include "Editor/space_gizmo_drag.h"
 #include "Layout/Grid/grid.h"
 #include "Math/math_util.h"
 
@@ -261,6 +262,68 @@ static bool test_free_view_orbit_normalize_handles_pole_crossing(void) {
     return true;
 }
 
+static bool test_gizmo_signed_pixels_axis_projection(void) {
+    Vec2 start = { 100.0f, 50.0f };
+    Vec2 nowForward = { 128.0f, 50.0f };
+    Vec2 nowBackward = { 84.0f, 50.0f };
+    Vec2 axis = { 2.0f, 0.0f };
+
+    float forward = GizmoDrag_SignedPixelsAlongAxis(start, nowForward, axis);
+    float backward = GizmoDrag_SignedPixelsAlongAxis(start, nowBackward, axis);
+
+    TEST_ASSERT(nearly_equal(forward, 28.0f));
+    TEST_ASSERT(nearly_equal(backward, -16.0f));
+    return true;
+}
+
+static bool test_gizmo_signed_pixels_handles_degenerate_axis(void) {
+    Vec2 start = { 10.0f, 10.0f };
+    Vec2 now = { 99.0f, 44.0f };
+    Vec2 zeroAxis = { 0.0f, 0.0f };
+
+    float signedPixels = GizmoDrag_SignedPixelsAlongAxis(start, now, zeroAxis);
+    TEST_ASSERT(nearly_equal(signedPixels, 0.0f));
+    return true;
+}
+
+static bool test_gizmo_quantized_distance_rounds_signed_steps(void) {
+    float step = 0.5f;
+    float positive = GizmoDrag_QuantizeDistance(1.26f, step);
+    float negative = GizmoDrag_QuantizeDistance(-1.26f, step);
+
+    TEST_ASSERT(nearly_equal(positive, 1.5f));
+    TEST_ASSERT(nearly_equal(negative, -1.5f));
+    return true;
+}
+
+static bool test_gizmo_resolve_distance_smooth_vs_quantized(void) {
+    float signedPixels = 14.0f;
+    float worldUnitsPerPixel = 0.2f;
+    float step = 0.5f;
+
+    float smooth = GizmoDrag_ResolveDistance(signedPixels, worldUnitsPerPixel, step, true);
+    float quantized = GizmoDrag_ResolveDistance(signedPixels, worldUnitsPerPixel, step, false);
+
+    TEST_ASSERT(nearly_equal(smooth, 2.8f));
+    TEST_ASSERT(nearly_equal(quantized, 3.0f));
+    return true;
+}
+
+static bool test_gizmo_apply_axis_distance_world_vector(void) {
+    Vec3 origin = { 2.0f, -3.0f, 4.0f };
+
+    Vec3 pos = GizmoDrag_ApplyAxisDistance(origin, GIZMO_AXIS_DIR_POS_Z, 1.5f);
+    TEST_ASSERT(nearly_equal(pos.x, 2.0f));
+    TEST_ASSERT(nearly_equal(pos.y, -3.0f));
+    TEST_ASSERT(nearly_equal(pos.z, 5.5f));
+
+    Vec3 neg = GizmoDrag_ApplyAxisDistance(origin, GIZMO_AXIS_DIR_NEG_X, 2.0f);
+    TEST_ASSERT(nearly_equal(neg.x, 0.0f));
+    TEST_ASSERT(nearly_equal(neg.y, -3.0f));
+    TEST_ASSERT(nearly_equal(neg.z, 4.0f));
+    return true;
+}
+
 bool math_run_tests(void) {
     const TestCase cases[] = {
         { "Vec2SnapAlignsToGrid", test_vec2_snap_aligns_to_grid },
@@ -279,7 +342,12 @@ bool math_run_tests(void) {
         { "ScreenToPlaneWorldWithFreeCamera", test_screen_to_plane_world_with_free_camera },
         { "HandlePolarRoundtripXY", test_handle_polar_roundtrip_xy },
         { "HandlePolarRoundtripYZ", test_handle_polar_roundtrip_yz },
-        { "FreeViewOrbitNormalizeHandlesPoleCrossing", test_free_view_orbit_normalize_handles_pole_crossing }
+        { "FreeViewOrbitNormalizeHandlesPoleCrossing", test_free_view_orbit_normalize_handles_pole_crossing },
+        { "GizmoSignedPixelsAxisProjection", test_gizmo_signed_pixels_axis_projection },
+        { "GizmoSignedPixelsHandlesDegenerateAxis", test_gizmo_signed_pixels_handles_degenerate_axis },
+        { "GizmoQuantizedDistanceRoundsSignedSteps", test_gizmo_quantized_distance_rounds_signed_steps },
+        { "GizmoResolveDistanceSmoothVsQuantized", test_gizmo_resolve_distance_smooth_vs_quantized },
+        { "GizmoApplyAxisDistanceWorldVector", test_gizmo_apply_axis_distance_world_vector }
     };
 
     return run_test_cases("Math", cases, sizeof(cases) / sizeof(cases[0]));

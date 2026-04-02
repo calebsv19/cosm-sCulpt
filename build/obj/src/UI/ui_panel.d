@@ -81,7 +81,8 @@ build/obj/src/UI/ui_panel.o: src/UI/ui_panel.c \
   src/Layout/Grid/grid.h src/Layout/layout.h src/Math/math_util.h \
   ../shared/core/core_math/include/core_math.h \
   ../shared/core/core_base/include/core_base.h src/Editor/editor.h \
-  src/Core/SDLApp/sdl_app_framework.h src/Layout/layout_json.h \
+  src/Core/SDLApp/sdl_app_framework.h src/Editor/space_gizmo_drag.h \
+  src/Core/space_mode_adapter.h src/Layout/layout_json.h \
   src/Tools/shape_from_layout.h src/Tools/ShapeLib/shape_core.h \
   src/Tools/ShapeLib/../../../../shared/shape/ShapeLib/shape_core.h \
   src/Tools/shape_export.h src/Tools/ShapeLib/shape_json.h \
@@ -177,6 +178,8 @@ src/Math/math_util.h:
 ../shared/core/core_base/include/core_base.h:
 src/Editor/editor.h:
 src/Core/SDLApp/sdl_app_framework.h:
+src/Editor/space_gizmo_drag.h:
+src/Core/space_mode_adapter.h:
 src/Layout/layout_json.h:
 src/Tools/shape_from_layout.h:
 src/Tools/ShapeLib/shape_core.h:

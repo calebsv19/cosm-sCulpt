@@ -20,6 +20,7 @@ typedef struct GlobalState {
     SpaceMode spaceMode;
     ViewPlane activePlane;
     FreeViewCamera freeViewCamera;
+    bool centerCrosshairEnabled;
 
     int screenWidth;
     int screenHeight;
@@ -58,3 +59,6 @@ bool Global_SetSpaceMode(SpaceMode mode, bool persist);
 bool Global_ToggleSpaceMode(bool persist);
 bool Global_LoadSpaceMode(void);
 bool Global_SaveSpaceMode(void);
+bool Global_IsCenterCrosshairEnabled(void);
+bool Global_SetCenterCrosshairEnabled(bool enabled);
+bool Global_ToggleCenterCrosshair(void);

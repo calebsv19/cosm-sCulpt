@@ -372,6 +372,9 @@ static void UIPanel_LoadConfigByIndex(int index) {
         state->editor.selectedWallIndex = -1;
         state->editor.hoveredAnchorIndex = -1;
         state->editor.hoveredWallIndex = -1;
+        state->editor.hoveredHandleAnchor = -1;
+        state->editor.hoveredHandleComponent = -1;
+        state->editor.hoveredGizmoAxis = -1;
         Editor_HistoryCapture(&state->editor, &state->layout);
     } else {
         SDL_Log("[UI] Failed to load layout %s", path);

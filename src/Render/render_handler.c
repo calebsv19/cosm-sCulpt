@@ -82,6 +82,24 @@ static void Render_FreeViewAxisGizmo(SDL_Renderer* renderer, const GlobalState* 
                   (Vec3){ 0.0f, 0.0f, 1.0f }, SpaceAdapter_Camera(&viewCtx));  // +Z
 }
 
+static void Render_ViewCenterCrosshair(SDL_Renderer* renderer, const GlobalState* state) {
+    if (!renderer || !state || !state->centerCrosshairEnabled) return;
+
+    const int cx = state->screenWidth / 2;
+    const int cy = state->screenHeight / 2;
+    const int half = 6;
+    const int gap = 2;
+
+    SDL_SetRenderDrawColor(renderer, 245, 245, 245, 200);
+    SDL_RenderDrawLine(renderer, cx - half, cy, cx - gap, cy);
+    SDL_RenderDrawLine(renderer, cx + gap, cy, cx + half, cy);
+    SDL_RenderDrawLine(renderer, cx, cy - half, cx, cy - gap);
+    SDL_RenderDrawLine(renderer, cx, cy + gap, cx, cy + half);
+
+    SDL_SetRenderDrawColor(renderer, 255, 180, 80, 220);
+    SDL_RenderDrawPoint(renderer, cx, cy);
+}
+
 void Render_Frame(AppContext* ctx) {
     static int logged_counts = 0;
 
@@ -126,9 +144,11 @@ void Render_Frame(AppContext* ctx) {
     }
 
     // ─── Editor Overlay (Ghost Wall, Active Anchor) ─
+    Render_Editor_AxisGizmo(editor, ctx);
     Render_Editor_Anchor(editor, ctx);
     Render_Editor_GhostWall(editor, ctx);
     Render_Editor_SelectionBox(editor, ctx);
+    Render_ViewCenterCrosshair(ctx->renderer, state);
     if (!logged_counts && vk) {
         fprintf(stderr, "[LineDrawing] Editor overlay draw calls: %u\n",
                 vk->draw_state.draw_call_count - before_draws);

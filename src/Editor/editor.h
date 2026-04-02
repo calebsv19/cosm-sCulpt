@@ -4,6 +4,7 @@
 #include "Core/SDLApp/sdl_app_framework.h"
 #include "Layout/layout.h"
 #include "Math/math_util.h"
+#include "Editor/space_gizmo_drag.h"
 
 typedef enum {
     DELETE_MODE_SAFE,      // Only delete selected wall or anchor
@@ -44,6 +45,7 @@ typedef struct {
     int selectedHandleComponent;   // 0 = incoming, 1 = outgoing, -1 = none
     int hoveredHandleAnchor;
     int hoveredHandleComponent;
+    int hoveredGizmoAxis;          // GizmoAxisDirection or -1
 
     DeleteMode deleteMode;
 
@@ -56,6 +58,7 @@ typedef struct {
     int dragSnapshotCapacity;
     bool isDraggingAnchor;
     bool isPreciseDrag;
+    GizmoAxisDragSession gizmoDrag;
 
     EditorHistoryStack undoStack;
     EditorHistoryStack redoStack;
@@ -86,6 +89,7 @@ int Editor_SelectedAnchorCount(const EditorState* editor);
 void Editor_BeginAnchorDrag(EditorState* editor, const Layout* layout);
 void Editor_UpdateAnchorDrag(EditorState* editor, Layout* layout, Vec3 primaryNewPos);
 void Editor_EndAnchorDrag(EditorState* editor);
+void Editor_ResetGizmoDrag(EditorState* editor);
 void Editor_SelectAnchorsInBox(EditorState* editor, const Layout* layout, Vec2 min, Vec2 max, bool additive);
 
 // Renders the ghost wall (anchor → current mouse world pos)

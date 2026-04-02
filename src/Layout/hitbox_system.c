@@ -1,4 +1,5 @@
 #include "hitbox_system.h"
+#include "Editor/space_gizmo_drag.h"
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <math.h>
@@ -11,11 +12,12 @@ static size_t hitboxCount = 0;
 
 static int Hitbox_TypePriority(HitboxType type) {
     switch (type) {
-        case HITBOX_HANDLE: return 0;
-        case HITBOX_POINT: return 1;
-        case HITBOX_WALL: return 2;
+        case HITBOX_GIZMO_AXIS: return 0;
+        case HITBOX_HANDLE: return 1;
+        case HITBOX_POINT: return 2;
+        case HITBOX_WALL: return 3;
         case HITBOX_NONE:
-        default: return 3;
+        default: return 4;
     }
 }
 
@@ -42,12 +44,64 @@ static void Hitbox_Add(HitboxType type,
     };
 }
 
+static void Hitbox_AddSelectedAnchorGizmo(const Layout* layout,
+                                          float scale,
+                                          float offsetX,
+                                          float offsetY,
+                                          ViewPlane plane,
+                                          const FreeViewCamera* camera,
+                                          int selectedAnchorIndex,
+                                          bool gizmoEnabled) {
+    if (!layout || !gizmoEnabled) return;
+    if (selectedAnchorIndex < 0 || (size_t)selectedAnchorIndex >= layout->anchorCount) return;
+
+    const Anchor* anchor = &layout->anchors[selectedAnchorIndex];
+    if (anchor->isDeleted) return;
+
+    const float gridSize = layout->gridSize;
+    const float axisWorldLen = fmaxf(gridSize * 2.0f, 1.0f);
+    const int handleRadius = SDL_max(6, (int)(gridSize * scale * 0.13f));
+
+    const Vec2 anchorView = Vec3_ProjectToView(anchor->pos, plane, camera);
+    const Vec2 anchorScreen = {
+        .x = (anchorView.x - offsetX) * gridSize * scale,
+        .y = (anchorView.y - offsetY) * gridSize * scale
+    };
+
+    for (int dir = GIZMO_AXIS_DIR_POS_X; dir <= GIZMO_AXIS_DIR_NEG_Z; ++dir) {
+        const Vec3 axisWorld = GizmoAxisDirection_WorldVector((GizmoAxisDirection)dir);
+        const Vec3 tipWorld = Vec3_Add(anchor->pos, Vec3_Scale(axisWorld, axisWorldLen));
+        const Vec2 tipView = Vec3_ProjectToView(tipWorld, plane, camera);
+        const Vec2 tipScreen = {
+            .x = (tipView.x - offsetX) * gridSize * scale,
+            .y = (tipView.y - offsetY) * gridSize * scale
+        };
+
+        const float dx = tipScreen.x - anchorScreen.x;
+        const float dy = tipScreen.y - anchorScreen.y;
+        const float d2 = dx * dx + dy * dy;
+        if (d2 <= 9.0f) {
+            continue;
+        }
+
+        const int cx = (int)tipScreen.x;
+        const int cy = (int)tipScreen.y;
+        Hitbox_Add(HITBOX_GIZMO_AXIS,
+                   selectedAnchorIndex,
+                   dir,
+                   (SDL_Rect){ cx - handleRadius, cy - handleRadius, handleRadius * 2, handleRadius * 2 },
+                   ViewPlane_AbsDistance(plane, anchor->pos));
+    }
+}
+
 void HitboxSystem_Rebuild(const Layout* layout,
                          float scale,
                          float offsetX,
                          float offsetY,
                          ViewPlane plane,
-                         const FreeViewCamera* camera) {
+                         const FreeViewCamera* camera,
+                         int selectedAnchorIndex,
+                         bool gizmoEnabled) {
     hitboxCount = 0;
     float gridSize = layout->gridSize;
     bool* anchorHasHitbox = NULL;
@@ -161,6 +215,15 @@ void HitboxSystem_Rebuild(const Layout* layout,
                        ViewPlane_AbsDistance(plane, anchor->pos));
         }
     }
+
+    Hitbox_AddSelectedAnchorGizmo(layout,
+                                  scale,
+                                  offsetX,
+                                  offsetY,
+                                  plane,
+                                  camera,
+                                  selectedAnchorIndex,
+                                  gizmoEnabled);
 
     free(anchorHasHitbox);
 }

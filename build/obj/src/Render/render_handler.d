@@ -79,6 +79,7 @@ build/obj/src/Render/render_handler.o: src/Render/render_handler.c \
   src/Core/global_state.h src/Layout/Grid/grid.h src/Layout/layout.h \
   src/Math/math_util.h ../shared/core/core_math/include/core_math.h \
   ../shared/core/core_base/include/core_base.h src/Editor/editor.h \
+  src/Editor/space_gizmo_drag.h src/Core/space_mode_adapter.h \
   src/UI/ui_panel.h src/UI/render_ui_panel.h src/UI/info_overlay.h \
   src/UI/shared_theme_font_adapter.h src/Layout/Grid/render_grid.h \
   src/Layout/render_layout.h src/Render/vulkan_adapter.h \
@@ -169,6 +170,8 @@ src/Math/math_util.h:
 ../shared/core/core_math/include/core_math.h:
 ../shared/core/core_base/include/core_base.h:
 src/Editor/editor.h:
+src/Editor/space_gizmo_drag.h:
+src/Core/space_mode_adapter.h:
 src/UI/ui_panel.h:
 src/UI/render_ui_panel.h:
 src/UI/info_overlay.h:

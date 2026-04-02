@@ -26,12 +26,14 @@ These controls apply when view mode is `FREE_VIEW`.
 - `J` / `L`: Move view target left / right.
 - `I` / `K`: Move view target up / down.
 - `Alt/Option + Mouse Move`: Orbit camera around the current layout centroid (no mouse click required).
+- In `SPACE_MODE_3D + FREE_VIEW`, selecting an anchor shows six translate gizmo handles (`+/-X`, `+/-Y`, `+/-Z`).
 
 ## Navigation
 - `Arrow Keys`: Pan the current view.
 - `=`: Zoom in.
 - `-`: Zoom out.
 - `Mouse Wheel`: Zoom in/out.
+- `Shift + C`: Toggle center crosshair overlay.
 - `Esc`: Quit app.
 
 ## History
@@ -53,6 +55,9 @@ These controls apply when view mode is `FREE_VIEW`.
 - `Left Click`: Select handle/anchor/wall (ranked selection).
 - `Left Drag` on selected anchor(s): Move selected anchor group (plane-constrained).
 - `Alt + Left Drag`: Precise drag (no snap).
+- `Left Click` on gizmo handle (`3D + FREE_VIEW`): Start axis-constrained gizmo drag for the selected anchor.
+- `Left Drag` on gizmo handle (`3D + FREE_VIEW`): Move along selected axis with signed motion (pull opposite to move negative).
+- `Shift + Gizmo Drag` (`3D + FREE_VIEW`): Smooth/non-quantized gizmo drag.
 - `Shift + Left Drag` on empty space: Marquee selection box.
 - `Shift + Left Click`: Add/remove from anchor selection group.
 - `Double Left Click` on selected anchor: Collapse multi-selection to that anchor.
@@ -72,4 +77,5 @@ These controls apply when view mode is `FREE_VIEW`.
 
 ## Notes
 - Selection prefers: handles, then points, then walls.
+- In `3D + FREE_VIEW`, gizmo handles are highest-ranked picks while hovered.
 - Overlapping candidates are resolved by ranked picking using type priority, active-plane depth distance, and cursor proximity.

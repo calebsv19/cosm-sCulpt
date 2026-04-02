@@ -78,7 +78,11 @@ build/obj/src/UI/render_ui_panel.o: src/UI/render_ui_panel.c \
   src/UI/render_ui_panel.h src/Core/SDLApp/sdl_app_framework.h \
   src/UI/ui_panel.h src/UI/font_manager.h \
   /opt/homebrew/include/SDL2/SDL_ttf.h \
-  src/UI/shared_theme_font_adapter.h src/Render/vulkan_adapter.h
+  src/UI/shared_theme_font_adapter.h src/Core/global_state.h \
+  src/Layout/Grid/grid.h src/Layout/layout.h src/Math/math_util.h \
+  ../shared/core/core_math/include/core_math.h \
+  ../shared/core/core_base/include/core_base.h src/Editor/editor.h \
+  src/Editor/space_gizmo_drag.h src/Render/vulkan_adapter.h
 ../shared/vk_renderer/include/vk_renderer_sdl.h:
 ../shared/vk_renderer/include/vk_renderer.h:
 /opt/homebrew/include/SDL2/SDL.h:
@@ -162,4 +166,12 @@ src/UI/ui_panel.h:
 src/UI/font_manager.h:
 /opt/homebrew/include/SDL2/SDL_ttf.h:
 src/UI/shared_theme_font_adapter.h:
+src/Core/global_state.h:
+src/Layout/Grid/grid.h:
+src/Layout/layout.h:
+src/Math/math_util.h:
+../shared/core/core_math/include/core_math.h:
+../shared/core/core_base/include/core_base.h:
+src/Editor/editor.h:
+src/Editor/space_gizmo_drag.h:
 src/Render/vulkan_adapter.h:

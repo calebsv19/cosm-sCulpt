@@ -75,13 +75,15 @@ build/obj/src/main.o: src/main.c \
   ../shared/vk_renderer/include/vk_renderer_memory.h \
   ../shared/vk_renderer/include/vk_renderer_textures.h \
   ../shared/vk_renderer/include/vk_renderer_compat_sdl.h \
+  include/line_drawing/line_drawing_app_main.h \
   src/Core/SDLApp/sdl_app_framework.h src/Layout/Grid/grid.h \
   src/UI/font_manager.h /opt/homebrew/include/SDL2/SDL_ttf.h \
   src/UI/shared_theme_font_adapter.h src/Input/input_handler.h \
   src/Render/render_handler.h src/Core/global_state.h \
   src/Layout/layout.h src/Math/math_util.h \
   ../shared/core/core_math/include/core_math.h \
-  ../shared/core/core_base/include/core_base.h src/Editor/editor.h
+  ../shared/core/core_base/include/core_base.h src/Editor/editor.h \
+  src/Editor/space_gizmo_drag.h
 ../shared/vk_renderer/include/vk_renderer_sdl.h:
 ../shared/vk_renderer/include/vk_renderer.h:
 /opt/homebrew/include/SDL2/SDL.h:
@@ -159,6 +161,7 @@ build/obj/src/main.o: src/main.c \
 ../shared/vk_renderer/include/vk_renderer_memory.h:
 ../shared/vk_renderer/include/vk_renderer_textures.h:
 ../shared/vk_renderer/include/vk_renderer_compat_sdl.h:
+include/line_drawing/line_drawing_app_main.h:
 src/Core/SDLApp/sdl_app_framework.h:
 src/Layout/Grid/grid.h:
 src/UI/font_manager.h:
@@ -172,3 +175,4 @@ src/Math/math_util.h:
 ../shared/core/core_math/include/core_math.h:
 ../shared/core/core_base/include/core_base.h:
 src/Editor/editor.h:
+src/Editor/space_gizmo_drag.h:

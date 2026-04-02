@@ -3,6 +3,7 @@
 #include "ShapeLib/shape_core.h"
 #include "ShapeLib/shape_draw_sdl.h"
 #include "ShapeLib/shape_json.h"
+#include "Tools/canonical_scene_export.h"
 #include "Tools/shape_from_layout.h"
 
 #include <SDL2/SDL.h>
@@ -47,6 +48,8 @@ int main(int argc, char** argv) {
     bool viewMode = false;
     const char* layoutPath = "config/layout_config.json";
     const char* exportPath = NULL;
+    const char* exportScenePath = NULL;
+    const char* sceneId = NULL;
     ViewPlaneAxis exportAxis = VIEW_PLANE_XY;
 
     for (int i = 1; i < argc; ++i) {
@@ -75,6 +78,20 @@ int main(int argc, char** argv) {
                 exportPath = argv[++i];
             } else {
                 fprintf(stderr, "[shape_tool] ERROR: --export-shape requires a path\n");
+                return 1;
+            }
+        } else if (strcmp(arg, "--export-scene") == 0) {
+            if (i + 1 < argc) {
+                exportScenePath = argv[++i];
+            } else {
+                fprintf(stderr, "[shape_tool] ERROR: --export-scene requires a path\n");
+                return 1;
+            }
+        } else if (strcmp(arg, "--scene-id") == 0) {
+            if (i + 1 < argc) {
+                sceneId = argv[++i];
+            } else {
+                fprintf(stderr, "[shape_tool] ERROR: --scene-id requires a value\n");
                 return 1;
             }
         } else {
@@ -116,6 +133,17 @@ int main(int argc, char** argv) {
             printf("[shape_tool] Exported Shape JSON to '%s'\n", finalExportPath);
         } else {
             fprintf(stderr, "[shape_tool] ERROR: failed to export Shape JSON to '%s'\n", finalExportPath);
+        }
+    }
+
+    if (exportScenePath) {
+        char finalScenePath[SHAPE_EXPORT_PATH_MAX];
+        if (!ShapeExport_BuildPath(exportScenePath, finalScenePath, sizeof(finalScenePath))) {
+            fprintf(stderr, "[shape_tool] ERROR: failed to prepare scene export path for '%s'\n", exportScenePath);
+        } else if (LineDrawingCanonicalScene_ExportLayoutToFile(&layout, sceneId, finalScenePath)) {
+            printf("[shape_tool] Exported canonical scene JSON to '%s'\n", finalScenePath);
+        } else {
+            fprintf(stderr, "[shape_tool] ERROR: failed to export canonical scene JSON to '%s'\n", finalScenePath);
         }
     }
 

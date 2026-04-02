@@ -102,6 +102,17 @@ static void DragSnapshot_EnsureCapacity(EditorState* editor, int desired) {
     editor->dragSnapshotCapacity = newCap;
 }
 
+void Editor_ResetGizmoDrag(EditorState* editor) {
+    if (!editor) return;
+    editor->gizmoDrag.active = false;
+    editor->gizmoDrag.axis = GIZMO_AXIS_DIR_POS_X;
+    editor->gizmoDrag.anchorIndex = -1;
+    editor->gizmoDrag.mouseStartScreen = (Vec2){ 0.0f, 0.0f };
+    editor->gizmoDrag.primaryStartWorld = (Vec3){ 0.0f, 0.0f, 0.0f };
+    editor->gizmoDrag.worldUnitsPerPixel = 0.0f;
+    editor->gizmoDrag.smooth = false;
+}
+
 void Editor_Init(EditorState* editor) {
     editor->mode = TOOL_IDLE;
     editor->shiftHeld = false;
@@ -118,6 +129,7 @@ void Editor_Init(EditorState* editor) {
     editor->selectedHandleComponent = -1;
     editor->hoveredHandleAnchor = -1;
     editor->hoveredHandleComponent = -1;
+    editor->hoveredGizmoAxis = -1;
     editor->deleteMode = DELETE_MODE_SAFE;
     editor->isDraggingAnchor = false;
     editor->isPreciseDrag = false;
@@ -127,6 +139,7 @@ void Editor_Init(EditorState* editor) {
     editor->dragSnapshots = NULL;
     editor->dragSnapshotCount = 0;
     editor->dragSnapshotCapacity = 0;
+    Editor_ResetGizmoDrag(editor);
     HistoryStack_Init(&editor->undoStack);
     HistoryStack_Init(&editor->redoStack);
 }
@@ -162,11 +175,13 @@ static void Editor_ResetSelection(EditorState* editor) {
     editor->selectedWallIndex = -1;
     editor->selectedHandleAnchor = -1;
     editor->selectedHandleComponent = -1;
+    editor->hoveredGizmoAxis = -1;
     editor->isDraggingAnchor = false;
     editor->isPreciseDrag = false;
     editor->selectionBoxActive = false;
     editor->selectionBoxAdditive = false;
     editor->mode = TOOL_IDLE;
+    Editor_ResetGizmoDrag(editor);
 }
 
 void Editor_SelectAnchorsInBox(EditorState* editor, const Layout* layout, Vec2 min, Vec2 max, bool additive) {
@@ -253,6 +268,8 @@ void Editor_ClearAnchorSelection(EditorState* editor) {
     AnchorSelection_Clear(editor);
     editor->selectedAnchorIndex = -1;
     editor->dragSnapshotCount = 0;
+    editor->hoveredGizmoAxis = -1;
+    Editor_ResetGizmoDrag(editor);
 }
 
 void Editor_SelectAnchor(EditorState* editor, int anchorIndex, bool additive) {

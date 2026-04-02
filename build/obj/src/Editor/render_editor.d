@@ -78,7 +78,9 @@ build/obj/src/Editor/render_editor.o: src/Editor/render_editor.c \
   src/Editor/render_editor.h src/Core/SDLApp/sdl_app_framework.h \
   src/Editor/editor.h src/Layout/layout.h src/Math/math_util.h \
   src/Layout/Grid/grid.h ../shared/core/core_math/include/core_math.h \
-  ../shared/core/core_base/include/core_base.h src/Core/global_state.h
+  ../shared/core/core_base/include/core_base.h \
+  src/Editor/space_gizmo_drag.h src/Core/global_state.h \
+  src/Core/space_mode_adapter.h
 ../shared/vk_renderer/include/vk_renderer_sdl.h:
 ../shared/vk_renderer/include/vk_renderer.h:
 /opt/homebrew/include/SDL2/SDL.h:
@@ -164,4 +166,6 @@ src/Math/math_util.h:
 src/Layout/Grid/grid.h:
 ../shared/core/core_math/include/core_math.h:
 ../shared/core/core_base/include/core_base.h:
+src/Editor/space_gizmo_drag.h:
 src/Core/global_state.h:
+src/Core/space_mode_adapter.h:

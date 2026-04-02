@@ -18,6 +18,7 @@
 static bool draggingPan = false;
 static bool draggingHandle = false;
 static bool draggingAnchor = false;
+static bool draggingGizmo = false;
 static bool draggingSelectionBox = false;
 static int draggingAnchorIndex = -1;
 static bool anchorDragCaptured = false;
@@ -26,6 +27,7 @@ static int lastMx = 0, lastMy = 0;
 
 static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
     if (!motion) return false;
+    if (draggingAnchor || draggingHandle || draggingSelectionBox || draggingGizmo) return false;
     GlobalState* state = Global_Get();
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (!state || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
@@ -50,6 +52,54 @@ static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
     return true;
 }
 
+static bool BeginGizmoDragSession(GlobalState* state,
+                                  EditorState* editor,
+                                  int anchorIndex,
+                                  GizmoAxisDirection axis,
+                                  int mouseX,
+                                  int mouseY) {
+    if (!state || !editor) return false;
+    if (!GizmoAxisDirection_IsValid(axis)) return false;
+    if (anchorIndex < 0 || (size_t)anchorIndex >= state->layout.anchorCount) return false;
+
+    const Anchor* anchor = &state->layout.anchors[anchorIndex];
+    if (anchor->isDeleted) return false;
+
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
+
+    const float axisWorldLen = fmaxf(state->grid.gridSize, 1e-4f);
+    Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(axis);
+    Vec3 tipWorld = Vec3_Add(anchor->pos, Vec3_Scale(axisWorldVec, axisWorldLen));
+
+    Vec2 anchorScreen = WorldToScreen(SpaceAdapter_ProjectToView(anchor->pos, &viewCtx), &state->grid);
+    Vec2 tipScreen = WorldToScreen(SpaceAdapter_ProjectToView(tipWorld, &viewCtx), &state->grid);
+    float axisPixels = Vec2_Distance(anchorScreen, tipScreen);
+    if (axisPixels <= 1e-4f) return false;
+
+    editor->gizmoDrag.active = true;
+    editor->gizmoDrag.axis = axis;
+    editor->gizmoDrag.anchorIndex = anchorIndex;
+    editor->gizmoDrag.mouseStartScreen = (Vec2){ (float)mouseX, (float)mouseY };
+    editor->gizmoDrag.primaryStartWorld = anchor->pos;
+    editor->gizmoDrag.worldUnitsPerPixel = axisWorldLen / axisPixels;
+    editor->gizmoDrag.smooth = (SDL_GetModState() & KMOD_SHIFT) != 0;
+    editor->hoveredGizmoAxis = axis;
+    editor->isDraggingAnchor = true;
+    editor->isPreciseDrag = editor->gizmoDrag.smooth;
+
+    Editor_BeginAnchorDrag(editor, &state->layout);
+    if (editor->dragSnapshotCount == 0) {
+        Editor_ResetGizmoDrag(editor);
+        editor->isDraggingAnchor = false;
+        editor->isPreciseDrag = false;
+        return false;
+    }
+
+    Editor_HistoryCapture(editor, &state->layout);
+    return true;
+}
+
 static void UpdateHover(int mx, int my) {
     GlobalState* state = Global_Get();
     if (!state) return;
@@ -58,6 +108,9 @@ static void UpdateHover(int mx, int my) {
     if (UIPanel_IsSaveDialogActive() || UIPanel_IsLoadMenuOpen()) {
         editor->hoveredAnchorIndex = -1;
         editor->hoveredWallIndex = -1;
+        editor->hoveredHandleAnchor = -1;
+        editor->hoveredHandleComponent = -1;
+        editor->hoveredGizmoAxis = -1;
         return;
     }
 
@@ -67,9 +120,17 @@ static void UpdateHover(int mx, int my) {
         editor->hoveredWallIndex = -1;
         editor->hoveredHandleAnchor = -1;
         editor->hoveredHandleComponent = -1;
+        editor->hoveredGizmoAxis = -1;
     } else if (hit.type == HITBOX_HANDLE) {
         editor->hoveredHandleAnchor = hit.index;
         editor->hoveredHandleComponent = hit.subIndex;
+        editor->hoveredAnchorIndex = hit.index;
+        editor->hoveredWallIndex = -1;
+        editor->hoveredGizmoAxis = -1;
+    } else if (hit.type == HITBOX_GIZMO_AXIS) {
+        editor->hoveredGizmoAxis = hit.subIndex;
+        editor->hoveredHandleAnchor = -1;
+        editor->hoveredHandleComponent = -1;
         editor->hoveredAnchorIndex = hit.index;
         editor->hoveredWallIndex = -1;
     } else if (hit.type == HITBOX_WALL) {
@@ -77,11 +138,13 @@ static void UpdateHover(int mx, int my) {
         editor->hoveredAnchorIndex = -1;
         editor->hoveredHandleAnchor = -1;
         editor->hoveredHandleComponent = -1;
+        editor->hoveredGizmoAxis = -1;
     } else {
         editor->hoveredWallIndex = -1;
         editor->hoveredAnchorIndex = -1;
         editor->hoveredHandleAnchor = -1;
         editor->hoveredHandleComponent = -1;
+        editor->hoveredGizmoAxis = -1;
     }
 }
 
@@ -122,6 +185,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     draggingPan = false;
     draggingHandle = false;
     draggingAnchor = false;
+    draggingGizmo = false;
     draggingAnchorIndex = -1;
     anchorDragCaptured = false;
     lastMx = btn->x;
@@ -130,12 +194,15 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
 
     GlobalState* state = Global_Get();
     EditorState* editor = &state->editor;
+    Editor_ResetGizmoDrag(editor);
     bool shiftSelect = (SDL_GetModState() & KMOD_SHIFT) != 0;
+    bool startedGizmoDrag = false;
 
     Global_RebuildHitboxesIfDirty();
     Hitbox hit = HitboxSystem_GetHitAt(btn->x, btn->y);
 
     bool clickedHandle = (hit.type == HITBOX_HANDLE);
+    bool clickedGizmo = (hit.type == HITBOX_GIZMO_AXIS);
     bool doubleClick = (!shiftSelect && btn->clicks >= 2);
 
     // Priority: anchor selection overrides wall
@@ -167,6 +234,17 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         editor->selectedHandleAnchor = hit.index;
         editor->selectedHandleComponent = hit.subIndex;
         Editor_HistoryCapture(editor, &state->layout);
+    } else if (hit.type == HITBOX_GIZMO_AXIS) {
+        Editor_SelectAnchor(editor, hit.index, false);
+        editor->selectedWallIndex = -1;
+        editor->selectedHandleAnchor = -1;
+        editor->selectedHandleComponent = -1;
+        startedGizmoDrag = BeginGizmoDragSession(state,
+                                                 editor,
+                                                 hit.index,
+                                                 (GizmoAxisDirection)hit.subIndex,
+                                                 btn->x,
+                                                 btn->y);
     } else if (hit.type == HITBOX_WALL) {
         editor->selectedWallIndex = hit.index;
         Editor_ClearAnchorSelection(editor);
@@ -192,6 +270,10 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     if (clickedHandle) {
         draggingHandle = true;
         draggingPan = false;
+    } else if (clickedGizmo) {
+        draggingHandle = false;
+        draggingPan = false;
+        draggingGizmo = startedGizmoDrag;
     } else if (draggingAnchor) {
         draggingHandle = false;
         draggingPan = false;
@@ -283,10 +365,60 @@ static void UpdateHandleDragPosition(int mx, int my) {
     Global_FlagLayoutChanged();
 }
 
+static void UpdateGizmoDragPosition(int mx, int my) {
+    if (!draggingGizmo) return;
+
+    GlobalState* state = Global_Get();
+    if (!state) return;
+    EditorState* editor = &state->editor;
+    if (!editor->gizmoDrag.active) return;
+    if (!GizmoAxisDirection_IsValid(editor->gizmoDrag.axis)) return;
+    if (editor->gizmoDrag.anchorIndex < 0 ||
+        (size_t)editor->gizmoDrag.anchorIndex >= state->layout.anchorCount) {
+        return;
+    }
+
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
+
+    const float axisWorldLen = fmaxf(state->grid.gridSize, 1e-4f);
+    Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(editor->gizmoDrag.axis);
+    Vec3 tipWorld = Vec3_Add(editor->gizmoDrag.primaryStartWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
+
+    Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(editor->gizmoDrag.primaryStartWorld, &viewCtx),
+                                     &state->grid);
+    Vec2 tipScreen = WorldToScreen(SpaceAdapter_ProjectToView(tipWorld, &viewCtx), &state->grid);
+    Vec2 axisScreenVector = Vec2_Sub(tipScreen, startScreen);
+    float axisPixels = Vec2_Distance(startScreen, tipScreen);
+    if (axisPixels > 1e-4f) {
+        editor->gizmoDrag.worldUnitsPerPixel = axisWorldLen / axisPixels;
+    }
+
+    Vec2 mouseNow = { (float)mx, (float)my };
+    float signedPixels = GizmoDrag_SignedPixelsAlongAxis(editor->gizmoDrag.mouseStartScreen,
+                                                         mouseNow,
+                                                         axisScreenVector);
+    editor->gizmoDrag.smooth = (SDL_GetModState() & KMOD_SHIFT) != 0;
+    editor->isPreciseDrag = editor->gizmoDrag.smooth;
+    const float step = fmaxf(state->grid.gridSize, 1e-4f);
+    float signedWorldDistance = GizmoDrag_ResolveDistance(signedPixels,
+                                                          editor->gizmoDrag.worldUnitsPerPixel,
+                                                          step,
+                                                          editor->gizmoDrag.smooth);
+    Vec3 primaryNewPos = GizmoDrag_ApplyAxisDistance(editor->gizmoDrag.primaryStartWorld,
+                                                     editor->gizmoDrag.axis,
+                                                     signedWorldDistance);
+    Editor_UpdateAnchorDrag(editor, &state->layout, primaryNewPos);
+}
+
 
 // 		Handle mouse dragging for panning or handle editing
 // ============================================================
 static void HandleMouseDrag(SDL_MouseMotionEvent* motion) {
+    if (draggingGizmo) {
+        UpdateGizmoDragPosition(motion->x, motion->y);
+        return;
+    }
     if (draggingAnchor) {
         UpdateAnchorDragPosition(motion->x, motion->y);
         return;
@@ -335,6 +467,7 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
                 draggingPan = false;
                 draggingHandle = false;
                 draggingAnchor = false;
+                draggingGizmo = false;
                 draggingSelectionBox = false;
                 draggingAnchorIndex = -1;
                 anchorDragCaptured = false;
@@ -343,6 +476,7 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
                     state->editor.isDraggingAnchor = false;
                     state->editor.isPreciseDrag = false;
                     Editor_EndAnchorDrag(&state->editor);
+                    Editor_ResetGizmoDrag(&state->editor);
                     if (state->editor.selectionBoxActive) {
                         Vec2 start = state->editor.selectionBoxStart;
                         Vec2 end = state->editor.selectionBoxEnd;

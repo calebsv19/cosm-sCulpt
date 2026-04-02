@@ -88,7 +88,7 @@ Desktop packaging lane:
   - `LD-S2` complete
   - `LD-S3` complete
   - `LD-S4` complete
-  - `LD-S5` pending closeout verification + tracker sync + final scaffold commit
+  - `LD-S5` complete
 
 ## App Packaging State
 - private execution plan:

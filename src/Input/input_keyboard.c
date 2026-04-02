@@ -250,6 +250,16 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
 	    }
 	}
 
+        if (event->type == SDL_KEYDOWN &&
+            event->key.keysym.sym == SDLK_c &&
+            (mods & KMOD_SHIFT)) {
+            if (Global_ToggleCenterCrosshair()) {
+                printf("[Editor] View center crosshair: %s\n",
+                       Global_IsCenterCrosshairEnabled() ? "ON" : "OFF");
+            }
+            return;
+        }
+
         if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_c) {
             int sel = state->editor.selectedAnchorIndex;
             if (sel >= 0 && sel < (int)state->layout.anchorCount) {
