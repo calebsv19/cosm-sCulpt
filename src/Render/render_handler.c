@@ -17,6 +17,7 @@
 #include "vk_renderer.h"
 #include <SDL2/SDL.h>
 #include <math.h>
+#include <string.h>
 
 static void DrawAxisArrow(SDL_Renderer* renderer,
                           const Grid* grid,
@@ -100,75 +101,109 @@ static void Render_ViewCenterCrosshair(SDL_Renderer* renderer, const GlobalState
     SDL_RenderDrawPoint(renderer, cx, cy);
 }
 
-void Render_Frame(AppContext* ctx) {
-    static int logged_counts = 0;
+static void LogDrawCallDelta(const char* label,
+                             bool should_log,
+                             VkRenderer* vk,
+                             uint32_t* inout_before_draws) {
+    if (!label || !should_log || !vk || !inout_before_draws) return;
+    fprintf(stderr,
+            "[LineDrawing] %s draw calls: %u\n",
+            label,
+            vk->draw_state.draw_call_count - *inout_before_draws);
+    *inout_before_draws = vk->draw_state.draw_call_count;
+}
 
-    GlobalState* state = Global_Get();
-    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
-    Global_RebuildHitboxesIfDirty();
-    Grid* grid = &state->grid;
-    Layout* layout = &state->layout;
-    EditorState* editor = &state->editor;
-
-    VkRenderer* vk = (VkRenderer*)ctx->renderer;
-    uint32_t before_draws = vk ? vk->draw_state.draw_call_count : 0;
-
-    int w = Global_GetScreenWidth();
-    int h = Global_GetScreenHeight();
+void Render_DeriveFrame(const LineDrawingUpdateFrame* update_frame,
+                        AppContext* ctx,
+                        LineDrawingRenderDeriveFrame* out_derive_frame) {
+    GlobalState* state = NULL;
+    SpaceViewContext view_ctx = {0};
     LineDrawing3dThemePalette palette = {0};
-    SDL_Color background = {20, 20, 23, 255};
+
+    if (!out_derive_frame) return;
+    memset(out_derive_frame, 0, sizeof(*out_derive_frame));
+    if (!ctx) return;
+
+    state = update_frame && update_frame->state_ready ? update_frame->state : Global_Get();
+    if (!state) return;
+
+    view_ctx = SpaceAdapter_BuildViewContext(state);
+
+    out_derive_frame->valid = true;
+    out_derive_frame->state = state;
+    out_derive_frame->view_ctx = view_ctx;
+    out_derive_frame->grid = &state->grid;
+    out_derive_frame->layout = &state->layout;
+    out_derive_frame->editor = &state->editor;
+    out_derive_frame->screen_width = Global_GetScreenWidth();
+    out_derive_frame->screen_height = Global_GetScreenHeight();
+    out_derive_frame->background = (SDL_Color){20, 20, 23, 255};
+    out_derive_frame->free_view_enabled = SpaceAdapter_IsFreeViewEnabled(&view_ctx);
+
     if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
-        background = palette.background_fill;
-    }
-    VulkanAdapter_Clear(ctx->renderer, w, h, background);
-
-    // ─── Grid ────────────────────────────────────
-    // Render_Grid(grid, ctx->renderer, w, h, GRID_DRAW_UNITS);
-    if (!SpaceAdapter_IsFreeViewEnabled(&viewCtx)) {
-        Render_Grid(grid, ctx->renderer, w, h, GRID_DRAW_UNITS | GRID_DRAW_FIVES);
-    }
-    // Render_Grid(grid, ctx->renderer, w, h, GRID_DRAW_UNITS | GRID_DRAW_FIVES | GRID_DRAW_TENS);
-    if (!logged_counts && vk) {
-        fprintf(stderr, "[LineDrawing] Grid draw calls: %u\n",
-                vk->draw_state.draw_call_count - before_draws);
-        before_draws = vk->draw_state.draw_call_count;
+        out_derive_frame->background = palette.background_fill;
     }
 
-    // ─── Layout Geometry (Walls + Anchors) ────────
-    Layout_Render(layout, ctx);
-    Render_FreeViewAxisGizmo(ctx->renderer, state);
-    if (!logged_counts && vk) {
-        fprintf(stderr, "[LineDrawing] Layout draw calls: %u\n",
-                vk->draw_state.draw_call_count - before_draws);
-        before_draws = vk->draw_state.draw_call_count;
+    {
+        VkRenderer* vk = (VkRenderer*)ctx->renderer;
+        out_derive_frame->vk_draw_calls_before = vk ? vk->draw_state.draw_call_count : 0u;
     }
+}
 
-    // ─── Editor Overlay (Ghost Wall, Active Anchor) ─
-    Render_Editor_AxisGizmo(editor, ctx);
-    Render_Editor_Anchor(editor, ctx);
-    Render_Editor_GhostWall(editor, ctx);
-    Render_Editor_SelectionBox(editor, ctx);
-    Render_ViewCenterCrosshair(ctx->renderer, state);
-    if (!logged_counts && vk) {
-        fprintf(stderr, "[LineDrawing] Editor overlay draw calls: %u\n",
-                vk->draw_state.draw_call_count - before_draws);
-        before_draws = vk->draw_state.draw_call_count;
+void Render_SubmitFrame(AppContext* ctx,
+                        const LineDrawingRenderDeriveFrame* derive_frame) {
+    static int logged_counts = 0;
+    VkRenderer* vk = NULL;
+    uint32_t before_draws = 0;
+    bool should_log = false;
+    UIPanelState* panel = NULL;
+
+    if (!ctx || !derive_frame || !derive_frame->valid || !derive_frame->state) return;
+
+    vk = (VkRenderer*)ctx->renderer;
+    before_draws = derive_frame->vk_draw_calls_before;
+    should_log = (logged_counts == 0);
+
+    VulkanAdapter_Clear(ctx->renderer,
+                        derive_frame->screen_width,
+                        derive_frame->screen_height,
+                        derive_frame->background);
+
+    if (!derive_frame->free_view_enabled) {
+        Render_Grid(derive_frame->grid,
+                    ctx->renderer,
+                    derive_frame->screen_width,
+                    derive_frame->screen_height,
+                    GRID_DRAW_UNITS | GRID_DRAW_FIVES);
     }
+    LogDrawCallDelta("Grid", should_log, vk, &before_draws);
+
+    Layout_Render(derive_frame->layout, ctx);
+    Render_FreeViewAxisGizmo(ctx->renderer, derive_frame->state);
+    LogDrawCallDelta("Layout", should_log, vk, &before_draws);
+
+    Render_Editor_AxisGizmo(derive_frame->editor, ctx);
+    Render_Editor_Anchor(derive_frame->editor, ctx);
+    Render_Editor_GhostWall(derive_frame->editor, ctx);
+    Render_Editor_SelectionBox(derive_frame->editor, ctx);
+    Render_ViewCenterCrosshair(ctx->renderer, derive_frame->state);
+    LogDrawCallDelta("Editor overlay", should_log, vk, &before_draws);
 
     Render_InfoOverlay(ctx->renderer);
-    if (!logged_counts && vk) {
-        fprintf(stderr, "[LineDrawing] Info overlay draw calls: %u\n",
-                vk->draw_state.draw_call_count - before_draws);
-        before_draws = vk->draw_state.draw_call_count;
-    }
+    LogDrawCallDelta("Info overlay", should_log, vk, &before_draws);
 
-    UIPanelState* panel = UIPanel_Get();
+    panel = UIPanel_Get();
     Render_UIPanel(panel, ctx->renderer);
     UIPanel_RenderOverlays(ctx->renderer);
-    if (!logged_counts && vk) {
-        fprintf(stderr, "[LineDrawing] UI panel draw calls: %u\n",
-                vk->draw_state.draw_call_count - before_draws);
+    LogDrawCallDelta("UI panel", should_log, vk, &before_draws);
+
+    if (should_log && vk) {
         logged_counts = 1;
     }
+}
 
+void Render_Frame(AppContext* ctx) {
+    LineDrawingRenderDeriveFrame derive_frame;
+    Render_DeriveFrame(NULL, ctx, &derive_frame);
+    Render_SubmitFrame(ctx, &derive_frame);
 }

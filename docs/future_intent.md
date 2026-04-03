@@ -1,6 +1,6 @@
 # Line Drawing Future Intent
 
-Last updated: 2026-04-02
+Last updated: 2026-04-03
 
 ## Scaffold Alignment Intent
 1. Keep existing 2D/3D parity behavior unchanged while normalizing scaffold contracts.
@@ -81,6 +81,32 @@ Last updated: 2026-04-02
 - execution note:
   - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w1_w2_wrapper_hardening.md`
   - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w3_s0_s4_execution.md`
+
+## IR1 Input Routing Intent
+- baseline setup:
+  - `IR1-S0` complete (top-level input map captured before edits)
+  - `IR1-S1` complete (typed phase seam landed in `src/main.c`)
+  - `IR1-S2` complete (explicit text-entry/global-shortcut precedence policy seam + policy test lane)
+  - `IR1-S3` complete (diagnostics/tracker closeout)
+  - execution note:
+    - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s0_s1_execution.md`
+    - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s2_policy_hardening.md`
+    - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s3_closeout.md`
+- next slices:
+  - `IR1` lane complete for `line_drawing` (maintain-only)
+  - queue `RS1` render-split lane when scheduled
+
+## RS1 Render Split Intent
+- baseline setup:
+  - `RS1-S0` complete (top-level render ownership map captured)
+  - `RS1-S1` complete (typed update/derive/submit seam landed)
+  - `RS1-S2` complete (diagnostics/tracker closeout)
+  - execution note:
+    - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s0_s1_execution.md`
+    - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s2_closeout.md`
+- next slices:
+  - `RS1` lane complete for `line_drawing` (maintain-only)
+  - optional `RS1-S3+` only if deeper extraction is needed later
 
 ## Non-Goals During Scaffold Migration
 - no new editor features

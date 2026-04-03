@@ -1,6 +1,6 @@
 # Line Drawing Current Truth
 
-Last updated: 2026-04-02
+Last updated: 2026-04-03
 
 ## Program Identity
 - repository directory: `line_drawing/`
@@ -147,3 +147,63 @@ Desktop packaging lane:
 - execution note:
   - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w1_w2_wrapper_hardening.md`
   - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w3_s0_s4_execution.md`
+
+## IR1 Input Routing State
+- private execution note:
+  - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s0_s1_execution.md`
+  - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s2_policy_hardening.md`
+  - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s3_closeout.md`
+- `IR1-S0` complete:
+  - baseline top-level input map captured at `src/main.c` event callback seam.
+- `IR1-S1` complete:
+  - explicit `InputIntake -> InputNormalize -> InputRoute -> InputInvalidate` phase seam landed in `src/main.c`.
+  - typed top-level input contracts landed:
+    - `LineDrawingInputEventRaw`
+    - `LineDrawingInputEventNormalized`
+    - `LineDrawingInputRouteResult`
+  - optional route diagnostics gate landed:
+    - env: `LINE_DRAWING_INPUT_DIAG=1`
+- `IR1-S2` complete:
+  - explicit text-entry/global-shortcut precedence policy extracted to:
+    - `src/Input/input_routing_policy.h`
+    - `src/Input/input_routing_policy.c`
+  - top-level normalize phase now delegates classification to policy seam.
+  - explicit policy test lane added:
+    - `make -C line_drawing test-input-policy`
+- `IR1-S3` complete:
+  - diagnostics/tracker closeout synchronized and IR1 lane marked complete for line_drawing.
+- verification snapshot (2026-04-03):
+  - `make -C line_drawing clean && make -C line_drawing` pass
+  - `make -C line_drawing test-input-policy` pass
+  - `make -C line_drawing visual-harness` pass
+  - `make -C line_drawing test-stable` pass
+  - `make -C line_drawing run-headless-smoke` pass
+- next:
+  - `RS1` render split lane when scheduled (`line_drawing` IR1 is complete/maintain-only).
+
+## RS1 Render Split State
+- private execution note:
+  - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s0_s1_execution.md`
+  - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s2_closeout.md`
+- `RS1-S0` complete:
+  - top-level render ownership baseline captured (`main.c` update callback + monolithic `Render_Frame` lane).
+- `RS1-S1` complete:
+  - explicit render split contracts landed:
+    - `LineDrawingUpdateFrame`
+    - `LineDrawingRenderDeriveFrame`
+  - explicit phase seams landed:
+    - `Render_DeriveFrame(...)`
+    - `Render_SubmitFrame(...)`
+  - top-level callback lane now executes explicit derive->submit handoff.
+  - optional diagnostics gate landed:
+    - env: `LINE_DRAWING_RS1_DIAG=1`
+- `RS1-S2` complete:
+  - diagnostics/tracker closeout synchronized and RS1 lane marked complete for current line_drawing scope.
+- verification snapshot (2026-04-03):
+  - `make -C line_drawing clean && make -C line_drawing` pass
+  - `make -C line_drawing test-input-policy` pass
+  - `make -C line_drawing test-stable` pass
+  - `make -C line_drawing run-headless-smoke` pass
+  - `make -C line_drawing visual-harness` pass
+- next:
+  - `RS1` lane is maintain-only for line_drawing; optional `RS1-S3+` only if deeper extraction is needed.

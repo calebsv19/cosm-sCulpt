@@ -148,7 +148,7 @@ DESKTOP_APP_DIR ?= $(HOME)/Desktop/$(PACKAGE_APP_NAME)
 
 NON_APP_OBJS := $(filter-out $(OBJ_DIR)/src/main.o,$(APP_OBJS))
 
-TEST_SRCS := $(filter-out $(TEST_DIR)/shared_theme_font_adapter_test.c,$(shell find $(TEST_DIR) -name '*.c'))
+TEST_SRCS := $(filter-out $(TEST_DIR)/shared_theme_font_adapter_test.c $(TEST_DIR)/test_input_policy_entry.c,$(shell find $(TEST_DIR) -name '*.c'))
 TEST_OBJS := $(patsubst $(TEST_DIR)/%.c,$(TEST_OBJ_DIR)/%.o,$(TEST_SRCS))
 TEST_TARGET := $(TEST_BIN_DIR)/run_tests
 
@@ -158,7 +158,7 @@ SHAPE_SYNC_SCRIPT := ../shared/shape/sync_exports.sh
 
 .DEFAULT_GOAL := all
 
-.PHONY: all run run-ide-theme run-daw-theme clean test rebuild debug release format lint shape-sanity shape_pack_tool shape_to_pack export-assets test-shared-theme-font-adapter run-headless-smoke visual-harness test-stable test-legacy package-desktop package-desktop-smoke package-desktop-self-test package-desktop-copy-desktop package-desktop-sync package-desktop-open package-desktop-remove package-desktop-refresh scene-export-compile scene-pipeline-smoke
+.PHONY: all run run-ide-theme run-daw-theme clean test rebuild debug release format lint shape-sanity shape_pack_tool shape_to_pack export-assets test-shared-theme-font-adapter test-input-policy run-headless-smoke visual-harness test-stable test-legacy package-desktop package-desktop-smoke package-desktop-self-test package-desktop-copy-desktop package-desktop-sync package-desktop-open package-desktop-remove package-desktop-refresh scene-export-compile scene-pipeline-smoke
 
 all: $(APP_TARGET)
 
@@ -267,6 +267,8 @@ test-legacy:
 
 SHARED_THEME_FONT_ADAPTER_TEST_SRCS := tests/shared_theme_font_adapter_test.c
 SHARED_THEME_FONT_ADAPTER_TEST_BIN := $(BUILD_DIR)/tests/shared_theme_font_adapter_test
+INPUT_POLICY_TEST_SRCS := tests/test_input_policy_entry.c tests/test_input_policy.c src/Input/input_routing_policy.c
+INPUT_POLICY_TEST_BIN := $(BUILD_DIR)/tests/input_policy_test
 
 $(SHARED_THEME_FONT_ADAPTER_TEST_BIN): $(SHARED_THEME_FONT_ADAPTER_TEST_SRCS) src/UI/shared_theme_font_adapter.c $(CORE_THEME_DIR)/src/core_theme.c $(CORE_FONT_DIR)/src/core_font.c $(CORE_BASE_DIR)/src/core_base.c $(CORE_IO_DIR)/src/core_io.c
 	@mkdir -p $(dir $@)
@@ -276,6 +278,15 @@ $(SHARED_THEME_FONT_ADAPTER_TEST_BIN): $(SHARED_THEME_FONT_ADAPTER_TEST_SRCS) sr
 
 test-shared-theme-font-adapter: $(SHARED_THEME_FONT_ADAPTER_TEST_BIN)
 	@$(SHARED_THEME_FONT_ADAPTER_TEST_BIN) || (echo "shared theme/font adapter test failed."; exit 1)
+
+$(INPUT_POLICY_TEST_BIN): $(INPUT_POLICY_TEST_SRCS) tests/test_framework.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc -Itests \
+		$(INPUT_POLICY_TEST_SRCS) tests/test_framework.c \
+		-o $(INPUT_POLICY_TEST_BIN) $(LDFLAGS)
+
+test-input-policy: $(INPUT_POLICY_TEST_BIN)
+	@$(INPUT_POLICY_TEST_BIN) || (echo "input policy test failed."; exit 1)
 
 shape-sanity: $(SHAPE_SANITY_BIN)
 

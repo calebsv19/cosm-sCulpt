@@ -7,8 +7,9 @@ All engine code lives under `src/`, separated by responsibility so the floor-pla
 
 ## Update Loop
 1. SDL events are routed through `Input_Handle`, which dispatches to mouse and keyboard handlers, updates the grid camera, and mutates layout/editor state.
-2. `Global_TickSystems` compacts deleted layout elements and rebuilds hitboxes so selection stays consistent after edits.
-3. `Render_Frame` clears the screen, draws the grid, layout geometry, editor overlay, and UI panel, then presents the frame.
+2. `Global_TickSystems` owns update/mutation processing and seeds a typed update frame contract.
+3. `Render_DeriveFrame` builds a frame-visible render contract (`LineDrawingRenderDeriveFrame`) from update state.
+4. `Render_SubmitFrame` consumes the derive contract and performs draw/submit calls (grid, layout, editor overlays, UI).
 
 ## Module Directories
 - `Core/` — SDL bootstrapping and the project-wide `GlobalState` singleton.
