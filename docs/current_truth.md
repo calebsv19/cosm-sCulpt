@@ -132,3 +132,18 @@ Desktop packaging lane:
   - `make -C line_drawing test-legacy` retains expected quarantined shared-theme adapter failure lane
 - next:
   - optional `LD-CP3+` extraction if deeper runtime/update/render ownership split is needed
+
+## Wrapper Contract State
+- cross-program wrapper initiative status:
+  - `W0` complete
+  - `W1` complete for `line_drawing`
+  - `W2` complete for `line_drawing`
+  - `W3` complete for `line_drawing`:
+    - `S0` baseline freeze + verification rerun complete
+    - `S1` typed runtime-loop adapter seam complete
+    - `S2` typed run-loop handoff seam cutover complete
+    - `S3` seam diagnostics + ownership hardening complete
+    - `S4` closeout/docs/memory sync complete
+- execution note:
+  - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w1_w2_wrapper_hardening.md`
+  - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w3_s0_s4_execution.md`
