@@ -127,7 +127,9 @@ Desktop packaging lane:
     - `RL0` complete (release contract + bundle id/product/version surface)
     - `RL1` complete (runtime Vulkan portability contract + ad-hoc local signature hardening)
     - `RL2` complete (Developer ID signing + notarize + staple + verify-notarized passed)
-    - `RL3+` pending (final finder-launch/manual UX pass, release-closeout commit/docs sync)
+    - `RL3` complete (desktop runtime-lane launch/log sanity)
+    - `RL4` complete (Gatekeeper + codesign + notary evidence capture)
+    - `RL5` complete (docs/memory sync and release-closeout commit)
 
 ## Connection Pass State
 - baseline kickoff status:

@@ -60,9 +60,13 @@ Last updated: 2026-04-05
     - runtime ICD env contract (`VK_ICD_FILENAMES`, `VK_DRIVER_FILES`)
     - runtime shader root in writable runtime lane
     - ad-hoc signature hardening after local install-name mutations
-  - next:
+  - current:
     - `RL2` complete: Developer ID signing + notarization + staple + verify-notarized
-    - `RL3-RL5` remain: final desktop manual pass + release-closeout docs/memory/commit sync
+    - `RL3` complete: desktop runtime-lane launch/log sanity
+    - `RL4` complete: Gatekeeper/codesign/notary evidence capture
+    - `RL5` complete: docs/memory/commit closeout
+  - next:
+    - release-readiness lane is maintain-only for `line_drawing`; use same contract for future version bumps.
 
 ## Connection Pass Intent
 - baseline complete:
