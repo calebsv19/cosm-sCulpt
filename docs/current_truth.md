@@ -1,6 +1,6 @@
 # Line Drawing Current Truth
 
-Last updated: 2026-04-03
+Last updated: 2026-04-05
 
 ## Program Identity
 - repository directory: `line_drawing/`
@@ -47,8 +47,14 @@ Desktop packaging lane:
 - `make -C line_drawing package-desktop-smoke`
 - `make -C line_drawing package-desktop-self-test`
 - `make -C line_drawing package-desktop-refresh`
+- `make -C line_drawing release-contract`
+- `make -C line_drawing release-bundle-audit`
+- `make -C line_drawing release-sign APPLE_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)"`
+- `make -C line_drawing release-notarize APPLE_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)" APPLE_NOTARY_PROFILE="<profile>"`
+- `make -C line_drawing release-staple`
+- `make -C line_drawing release-verify-notarized APPLE_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)"`
 - launcher diagnostics:
-  - `/Users/<user>/Desktop/LineDrawing.app/Contents/MacOS/line-drawing-launcher --print-config`
+  - `/Users/<user>/Desktop/sketCh.app/Contents/MacOS/line-drawing-launcher --print-config`
   - `tail -n 120 ~/Library/Logs/LineDrawing/launcher.log`
 
 ## Lifecycle Wrapper Snapshot
@@ -117,6 +123,11 @@ Desktop packaging lane:
   - `LD-PK0` complete
   - `LD-PK1` complete
   - `LD-PK2` complete
+  - release-readiness lane:
+    - `RL0` complete (release contract + bundle id/product/version surface)
+    - `RL1` complete (runtime Vulkan portability contract + ad-hoc local signature hardening)
+    - `RL2` complete (Developer ID signing + notarize + staple + verify-notarized passed)
+    - `RL3+` pending (final finder-launch/manual UX pass, release-closeout commit/docs sync)
 
 ## Connection Pass State
 - baseline kickoff status:

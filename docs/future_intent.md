@@ -1,6 +1,6 @@
 # Line Drawing Future Intent
 
-Last updated: 2026-04-03
+Last updated: 2026-04-05
 
 ## Scaffold Alignment Intent
 1. Keep existing 2D/3D parity behavior unchanged while normalizing scaffold contracts.
@@ -51,10 +51,18 @@ Last updated: 2026-04-03
 
 ## Desktop Packaging Intent
 - packaging baseline is complete (`LD-PK0` through `LD-PK2`) with standardized `package-desktop*` targets and launcher diagnostics.
-- near-term follow-up:
-  - apply canonical product-name rename for packaged app:
-    - `LineDrawing.app` -> `sketCh.app`
-  - keep rename as a separate cleanup pass from functional packaging closeout.
+- release-readiness lane is now active:
+  - `RL0` complete:
+    - release contract (`release-*` targets), canonical product/bundle/version fields
+    - package output aligned to canonical app name (`sketCh.app`)
+  - `RL1` complete:
+    - bundled Vulkan portability contract (`libMoltenVK.dylib`, `libvulkan.1.dylib`)
+    - runtime ICD env contract (`VK_ICD_FILENAMES`, `VK_DRIVER_FILES`)
+    - runtime shader root in writable runtime lane
+    - ad-hoc signature hardening after local install-name mutations
+  - next:
+    - `RL2` complete: Developer ID signing + notarization + staple + verify-notarized
+    - `RL3-RL5` remain: final desktop manual pass + release-closeout docs/memory/commit sync
 
 ## Connection Pass Intent
 - baseline complete:

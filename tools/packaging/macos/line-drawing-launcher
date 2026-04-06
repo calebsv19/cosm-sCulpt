@@ -4,6 +4,33 @@ set -eu
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
 APP_CONTENTS_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 RES_DIR="$APP_CONTENTS_DIR/Resources"
+RUNTIME_DIR_DEFAULT="${HOME}/Library/Application Support/LineDrawing/runtime"
+RUNTIME_DIR="${LINE_DRAWING_RUNTIME_DIR:-$RUNTIME_DIR_DEFAULT}"
+if ! mkdir -p "$RUNTIME_DIR" 2>/dev/null; then
+    RUNTIME_DIR="${TMPDIR:-/tmp}/LineDrawing/runtime"
+    mkdir -p "$RUNTIME_DIR" 2>/dev/null || true
+fi
+mkdir -p "$RUNTIME_DIR/data/runtime" "$RUNTIME_DIR/data/snapshots" "$RUNTIME_DIR/export" "$RUNTIME_DIR/vk" "$RUNTIME_DIR/config/shared/shaders" 2>/dev/null || true
+if [ -d "$RES_DIR/export" ] && [ -z "$(find "$RUNTIME_DIR/export" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]; then
+    cp -R "$RES_DIR/export/." "$RUNTIME_DIR/export/" 2>/dev/null || true
+fi
+if [ -L "$RUNTIME_DIR/vk_renderer" ] || [ ! -e "$RUNTIME_DIR/vk_renderer" ]; then
+    ln -sfn "$RES_DIR/vk_renderer" "$RUNTIME_DIR/vk_renderer"
+fi
+if [ -L "$RUNTIME_DIR/config/shared/shaders/vk_renderer" ] || [ ! -e "$RUNTIME_DIR/config/shared/shaders/vk_renderer" ]; then
+    ln -sfn "$RES_DIR/vk_renderer" "$RUNTIME_DIR/config/shared/shaders/vk_renderer"
+fi
+MOLTENVK_DYLIB="$APP_CONTENTS_DIR/Frameworks/libMoltenVK.dylib"
+ICD_FILE="$RUNTIME_DIR/vk/MoltenVK_icd.json"
+cat >"$ICD_FILE" <<EOF
+{
+  "file_format_version": "1.0.0",
+  "ICD": {
+    "library_path": "$MOLTENVK_DYLIB",
+    "api_version": "1.3.0"
+  }
+}
+EOF
 LOG_DIR="${HOME}/Library/Logs/LineDrawing"
 LOG_FILE="$LOG_DIR/launcher.log"
 
@@ -13,8 +40,12 @@ if ! touch "$LOG_FILE" 2>/dev/null; then
     touch "$LOG_FILE" 2>/dev/null || true
 fi
 
-export VK_RENDERER_SHADER_ROOT="${VK_RENDERER_SHADER_ROOT:-$RES_DIR}"
-export SHAPE_ASSET_DIR="${SHAPE_ASSET_DIR:-$RES_DIR/export}"
+export LINE_DRAWING_RUNTIME_DIR="$RUNTIME_DIR"
+export VK_RENDERER_SHADER_ROOT="${VK_RENDERER_SHADER_ROOT:-$RUNTIME_DIR/vk_renderer}"
+export SHAPE_ASSET_DIR="${SHAPE_ASSET_DIR:-$RUNTIME_DIR/export}"
+export VK_ICD_FILENAMES="${VK_ICD_FILENAMES:-$ICD_FILE}"
+export VK_DRIVER_FILES="${VK_DRIVER_FILES:-$ICD_FILE}"
+export MOLTENVK_DYLIB
 export LINE_DRAWING3D_USE_SHARED_THEME="${LINE_DRAWING3D_USE_SHARED_THEME:-1}"
 export LINE_DRAWING3D_USE_SHARED_THEME_FONT="${LINE_DRAWING3D_USE_SHARED_THEME_FONT:-1}"
 export LINE_DRAWING3D_USE_SHARED_FONT="${LINE_DRAWING3D_USE_SHARED_FONT:-1}"
@@ -24,8 +55,12 @@ if [ "${1:-}" = "--print-config" ]; then
     echo "APP_CONTENTS_DIR=$APP_CONTENTS_DIR"
     echo "RES_DIR=$RES_DIR"
     echo "LOG_FILE=$LOG_FILE"
+    echo "LINE_DRAWING_RUNTIME_DIR=$LINE_DRAWING_RUNTIME_DIR"
     echo "VK_RENDERER_SHADER_ROOT=$VK_RENDERER_SHADER_ROOT"
     echo "SHAPE_ASSET_DIR=$SHAPE_ASSET_DIR"
+    echo "VK_ICD_FILENAMES=$VK_ICD_FILENAMES"
+    echo "VK_DRIVER_FILES=$VK_DRIVER_FILES"
+    echo "MOLTENVK_DYLIB=$MOLTENVK_DYLIB"
     echo "LINE_DRAWING3D_USE_SHARED_THEME=$LINE_DRAWING3D_USE_SHARED_THEME"
     echo "LINE_DRAWING3D_USE_SHARED_THEME_FONT=$LINE_DRAWING3D_USE_SHARED_THEME_FONT"
     echo "LINE_DRAWING3D_USE_SHARED_FONT=$LINE_DRAWING3D_USE_SHARED_FONT"
@@ -42,16 +77,22 @@ if [ "${1:-}" = "--self-test" ]; then
     [ -d "$RES_DIR/data/runtime" ] || { echo "missing: data/runtime" >&2; exit 1; }
     [ -d "$RES_DIR/data/snapshots" ] || { echo "missing: data/snapshots" >&2; exit 1; }
     [ -d "$RES_DIR/export" ] || { echo "missing: export" >&2; exit 1; }
+    [ -f "$MOLTENVK_DYLIB" ] || { echo "missing: bundled MoltenVK dylib" >&2; exit 1; }
+    [ -f "$ICD_FILE" ] || { echo "missing: runtime MoltenVK ICD file" >&2; exit 1; }
     [ -f "$RES_DIR/vk_renderer/shaders/textured.vert.spv" ] || { echo "missing: bundled vk shader" >&2; exit 1; }
     [ -f "$RES_DIR/shaders/textured.vert.spv" ] || { echo "missing: bundled runtime shader" >&2; exit 1; }
     echo "self-test: ok"
     echo "LOG_FILE=$LOG_FILE"
+    echo "LINE_DRAWING_RUNTIME_DIR=$LINE_DRAWING_RUNTIME_DIR"
     echo "VK_RENDERER_SHADER_ROOT=$VK_RENDERER_SHADER_ROOT"
     echo "SHAPE_ASSET_DIR=$SHAPE_ASSET_DIR"
+    echo "VK_ICD_FILENAMES=$VK_ICD_FILENAMES"
+    echo "VK_DRIVER_FILES=$VK_DRIVER_FILES"
+    echo "MOLTENVK_DYLIB=$MOLTENVK_DYLIB"
     echo "LINE_DRAWING3D_FONT_PRESET=$LINE_DRAWING3D_FONT_PRESET"
     exit 0
 fi
 
-cd "$RES_DIR"
-printf '%s launch begin pid=%s cwd=%s shader_root=%s shape_asset_dir=%s args=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$$" "$RES_DIR" "$VK_RENDERER_SHADER_ROOT" "$SHAPE_ASSET_DIR" "$*" >>"$LOG_FILE" 2>/dev/null || true
+cd "$RUNTIME_DIR"
+printf '%s launch begin pid=%s cwd=%s runtime=%s shader_root=%s shape_asset_dir=%s args=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$$" "$RUNTIME_DIR" "$LINE_DRAWING_RUNTIME_DIR" "$VK_RENDERER_SHADER_ROOT" "$SHAPE_ASSET_DIR" "$*" >>"$LOG_FILE" 2>/dev/null || true
 exec "$SCRIPT_DIR/line-drawing-bin" "$@" >>"$LOG_FILE" 2>&1
