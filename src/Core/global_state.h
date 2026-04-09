@@ -1,6 +1,7 @@
 // src/Core/global_state.h
 #pragma once
 
+#include "Core/data_paths.h"
 #include "Layout/Grid/grid.h"
 #include "Layout/layout.h"
 #include "Editor/editor.h"
@@ -28,7 +29,8 @@ typedef struct GlobalState {
     bool layoutDirty;
     bool hitboxDirty;
 
-    char currentConfigPath[256];
+    char currentConfigPath[LINE_DRAWING_PATH_CAP];
+    LineDrawingDataPaths dataPaths;
     bool layoutDirtySinceSave;
     char* lastSavedSnapshot;
 } GlobalState;
@@ -53,6 +55,14 @@ void Global_OnLayoutSaved(const char* path);
 void Global_OnLayoutLoaded(const char* path);
 const char* Global_GetCurrentConfigPath(void);
 bool Global_IsLayoutDirty(void);
+const char* Global_GetInputRoot(void);
+const char* Global_GetOutputRoot(void);
+const char* Global_GetLayoutRoot(void);
+bool Global_SetInputRoot(const char* path, bool persist);
+bool Global_SetOutputRoot(const char* path, bool persist);
+bool Global_SetLayoutRoot(const char* path, bool persist);
+bool Global_LoadDataRoots(void);
+bool Global_SaveDataRoots(void);
 SpaceMode Global_GetSpaceMode(void);
 const char* Global_GetSpaceModeLabel(SpaceMode mode);
 bool Global_SetSpaceMode(SpaceMode mode, bool persist);

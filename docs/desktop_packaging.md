@@ -13,14 +13,14 @@ Last updated: 2026-04-05
 - `make -C line_drawing package-desktop-refresh`
 
 Bundle output:
-- `line_drawing/dist/sketCh.app`
+- `line_drawing/dist/sCulpt.app`
 
 Desktop copy target:
-- `/Users/<user>/Desktop/sketCh.app`
+- `/Users/<user>/Desktop/sCulpt.app`
 
 ## Launcher Diagnostics
 Launcher path:
-- `/Users/<user>/Desktop/sketCh.app/Contents/MacOS/line-drawing-launcher`
+- `/Users/<user>/Desktop/sCulpt.app/Contents/MacOS/line-drawing-launcher`
 
 Diagnostics commands:
 - `.../line-drawing-launcher --print-config`
@@ -70,6 +70,6 @@ Bundled framework contract:
 2. `make -C line_drawing test`
 3. `make -C line_drawing package-desktop-self-test`
 4. `make -C line_drawing package-desktop-refresh`
-5. `/Users/<user>/Desktop/sketCh.app/Contents/MacOS/line-drawing-launcher --print-config`
-6. `open /Users/<user>/Desktop/sketCh.app`
+5. `/Users/<user>/Desktop/sCulpt.app/Contents/MacOS/line-drawing-launcher --print-config`
+6. `open /Users/<user>/Desktop/sCulpt.app`
 7. `tail -n 120 ~/Library/Logs/LineDrawing/launcher.log`

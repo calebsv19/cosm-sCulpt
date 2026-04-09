@@ -14,6 +14,7 @@
 static GlobalState* global = NULL;
 static const char* k_space_mode_runtime_path = "data/runtime/space_mode.txt";
 static const char* k_space_mode_legacy_path = "config/space_mode.txt";
+static const char* k_default_layout_filename = "layout_config.json";
 
 static bool EnsureRuntimeDir(void) {
     if (mkdir("data", 0755) != 0 && errno != EEXIST) {
@@ -23,6 +24,107 @@ static bool EnsureRuntimeDir(void) {
         return false;
     }
     return true;
+}
+
+static bool Global_SetPathField(char* dst, size_t dst_size, const char* value) {
+    size_t len = 0;
+    if (!dst || dst_size == 0 || !value || value[0] == '\0') return false;
+    len = strlen(value);
+    while (len > 0 && isspace((unsigned char)value[len - 1])) {
+        --len;
+    }
+    if (len == 0) return false;
+    if (len >= dst_size) len = dst_size - 1;
+    memcpy(dst, value, len);
+    dst[len] = '\0';
+    return true;
+}
+
+static bool Global_DirExists(const char* path) {
+    struct stat st;
+    if (!path || !path[0]) return false;
+    if (stat(path, &st) != 0) return false;
+    return S_ISDIR(st.st_mode);
+}
+
+static void Global_SetDefaultLayoutPath(GlobalState* state) {
+    if (!state) return;
+    if (!LineDrawingDataPaths_BuildPath(state->currentConfigPath,
+                                        sizeof(state->currentConfigPath),
+                                        state->dataPaths.input_root,
+                                        k_default_layout_filename)) {
+        snprintf(state->currentConfigPath, sizeof(state->currentConfigPath), "config/layout_config.json");
+    }
+}
+
+static bool Global_ApplyStartupRootFallbacks(GlobalState* state) {
+    bool changed = false;
+    if (!state) return false;
+
+    if (state->dataPaths.input_root[0] == '\0') {
+        fprintf(stderr,
+                "[startup] Input root unset; using '%s'.\n",
+                LineDrawingDataPaths_DefaultInputRoot());
+        snprintf(state->dataPaths.input_root,
+                 sizeof(state->dataPaths.input_root),
+                 "%s",
+                 LineDrawingDataPaths_DefaultInputRoot());
+        changed = true;
+    } else if (!Global_DirExists(state->dataPaths.input_root)) {
+        fprintf(stderr,
+                "[startup] Startup fallback: input root '%s' missing; using '%s'.\n",
+                state->dataPaths.input_root,
+                LineDrawingDataPaths_DefaultInputRoot());
+        snprintf(state->dataPaths.input_root,
+                 sizeof(state->dataPaths.input_root),
+                 "%s",
+                 LineDrawingDataPaths_DefaultInputRoot());
+        changed = true;
+    }
+
+    if (state->dataPaths.output_root[0] == '\0') {
+        fprintf(stderr,
+                "[startup] Output root unset; using '%s'.\n",
+                LineDrawingDataPaths_DefaultOutputRoot());
+        snprintf(state->dataPaths.output_root,
+                 sizeof(state->dataPaths.output_root),
+                 "%s",
+                 LineDrawingDataPaths_DefaultOutputRoot());
+        changed = true;
+    } else if (!Global_DirExists(state->dataPaths.output_root)) {
+        fprintf(stderr,
+                "[startup] Startup fallback: output root '%s' missing; using '%s'.\n",
+                state->dataPaths.output_root,
+                LineDrawingDataPaths_DefaultOutputRoot());
+        snprintf(state->dataPaths.output_root,
+                 sizeof(state->dataPaths.output_root),
+                 "%s",
+                 LineDrawingDataPaths_DefaultOutputRoot());
+        changed = true;
+    }
+
+    if (state->dataPaths.layout_root[0] == '\0') {
+        fprintf(stderr,
+                "[startup] Layout root unset; using '%s'.\n",
+                LineDrawingDataPaths_DefaultLayoutRoot());
+        snprintf(state->dataPaths.layout_root,
+                 sizeof(state->dataPaths.layout_root),
+                 "%s",
+                 LineDrawingDataPaths_DefaultLayoutRoot());
+        changed = true;
+    } else if (!Global_DirExists(state->dataPaths.layout_root)) {
+        fprintf(stderr,
+                "[startup] Startup fallback: layout root '%s' missing; using '%s'.\n",
+                state->dataPaths.layout_root,
+                LineDrawingDataPaths_DefaultLayoutRoot());
+        snprintf(state->dataPaths.layout_root,
+                 sizeof(state->dataPaths.layout_root),
+                 "%s",
+                 LineDrawingDataPaths_DefaultLayoutRoot());
+        changed = true;
+    }
+
+    return changed;
 }
 
 const char* Global_GetSpaceModeLabel(SpaceMode mode) {
@@ -151,6 +253,7 @@ GlobalState* Global_Get(void) {
 
 void Global_Init(int screenWidth, int screenHeight) {
     global = malloc(sizeof(GlobalState));
+    memset(global, 0, sizeof(*global));
     global->screenWidth = screenWidth;
     global->screenHeight = screenHeight;
     global->layoutDirty = true;
@@ -166,8 +269,16 @@ void Global_Init(int screenWidth, int screenHeight) {
     global->centerCrosshairEnabled = true;
     global->layoutDirtySinceSave = false;
     global->lastSavedSnapshot = NULL;
-    memset(global->currentConfigPath, 0, sizeof(global->currentConfigPath));
-    strncpy(global->currentConfigPath, "config/layout_config.json", sizeof(global->currentConfigPath) - 1);
+    LineDrawingDataPaths_SetDefaults(&global->dataPaths);
+    Global_LoadDataRoots();
+    if (Global_ApplyStartupRootFallbacks(global)) {
+        if (!Global_SaveDataRoots()) {
+            fprintf(stderr, "[startup] Failed to persist corrected root fallbacks.\n");
+        }
+    } else {
+        Global_SaveDataRoots();
+    }
+    Global_SetDefaultLayoutPath(global);
 
     Grid_init(&global->grid, 1.0f, screenWidth, screenHeight);
 
@@ -293,4 +404,60 @@ bool Global_IsLayoutDirty(void) {
     GlobalState* state = Global_Get();
     if (!state) return false;
     return state->layoutDirtySinceSave;
+}
+
+const char* Global_GetInputRoot(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return state->dataPaths.input_root;
+}
+
+const char* Global_GetOutputRoot(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return state->dataPaths.output_root;
+}
+
+const char* Global_GetLayoutRoot(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return state->dataPaths.layout_root;
+}
+
+bool Global_LoadDataRoots(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    return LineDrawingDataPaths_Load(&state->dataPaths);
+}
+
+bool Global_SaveDataRoots(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    return LineDrawingDataPaths_Save(&state->dataPaths);
+}
+
+bool Global_SetInputRoot(const char* path, bool persist) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    if (!Global_SetPathField(state->dataPaths.input_root, sizeof(state->dataPaths.input_root), path)) return false;
+    Global_SetDefaultLayoutPath(state);
+    if (persist) return Global_SaveDataRoots();
+    return true;
+}
+
+bool Global_SetOutputRoot(const char* path, bool persist) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    if (!Global_SetPathField(state->dataPaths.output_root, sizeof(state->dataPaths.output_root), path)) return false;
+    if (persist) return Global_SaveDataRoots();
+    return true;
+}
+
+bool Global_SetLayoutRoot(const char* path, bool persist) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    if (!Global_SetPathField(state->dataPaths.layout_root, sizeof(state->dataPaths.layout_root), path)) return false;
+    Global_SetDefaultLayoutPath(state);
+    if (persist) return Global_SaveDataRoots();
+    return true;
 }

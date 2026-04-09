@@ -16,7 +16,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
     EditorState* editor = &state->editor;
     Grid* grid = &state->grid;
 
-    if (UIPanel_IsSaveDialogActive()) {
+    if (UIPanel_IsSaveDialogActive() || UIPanel_IsRootDialogActive()) {
         return true;
     }
 
@@ -35,26 +35,47 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 
             switch (btn->id) {
 		    // ─── LEFT PANEL ACTIONS ─────────────────────
-    		case 0: { // Save JSON
+                case UI_BTN_SAVE_JSON: { // Save JSON
                 ui->loadMenu.open = false;
                 UIPanel_BeginSaveDialog();
                 break;
 	}
 
-	case 1: { // Load JSON
+	case UI_BTN_LOAD_JSON: { // Load JSON
                 UIPanel_ToggleLoadMenu();
 			break;
 		}
 
-	case 2: { // Export Shape
+	case UI_BTN_EXPORT_SHAPE: { // Export Shape
                 ui->loadMenu.open = false;
                 UIPanel_ExportShape();
                 break;
             }
 
+                case UI_BTN_INPUT_ROOT_EDIT: { // Edit input root
+                    ui->loadMenu.open = false;
+                    UIPanel_BeginInputRootDialog();
+                    break;
+                }
+                case UI_BTN_INPUT_ROOT_FOLDER: { // Pick input root via folder chooser
+                    ui->loadMenu.open = false;
+                    UIPanel_OpenInputRootFolderDialog();
+                    break;
+                }
+                case UI_BTN_OUTPUT_ROOT_EDIT: { // Edit output root
+                    ui->loadMenu.open = false;
+                    UIPanel_BeginOutputRootDialog();
+                    break;
+                }
+                case UI_BTN_OUTPUT_ROOT_FOLDER: { // Pick output root via folder chooser
+                    ui->loadMenu.open = false;
+                    UIPanel_OpenOutputRootFolderDialog();
+                    break;
+                }
+
 
 		// ───RIGHT PANEL ACTIONS  ─────────────────────
-                case 10: { // Reset Origin
+                case UI_BTN_RESET_ORIGIN: { // Reset Origin
                     ui->loadMenu.open = false;
                     int sel = editor->selectedAnchorIndex;
                     if (sel >= 0) {
@@ -63,7 +84,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     }
                     break;
                 }
-                case 11: { // Zoom In
+                case UI_BTN_ZOOM_IN: { // Zoom In
                     ui->loadMenu.open = false;
                     int w = state->screenWidth;
                     int h = state->screenHeight;
@@ -71,7 +92,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     Global_FlagGridChanged();
                     break;
                 }
-                case 12: { // Zoom Out
+                case UI_BTN_ZOOM_OUT: { // Zoom Out
                     ui->loadMenu.open = false;
                     int w = state->screenWidth;
                     int h = state->screenHeight;
@@ -79,7 +100,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     Global_FlagGridChanged();
                     break;
                 }
-                case 13: { // Toggle Delete Mode
+                case UI_BTN_TOGGLE_DELETE: { // Toggle Delete Mode
                     ui->loadMenu.open = false;
                     if (editor->deleteMode == DELETE_MODE_SAFE)
                         editor->deleteMode = DELETE_MODE_AUTO_PRUNE;
@@ -87,7 +108,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                         editor->deleteMode = DELETE_MODE_SAFE;
                     break;
                 }
-                case 14: { // Pin Anchor
+                case UI_BTN_PIN_ANCHOR: { // Pin Anchor
                     ui->loadMenu.open = false;
                     int sel = editor->selectedAnchorIndex;
                     if (sel >= 0 && sel < (int)state->layout.anchorCount) {
@@ -98,7 +119,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     }
                     break;
                 }
-                case 15: { // Toggle handle linking
+                case UI_BTN_LINK_HANDLES: { // Toggle handle linking
                     ui->loadMenu.open = false;
                     int sel = editor->selectedAnchorIndex;
                     if (sel >= 0 && sel < (int)state->layout.anchorCount) {
@@ -111,7 +132,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     }
                     break;
                 }
-                case 16: { // Toggle 2D/3D mode
+                case UI_BTN_TOGGLE_SPACE_MODE: { // Toggle 2D/3D mode
                     ui->loadMenu.open = false;
                     if (Global_ToggleSpaceMode(true)) {
                         SDL_Log("[UI] Space mode: %s", Global_GetSpaceModeLabel(state->spaceMode));

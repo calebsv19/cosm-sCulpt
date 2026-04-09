@@ -1,6 +1,6 @@
 # Line Drawing Future Intent
 
-Last updated: 2026-04-05
+Last updated: 2026-04-09
 
 ## Scaffold Alignment Intent
 1. Keep existing 2D/3D parity behavior unchanged while normalizing scaffold contracts.
@@ -54,7 +54,7 @@ Last updated: 2026-04-05
 - release-readiness lane is now active:
   - `RL0` complete:
     - release contract (`release-*` targets), canonical product/bundle/version fields
-    - package output aligned to canonical app name (`sketCh.app`)
+    - package output aligned to canonical app name (`sCulpt.app`)
   - `RL1` complete:
     - bundled Vulkan portability contract (`libMoltenVK.dylib`, `libvulkan.1.dylib`)
     - runtime ICD env contract (`VK_ICD_FILENAMES`, `VK_DRIVER_FILES`)
@@ -124,3 +124,12 @@ Last updated: 2026-04-05
 - no new editor features
 - no 2D/3D behavior redesign
 - no broad header relocation sweep in this pass (kept as later follow-up lane)
+
+## Data Path Contract Intent
+- `S0-S5` data-path contract lane is complete and maintain-only.
+- user-facing root controls are now standard:
+  - input root and output root (typed + folder chooser flows)
+- startup root hygiene is now deterministic:
+  - configured roots are validated on startup
+  - invalid/missing roots are corrected to defaults and persisted
+- future work should add behavior on top of this contract instead of replacing it ad hoc.

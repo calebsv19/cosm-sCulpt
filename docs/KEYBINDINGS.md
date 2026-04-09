@@ -36,6 +36,12 @@ These controls apply when view mode is `FREE_VIEW`.
 - `Shift + C`: Toggle center crosshair overlay.
 - `Esc`: Quit app.
 
+## Data Roots
+- `Ctrl/Cmd + B`: Open native folder chooser and set input root.
+- `Ctrl/Cmd + Shift + B`: Open native folder chooser and set output root.
+- `Ctrl/Cmd + I`: Open typed input-root edit dialog.
+- `Ctrl/Cmd + O`: Open typed output-root edit dialog.
+
 ## History
 - `Ctrl+Z` / `Cmd+Z`: Undo.
 - `Ctrl+Shift+Z` / `Cmd+Shift+Z`: Redo.
@@ -67,6 +73,10 @@ These controls apply when view mode is `FREE_VIEW`.
 - `Save JSON`: Save current layout config.
 - `Load JSON`: Load a layout config.
 - `Export Shape`: Export shape asset.
+- `Input Edit`: Open typed input-root edit dialog.
+- `Input Folder`: Open native folder chooser for input root.
+- `Output Edit`: Open typed output-root edit dialog.
+- `Output Folder`: Open native folder chooser for output root.
 - `Reset Origin (O)`: Same action as `O` key.
 - `Zoom In (+)`: Same action as `=`.
 - `Zoom Out (-)`: Same action as `-`.

@@ -1,6 +1,6 @@
 # LineDrawing
 
-LineDrawing is an SDL2-based sketcher for layout/geometry prototyping. It now supports snap-to-grid wall drafting, bezier-curved anchors (with editable handles), multi-anchor selection/dragging, JSON persistence, and an overlay UI that can host diagnostics or future sensor readouts.
+LineDrawing is an SDL2-based layout and 3D modeling workspace for geometry prototyping. It now supports snap-to-grid wall drafting, bezier-curved anchors (with editable handles), multi-anchor selection/dragging, JSON persistence, and an overlay UI that can host diagnostics or future sensor readouts.
 
 ## Docs
 - docs index: `docs/README.md`

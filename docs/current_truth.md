@@ -1,6 +1,6 @@
 # Line Drawing Current Truth
 
-Last updated: 2026-04-05
+Last updated: 2026-04-09
 
 ## Program Identity
 - repository directory: `line_drawing/`
@@ -54,7 +54,7 @@ Desktop packaging lane:
 - `make -C line_drawing release-staple`
 - `make -C line_drawing release-verify-notarized APPLE_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)"`
 - launcher diagnostics:
-  - `/Users/<user>/Desktop/sketCh.app/Contents/MacOS/line-drawing-launcher --print-config`
+  - `/Users/<user>/Desktop/sCulpt.app/Contents/MacOS/line-drawing-launcher --print-config`
   - `tail -n 120 ~/Library/Logs/LineDrawing/launcher.log`
 
 ## Lifecycle Wrapper Snapshot
@@ -76,9 +76,22 @@ Desktop packaging lane:
 - mutable runtime state writes to ignored lanes:
   - `data/runtime/space_mode.txt`
   - `data/runtime/theme_preset.txt`
+  - `data/runtime/input_root.txt`
+  - `data/runtime/output_root.txt`
+  - `data/runtime/layout_root.txt`
 - runtime compatibility fallback loads from legacy paths when runtime files are absent:
   - `config/space_mode.txt`
   - `theme_preset.txt`
+- startup root hygiene behavior:
+  - validates configured root lanes (`input_root`, `output_root`, `layout_root`) on startup
+  - falls back to defaults when missing/invalid:
+    - input -> `config`
+    - output -> `export`
+    - layout -> `config`
+  - persists corrected runtime root values immediately
+  - emits explicit startup diagnostics when fallback is applied
+- current config default path behavior:
+  - `currentConfigPath` derives from `input_root/layout_config.json` (with legacy fallback)
 
 ## 2D/3D Parity Snapshot
 - canonical parity lane is complete (`LD-U0` through `LD-U6.6`) in private docs:
@@ -220,3 +233,15 @@ Desktop packaging lane:
   - `make -C line_drawing visual-harness` pass
 - next:
   - `RS1` lane is maintain-only for line_drawing; optional `RS1-S3+` only if deeper extraction is needed.
+
+## Data Path Contract State
+- private execution note:
+  - `../docs/private_program_docs/line_drawing/2026-04-08_line_drawing_data_path_contract_execution_plan.md`
+  - `../docs/private_program_docs/line_drawing/2026-04-09_line_drawing_data_path_contract_s5_closeout.md`
+- rollout status:
+  - `S0` complete (baseline + policy freeze)
+  - `S1` complete (root accessor + runtime state contract)
+  - `S2` complete (input/output root controls + keybinds + folder chooser)
+  - `S3` complete (input-root consumption migration + legacy fallback + clipped list text)
+  - `S4` complete (startup root validation/fallback persistence + diagnostics)
+  - `S5` complete (verification/docs/memory closeout)

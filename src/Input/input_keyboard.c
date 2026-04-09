@@ -60,7 +60,19 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
         bool primaryModifier = (mods & (KMOD_CTRL | KMOD_GUI)) != 0;
 
         if (event->type == SDL_KEYDOWN && primaryModifier) {
-            if ((mods & KMOD_SHIFT) && event->key.keysym.sym == SDLK_t) {
+            if ((mods & KMOD_SHIFT) && event->key.keysym.sym == SDLK_b) {
+                (void)UIPanel_OpenOutputRootFolderDialog();
+                return;
+            } else if (event->key.keysym.sym == SDLK_b) {
+                (void)UIPanel_OpenInputRootFolderDialog();
+                return;
+            } else if (event->key.keysym.sym == SDLK_i) {
+                UIPanel_BeginInputRootDialog();
+                return;
+            } else if (event->key.keysym.sym == SDLK_o) {
+                UIPanel_BeginOutputRootDialog();
+                return;
+            } else if ((mods & KMOD_SHIFT) && event->key.keysym.sym == SDLK_t) {
                 line_drawing3d_shared_theme_cycle_next();
                 line_drawing3d_shared_theme_save_persisted();
                 return;

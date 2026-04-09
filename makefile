@@ -137,7 +137,7 @@ ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRC
 APP_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(ALL_SRCS))
 APP_TARGET := $(BIN_DIR)/LineDrawing
 DIST_DIR := dist
-PACKAGE_APP_NAME := sketCh.app
+PACKAGE_APP_NAME := sCulpt.app
 PACKAGE_APP_DIR := $(DIST_DIR)/$(PACKAGE_APP_NAME)
 PACKAGE_CONTENTS_DIR := $(PACKAGE_APP_DIR)/Contents
 PACKAGE_MACOS_DIR := $(PACKAGE_CONTENTS_DIR)/MacOS
@@ -154,9 +154,9 @@ ifeq ($(RELEASE_VERSION),)
 RELEASE_VERSION := 0.1.0
 endif
 RELEASE_CHANNEL ?= stable
-RELEASE_PRODUCT_NAME := sketCh
+RELEASE_PRODUCT_NAME := sCulpt
 RELEASE_PROGRAM_KEY := line_drawing
-RELEASE_BUNDLE_ID := com.cosm.sketch
+RELEASE_BUNDLE_ID := com.cosm.sculpt
 RELEASE_ARTIFACT_BASENAME := $(RELEASE_PRODUCT_NAME)-$(RELEASE_VERSION)-macOS-$(RELEASE_CHANNEL)
 RELEASE_DIR := build/release
 RELEASE_APP_ZIP := $(RELEASE_DIR)/$(RELEASE_ARTIFACT_BASENAME).zip
@@ -298,9 +298,9 @@ release-contract:
 	@echo "RELEASE_BUNDLE_ID=$(RELEASE_BUNDLE_ID)"
 	@echo "RELEASE_VERSION=$(RELEASE_VERSION)"
 	@echo "RELEASE_CHANNEL=$(RELEASE_CHANNEL)"
-	@test "$(RELEASE_PRODUCT_NAME)" = "sketCh" || (echo "Unexpected release product"; exit 1)
+	@test "$(RELEASE_PRODUCT_NAME)" = "sCulpt" || (echo "Unexpected release product"; exit 1)
 	@test "$(RELEASE_PROGRAM_KEY)" = "line_drawing" || (echo "Unexpected release program key"; exit 1)
-	@test "$(RELEASE_BUNDLE_ID)" = "com.cosm.sketch" || (echo "Unexpected release bundle id"; exit 1)
+	@test "$(RELEASE_BUNDLE_ID)" = "com.cosm.sculpt" || (echo "Unexpected release bundle id"; exit 1)
 	@test -f "$(RELEASE_VERSION_FILE)" || (echo "Missing VERSION file"; exit 1)
 	@echo "release-contract passed."
 

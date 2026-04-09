@@ -5,6 +5,7 @@
 // without pulling in the entire application framework.
 
 #include "Core/global_state.h"
+#include <stdio.h>
 
 static GlobalState g_stubState;
 
@@ -16,6 +17,11 @@ void Global_Init(int screenWidth, int screenHeight) {
     g_stubState.screenWidth = screenWidth;
     g_stubState.screenHeight = screenHeight;
     g_stubState.spaceMode = SPACE_MODE_3D;
+    LineDrawingDataPaths_SetDefaults(&g_stubState.dataPaths);
+    (void)snprintf(g_stubState.currentConfigPath,
+                   sizeof(g_stubState.currentConfigPath),
+                   "%s/layout_config.json",
+                   g_stubState.dataPaths.layout_root);
 }
 
 void Global_Shutdown(void) {
@@ -70,6 +76,59 @@ const char* Global_GetCurrentConfigPath(void) {
 
 bool Global_IsLayoutDirty(void) {
     return g_stubState.layoutDirtySinceSave;
+}
+
+const char* Global_GetInputRoot(void) {
+    return g_stubState.dataPaths.input_root;
+}
+
+const char* Global_GetOutputRoot(void) {
+    return g_stubState.dataPaths.output_root;
+}
+
+const char* Global_GetLayoutRoot(void) {
+    return g_stubState.dataPaths.layout_root;
+}
+
+bool Global_SetInputRoot(const char* path, bool persist) {
+    (void)persist;
+    if (!path || !path[0]) return false;
+    return snprintf(g_stubState.dataPaths.input_root,
+                    sizeof(g_stubState.dataPaths.input_root),
+                    "%s",
+                    path) < (int)sizeof(g_stubState.dataPaths.input_root);
+}
+
+bool Global_SetOutputRoot(const char* path, bool persist) {
+    (void)persist;
+    if (!path || !path[0]) return false;
+    return snprintf(g_stubState.dataPaths.output_root,
+                    sizeof(g_stubState.dataPaths.output_root),
+                    "%s",
+                    path) < (int)sizeof(g_stubState.dataPaths.output_root);
+}
+
+bool Global_SetLayoutRoot(const char* path, bool persist) {
+    (void)persist;
+    if (!path || !path[0]) return false;
+    if (snprintf(g_stubState.dataPaths.layout_root,
+                 sizeof(g_stubState.dataPaths.layout_root),
+                 "%s",
+                 path) >= (int)sizeof(g_stubState.dataPaths.layout_root)) {
+        return false;
+    }
+    return snprintf(g_stubState.currentConfigPath,
+                    sizeof(g_stubState.currentConfigPath),
+                    "%s/layout_config.json",
+                    g_stubState.dataPaths.layout_root) < (int)sizeof(g_stubState.currentConfigPath);
+}
+
+bool Global_LoadDataRoots(void) {
+    return true;
+}
+
+bool Global_SaveDataRoots(void) {
+    return true;
 }
 
 SpaceMode Global_GetSpaceMode(void) {
