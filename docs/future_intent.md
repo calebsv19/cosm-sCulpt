@@ -1,6 +1,6 @@
 # Line Drawing Future Intent
 
-Last updated: 2026-04-09
+Last updated: 2026-04-10
 
 ## Scaffold Alignment Intent
 1. Keep existing 2D/3D parity behavior unchanged while normalizing scaffold contracts.
@@ -74,7 +74,7 @@ Last updated: 2026-04-09
   - `LD-CP1` stage/context ownership lock landed in wrapper
   - `LD-CP2` explicit runtime dispatch seam landed with typed request/outcome contract
   - execution note:
-    - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_connection_pass_cp0_cp2_execution.md`
+    - `../../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_connection_pass_cp0_cp2_execution.md`
 - next:
   - optional `LD-CP3+` extraction only if deeper wrapper/runtime ownership split is needed
 
@@ -91,8 +91,8 @@ Last updated: 2026-04-09
 - next:
   - optional `W4+` / `LD-CP3+` only if deeper wrapper/legacy ownership extraction is needed
 - execution note:
-  - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w1_w2_wrapper_hardening.md`
-  - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w3_s0_s4_execution.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w1_w2_wrapper_hardening.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w3_s0_s4_execution.md`
 
 ## IR1 Input Routing Intent
 - baseline setup:
@@ -101,9 +101,9 @@ Last updated: 2026-04-09
   - `IR1-S2` complete (explicit text-entry/global-shortcut precedence policy seam + policy test lane)
   - `IR1-S3` complete (diagnostics/tracker closeout)
   - execution note:
-    - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s0_s1_execution.md`
-    - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s2_policy_hardening.md`
-    - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s3_closeout.md`
+    - `../../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s0_s1_execution.md`
+    - `../../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s2_policy_hardening.md`
+    - `../../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s3_closeout.md`
 - next slices:
   - `IR1` lane complete for `line_drawing` (maintain-only)
   - queue `RS1` render-split lane when scheduled
@@ -114,8 +114,8 @@ Last updated: 2026-04-09
   - `RS1-S1` complete (typed update/derive/submit seam landed)
   - `RS1-S2` complete (diagnostics/tracker closeout)
   - execution note:
-    - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s0_s1_execution.md`
-    - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s2_closeout.md`
+    - `../../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s0_s1_execution.md`
+    - `../../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s2_closeout.md`
 - next slices:
   - `RS1` lane complete for `line_drawing` (maintain-only)
   - optional `RS1-S3+` only if deeper extraction is needed later

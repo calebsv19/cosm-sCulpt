@@ -24,4 +24,4 @@ Current verification contract:
 
 ## Private Planning Docs
 - Private scaffold plans and internal execution docs are in the workspace private docs bucket:
-  - `../docs/private_program_docs/line_drawing/`
+  - `../../docs/private_program_docs/line_drawing/`

@@ -1,6 +1,6 @@
 # Line Drawing Current Truth
 
-Last updated: 2026-04-09
+Last updated: 2026-04-10
 
 ## Program Identity
 - repository directory: `line_drawing/`
@@ -95,9 +95,9 @@ Desktop packaging lane:
 
 ## 2D/3D Parity Snapshot
 - canonical parity lane is complete (`LD-U0` through `LD-U6.6`) in private docs:
-  - `../docs/private_program_docs/line_drawing/`
+  - `../../docs/private_program_docs/line_drawing/`
 - trio scene-authoring execution lane is complete (`LD3D-0` through `LD3D-4`) in private docs:
-  - `../docs/private_program_docs/line_drawing/2026-04-02_ld3d4_scene_authoring_closeout.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-02_ld3d4_scene_authoring_closeout.md`
 - free-view axis gizmo drag contract and `Shift+C` center crosshair toggle are active.
 - canonical scene authoring export contract currently includes explicit mode intent fields:
   - root: `space_mode_intent` + `space_mode_default`
@@ -118,9 +118,9 @@ Desktop packaging lane:
 
 ## Scaffold Migration State
 - private migration plan:
-  - `../docs/private_program_docs/line_drawing/2026-04-01_line_drawing_scaffold_standardization_switchover_plan.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-01_line_drawing_scaffold_standardization_switchover_plan.md`
 - baseline freeze:
-  - `../docs/private_program_docs/line_drawing/2026-04-01_ld_s0_baseline_freeze_and_mapping.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-01_ld_s0_baseline_freeze_and_mapping.md`
 - current phase snapshot:
   - `LD-S0` complete
   - `LD-S1` complete
@@ -131,7 +131,7 @@ Desktop packaging lane:
 
 ## App Packaging State
 - private execution plan:
-  - `../docs/private_program_docs/line_drawing/2026-04-01_line_drawing_app_packaging_execution_plan.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-01_line_drawing_app_packaging_execution_plan.md`
 - packaging rollout status:
   - `LD-PK0` complete
   - `LD-PK1` complete
@@ -149,7 +149,7 @@ Desktop packaging lane:
   - `LD-CP0` mapped
   - `LD-CP1` and `LD-CP2` wrapper implementation landed in `src/app/line_drawing_app_main.c`
   - execution note:
-    - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_connection_pass_cp0_cp2_execution.md`
+    - `../../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_connection_pass_cp0_cp2_execution.md`
 - verification snapshot (2026-04-02):
   - `make -C line_drawing clean && make -C line_drawing` pass
   - `make -C line_drawing run-headless-smoke` pass
@@ -171,14 +171,14 @@ Desktop packaging lane:
     - `S3` seam diagnostics + ownership hardening complete
     - `S4` closeout/docs/memory sync complete
 - execution note:
-  - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w1_w2_wrapper_hardening.md`
-  - `../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w3_s0_s4_execution.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w1_w2_wrapper_hardening.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-02_line_drawing_w3_s0_s4_execution.md`
 
 ## IR1 Input Routing State
 - private execution note:
-  - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s0_s1_execution.md`
-  - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s2_policy_hardening.md`
-  - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s3_closeout.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s0_s1_execution.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s2_policy_hardening.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_ir1_s3_closeout.md`
 - `IR1-S0` complete:
   - baseline top-level input map captured at `src/main.c` event callback seam.
 - `IR1-S1` complete:
@@ -209,8 +209,8 @@ Desktop packaging lane:
 
 ## RS1 Render Split State
 - private execution note:
-  - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s0_s1_execution.md`
-  - `../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s2_closeout.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s0_s1_execution.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-03_line_drawing_rs1_s2_closeout.md`
 - `RS1-S0` complete:
   - top-level render ownership baseline captured (`main.c` update callback + monolithic `Render_Frame` lane).
 - `RS1-S1` complete:
@@ -234,10 +234,15 @@ Desktop packaging lane:
 - next:
   - `RS1` lane is maintain-only for line_drawing; optional `RS1-S3+` only if deeper extraction is needed.
 
+## Doc Sync Pass State
+- latest pass: 2026-04-10 (docs-only reconciliation)
+- stale public->private path references corrected to `../../docs/private_program_docs/line_drawing/...`
+- current worktree drift is build-artifact only under `build/` (no additional unstaged source/doc behavior deltas)
+
 ## Data Path Contract State
 - private execution note:
-  - `../docs/private_program_docs/line_drawing/2026-04-08_line_drawing_data_path_contract_execution_plan.md`
-  - `../docs/private_program_docs/line_drawing/2026-04-09_line_drawing_data_path_contract_s5_closeout.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-08_line_drawing_data_path_contract_execution_plan.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-09_line_drawing_data_path_contract_s5_closeout.md`
 - rollout status:
   - `S0` complete (baseline + policy freeze)
   - `S1` complete (root accessor + runtime state contract)
