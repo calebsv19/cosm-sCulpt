@@ -6,6 +6,7 @@
 #include "Layout/layout_origin.h"
 #include "Layout/Grid/grid.h"
 #include "UI/ui_panel.h"
+#include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
 #include <SDL2/SDL.h>
 
@@ -16,6 +17,8 @@ static void HandleHeldKeys(AppContext* ctx) {
     Grid* grid = &state->grid;
 
     const Uint8 *keys = SDL_GetKeyboardState(NULL);
+    const SDL_Keymod mods = SDL_GetModState();
+    const bool primaryModifierHeld = (mods & (KMOD_CTRL | KMOD_GUI)) != 0;
     float panSpeed = 300.0f * ctx->deltaTime;
 
     int w = Global_GetScreenWidth();
@@ -28,8 +31,10 @@ static void HandleHeldKeys(AppContext* ctx) {
     if (keys[SDL_SCANCODE_UP])     { Grid_pan(grid, 0,   panSpeed); gridChanged = true; }
     if (keys[SDL_SCANCODE_DOWN])   { Grid_pan(grid, 0,  -panSpeed); gridChanged = true; }
 
-    if (keys[SDL_SCANCODE_EQUALS]) { Grid_zoom(grid, 1.05f, w / 2.0f, h / 2.0f); gridChanged = true; }
-    if (keys[SDL_SCANCODE_MINUS])  { Grid_zoom(grid, 0.95f, w / 2.0f, h / 2.0f); gridChanged = true; }
+    if (!primaryModifierHeld) {
+        if (keys[SDL_SCANCODE_EQUALS]) { Grid_zoom(grid, 1.05f, w / 2.0f, h / 2.0f); gridChanged = true; }
+        if (keys[SDL_SCANCODE_MINUS])  { Grid_zoom(grid, 0.95f, w / 2.0f, h / 2.0f); gridChanged = true; }
+    }
 
     if (gridChanged) {
         Global_FlagGridChanged();
@@ -40,6 +45,19 @@ static void HandleHeldKeys(AppContext* ctx) {
 
 static bool Input_Is3DMode(const GlobalState* state) {
     return state && state->spaceMode == SPACE_MODE_3D;
+}
+
+static void Input_SetActivePlane(GlobalState* state, ViewPlane plane) {
+    if (!state) return;
+    state->activePlane = plane;
+    Layout_ConstructionPlane3D_SetFromViewPlane(&state->layout.scene3d.constructionPlane, plane);
+}
+
+static void Input_RefreshUILayoutAfterFontStep(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return;
+    Global_SetWindowSize(state->screenWidth, state->screenHeight);
+    Global_FlagGridChanged();
 }
 
 // 		Public keyboard input dispatcher
@@ -60,6 +78,29 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
         bool primaryModifier = (mods & (KMOD_CTRL | KMOD_GUI)) != 0;
 
         if (event->type == SDL_KEYDOWN && primaryModifier) {
+            if (event->key.keysym.sym == SDLK_EQUALS ||
+                event->key.keysym.sym == SDLK_PLUS ||
+                event->key.keysym.sym == SDLK_KP_PLUS) {
+                if (FontManager_AdjustZoomStep(+1)) {
+                    printf("[UI] Font zoom step: %d\n", FontManager_GetZoomStep());
+                    Input_RefreshUILayoutAfterFontStep();
+                }
+                return;
+            } else if (event->key.keysym.sym == SDLK_MINUS ||
+                       event->key.keysym.sym == SDLK_KP_MINUS) {
+                if (FontManager_AdjustZoomStep(-1)) {
+                    printf("[UI] Font zoom step: %d\n", FontManager_GetZoomStep());
+                    Input_RefreshUILayoutAfterFontStep();
+                }
+                return;
+            } else if (event->key.keysym.sym == SDLK_0 ||
+                       event->key.keysym.sym == SDLK_KP_0) {
+                if (FontManager_SetZoomStep(0)) {
+                    printf("[UI] Font zoom step reset: %d\n", FontManager_GetZoomStep());
+                    Input_RefreshUILayoutAfterFontStep();
+                }
+                return;
+            } else
             if ((mods & KMOD_SHIFT) && event->key.keysym.sym == SDLK_b) {
                 (void)UIPanel_OpenOutputRootFolderDialog();
                 return;
@@ -119,6 +160,16 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
         if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_m) {
             if (Global_ToggleSpaceMode(true)) {
                 printf("[Editor] Space mode: %s\n", Global_GetSpaceModeLabel(state->spaceMode));
+            }
+            return;
+        }
+
+        if (event->type == SDL_KEYDOWN &&
+            event->key.keysym.sym == SDLK_x &&
+            (mods & (KMOD_CTRL | KMOD_GUI | KMOD_ALT)) == 0) {
+            if (UIPanel_ToggleObjectGizmoRotateMode()) {
+                printf("[Editor] Object gizmo mode: %s\n",
+                       UIPanel_IsObjectGizmoRotateMode() ? "ROTATE" : "MOVE");
             }
             return;
         }
@@ -198,17 +249,23 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
         }
 
         if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_1) {
-            state->activePlane.axis = VIEW_PLANE_XY;
+            ViewPlane plane = state->activePlane;
+            plane.axis = VIEW_PLANE_XY;
+            Input_SetActivePlane(state, plane);
             Global_FlagHitboxesDirty();
             printf("[Editor] Active plane: XY (z = %.2f)\n", state->activePlane.offset);
         }
         if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_2) {
-            state->activePlane.axis = VIEW_PLANE_YZ;
+            ViewPlane plane = state->activePlane;
+            plane.axis = VIEW_PLANE_YZ;
+            Input_SetActivePlane(state, plane);
             Global_FlagHitboxesDirty();
             printf("[Editor] Active plane: YZ (x = %.2f)\n", state->activePlane.offset);
         }
         if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_3) {
-            state->activePlane.axis = VIEW_PLANE_XZ;
+            ViewPlane plane = state->activePlane;
+            plane.axis = VIEW_PLANE_XZ;
+            Input_SetActivePlane(state, plane);
             Global_FlagHitboxesDirty();
             printf("[Editor] Active plane: XZ (y = %.2f)\n", state->activePlane.offset);
         }
@@ -217,7 +274,9 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
             float step = state->grid.gridSize;
             if (mods & KMOD_SHIFT) step *= 10.0f;
             if (event->key.keysym.sym == SDLK_LEFTBRACKET) step = -step;
-            state->activePlane.offset += step;
+            ViewPlane plane = state->activePlane;
+            plane.offset += step;
+            Input_SetActivePlane(state, plane);
             Global_FlagHitboxesDirty();
             switch (state->activePlane.axis) {
                 case VIEW_PLANE_XY:
@@ -249,6 +308,16 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
 	        printf("[Editor] No anchor selected to shift origin.\n");
 	    }
 	}
+
+	if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_p && (mods & KMOD_SHIFT)) {
+            (void)UIPanel_CreatePlanePrimitiveFromActiveContext((mods & KMOD_ALT) != 0);
+            return;
+        }
+
+	if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_r && (mods & KMOD_SHIFT)) {
+            (void)UIPanel_CreateRectPrismPrimitiveFromActiveContext((mods & KMOD_ALT) != 0);
+            return;
+        }
 
 	// Toggle pinning of selected anchor
 	if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_p) {
@@ -315,7 +384,8 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
            (event->key.keysym.sym == SDLK_DELETE || event->key.keysym.sym == SDLK_BACKSPACE)) {
             bool hasWall = state->editor.selectedWallIndex >= 0;
             bool hasAnchor = state->editor.selectedAnchorIndex >= 0;
-            if (hasWall || hasAnchor) {
+            bool hasObject = state->editor.selectedObject3DId != 0u;
+            if (hasWall || hasAnchor || hasObject) {
                 Editor_HistoryCapture(&state->editor, &state->layout);
             }
 
@@ -326,6 +396,12 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
             if (hasAnchor) {
                 Layout_RemoveAnchor(&state->layout, state->editor.selectedAnchorIndex);
                 state->editor.selectedAnchorIndex = -1;
+            }
+            if (hasObject) {
+                (void)Layout_ObjectStore_Delete(&state->layout.objectStore, state->editor.selectedObject3DId);
+                state->editor.selectedObject3DId = 0u;
+                state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+                state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
             }
         }
     }

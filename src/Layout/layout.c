@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <float.h>
 
 static const float kAnchorSnapRadius = 0.01f;  // very small world-space threshold
 
@@ -466,6 +467,8 @@ void Layout_MarkWallDeleted(Layout* layout, int wallIndex) {
 
 void Layout_Init(Layout* layout, float gridSize) {
     layout->gridSize = gridSize;
+    Layout_Scene3DSettings_SetDefaults(&layout->scene3d);
+    Layout_ObjectStore_Init(&layout->objectStore);
 
     layout->walls = NULL;
     layout->wallCount = 0;
@@ -481,6 +484,7 @@ void Layout_Free(Layout* layout) {
     }
     free(layout->anchors);
     free(layout->walls);
+    Layout_ObjectStore_Free(&layout->objectStore);
     layout->anchors = NULL;
     layout->walls = NULL;
     layout->wallCount = 0;

@@ -146,6 +146,8 @@ bool Global_SetSpaceMode(SpaceMode mode, bool persist) {
     if (mode == SPACE_MODE_2D) {
         g_stubState.activePlane.axis = VIEW_PLANE_XY;
         g_stubState.activePlane.offset = 0.0f;
+        Layout_ConstructionPlane3D_SetFromViewPlane(&g_stubState.layout.scene3d.constructionPlane,
+                                                    g_stubState.activePlane);
         g_stubState.freeViewCamera.enabled = false;
     }
     return true;

@@ -320,7 +320,6 @@ bool line_drawing3d_shared_font_resolve_ui_regular(char* out_path, size_t out_pa
     const char* preset_name;
     CoreFontPreset preset = {0};
     CoreFontRoleSpec role = {0};
-    int tier_size = 0;
     CoreResult r;
 
     if (!out_path || out_path_size == 0 || !out_point_size ||
@@ -330,12 +329,12 @@ bool line_drawing3d_shared_font_resolve_ui_regular(char* out_path, size_t out_pa
 
     preset_name = getenv("LINE_DRAWING3D_FONT_PRESET");
     if (!preset_name || !preset_name[0]) {
-        preset_name = "daw_default";
+        preset_name = "ide";
     }
 
     r = core_font_get_preset_by_name(preset_name, &preset);
     if (r.code != CORE_OK) {
-        r = core_font_get_preset(CORE_FONT_PRESET_DAW_DEFAULT, &preset);
+        r = core_font_get_preset(CORE_FONT_PRESET_IDE, &preset);
         if (r.code != CORE_OK) {
             return false;
         }
@@ -349,11 +348,6 @@ bool line_drawing3d_shared_font_resolve_ui_regular(char* out_path, size_t out_pa
     if (!resolve_existing_font_path(&role, out_path, out_path_size)) {
         return false;
     }
-    r = core_font_point_size_for_tier(&role, CORE_FONT_TEXT_SIZE_PARAGRAPH, &tier_size);
-    if (r.code == CORE_OK && tier_size > 0) {
-        *out_point_size = tier_size;
-    } else {
-        *out_point_size = role.point_size > 0 ? role.point_size : 14;
-    }
+    *out_point_size = role.point_size > 0 ? role.point_size : 14;
     return true;
 }

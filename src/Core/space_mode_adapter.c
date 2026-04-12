@@ -22,7 +22,11 @@ SpaceViewContext SpaceAdapter_BuildViewContext(const GlobalState* state) {
     SpaceViewContext ctx = SpaceAdapter_DefaultContext();
     if (!state) return ctx;
 
-    ctx.plane = state->activePlane;
+    if (Layout_ConstructionPlane3D_IsValid(&state->layout.scene3d.constructionPlane)) {
+        ctx.plane = Layout_ConstructionPlane3D_ToViewPlane(&state->layout.scene3d.constructionPlane);
+    } else {
+        ctx.plane = state->activePlane;
+    }
     ctx.camera = state->freeViewCamera;
 
     if (!SpaceAdapter_Is3DMode(state)) {

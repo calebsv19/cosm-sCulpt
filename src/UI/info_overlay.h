@@ -2,6 +2,5 @@
 
 #include <SDL2/SDL.h>
 
-#define INFO_OVERLAY_HEIGHT 64
-
+int InfoOverlay_HeightPx(void);
 void Render_InfoOverlay(SDL_Renderer* renderer);

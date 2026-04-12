@@ -1,6 +1,6 @@
 # Line Drawing Current Truth
 
-Last updated: 2026-04-10
+Last updated: 2026-04-11
 
 ## Program Identity
 - repository directory: `line_drawing/`
@@ -98,13 +98,79 @@ Desktop packaging lane:
   - `../../docs/private_program_docs/line_drawing/`
 - trio scene-authoring execution lane is complete (`LD3D-0` through `LD3D-4`) in private docs:
   - `../../docs/private_program_docs/line_drawing/2026-04-02_ld3d4_scene_authoring_closeout.md`
+- deep 3D behavior rollout execution plan is complete through `LD3D-F8` in private docs:
+  - `../../docs/private_program_docs/line_drawing/2026-04-10_line_drawing_ld3d_foundation_behavior_execution_plan.md`
+  - `../../docs/private_program_docs/line_drawing/2026-04-11_line_drawing_ld3d_f8_closeout.md`
+- pane-refactor stabilization checkpoint and resume gate are complete through `LD3D-UIR-P6`:
+  - shared-hinted/kerning-enabled panel font load path is active.
+  - shared font resolution now defaults to the `ide` preset and uses the resolved `UI_REGULAR` role base point size directly for UI text.
+  - Vulkan UI text now uses nearest texture sampling plus drawable-density glyph rasterization to reduce high-DPI blur in packaged/runtime builds.
+  - side-pane width minima now follow current content-driven chrome targets instead of old fixed threshold jumps.
+  - left/right control lanes and compact rows now center within the solved pane rects.
+  - operator manual validation is recorded in the private closeout lane, and the resumed `LD3D-F8` lane is now closed on the pane-scoped baseline.
 - free-view axis gizmo drag contract and `Shift+C` center crosshair toggle are active.
+- scene-3D foundation contracts now include:
+  - explicit scene bounds state + clamp helpers (`scene3d.bounds`)
+  - explicit construction-plane state (`scene3d.constructionPlane`) with axis-aligned mode and custom-frame contract, routed through `space_mode_adapter` with legacy `XY/YZ/XZ + offset` compatibility.
+  - pane-scoped construction-plane UI controls are now active for the axis-aligned authoring path:
+    - right-pane `Construction` group exposes `XY` / `YZ` / `XZ` axis buttons
+    - offset nudges (`-` / `+`) move the active plane by one grid step
+    - typed offset dialog (`Edit x/y/z`) applies in the current display units
+  - typed 3D object registry contract (`LayoutObjectStore`) with stable IDs, tombstone delete semantics, and `core_object` dimensional-mode enforcement.
+  - first primitive authoring path (`LD3D-F4`) for bounded plane primitives:
+    - creation contract via `Layout_CreatePlanePrimitive(...)`
+    - persisted plane payloads (`width/height/frame/lock flags`) in layout schema v7 `objects3d`
+    - viewport selection feedback via object render + object hitboxes (`HITBOX_OBJECT3D`)
+    - keyboard tooling lane: `Shift+P` create plane (`Alt+Shift+P` creates with bounds-lock override)
+    - explicit UI tooling lane: right-panel `Add Plane` button routes through the same creation contract
+    - free-view scene context lane: scene-bounds wireframe renders as 3D reference geometry
+  - plane primitive edit path (`LD3D-F4.5`) is now active:
+    - dedicated resize handles (4 corners + 4 edges) with typed hitboxes
+    - layout resize API (`Layout_ResizePlanePrimitiveFromHandle(...)`) enforces:
+      - corner drag => dual-axis resize with opposite corner anchored
+      - edge drag => single-axis resize with opposite edge anchored
+      - minimum-size clamp + scene-bounds lock policy
+    - mouse drag routing updates selected plane dimensions directly from handle drags
+    - selected/hovered resize handle state is visible in viewport markers + info overlay
+  - rectangular prism data-contract lane (`LD3D-F5.1`) is now active:
+    - `Object3D` includes typed `RectPrismPrimitive3D` payload (`width/height/depth/frame/lock flags`)
+    - object validation enforces prism min-size + frame validity contracts
+    - layout schema v8 persists/loads `rectPrism` payloads deterministically in `objects3d`
+  - rectangular prism creation lane (`LD3D-F5.2`) is now active:
+    - layout create contract is explicit via `Layout_CreateRectPrismPrimitive(...)` + `RectPrismPrimitiveCreateParams`
+    - create controls are live in authoring UX:
+      - right-panel `Add Prism`
+      - keyboard `Shift+R` (`Alt+Shift+R` bounds-lock override)
+    - creation uses construction-plane frame with scene-bounds clamp/reject policy when bounds lock is enabled
+    - prism wireframe render lane is enabled for immediate visual placement feedback during creation
+    - info overlay reports prism kind and dimensions (`W/H/D`) with lock flags
+  - rectangular prism selection/edit lane (`LD3D-F5.3`) is now active:
+    - prism viewport hitboxes are emitted for selection parity with plane objects
+    - selected prism emits resize-handle hitboxes (corner/edge classes) on the active face
+    - direct viewport handle drags now resize prism local `W/H` (depth preserved) with the same one-snapshot undo policy as plane resize
+    - `Alt` smooth-resize override is shared with plane/prism object-resize drags
+    - free-view constrained prism-handle gizmo lane is active:
+      - selecting a prism resize handle in `SPACE_MODE_3D + FREE_VIEW` emits local-axis gizmo hitboxes (`HITBOX_OBJECT3D_GIZMO_AXIS`)
+      - corner handle exposes local `U/V/N` axis drags; edge handle exposes 2-axis drags (in-plane normal + `N`)
+      - depth edits from face handles route through `Layout_ResizeRectPrismDepthFromFaceHandle(...)` (min-size + bounds-lock enforced)
 - canonical scene authoring export contract currently includes explicit mode intent fields:
   - root: `space_mode_intent` + `space_mode_default`
   - objects: `space_mode_intent` + `dimensional_mode`
 - canonical conversion contract is explicit (no hidden conversion):
   - root: `conversion_policy=explicit_only`
   - objects: explicit `projection_policy` + `extrusion_policy`
+- canonical export now carries authored 3D scene settings additively under `extensions.line_drawing.scene3d`:
+  - bounds: `enabled`, `clamp_on_edit`, `min`, `max`
+  - construction plane: `mode`, `axis`, `offset`, `custom_frame`
+- authored plane/prism primitives now export as canonical `objects[]` entries:
+  - stable object IDs lift from the layout object store (`obj3d_<id>`)
+  - object-local primitive dimensions/frame remain namespaced under `extensions.line_drawing.primitive_payload`
+- root 2D/3D intent now reflects authored 3D state from scene settings/object-store content, so pure-primitive scenes export as `3d` without requiring nonzero anchor `z`.
+- right-pane selected-object transform controls are now active:
+  - `Edit Pos` opens a typed vector dialog in the current display units and applies via `Layout_SetObject3DPosition(...)`
+  - `Rot X`, `Rot Y`, `Rot Z` open typed degree dialogs and apply via `Layout_RotateObject3D(...)`
+  - object-context summary shows current dimensions, position, and rotation for the selected plane/prism
+- the deep 3D foundation lane is complete through `LD3D-F8`; further 3D authoring expansion should begin as a new post-foundation planning lane.
 - canonical scene ID immutability is enforced on re-export:
   - when exporting to an existing scene file, existing `scene_id` is preserved.
 - scene-level canonical metadata is authorable in tooling:

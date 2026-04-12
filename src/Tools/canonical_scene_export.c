@@ -102,6 +102,56 @@ static size_t count_active_walls(const Layout* layout) {
     return count;
 }
 
+static size_t count_live_object3d(const Layout* layout) {
+    size_t count = 0;
+    if (!layout) return 0;
+    for (size_t i = 0; i < layout->objectStore.count; ++i) {
+        if (!layout->objectStore.items[i].isDeleted) ++count;
+    }
+    return count;
+}
+
+static bool vec3_nearly_equal(Vec3 a, Vec3 b) {
+    return fabsf(a.x - b.x) <= 0.0001f &&
+           fabsf(a.y - b.y) <= 0.0001f &&
+           fabsf(a.z - b.z) <= 0.0001f;
+}
+
+static bool layout_has_scene3d_authoring(const Layout* layout) {
+    Scene3DSettings defaults;
+    if (!layout) return false;
+    if (count_live_object3d(layout) > 0u) return true;
+
+    Layout_Scene3DSettings_SetDefaults(&defaults);
+    if (layout->scene3d.bounds.enabled != defaults.bounds.enabled) return true;
+    if (layout->scene3d.bounds.clampOnEdit != defaults.bounds.clampOnEdit) return true;
+    if (!vec3_nearly_equal(layout->scene3d.bounds.min, defaults.bounds.min)) return true;
+    if (!vec3_nearly_equal(layout->scene3d.bounds.max, defaults.bounds.max)) return true;
+    if (layout->scene3d.constructionPlane.mode != defaults.constructionPlane.mode) return true;
+    if (layout->scene3d.constructionPlane.axisAligned.axis != defaults.constructionPlane.axisAligned.axis) return true;
+    if (fabsf(layout->scene3d.constructionPlane.axisAligned.offset -
+              defaults.constructionPlane.axisAligned.offset) > 0.0001f) {
+        return true;
+    }
+    if (!vec3_nearly_equal(layout->scene3d.constructionPlane.customFrame.origin,
+                           defaults.constructionPlane.customFrame.origin)) {
+        return true;
+    }
+    if (!vec3_nearly_equal(layout->scene3d.constructionPlane.customFrame.axisU,
+                           defaults.constructionPlane.customFrame.axisU)) {
+        return true;
+    }
+    if (!vec3_nearly_equal(layout->scene3d.constructionPlane.customFrame.axisV,
+                           defaults.constructionPlane.customFrame.axisV)) {
+        return true;
+    }
+    if (!vec3_nearly_equal(layout->scene3d.constructionPlane.customFrame.normal,
+                           defaults.constructionPlane.customFrame.normal)) {
+        return true;
+    }
+    return false;
+}
+
 static bool layout_uses_3d(const Layout* layout) {
     if (!layout) return false;
     for (size_t i = 0; i < layout->anchorCount; ++i) {
@@ -109,6 +159,7 @@ static bool layout_uses_3d(const Layout* layout) {
         if (anchor->isDeleted) continue;
         if (fabs(anchor->pos.z) > 0.0001f) return true;
     }
+    if (layout_has_scene3d_authoring(layout)) return true;
     return false;
 }
 
@@ -118,6 +169,8 @@ static cJSON* duplicate_or_empty_object(const cJSON* source) {
     }
     return cJSON_Duplicate(source, 1);
 }
+
+static bool upsert_object_item(cJSON* object, const char* key, cJSON* item);
 
 static bool add_object_tag(cJSON* tags, const char* tag) {
     if (!tags || !tag) return false;
@@ -278,6 +331,270 @@ static const cJSON* find_existing_object_extensions(const cJSON* existing_root) 
     return NULL;
 }
 
+static const cJSON* find_existing_object_extensions_by_id(const cJSON* existing_root,
+                                                          const char* object_id_value) {
+    if (!existing_root || !object_id_value || !object_id_value[0]) return NULL;
+
+    const cJSON* objects = cJSON_GetObjectItemCaseSensitive(existing_root, "objects");
+    if (!cJSON_IsArray(objects)) return NULL;
+
+    const cJSON* object = NULL;
+    cJSON_ArrayForEach(object, objects) {
+        const cJSON* object_id = cJSON_GetObjectItemCaseSensitive(object, "object_id");
+        if (cJSON_IsString(object_id) && object_id->valuestring &&
+            strcmp(object_id->valuestring, object_id_value) == 0) {
+            const cJSON* ext = cJSON_GetObjectItemCaseSensitive(object, "extensions");
+            if (cJSON_IsObject(ext)) return ext;
+            return NULL;
+        }
+    }
+
+    return NULL;
+}
+
+static const char* core_plane_to_string(CoreObjectPlane plane) {
+    switch (plane) {
+        case CORE_OBJECT_PLANE_YZ: return "yz";
+        case CORE_OBJECT_PLANE_XZ: return "xz";
+        case CORE_OBJECT_PLANE_XY:
+        default: return "xy";
+    }
+}
+
+static const char* core_dimensional_mode_to_string(CoreObjectDimensionalMode mode) {
+    return mode == CORE_OBJECT_DIMENSIONAL_MODE_FULL_3D ? "full_3d" : "plane_locked";
+}
+
+static const char* projection_policy_for_plane(CoreObjectPlane plane) {
+    switch (plane) {
+        case CORE_OBJECT_PLANE_YZ: return "plane_yz_lock";
+        case CORE_OBJECT_PLANE_XZ: return "plane_xz_lock";
+        case CORE_OBJECT_PLANE_XY:
+        default: return "plane_xy_lock";
+    }
+}
+
+static bool add_vec3_item(cJSON* parent, const char* key, Vec3 value) {
+    cJSON* node = NULL;
+    if (!parent || !key) return false;
+    node = cJSON_CreateObject();
+    if (!node) return false;
+    cJSON_AddItemToObject(parent, key, node);
+    cJSON_AddNumberToObject(node, "x", value.x);
+    cJSON_AddNumberToObject(node, "y", value.y);
+    cJSON_AddNumberToObject(node, "z", value.z);
+    return true;
+}
+
+static bool add_plane_frame_item(cJSON* parent, const char* key, const PlaneFrame3* frame) {
+    cJSON* node = NULL;
+    if (!parent || !key || !frame) return false;
+    node = cJSON_CreateObject();
+    if (!node) return false;
+    cJSON_AddItemToObject(parent, key, node);
+    if (!add_vec3_item(node, "origin", frame->origin)) return false;
+    if (!add_vec3_item(node, "axisU", frame->axisU)) return false;
+    if (!add_vec3_item(node, "axisV", frame->axisV)) return false;
+    if (!add_vec3_item(node, "normal", frame->normal)) return false;
+    return true;
+}
+
+static bool populate_scene3d_extension(cJSON* line_drawing_ext, const Layout* layout) {
+    cJSON* scene3d = NULL;
+    cJSON* bounds = NULL;
+    cJSON* construction_plane = NULL;
+    cJSON* custom_frame = NULL;
+
+    if (!line_drawing_ext || !layout) return false;
+
+    scene3d = duplicate_or_empty_object(cJSON_GetObjectItemCaseSensitive(line_drawing_ext, "scene3d"));
+    if (!scene3d) return false;
+    if (!upsert_object_item(line_drawing_ext, "scene3d", scene3d)) {
+        cJSON_Delete(scene3d);
+        return false;
+    }
+
+    bounds = cJSON_CreateObject();
+    if (!bounds) return false;
+    if (!upsert_object_item(scene3d, "bounds", bounds)) {
+        cJSON_Delete(bounds);
+        return false;
+    }
+    cJSON_AddBoolToObject(bounds, "enabled", layout->scene3d.bounds.enabled);
+    cJSON_AddBoolToObject(bounds, "clamp_on_edit", layout->scene3d.bounds.clampOnEdit);
+    if (!add_vec3_item(bounds, "min", layout->scene3d.bounds.min)) return false;
+    if (!add_vec3_item(bounds, "max", layout->scene3d.bounds.max)) return false;
+
+    construction_plane = cJSON_CreateObject();
+    if (!construction_plane) return false;
+    if (!upsert_object_item(scene3d, "construction_plane", construction_plane)) {
+        cJSON_Delete(construction_plane);
+        return false;
+    }
+
+    cJSON_AddStringToObject(construction_plane,
+                            "mode",
+                            layout->scene3d.constructionPlane.mode == CONSTRUCTION_PLANE_MODE_CUSTOM_FRAME
+                                ? "custom_frame"
+                                : "axis_aligned");
+    cJSON_AddStringToObject(construction_plane,
+                            "axis",
+                            layout->scene3d.constructionPlane.axisAligned.axis == VIEW_PLANE_YZ
+                                ? "yz"
+                                : layout->scene3d.constructionPlane.axisAligned.axis == VIEW_PLANE_XZ
+                                      ? "xz"
+                                      : "xy");
+    cJSON_AddNumberToObject(construction_plane,
+                            "offset",
+                            layout->scene3d.constructionPlane.axisAligned.offset);
+
+    custom_frame = cJSON_CreateObject();
+    if (!custom_frame) return false;
+    if (!upsert_object_item(construction_plane, "custom_frame", custom_frame)) {
+        cJSON_Delete(custom_frame);
+        return false;
+    }
+    if (!add_vec3_item(custom_frame, "origin", layout->scene3d.constructionPlane.customFrame.origin)) return false;
+    if (!add_vec3_item(custom_frame, "axisU", layout->scene3d.constructionPlane.customFrame.axisU)) return false;
+    if (!add_vec3_item(custom_frame, "axisV", layout->scene3d.constructionPlane.customFrame.axisV)) return false;
+    if (!add_vec3_item(custom_frame, "normal", layout->scene3d.constructionPlane.customFrame.normal)) return false;
+
+    return true;
+}
+
+static cJSON* append_scene_object_from_core(cJSON* objects,
+                                            const CoreObject* object,
+                                            const char* object_id,
+                                            const char* geometry_id,
+                                            const char* material_id,
+                                            const char* tag2,
+                                            const char* tag3) {
+    cJSON* object_json = NULL;
+
+    if (!objects || !object || !object_id || !geometry_id) return NULL;
+
+    if (core_object_validate(object).code != CORE_OK) return NULL;
+
+    object_json = cJSON_CreateObject();
+    if (!object_json) return NULL;
+    cJSON_AddItemToArray(objects, object_json);
+
+    cJSON_AddStringToObject(object_json, "object_id", object_id);
+    cJSON_AddStringToObject(object_json, "object_type", object->object_type);
+    cJSON_AddStringToObject(object_json,
+                            "space_mode_intent",
+                            object->dimensional_mode == CORE_OBJECT_DIMENSIONAL_MODE_FULL_3D ? "3d" : "2d");
+    cJSON_AddStringToObject(object_json,
+                            "dimensional_mode",
+                            core_dimensional_mode_to_string(object->dimensional_mode));
+    if (object->dimensional_mode == CORE_OBJECT_DIMENSIONAL_MODE_PLANE_LOCKED) {
+        cJSON_AddStringToObject(object_json, "locked_plane", core_plane_to_string(object->locked_plane));
+        cJSON_AddStringToObject(object_json,
+                                "projection_policy",
+                                projection_policy_for_plane(object->locked_plane));
+        cJSON_AddStringToObject(object_json, "extrusion_policy", "none");
+    } else {
+        cJSON_AddStringToObject(object_json, "projection_policy", "none");
+        cJSON_AddStringToObject(object_json, "extrusion_policy", "none");
+    }
+
+    if (!add_object_payload(object_json, object, geometry_id, material_id, tag2, tag3)) {
+        return NULL;
+    }
+    return object_json;
+}
+
+static bool add_primitive_extension_payload(cJSON* object_extensions,
+                                            const Object3D* object) {
+    cJSON* line_drawing_ext = NULL;
+    cJSON* primitive = NULL;
+
+    if (!object_extensions || !object) return false;
+
+    line_drawing_ext = duplicate_or_empty_object(cJSON_GetObjectItemCaseSensitive(object_extensions, "line_drawing"));
+    if (!line_drawing_ext) return false;
+    if (!upsert_object_item(object_extensions, "line_drawing", line_drawing_ext)) {
+        cJSON_Delete(line_drawing_ext);
+        return false;
+    }
+
+    cJSON_AddStringToObject(line_drawing_ext, "geometry_source", "objects3d");
+    cJSON_AddStringToObject(line_drawing_ext, "source_lane", "objects3d");
+    cJSON_AddNumberToObject(line_drawing_ext, "layout_object_id", (double)object->objectId);
+    cJSON_AddStringToObject(line_drawing_ext,
+                            "primitive_kind",
+                            object->kind == OBJECT3D_KIND_RECT_PRISM ? "rect_prism" : "plane");
+
+    primitive = cJSON_CreateObject();
+    if (!primitive) return false;
+    if (!upsert_object_item(line_drawing_ext, "primitive_payload", primitive)) {
+        cJSON_Delete(primitive);
+        return false;
+    }
+
+    if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        cJSON_AddNumberToObject(primitive, "width", object->rectPrism.width);
+        cJSON_AddNumberToObject(primitive, "height", object->rectPrism.height);
+        cJSON_AddNumberToObject(primitive, "depth", object->rectPrism.depth);
+        cJSON_AddBoolToObject(primitive, "lock_to_construction_plane", object->rectPrism.lockToConstructionPlane);
+        cJSON_AddBoolToObject(primitive, "lock_to_bounds", object->rectPrism.lockToBounds);
+        if (!add_plane_frame_item(primitive, "frame", &object->rectPrism.frame)) return false;
+    } else {
+        cJSON_AddNumberToObject(primitive, "width", object->plane.width);
+        cJSON_AddNumberToObject(primitive, "height", object->plane.height);
+        cJSON_AddBoolToObject(primitive, "lock_to_construction_plane", object->plane.lockToConstructionPlane);
+        cJSON_AddBoolToObject(primitive, "lock_to_bounds", object->plane.lockToBounds);
+        if (!add_plane_frame_item(primitive, "frame", &object->plane.frame)) return false;
+    }
+
+    return true;
+}
+
+static bool append_primitive_scene_objects(cJSON* objects,
+                                           cJSON* hierarchy,
+                                           const Layout* layout,
+                                           const cJSON* existing_root,
+                                           const char* material_id) {
+    if (!objects || !hierarchy || !layout) return false;
+
+    for (size_t i = 0; i < layout->objectStore.count; ++i) {
+        const Object3D* object = &layout->objectStore.items[i];
+        char geometry_id[96];
+        cJSON* object_json = NULL;
+        cJSON* object_extensions = NULL;
+        cJSON* hierarchy_item = NULL;
+
+        if (object->isDeleted) continue;
+        if (!object->coreMeta.object_id[0]) continue;
+
+        snprintf(geometry_id, sizeof(geometry_id), "shape_%s", object->coreMeta.object_id);
+        object_json = append_scene_object_from_core(objects,
+                                                    &object->coreMeta,
+                                                    object->coreMeta.object_id,
+                                                    geometry_id,
+                                                    material_id,
+                                                    "primitive",
+                                                    object->kind == OBJECT3D_KIND_RECT_PRISM
+                                                        ? "rect_prism"
+                                                        : "plane");
+        if (!object_json) return false;
+
+        object_extensions = duplicate_or_empty_object(
+            find_existing_object_extensions_by_id(existing_root, object->coreMeta.object_id));
+        if (!object_extensions) return false;
+        cJSON_AddItemToObject(object_json, "extensions", object_extensions);
+        if (!add_primitive_extension_payload(object_extensions, object)) return false;
+
+        hierarchy_item = cJSON_CreateObject();
+        if (!hierarchy_item) return false;
+        cJSON_AddItemToArray(hierarchy, hierarchy_item);
+        cJSON_AddStringToObject(hierarchy_item, "parent_object_id", kDefaultObjectId);
+        cJSON_AddStringToObject(hierarchy_item, "child_object_id", object->coreMeta.object_id);
+    }
+
+    return true;
+}
+
 static cJSON* load_existing_json_file(const char* path) {
     if (!path || !path[0]) return NULL;
 
@@ -309,6 +626,7 @@ static cJSON* build_scene_json(const Layout* layout,
     bool has_anchors = false;
     size_t active_anchors = 0;
     size_t active_walls = 0;
+    size_t active_objects3d = 0;
     Vec3 centroid;
     cJSON* root = NULL;
     cJSON* objects = NULL;
@@ -339,6 +657,7 @@ static cJSON* build_scene_json(const Layout* layout,
     is_3d = layout_uses_3d(layout);
     active_anchors = count_active_anchors(layout);
     active_walls = count_active_walls(layout);
+    active_objects3d = count_live_object3d(layout);
 
     centroid = Layout_ComputeCentroid(layout, &has_anchors);
     if (has_anchors) {
@@ -486,6 +805,11 @@ static cJSON* build_scene_json(const Layout* layout,
     cJSON_AddNumberToObject(line_drawing_ext, "active_wall_count", (double)active_walls);
     cJSON_AddStringToObject(line_drawing_ext, "producer", "line_drawing");
     cJSON_AddStringToObject(line_drawing_ext, "authoring_contract", "np2");
+    cJSON_AddNumberToObject(line_drawing_ext, "active_object3d_count", (double)active_objects3d);
+    if (!populate_scene3d_extension(line_drawing_ext, layout)) {
+        cJSON_Delete(root);
+        return NULL;
+    }
 
     object_line_drawing_ext =
         duplicate_or_empty_object(cJSON_GetObjectItemCaseSensitive(object_extensions, "line_drawing"));
@@ -566,6 +890,15 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_AddItemToArray(hierarchy, hierarchy_wall);
         cJSON_AddStringToObject(hierarchy_wall, "parent_object_id", kDefaultObjectId);
         cJSON_AddStringToObject(hierarchy_wall, "child_object_id", kWallSetObjectId);
+    }
+
+    if (!append_primitive_scene_objects(objects,
+                                        hierarchy,
+                                        layout,
+                                        existing_root,
+                                        resolved_material_id)) {
+        cJSON_Delete(root);
+        return NULL;
     }
 
     return root;

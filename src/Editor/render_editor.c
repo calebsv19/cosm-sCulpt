@@ -89,6 +89,33 @@ static SDL_Color GizmoAxis_ColorState(GizmoAxisDirection dir, bool hovered, bool
     return c;
 }
 
+static SDL_Color RectPrismAxis_BaseColor(RectPrismAxisDirection dir) {
+    switch (dir) {
+        case RECT_PRISM_AXIS_DIR_POS_U: return (SDL_Color){ 245, 85, 85, 255 };
+        case RECT_PRISM_AXIS_DIR_NEG_U: return (SDL_Color){ 170, 55, 55, 255 };
+        case RECT_PRISM_AXIS_DIR_POS_V: return (SDL_Color){ 95, 235, 95, 255 };
+        case RECT_PRISM_AXIS_DIR_NEG_V: return (SDL_Color){ 65, 165, 65, 255 };
+        case RECT_PRISM_AXIS_DIR_POS_N: return (SDL_Color){ 105, 165, 245, 255 };
+        case RECT_PRISM_AXIS_DIR_NEG_N: return (SDL_Color){ 70, 110, 185, 255 };
+        default: return (SDL_Color){ 200, 200, 200, 255 };
+    }
+}
+
+static SDL_Color RectPrismAxis_ColorState(RectPrismAxisDirection dir, bool hovered, bool active) {
+    SDL_Color c = RectPrismAxis_BaseColor(dir);
+    if (hovered) {
+        c.r = (Uint8)SDL_min(255, (int)c.r + 35);
+        c.g = (Uint8)SDL_min(255, (int)c.g + 35);
+        c.b = (Uint8)SDL_min(255, (int)c.b + 35);
+    }
+    if (active) {
+        c.r = (Uint8)SDL_min(255, (int)c.r + 45);
+        c.g = (Uint8)SDL_min(255, (int)c.g + 45);
+        c.b = (Uint8)SDL_min(255, (int)c.b + 45);
+    }
+    return c;
+}
+
 // ─────────────────────────────────────────────
 // High-level combined renderer
 void Render_EditorOverlay(EditorState* editor, AppContext* ctx) {
@@ -169,14 +196,129 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (!SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
 
+    const Grid* grid = &state->grid;
+    const float axisWorldLen = fmaxf(grid->gridSize * 2.0f, 1.0f);
+    const int baseRadius = SDL_max(6, (int)(grid->gridSize * grid->scale * 0.13f));
+
+    if (editor->selectedObject3DId != 0u) {
+        const Object3D* selectedObject =
+            Layout_ObjectStore_FindConst(&state->layout.objectStore, editor->selectedObject3DId);
+        if (selectedObject && Layout_ObjectStore_ValidateObject(selectedObject)) {
+            const bool handleGizmoActive =
+                (selectedObject->kind == OBJECT3D_KIND_RECT_PRISM) &&
+                (editor->selectedObject3DPrismHandle != RECT_PRISM_RESIZE_HANDLE_NONE);
+            const bool centerGizmoActive =
+                (editor->selectedObject3DResizeHandle == PLANE_RESIZE_HANDLE_NONE) &&
+                (editor->selectedObject3DPrismHandle == RECT_PRISM_RESIZE_HANDLE_NONE);
+
+            if (handleGizmoActive) {
+                RectPrismResizeHandleKind handle = (RectPrismResizeHandleKind)editor->selectedObject3DPrismHandle;
+                RectPrismHandleAxisMask axisMask = {0};
+                Vec3 handleWorld = {0};
+                if (Layout_RectPrismResizeHandleAxisMask(handle, &axisMask) &&
+                    Layout_RectPrismResizeHandleWorldPoint(selectedObject, handle, &handleWorld)) {
+                    Vec2 handleView = SpaceAdapter_ProjectToView(handleWorld, &viewCtx);
+                    Vec2 handleScreen = WorldToScreen(handleView, grid);
+                    const bool allowed[3] = { axisMask.allowU, axisMask.allowV, axisMask.allowN };
+
+                    for (int axisFamily = 0; axisFamily < 3; ++axisFamily) {
+                        if (!allowed[axisFamily]) continue;
+                        for (int signPass = 0; signPass < 2; ++signPass) {
+                            RectPrismAxisDirection dir = (RectPrismAxisDirection)(axisFamily * 2 + signPass);
+                            Vec3 axisDir = Layout_RectPrismAxisDirection_WorldVector(selectedObject, dir);
+                            Vec3 tipWorld = Vec3_Add(handleWorld, Vec3_Scale(axisDir, axisWorldLen));
+                            Vec2 tipView = SpaceAdapter_ProjectToView(tipWorld, &viewCtx);
+                            Vec2 tipScreen = WorldToScreen(tipView, grid);
+
+                            float dx = tipScreen.x - handleScreen.x;
+                            float dy = tipScreen.y - handleScreen.y;
+                            float screenLen = sqrtf(dx * dx + dy * dy);
+                            if (screenLen <= 3.0f) continue;
+
+                            bool isHovered = (editor->hoveredObject3DId == selectedObject->objectId) &&
+                                             (editor->hoveredObject3DGizmoAxis == (int)dir);
+                            bool isActive = (editor->activeObject3DGizmoAxis == (int)dir) &&
+                                            editor->isResizingObject3D;
+                            SDL_Color axisColor = RectPrismAxis_ColorState(dir, isHovered, isActive);
+
+                            SDL_SetRenderDrawColor(ctx->renderer,
+                                                   axisColor.r,
+                                                   axisColor.g,
+                                                   axisColor.b,
+                                                   axisColor.a);
+                            DrawLineWithThickness(ctx->renderer,
+                                                  (int)handleScreen.x,
+                                                  (int)handleScreen.y,
+                                                  (int)tipScreen.x,
+                                                  (int)tipScreen.y,
+                                                  (isHovered || isActive) ? 3 : 2);
+
+                            int handleRadius = baseRadius + (isHovered ? 1 : 0) + (isActive ? 1 : 0);
+                            DrawFilledCircle(ctx->renderer, (int)tipScreen.x, (int)tipScreen.y, handleRadius);
+
+                            SDL_Color ringColor = (SDL_Color){ 30, 30, 30, 255 };
+                            if (isHovered) ringColor = (SDL_Color){ 235, 235, 235, 255 };
+                            if (isActive) ringColor = (SDL_Color){ 255, 220, 120, 255 };
+                            SDL_SetRenderDrawColor(ctx->renderer,
+                                                   ringColor.r,
+                                                   ringColor.g,
+                                                   ringColor.b,
+                                                   ringColor.a);
+                            DrawCircleRing(ctx->renderer,
+                                           (int)tipScreen.x,
+                                           (int)tipScreen.y,
+                                           handleRadius + 2,
+                                           2);
+                        }
+                    }
+                }
+            } else if (centerGizmoActive) {
+                Vec2 centerView = SpaceAdapter_ProjectToView(selectedObject->transform.position, &viewCtx);
+                Vec2 centerScreen = WorldToScreen(centerView, grid);
+
+                for (int dir = GIZMO_AXIS_DIR_POS_X; dir <= GIZMO_AXIS_DIR_NEG_Z; ++dir) {
+                    Vec3 axisDir = GizmoAxisDirection_WorldVector((GizmoAxisDirection)dir);
+                    Vec3 tipWorld = Vec3_Add(selectedObject->transform.position,
+                                             Vec3_Scale(axisDir, axisWorldLen));
+                    Vec2 tipView = SpaceAdapter_ProjectToView(tipWorld, &viewCtx);
+                    Vec2 tipScreen = WorldToScreen(tipView, grid);
+
+                    float dx = tipScreen.x - centerScreen.x;
+                    float dy = tipScreen.y - centerScreen.y;
+                    float screenLen = sqrtf(dx * dx + dy * dy);
+                    if (screenLen <= 3.0f) continue;
+
+                    bool isHovered = (editor->hoveredObject3DId == selectedObject->objectId) &&
+                                     (editor->hoveredObject3DGizmoAxis == dir);
+                    bool isActive = (editor->activeObject3DGizmoAxis == dir) &&
+                                    !editor->isResizingObject3D;
+                    SDL_Color axisColor = GizmoAxis_ColorState((GizmoAxisDirection)dir, isHovered, isActive);
+
+                    SDL_SetRenderDrawColor(ctx->renderer, axisColor.r, axisColor.g, axisColor.b, axisColor.a);
+                    DrawLineWithThickness(ctx->renderer,
+                                          (int)centerScreen.x,
+                                          (int)centerScreen.y,
+                                          (int)tipScreen.x,
+                                          (int)tipScreen.y,
+                                          (isHovered || isActive) ? 3 : 2);
+
+                    int handleRadius = baseRadius + (isHovered ? 1 : 0) + (isActive ? 1 : 0);
+                    DrawFilledCircle(ctx->renderer, (int)tipScreen.x, (int)tipScreen.y, handleRadius);
+
+                    SDL_Color ringColor = (SDL_Color){ 30, 30, 30, 255 };
+                    if (isHovered) ringColor = (SDL_Color){ 235, 235, 235, 255 };
+                    if (isActive) ringColor = (SDL_Color){ 255, 220, 120, 255 };
+                    SDL_SetRenderDrawColor(ctx->renderer, ringColor.r, ringColor.g, ringColor.b, ringColor.a);
+                    DrawCircleRing(ctx->renderer, (int)tipScreen.x, (int)tipScreen.y, handleRadius + 2, 2);
+                }
+            }
+        }
+    }
+
     const int selected = editor->selectedAnchorIndex;
     if (selected < 0 || (size_t)selected >= state->layout.anchorCount) return;
     const Anchor* anchor = &state->layout.anchors[selected];
     if (anchor->isDeleted) return;
-
-    const Grid* grid = &state->grid;
-    const float axisWorldLen = fmaxf(grid->gridSize * 2.0f, 1.0f);
-    const int baseRadius = SDL_max(6, (int)(grid->gridSize * grid->scale * 0.13f));
 
     Vec2 anchorView = SpaceAdapter_ProjectToView(anchor->pos, &viewCtx);
     Vec2 anchorScreen = WorldToScreen(anchorView, grid);

@@ -19,6 +19,9 @@ CORE_TIME_DIR := ../shared/core/core_time
 CORE_SCENE_DIR := ../shared/core/core_scene
 CORE_OBJECT_DIR := ../shared/core/core_object
 CORE_UNITS_DIR := ../shared/core/core_units
+CORE_LAYOUT_DIR := ../shared/core/core_layout
+CORE_PANE_DIR := ../shared/core/core_pane
+CORE_PANE_MODULE_DIR := ../shared/core/core_pane_module
 CORE_PACK_DIR := ../shared/core/core_pack
 CORE_TRACE_DIR := ../shared/core/core_trace
 CORE_THEME_DIR := ../shared/core/core_theme
@@ -101,7 +104,7 @@ ifeq ($(strip $(SDL_LDFLAGS)),)
 endif
 
 WARN_FLAGS := -Wall -Wextra -Werror -Wpedantic
-BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Iinclude -Isrc -Isrc/Tools -Iexternal -I$(VK_RENDERER_DIR)/include -I$(CORE_BASE_DIR)/include -I$(CORE_IO_DIR)/include -I$(CORE_DATA_DIR)/include -I$(CORE_MATH_DIR)/include -I$(CORE_TIME_DIR)/include -I$(CORE_SCENE_DIR)/include -I$(CORE_OBJECT_DIR)/include -I$(CORE_UNITS_DIR)/include -I$(CORE_PACK_DIR)/include -I$(CORE_TRACE_DIR)/include -I$(CORE_THEME_DIR)/include -I$(CORE_FONT_DIR)/include -I$(TIMER_HUD_DIR)/include $(SDL_CFLAGS)
+BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Iinclude -Isrc -Isrc/Tools -Iexternal -I$(VK_RENDERER_DIR)/include -I$(CORE_BASE_DIR)/include -I$(CORE_IO_DIR)/include -I$(CORE_DATA_DIR)/include -I$(CORE_MATH_DIR)/include -I$(CORE_TIME_DIR)/include -I$(CORE_SCENE_DIR)/include -I$(CORE_OBJECT_DIR)/include -I$(CORE_UNITS_DIR)/include -I$(CORE_LAYOUT_DIR)/include -I$(CORE_PANE_DIR)/include -I$(CORE_PANE_MODULE_DIR)/include -I$(CORE_PACK_DIR)/include -I$(CORE_TRACE_DIR)/include -I$(CORE_THEME_DIR)/include -I$(CORE_FONT_DIR)/include -I$(TIMER_HUD_DIR)/include $(SDL_CFLAGS)
 DEBUG ?= 0
 
 ifeq ($(DEBUG),1)
@@ -130,7 +133,7 @@ ifeq ($(UNAME_S),Darwin)
 else
 	CORE_TIME_SRCS += $(CORE_TIME_DIR)/src/core_time_posix.c
 endif
-CORE_SRCS := $(CORE_BASE_DIR)/src/core_base.c $(CORE_IO_DIR)/src/core_io.c $(CORE_DATA_DIR)/src/core_data.c $(CORE_PACK_DIR)/src/core_pack.c $(CORE_MATH_DIR)/src/core_math.c $(CORE_TIME_SRCS) $(CORE_SCENE_DIR)/src/core_scene.c $(CORE_OBJECT_DIR)/src/core_object.c $(CORE_UNITS_DIR)/src/core_units.c $(CORE_THEME_DIR)/src/core_theme.c $(CORE_FONT_DIR)/src/core_font.c
+CORE_SRCS := $(CORE_BASE_DIR)/src/core_base.c $(CORE_IO_DIR)/src/core_io.c $(CORE_DATA_DIR)/src/core_data.c $(CORE_PACK_DIR)/src/core_pack.c $(CORE_MATH_DIR)/src/core_math.c $(CORE_TIME_SRCS) $(CORE_SCENE_DIR)/src/core_scene.c $(CORE_OBJECT_DIR)/src/core_object.c $(CORE_UNITS_DIR)/src/core_units.c $(CORE_LAYOUT_DIR)/src/core_layout.c $(CORE_PANE_DIR)/src/core_pane.c $(CORE_PANE_MODULE_DIR)/src/core_pane_module.c $(CORE_THEME_DIR)/src/core_theme.c $(CORE_FONT_DIR)/src/core_font.c
 TIMER_HUD_SRCS := $(shell find $(TIMER_HUD_DIR)/src -name '*.c')
 ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
 
@@ -502,6 +505,7 @@ SHAPE_TOOL_SRCS := \
 SHAPE_TOOL_OBJS := $(patsubst $(TOOLS_DIR)/%.c,$(BUILD_DIR)/tools/%.o,$(SHAPE_TOOL_SRCS))
 SHAPE_TOOL_SHARED_OBJS := \
 	$(OBJ_DIR)/external/cjson/cJSON.o \
+	$(OBJ_DIR)/src/Core/data_paths.o \
 	$(OBJ_DIR)/src/Core/space_mode_adapter.o \
 	$(OBJ_DIR)/src/Layout/layout.o \
 	$(OBJ_DIR)/src/Layout/layout_json.o \

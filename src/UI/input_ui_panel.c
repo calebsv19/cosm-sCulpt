@@ -16,7 +16,12 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
     EditorState* editor = &state->editor;
     Grid* grid = &state->grid;
 
-    if (UIPanel_IsSaveDialogActive() || UIPanel_IsRootDialogActive()) {
+    if (UIPanel_IsSaveDialogActive() ||
+        UIPanel_IsRootDialogActive() ||
+        UIPanel_IsPrismDimensionDialogActive() ||
+        UIPanel_IsSceneBoundsDialogActive() ||
+        UIPanel_IsConstructionPlaneDialogActive() ||
+        UIPanel_IsObjectTransformDialogActive()) {
         return true;
     }
 
@@ -130,6 +135,111 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                             Layout_SetHandlesLinked(&state->layout, sel, target);
                         }
                     }
+                    break;
+                }
+                case UI_BTN_CREATE_PLANE: { // Add plane primitive
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_CreatePlanePrimitiveFromActiveContext(false);
+                    break;
+                }
+                case UI_BTN_CREATE_RECT_PRISM: { // Add rectangular prism primitive
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_CreateRectPrismPrimitiveFromActiveContext(false);
+                    break;
+                }
+                case UI_BTN_EDIT_PRISM_WIDTH: { // Edit selected prism width
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_BeginPrismWidthDialog();
+                    break;
+                }
+                case UI_BTN_EDIT_PRISM_HEIGHT: { // Edit selected prism height
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_BeginPrismHeightDialog();
+                    break;
+                }
+                case UI_BTN_EDIT_PRISM_DEPTH: { // Edit selected prism depth
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_BeginPrismDepthDialog();
+                    break;
+                }
+                case UI_BTN_CYCLE_DISPLAY_UNITS: { // Cycle display units
+                    ui->loadMenu.open = false;
+                    UIPanel_CycleDisplayUnit();
+                    break;
+                }
+                case UI_BTN_TOGGLE_OBJECT_GIZMO_MODE: { // Toggle object gizmo move/rotate mode
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_ToggleObjectGizmoRotateMode();
+                    break;
+                }
+                case UI_BTN_EDIT_OBJECT_POSITION: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_BeginObjectPositionDialog();
+                    break;
+                }
+                case UI_BTN_EDIT_OBJECT_ROTATION_X: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_BeginObjectRotationXDialog();
+                    break;
+                }
+                case UI_BTN_EDIT_OBJECT_ROTATION_Y: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_BeginObjectRotationYDialog();
+                    break;
+                }
+                case UI_BTN_EDIT_OBJECT_ROTATION_Z: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_BeginObjectRotationZDialog();
+                    break;
+                }
+                case UI_BTN_TOGGLE_SCENE_BOUNDS: { // Toggle scene bounds enabled
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_ToggleSceneBoundsEnabled();
+                    break;
+                }
+                case UI_BTN_TOGGLE_SCENE_BOUNDS_CLAMP: { // Toggle scene bounds clamp-on-edit
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_ToggleSceneBoundsClampOnEdit();
+                    break;
+                }
+                case UI_BTN_EDIT_SCENE_BOUNDS_MIN: { // Edit scene bounds min vector
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_BeginSceneBoundsMinDialog();
+                    break;
+                }
+                case UI_BTN_EDIT_SCENE_BOUNDS_MAX: { // Edit scene bounds max vector
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_BeginSceneBoundsMaxDialog();
+                    break;
+                }
+                case UI_BTN_SET_CONSTRUCTION_PLANE_XY: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_SetConstructionPlaneAxis(VIEW_PLANE_XY);
+                    break;
+                }
+                case UI_BTN_SET_CONSTRUCTION_PLANE_YZ: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_SetConstructionPlaneAxis(VIEW_PLANE_YZ);
+                    break;
+                }
+                case UI_BTN_SET_CONSTRUCTION_PLANE_XZ: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_SetConstructionPlaneAxis(VIEW_PLANE_XZ);
+                    break;
+                }
+                case UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_NEG: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_AdjustConstructionPlaneOffset(-state->grid.gridSize);
+                    break;
+                }
+                case UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_POS: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_AdjustConstructionPlaneOffset(state->grid.gridSize);
+                    break;
+                }
+                case UI_BTN_EDIT_CONSTRUCTION_PLANE_OFFSET: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_BeginConstructionPlaneOffsetDialog();
                     break;
                 }
                 case UI_BTN_TOGGLE_SPACE_MODE: { // Toggle 2D/3D mode

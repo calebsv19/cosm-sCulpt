@@ -127,11 +127,22 @@ void Editor_Init(EditorState* editor) {
     editor->hoveredAnchorIndex = -1;
     editor->selectedHandleAnchor = -1;
     editor->selectedHandleComponent = -1;
+    editor->selectedObject3DId = 0u;
+    editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->hoveredHandleAnchor = -1;
     editor->hoveredHandleComponent = -1;
     editor->hoveredGizmoAxis = -1;
+    editor->hoveredObject3DGizmoAxis = -1;
+    editor->activeObject3DGizmoAxis = -1;
+    editor->hoveredObject3DId = 0u;
+    editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->deleteMode = DELETE_MODE_SAFE;
     editor->isDraggingAnchor = false;
+    editor->isResizingObject3D = false;
+    editor->isRotatingObject3D = false;
+    editor->object3DRotateMode = false;
     editor->isPreciseDrag = false;
     editor->anchorSelection = NULL;
     editor->anchorSelectionCount = 0;
@@ -175,8 +186,18 @@ static void Editor_ResetSelection(EditorState* editor) {
     editor->selectedWallIndex = -1;
     editor->selectedHandleAnchor = -1;
     editor->selectedHandleComponent = -1;
+    editor->selectedObject3DId = 0u;
+    editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->hoveredGizmoAxis = -1;
+    editor->hoveredObject3DGizmoAxis = -1;
+    editor->activeObject3DGizmoAxis = -1;
+    editor->hoveredObject3DId = 0u;
+    editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->isDraggingAnchor = false;
+    editor->isResizingObject3D = false;
+    editor->isRotatingObject3D = false;
     editor->isPreciseDrag = false;
     editor->selectionBoxActive = false;
     editor->selectionBoxAdditive = false;
@@ -186,6 +207,9 @@ static void Editor_ResetSelection(EditorState* editor) {
 
 void Editor_SelectAnchorsInBox(EditorState* editor, const Layout* layout, Vec2 min, Vec2 max, bool additive) {
     if (!editor || !layout) return;
+    editor->selectedObject3DId = 0u;
+    editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     if (!additive) {
         AnchorSelection_Clear(editor);
     }
@@ -269,6 +293,16 @@ void Editor_ClearAnchorSelection(EditorState* editor) {
     editor->selectedAnchorIndex = -1;
     editor->dragSnapshotCount = 0;
     editor->hoveredGizmoAxis = -1;
+    editor->hoveredObject3DGizmoAxis = -1;
+    editor->selectedObject3DId = 0u;
+    editor->hoveredObject3DId = 0u;
+    editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->activeObject3DGizmoAxis = -1;
+    editor->isResizingObject3D = false;
+    editor->isRotatingObject3D = false;
     Editor_ResetGizmoDrag(editor);
 }
 
@@ -279,10 +313,16 @@ void Editor_SelectAnchor(EditorState* editor, int anchorIndex, bool additive) {
     }
     if (anchorIndex < 0) {
         editor->selectedAnchorIndex = -1;
+        editor->selectedObject3DId = 0u;
+        editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+        editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
         return;
     }
     AnchorSelection_Add(editor, anchorIndex);
     editor->selectedAnchorIndex = anchorIndex;
+    editor->selectedObject3DId = 0u;
+    editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
 }
 
 bool Editor_IsAnchorSelected(const EditorState* editor, int anchorIndex) {

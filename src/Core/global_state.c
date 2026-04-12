@@ -180,6 +180,8 @@ bool Global_SetSpaceMode(SpaceMode mode, bool persist) {
         // 2D mode is always XY at z=0 with no free-view camera controls.
         global->activePlane.axis = VIEW_PLANE_XY;
         global->activePlane.offset = 0.0f;
+        Layout_ConstructionPlane3D_SetFromViewPlane(&global->layout.scene3d.constructionPlane,
+                                                    global->activePlane);
         global->freeViewCamera.enabled = false;
     }
 
@@ -251,6 +253,26 @@ GlobalState* Global_Get(void) {
     return global;
 }
 
+LineDrawingPaneHost* Global_GetPaneHost(void) {
+    if (!global) return NULL;
+    return &global->paneHost;
+}
+
+const LineDrawingPaneHost* Global_GetPaneHostConst(void) {
+    if (!global) return NULL;
+    return &global->paneHost;
+}
+
+static void Global_ApplyPaneChromeTargets(GlobalState* state) {
+    UIPanelLayoutMetrics metrics;
+    if (!state || !state->paneHost.initialized) return;
+    UIPanel_GetLayoutMetrics(&metrics);
+    LineDrawingPaneHost_SetChromeTargets(&state->paneHost,
+                                         (float)metrics.desired_top_pane_height_px,
+                                         (float)metrics.desired_left_pane_width_px,
+                                         (float)metrics.desired_right_pane_width_px);
+}
+
 void Global_Init(int screenWidth, int screenHeight) {
     global = malloc(sizeof(GlobalState));
     memset(global, 0, sizeof(*global));
@@ -283,8 +305,13 @@ void Global_Init(int screenWidth, int screenHeight) {
     Grid_init(&global->grid, 1.0f, screenWidth, screenHeight);
 
     Layout_Init(&global->layout, 1.0f);
+    global->activePlane = Layout_ConstructionPlane3D_ToViewPlane(&global->layout.scene3d.constructionPlane);
     Editor_Init(&global->editor);
+    if (!LineDrawingPaneHost_Init(&global->paneHost, (float)screenWidth, (float)screenHeight)) {
+        fprintf(stderr, "[Core] pane host init failed: %s\n", LineDrawingPaneHost_LastError(&global->paneHost));
+    }
     UIPanel_Init(screenWidth, screenHeight);
+    Global_SetWindowSize(screenWidth, screenHeight);
 
     Global_SetSpaceMode(global->spaceMode, false);
     Global_LoadSpaceMode();
@@ -323,6 +350,13 @@ void Global_SetWindowSize(int w, int h) {
     if (!global) return;
     global->screenWidth = w;
     global->screenHeight = h;
+    Global_ApplyPaneChromeTargets(global);
+    if (global->paneHost.initialized &&
+        !LineDrawingPaneHost_Rebuild(&global->paneHost, (float)w, (float)h)) {
+        fprintf(stderr, "[Core] pane host rebuild failed: %s\n",
+                LineDrawingPaneHost_LastError(&global->paneHost));
+    }
+    UIPanel_OnWindowResized(w, h);
     Global_FlagGridChanged();
 }
 
@@ -364,6 +398,9 @@ void Global_RebuildHitboxesIfDirty(void) {
                          viewCtx.plane,
                          SpaceAdapter_Camera(&viewCtx),
                          state->editor.selectedAnchorIndex,
+                         state->editor.selectedObject3DId,
+                         state->editor.selectedObject3DResizeHandle,
+                         state->editor.selectedObject3DPrismHandle,
                          gizmoEnabled);
     state->hitboxDirty = false;
 }

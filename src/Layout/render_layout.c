@@ -53,6 +53,11 @@ static void DrawFilledCircle(SDL_Renderer* renderer, int cx, int cy, int r) {
     }
 }
 
+static void DrawFilledSquare(SDL_Renderer* renderer, int cx, int cy, int r) {
+    SDL_Rect rect = { cx - r, cy - r, r * 2, r * 2 };
+    SDL_RenderFillRect(renderer, &rect);
+}
+
 static bool Anchor_GetHandleForWall(const Layout* layout,
                                     int anchorIndex,
                                     const Anchor* anchor,
@@ -94,6 +99,315 @@ static Vec2 CubicEval(Vec2 p0, Vec2 c1, Vec2 c2, Vec2 p3, float t) {
     result.x += ttt * p3.x;
     result.y += ttt * p3.y;
     return result;
+}
+
+static void Layout_RenderSceneBounds3D(const Layout* layout, SDL_Renderer* renderer) {
+    GlobalState* state = Global_Get();
+    if (!layout || !renderer || !state) return;
+    if (state->spaceMode != SPACE_MODE_3D) return;
+    if (!layout->scene3d.bounds.enabled) return;
+    if (!Layout_SceneBounds3D_IsValid(&layout->scene3d.bounds)) return;
+
+    static const int kEdges[12][2] = {
+        {0, 1}, {1, 3}, {3, 2}, {2, 0},
+        {4, 5}, {5, 7}, {7, 6}, {6, 4},
+        {0, 4}, {1, 5}, {2, 6}, {3, 7}
+    };
+
+    const Grid* grid = &state->grid;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    ViewPlane plane = viewCtx.plane;
+    Vec3 min = layout->scene3d.bounds.min;
+    Vec3 max = layout->scene3d.bounds.max;
+    Vec3 corners[8] = {
+        { min.x, min.y, min.z }, { max.x, min.y, min.z },
+        { min.x, max.y, min.z }, { max.x, max.y, min.z },
+        { min.x, min.y, max.z }, { max.x, min.y, max.z },
+        { min.x, max.y, max.z }, { max.x, max.y, max.z }
+    };
+
+    for (int e = 0; e < 12; ++e) {
+        const Vec3 a3 = corners[kEdges[e][0]];
+        const Vec3 b3 = corners[kEdges[e][1]];
+        const float depthA = ViewPlane_AbsDistance(plane, a3);
+        const float depthB = ViewPlane_AbsDistance(plane, b3);
+        const float depthFactor = DepthVisualFactor((depthA + depthB) * 0.5f);
+        const Vec2 a2 = WorldToScreen(SpaceAdapter_ProjectToView(a3, &viewCtx), grid);
+        const Vec2 b2 = WorldToScreen(SpaceAdapter_ProjectToView(b3, &viewCtx), grid);
+
+        SDL_SetRenderDrawColor(renderer,
+                               ApplyDepthToChannel(90, depthFactor),
+                               ApplyDepthToChannel(120, depthFactor),
+                               ApplyDepthToChannel(200, depthFactor),
+                               220);
+        DrawLineWithThickness(renderer, (int)a2.x, (int)a2.y, (int)b2.x, (int)b2.y, 1);
+    }
+}
+
+static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer) {
+    GlobalState* state = Global_Get();
+    if (!state) return;
+    const Grid* grid = &state->grid;
+    const EditorState* editor = &state->editor;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    ViewPlane plane = viewCtx.plane;
+    const bool freeView = (state->spaceMode == SPACE_MODE_3D) &&
+                          SpaceAdapter_IsFreeViewEnabled(&viewCtx);
+
+    for (size_t i = 0; i < layout->objectStore.count; ++i) {
+        const Object3D* object = &layout->objectStore.items[i];
+        const bool isSelected = (editor->selectedObject3DId == object->objectId);
+        const bool isHovered = (editor->hoveredObject3DId == object->objectId);
+        const float depthFactor = DepthVisualFactor(ViewPlane_AbsDistance(plane, object->transform.position));
+
+        if (object->isDeleted) continue;
+
+        if (object->kind == OBJECT3D_KIND_PLANE) {
+            Vec3 corners3[4];
+            if (!Layout_Object3D_ComputePlaneCorners(object, corners3)) continue;
+
+            Vec2 corners2[4];
+            for (int c = 0; c < 4; ++c) {
+                corners2[c] = WorldToScreen(SpaceAdapter_ProjectToView(corners3[c], &viewCtx), grid);
+            }
+
+            int thickness = 2;
+            if (isSelected) {
+                SDL_SetRenderDrawColor(renderer, 255, 220, 0, 255);
+                thickness = 3;
+            } else if (isHovered) {
+                SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
+                thickness = 2;
+            } else {
+                SDL_SetRenderDrawColor(renderer,
+                                       ApplyDepthToChannel(110, depthFactor),
+                                       ApplyDepthToChannel(200, depthFactor),
+                                       ApplyDepthToChannel(130, depthFactor),
+                                       255);
+                thickness = 2;
+            }
+
+            for (int edge = 0; edge < 4; ++edge) {
+                const int next = (edge + 1) % 4;
+                DrawLineWithThickness(renderer,
+                                      (int)corners2[edge].x, (int)corners2[edge].y,
+                                      (int)corners2[next].x, (int)corners2[next].y,
+                                      thickness);
+            }
+
+            SDL_SetRenderDrawColor(renderer,
+                                   ApplyDepthToChannel(90, depthFactor),
+                                   ApplyDepthToChannel(170, depthFactor),
+                                   ApplyDepthToChannel(110, depthFactor),
+                                   isSelected ? 255 : 200);
+            DrawLineWithThickness(renderer,
+                                  (int)corners2[0].x, (int)corners2[0].y,
+                                  (int)corners2[2].x, (int)corners2[2].y,
+                                  1);
+            DrawLineWithThickness(renderer,
+                                  (int)corners2[1].x, (int)corners2[1].y,
+                                  (int)corners2[3].x, (int)corners2[3].y,
+                                  1);
+            for (int c = 0; c < 4; ++c) {
+                DrawFilledCircle(renderer, (int)corners2[c].x, (int)corners2[c].y, isSelected ? 3 : 2);
+            }
+
+            if (isSelected) {
+                const int hoveredHandle =
+                    (editor->hoveredObject3DId == object->objectId)
+                    ? editor->hoveredObject3DResizeHandle
+                    : PLANE_RESIZE_HANDLE_NONE;
+                const int selectedHandle =
+                    (editor->selectedObject3DId == object->objectId)
+                    ? editor->selectedObject3DResizeHandle
+                    : PLANE_RESIZE_HANDLE_NONE;
+                const int activeHandle = (hoveredHandle != PLANE_RESIZE_HANDLE_NONE)
+                    ? hoveredHandle
+                    : selectedHandle;
+
+                for (int c = 0; c < 4; ++c) {
+                    const int handleKind = PLANE_RESIZE_HANDLE_CORNER_NEG_U_NEG_V + c;
+                    const bool highlight = (activeHandle == handleKind);
+                    SDL_SetRenderDrawColor(renderer,
+                                           highlight ? 255 : 240,
+                                           highlight ? 170 : 215,
+                                           highlight ? 40 : 70,
+                                           255);
+                    DrawFilledSquare(renderer, (int)corners2[c].x, (int)corners2[c].y, highlight ? 4 : 3);
+                }
+
+                static const int kEdgeCornerA[4] = { 0, 1, 2, 3 };
+                static const int kEdgeCornerB[4] = { 1, 2, 3, 0 };
+                static const PlaneResizeHandleKind kEdgeHandle[4] = {
+                    PLANE_RESIZE_HANDLE_EDGE_NEG_V,
+                    PLANE_RESIZE_HANDLE_EDGE_POS_U,
+                    PLANE_RESIZE_HANDLE_EDGE_POS_V,
+                    PLANE_RESIZE_HANDLE_EDGE_NEG_U
+                };
+                for (int e = 0; e < 4; ++e) {
+                    const Vec2 mid = {
+                        .x = 0.5f * (corners2[kEdgeCornerA[e]].x + corners2[kEdgeCornerB[e]].x),
+                        .y = 0.5f * (corners2[kEdgeCornerA[e]].y + corners2[kEdgeCornerB[e]].y)
+                    };
+                    const bool highlight = (activeHandle == (int)kEdgeHandle[e]);
+                    SDL_SetRenderDrawColor(renderer,
+                                           highlight ? 255 : 220,
+                                           highlight ? 170 : 200,
+                                           highlight ? 40 : 80,
+                                           255);
+                    DrawFilledSquare(renderer, (int)mid.x, (int)mid.y, highlight ? 4 : 3);
+                }
+            }
+        } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+            Vec3 corners3[8];
+            if (!Layout_Object3D_ComputeRectPrismCorners(object, corners3)) continue;
+            Vec2 corners2[8];
+            for (int c = 0; c < 8; ++c) {
+                corners2[c] = WorldToScreen(SpaceAdapter_ProjectToView(corners3[c], &viewCtx), grid);
+            }
+
+            int thickness = 2;
+            if (isSelected) {
+                SDL_SetRenderDrawColor(renderer, 255, 210, 80, 255);
+                thickness = 3;
+            } else if (isHovered) {
+                SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
+                thickness = 2;
+            } else {
+                SDL_SetRenderDrawColor(renderer,
+                                       ApplyDepthToChannel(120, depthFactor),
+                                       ApplyDepthToChannel(165, depthFactor),
+                                       ApplyDepthToChannel(215, depthFactor),
+                                       255);
+                thickness = 2;
+            }
+
+            static const int kRectEdges[12][2] = {
+                {0, 1}, {1, 2}, {2, 3}, {3, 0},
+                {4, 5}, {5, 6}, {6, 7}, {7, 4},
+                {0, 4}, {1, 5}, {2, 6}, {3, 7}
+            };
+            for (int e = 0; e < 12; ++e) {
+                const Vec2 a = corners2[kRectEdges[e][0]];
+                const Vec2 b = corners2[kRectEdges[e][1]];
+                DrawLineWithThickness(renderer,
+                                      (int)a.x, (int)a.y,
+                                      (int)b.x, (int)b.y,
+                                      thickness);
+            }
+
+            SDL_SetRenderDrawColor(renderer,
+                                   ApplyDepthToChannel(95, depthFactor),
+                                   ApplyDepthToChannel(140, depthFactor),
+                                   ApplyDepthToChannel(190, depthFactor),
+                                   isSelected ? 255 : 210);
+            DrawLineWithThickness(renderer, (int)corners2[0].x, (int)corners2[0].y,
+                                  (int)corners2[2].x, (int)corners2[2].y, 1);
+            DrawLineWithThickness(renderer, (int)corners2[1].x, (int)corners2[1].y,
+                                  (int)corners2[3].x, (int)corners2[3].y, 1);
+            DrawLineWithThickness(renderer, (int)corners2[4].x, (int)corners2[4].y,
+                                  (int)corners2[6].x, (int)corners2[6].y, 1);
+            DrawLineWithThickness(renderer, (int)corners2[5].x, (int)corners2[5].y,
+                                  (int)corners2[7].x, (int)corners2[7].y, 1);
+
+            if (isSelected) {
+                if (freeView) {
+                    const int hoveredHandle =
+                        (editor->hoveredObject3DId == object->objectId)
+                        ? editor->hoveredObject3DPrismHandle
+                        : RECT_PRISM_RESIZE_HANDLE_NONE;
+                    const int selectedHandle =
+                        (editor->selectedObject3DId == object->objectId)
+                        ? editor->selectedObject3DPrismHandle
+                        : RECT_PRISM_RESIZE_HANDLE_NONE;
+                    const int activeHandle = (hoveredHandle != RECT_PRISM_RESIZE_HANDLE_NONE)
+                        ? hoveredHandle
+                        : selectedHandle;
+
+                    for (int c = 0; c < 8; ++c) {
+                        const int handleKind = RECT_PRISM_RESIZE_HANDLE_CORNER_0 + c;
+                        const bool highlight = (activeHandle == handleKind);
+                        SDL_SetRenderDrawColor(renderer,
+                                               highlight ? 255 : 240,
+                                               highlight ? 170 : 215,
+                                               highlight ? 40 : 70,
+                                               255);
+                        DrawFilledSquare(renderer, (int)corners2[c].x, (int)corners2[c].y, highlight ? 4 : 3);
+                    }
+
+                    for (int e = 0; e < 12; ++e) {
+                        const Vec2 mid = {
+                            .x = 0.5f * (corners2[kRectEdges[e][0]].x + corners2[kRectEdges[e][1]].x),
+                            .y = 0.5f * (corners2[kRectEdges[e][0]].y + corners2[kRectEdges[e][1]].y)
+                        };
+                        const int handleKind = RECT_PRISM_RESIZE_HANDLE_EDGE_0 + e;
+                        const bool highlight = (activeHandle == handleKind);
+                        SDL_SetRenderDrawColor(renderer,
+                                               highlight ? 255 : 220,
+                                               highlight ? 170 : 200,
+                                               highlight ? 40 : 80,
+                                               255);
+                        DrawFilledSquare(renderer, (int)mid.x, (int)mid.y, highlight ? 4 : 3);
+                    }
+                } else {
+                    bool useTopFace = true;
+                    (void)Layout_RectPrismSelectFaceForView(object, plane, SpaceAdapter_Camera(&viewCtx), &useTopFace);
+                    const int baseIndex = useTopFace ? 4 : 0;
+                    Vec2 face2[4] = {
+                        corners2[baseIndex + 0],
+                        corners2[baseIndex + 1],
+                        corners2[baseIndex + 2],
+                        corners2[baseIndex + 3]
+                    };
+
+                    const int hoveredHandle =
+                        (editor->hoveredObject3DId == object->objectId)
+                        ? editor->hoveredObject3DResizeHandle
+                        : PLANE_RESIZE_HANDLE_NONE;
+                    const int selectedHandle =
+                        (editor->selectedObject3DId == object->objectId)
+                        ? editor->selectedObject3DResizeHandle
+                        : PLANE_RESIZE_HANDLE_NONE;
+                    const int activeHandle = (hoveredHandle != PLANE_RESIZE_HANDLE_NONE)
+                        ? hoveredHandle
+                        : selectedHandle;
+
+                    for (int c = 0; c < 4; ++c) {
+                        const int handleKind = PLANE_RESIZE_HANDLE_CORNER_NEG_U_NEG_V + c;
+                        const bool highlight = (activeHandle == handleKind);
+                        SDL_SetRenderDrawColor(renderer,
+                                               highlight ? 255 : 240,
+                                               highlight ? 170 : 215,
+                                               highlight ? 40 : 70,
+                                               255);
+                        DrawFilledSquare(renderer, (int)face2[c].x, (int)face2[c].y, highlight ? 4 : 3);
+                    }
+
+                    static const int kEdgeCornerA[4] = { 0, 1, 2, 3 };
+                    static const int kEdgeCornerB[4] = { 1, 2, 3, 0 };
+                    static const PlaneResizeHandleKind kEdgeHandle[4] = {
+                        PLANE_RESIZE_HANDLE_EDGE_NEG_V,
+                        PLANE_RESIZE_HANDLE_EDGE_POS_U,
+                        PLANE_RESIZE_HANDLE_EDGE_POS_V,
+                        PLANE_RESIZE_HANDLE_EDGE_NEG_U
+                    };
+                    for (int e = 0; e < 4; ++e) {
+                        const Vec2 mid = {
+                            .x = 0.5f * (face2[kEdgeCornerA[e]].x + face2[kEdgeCornerB[e]].x),
+                            .y = 0.5f * (face2[kEdgeCornerA[e]].y + face2[kEdgeCornerB[e]].y)
+                        };
+                        const bool highlight = (activeHandle == (int)kEdgeHandle[e]);
+                        SDL_SetRenderDrawColor(renderer,
+                                               highlight ? 255 : 220,
+                                               highlight ? 170 : 200,
+                                               highlight ? 40 : 80,
+                                               255);
+                        DrawFilledSquare(renderer, (int)mid.x, (int)mid.y, highlight ? 4 : 3);
+                    }
+                }
+            }
+        }
+    }
 }
 
 static void RenderBezier(SDL_Renderer* renderer, const Grid* grid,
@@ -310,6 +624,8 @@ static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
 void Layout_Render(const Layout* layout, AppContext* ctx) {
     SDL_Renderer* renderer = ctx->renderer;
 
+    Layout_RenderSceneBounds3D(layout, renderer);
+    Layout_RenderObjects3D(layout, renderer);
     Layout_RenderWalls(layout, renderer);
     Layout_RenderHandles(layout, renderer);
     Layout_RenderAnchors(layout, renderer);

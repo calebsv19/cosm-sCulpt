@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Core/data_paths.h"
+#include "Core/line_drawing_pane_host.h"
 #include "Layout/Grid/grid.h"
 #include "Layout/layout.h"
 #include "Editor/editor.h"
@@ -25,6 +26,7 @@ typedef struct GlobalState {
 
     int screenWidth;
     int screenHeight;
+    LineDrawingPaneHost paneHost;
 
     bool layoutDirty;
     bool hitboxDirty;
@@ -36,6 +38,8 @@ typedef struct GlobalState {
 } GlobalState;
 
 extern GlobalState* Global_Get(void);
+LineDrawingPaneHost* Global_GetPaneHost(void);
+const LineDrawingPaneHost* Global_GetPaneHostConst(void);
 void Global_Init(int screenWidth, int screenHeight);
 void Global_Shutdown(void);
 

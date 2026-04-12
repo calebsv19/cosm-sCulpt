@@ -1,6 +1,7 @@
 // src/Editor/editor.h
 #pragma once
 #include <stddef.h>
+#include <stdint.h>
 #include "Core/SDLApp/sdl_app_framework.h"
 #include "Layout/layout.h"
 #include "Math/math_util.h"
@@ -43,9 +44,17 @@ typedef struct {
     int hoveredAnchorIndex;
     int selectedHandleAnchor;
     int selectedHandleComponent;   // 0 = incoming, 1 = outgoing, -1 = none
+    uint32_t selectedObject3DId;
+    int selectedObject3DResizeHandle; // PlaneResizeHandleKind or PLANE_RESIZE_HANDLE_NONE
+    int selectedObject3DPrismHandle;  // RectPrismResizeHandleKind or RECT_PRISM_RESIZE_HANDLE_NONE
     int hoveredHandleAnchor;
     int hoveredHandleComponent;
     int hoveredGizmoAxis;          // GizmoAxisDirection or -1
+    int hoveredObject3DGizmoAxis;  // RectPrismAxisDirection or -1
+    int activeObject3DGizmoAxis;   // RectPrismAxisDirection or -1 while dragging
+    uint32_t hoveredObject3DId;
+    int hoveredObject3DResizeHandle; // PlaneResizeHandleKind or PLANE_RESIZE_HANDLE_NONE
+    int hoveredObject3DPrismHandle;  // RectPrismResizeHandleKind or RECT_PRISM_RESIZE_HANDLE_NONE
 
     DeleteMode deleteMode;
 
@@ -57,6 +66,9 @@ typedef struct {
     int dragSnapshotCount;
     int dragSnapshotCapacity;
     bool isDraggingAnchor;
+    bool isResizingObject3D;
+    bool isRotatingObject3D;
+    bool object3DRotateMode;
     bool isPreciseDrag;
     GizmoAxisDragSession gizmoDrag;
 

@@ -1,6 +1,32 @@
 #include "Render/vulkan_adapter.h"
+#include "UI/font_manager.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
+
+static float VulkanAdapter_TextScaleForRenderer(const VkRenderer* renderer) {
+    float scale_x = 1.0f;
+    float scale_y = 1.0f;
+    float logical_w = 0.0f;
+    float logical_h = 0.0f;
+    if (!renderer) {
+        return 1.0f;
+    }
+    logical_w = renderer->draw_state.logical_size[0];
+    logical_h = renderer->draw_state.logical_size[1];
+    if (logical_w > 0.0f) {
+        scale_x = (float)renderer->context.swapchain.extent.width / logical_w;
+    }
+    if (logical_h > 0.0f) {
+        scale_y = (float)renderer->context.swapchain.extent.height / logical_h;
+    }
+    if (scale_x < 1.0f) {
+        scale_x = 1.0f;
+    }
+    if (scale_y < 1.0f) {
+        scale_y = 1.0f;
+    }
+    return (scale_x > scale_y) ? scale_x : scale_y;
+}
 
 bool VulkanAdapter_Init(AppContext* ctx, SDL_Window* window) {
     if (!ctx || !window) {
@@ -127,24 +153,49 @@ void VulkanAdapter_Clear(SDL_Renderer* renderer, int width, int height, SDL_Colo
 
 void VulkanAdapter_DrawText(SDL_Renderer* renderer, TTF_Font* font,
                             const char* text, int x, int y, SDL_Color color) {
+    VkRenderer* vk = (VkRenderer*)renderer;
+    UIFontID font_id = FONT_COUNT;
+    TTF_Font* raster_font = NULL;
+    float raster_scale = 1.0f;
+    float render_scale = 1.0f;
+
     if (!renderer || !font || !text || !text[0]) {
         return;
     }
 
-    SDL_Surface* surf = TTF_RenderText_Blended(font, text, color);
+    font_id = FontManager_FindIdForFont(font);
+    render_scale = VulkanAdapter_TextScaleForRenderer(vk);
+    if (font_id != FONT_COUNT) {
+        raster_font = FontManager_GetRasterFontForScale(font_id, render_scale, &raster_scale);
+    }
+    if (!raster_font) {
+        raster_font = font;
+    }
+    if (raster_scale < 1.0f) {
+        raster_scale = 1.0f;
+    }
+
+    SDL_Surface* surf = TTF_RenderUTF8_Blended(raster_font, text, color);
     if (!surf) {
         return;
     }
 
     VkRendererTexture tex = {0};
     VkResult uploaded = vk_renderer_upload_sdl_surface_with_filter(
-        (VkRenderer*)renderer, surf, &tex, VK_FILTER_LINEAR);
+        vk, surf, &tex, VK_FILTER_NEAREST);
     SDL_FreeSurface(surf);
     if (uploaded != VK_SUCCESS) {
         return;
     }
 
-    SDL_Rect dst = { x, y, (int)tex.width, (int)tex.height };
-    vk_renderer_draw_texture((VkRenderer*)renderer, &tex, NULL, &dst);
-    vk_renderer_queue_texture_destroy((VkRenderer*)renderer, &tex);
+    SDL_Rect dst = {
+        x,
+        y,
+        (int)((float)tex.width / raster_scale),
+        (int)((float)tex.height / raster_scale)
+    };
+    if (dst.w < 1) dst.w = 1;
+    if (dst.h < 1) dst.h = 1;
+    vk_renderer_draw_texture(vk, &tex, NULL, &dst);
+    vk_renderer_queue_texture_destroy(vk, &tex);
 }

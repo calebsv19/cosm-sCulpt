@@ -1,4 +1,6 @@
 #include "UI/ui_panel.h"
+#include "UI/ui_panel_internal.h"
+#include "UI/ui_panel_overlay_render.h"
 #include "UI/info_overlay.h"
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
@@ -12,21 +14,28 @@
 #include "Render/vulkan_adapter.h"
 #include <dirent.h>
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <math.h>
 
 static UIPanelState g_uiPanel;  // Internal static state
 
-static UIButton* UIPanel_FindButtonById(UIPanelState* ui, int id) {
-    for (int i = 0; i < ui->count; ++i) {
-        if (ui->buttons[i].id == id) return &ui->buttons[i];
-    }
-    return NULL;
+UIPanelState* UIPanel_Get(void) {
+    return &g_uiPanel;
 }
 
-static void AddButton(UIPanelState* ui, const char* label, int x, int y, int w, int h, UIPanelSide side, int id) {
+static void AddButton(UIPanelState* ui,
+                      const char* label,
+                      int x,
+                      int y,
+                      int w,
+                      int h,
+                      UIPanelSide side,
+                      UIPanelGroup group,
+                      int id) {
     if (ui->count >= MAX_UI_BUTTONS) return;
 
     UIButton* b = &ui->buttons[ui->count++];
@@ -34,303 +43,365 @@ static void AddButton(UIPanelState* ui, const char* label, int x, int y, int w, 
     b->label[sizeof(b->label) - 1] = '\0';
     b->bounds = (SDL_Rect){ x, y, w, h };
     b->side = side;
+    b->group = group;
     b->id = id;
     b->hovered = false;
     b->pressed = false;
 }
 
-static void SanitizeBuffer(char* buffer) {
-    size_t len = strlen(buffer);
-    while (len > 0 && isspace((unsigned char)buffer[len - 1])) {
-        buffer[--len] = '\0';
+static SDL_Rect UIPanel_CoreRectToSDLRect(CorePaneRect rect) {
+    SDL_Rect out = {0, 0, 0, 0};
+    int x0 = (int)floorf(rect.x);
+    int y0 = (int)floorf(rect.y);
+    int x1 = (int)ceilf(rect.x + rect.width);
+    int y1 = (int)ceilf(rect.y + rect.height);
+    if (x1 < x0) x1 = x0;
+    if (y1 < y0) y1 = y0;
+    out.x = x0;
+    out.y = y0;
+    out.w = x1 - x0;
+    out.h = y1 - y0;
+    return out;
+}
+
+static bool UIPanel_QueryPaneRect(LineDrawingPaneRole role, SDL_Rect* out_rect) {
+    CorePaneRect pane_rect = {0};
+    const LineDrawingPaneHost* pane_host = NULL;
+    if (!out_rect) return false;
+    *out_rect = (SDL_Rect){0, 0, 0, 0};
+
+    pane_host = Global_GetPaneHostConst();
+    if (!pane_host || !pane_host->initialized) return false;
+    if (!LineDrawingPaneHost_GetRectForRole(pane_host, role, &pane_rect)) return false;
+
+    *out_rect = UIPanel_CoreRectToSDLRect(pane_rect);
+    return out_rect->w > 0 && out_rect->h > 0;
+}
+
+static void UIPanel_ResolveButtonLaneLayout(int screenW,
+                                            int screenH,
+                                            UIPanelSide side,
+                                            int default_x,
+                                            int default_y,
+                                            int default_w,
+                                            int* out_x,
+                                            int* out_y,
+                                            int* out_w) {
+    SDL_Rect pane = {0, 0, 0, 0};
+    const int padding = 10;
+    int x = default_x;
+    int y = default_y;
+    int w = default_w;
+    bool has_pane = false;
+    (void)screenH;
+
+    if (side == UI_PANEL_LEFT) {
+        has_pane = UIPanel_QueryPaneRect(LINE_DRAWING_PANE_ROLE_LEFT_CONTROLS, &pane);
+    } else {
+        has_pane = UIPanel_QueryPaneRect(LINE_DRAWING_PANE_ROLE_RIGHT_CONTROLS, &pane);
     }
-}
 
-static void UIPanel_StopTextInputIfIdle(void) {
-    if (!g_uiPanel.saveDialog.active &&
-        !g_uiPanel.rootDialog.active &&
-        SDL_IsTextInputActive()) {
-        SDL_StopTextInput();
-    }
-}
-
-static void UIPanel_CloseRootDialog(UIPanelState* ui) {
-    if (!ui->rootDialog.active) return;
-    ui->rootDialog.active = false;
-    ui->rootDialog.target = UI_ROOT_TARGET_NONE;
-    ui->rootDialog.buffer[0] = '\0';
-    ui->rootDialog.length = 0;
-    ui->rootDialog.cursor = 0;
-    UIPanel_StopTextInputIfIdle();
-}
-
-static void UIPanel_CloseSaveDialog(UIPanelState* ui) {
-    if (!ui->saveDialog.active) return;
-    ui->saveDialog.active = false;
-    ui->saveDialog.buffer[0] = '\0';
-    ui->saveDialog.length = 0;
-    ui->saveDialog.cursor = 0;
-    UIPanel_StopTextInputIfIdle();
-}
-
-static const char* k_legacy_layout_root = "config";
-
-static bool UIPanel_IsLegacyLayoutRoot(const char* root) {
-    if (!root || !root[0]) return true;
-    if (strcmp(root, k_legacy_layout_root) == 0) return true;
-    if (strcmp(root, "./config") == 0) return true;
-    return false;
-}
-
-static bool UIPanel_AddConfigEntry(UIPanelState* ui, const char* name, const char* full_path) {
-    if (!ui || !name || !full_path || ui->loadMenu.count >= MAX_CONFIG_FILES) return false;
-
-    for (int i = 0; i < ui->loadMenu.count; ++i) {
-        if (strcasecmp(ui->loadMenu.entries[i], name) == 0) {
-            return false;
+    if (has_pane) {
+        const int available = pane.w - padding * 2;
+        int clamped_w = default_w;
+        if (available > 0 && available < clamped_w) {
+            clamped_w = available;
         }
+        if (clamped_w < 72) {
+            clamped_w = available > 0 ? available : 72;
+        }
+        if (clamped_w < 24) clamped_w = 24;
+        w = clamped_w;
+        y = pane.y + padding;
+        x = pane.x + (pane.w - w) / 2;
+    } else if (side == UI_PANEL_RIGHT) {
+        x = screenW - default_w - padding;
     }
 
-    snprintf(ui->loadMenu.entries[ui->loadMenu.count], sizeof(ui->loadMenu.entries[0]), "%s", name);
-    snprintf(ui->loadMenu.entryPaths[ui->loadMenu.count], sizeof(ui->loadMenu.entryPaths[0]), "%s", full_path);
-    ui->loadMenu.count++;
+    if (out_x) *out_x = x;
+    if (out_y) *out_y = y;
+    if (out_w) *out_w = w;
+}
+
+typedef struct UIPanelCompactRowSpec {
+    int row_key;
+    int columns;
+    int column_index;
+} UIPanelCompactRowSpec;
+
+static bool UIPanel_GetCompactRowSpec(int button_id, UIPanelCompactRowSpec* out_spec) {
+    UIPanelCompactRowSpec spec = {0, 0, 0};
+    switch (button_id) {
+        case UI_BTN_RESET_ORIGIN: spec = (UIPanelCompactRowSpec){ 1, 3, 0 }; break;
+        case UI_BTN_ZOOM_IN: spec = (UIPanelCompactRowSpec){ 1, 3, 1 }; break;
+        case UI_BTN_ZOOM_OUT: spec = (UIPanelCompactRowSpec){ 1, 3, 2 }; break;
+
+        case UI_BTN_CREATE_PLANE: spec = (UIPanelCompactRowSpec){ 2, 2, 0 }; break;
+        case UI_BTN_CREATE_RECT_PRISM: spec = (UIPanelCompactRowSpec){ 2, 2, 1 }; break;
+
+        case UI_BTN_EDIT_PRISM_WIDTH: spec = (UIPanelCompactRowSpec){ 3, 4, 0 }; break;
+        case UI_BTN_EDIT_PRISM_HEIGHT: spec = (UIPanelCompactRowSpec){ 3, 4, 1 }; break;
+        case UI_BTN_EDIT_PRISM_DEPTH: spec = (UIPanelCompactRowSpec){ 3, 4, 2 }; break;
+        case UI_BTN_CYCLE_DISPLAY_UNITS: spec = (UIPanelCompactRowSpec){ 3, 4, 3 }; break;
+
+        case UI_BTN_SET_CONSTRUCTION_PLANE_XY: spec = (UIPanelCompactRowSpec){ 4, 3, 0 }; break;
+        case UI_BTN_SET_CONSTRUCTION_PLANE_YZ: spec = (UIPanelCompactRowSpec){ 4, 3, 1 }; break;
+        case UI_BTN_SET_CONSTRUCTION_PLANE_XZ: spec = (UIPanelCompactRowSpec){ 4, 3, 2 }; break;
+
+        case UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_NEG: spec = (UIPanelCompactRowSpec){ 5, 3, 0 }; break;
+        case UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_POS: spec = (UIPanelCompactRowSpec){ 5, 3, 1 }; break;
+        case UI_BTN_EDIT_CONSTRUCTION_PLANE_OFFSET: spec = (UIPanelCompactRowSpec){ 5, 3, 2 }; break;
+
+        case UI_BTN_EDIT_OBJECT_ROTATION_X: spec = (UIPanelCompactRowSpec){ 6, 3, 0 }; break;
+        case UI_BTN_EDIT_OBJECT_ROTATION_Y: spec = (UIPanelCompactRowSpec){ 6, 3, 1 }; break;
+        case UI_BTN_EDIT_OBJECT_ROTATION_Z: spec = (UIPanelCompactRowSpec){ 6, 3, 2 }; break;
+        default: return false;
+    }
+    if (out_spec) *out_spec = spec;
     return true;
 }
 
-static void UIPanel_ScanConfigDirectory(UIPanelState* ui, const char* root_dir) {
-    DIR* dir = NULL;
-    struct dirent* entry = NULL;
-    char full_path[MAX_CONFIG_PATH];
-
-    if (!ui || !root_dir || !root_dir[0]) return;
-
-    dir = opendir(root_dir);
-    if (!dir) return;
-
-    while ((entry = readdir(dir)) != NULL && ui->loadMenu.count < MAX_CONFIG_FILES) {
-        const char* name = NULL;
-        size_t len = 0;
-        if (entry->d_name[0] == '.') continue;
-        name = entry->d_name;
-        len = strlen(name);
-        if (len < 5) continue;
-        if (strcasecmp(name + len - 5, ".json") != 0) continue;
-        if (!LineDrawingDataPaths_BuildPath(full_path, sizeof(full_path), root_dir, name)) continue;
-        (void)UIPanel_AddConfigEntry(ui, name, full_path);
-    }
-
-    closedir(dir);
+static TTF_Font* UIPanel_GetLayoutFont(void) {
+    return FontManager_GetUIPanelFont();
 }
 
-static void UIPanel_SwapLoadEntries(UIPanelState* ui, int a, int b) {
-    char name_tmp[128];
-    char path_tmp[MAX_CONFIG_PATH];
-    if (!ui || a < 0 || b < 0 || a >= ui->loadMenu.count || b >= ui->loadMenu.count) return;
-    snprintf(name_tmp, sizeof(name_tmp), "%s", ui->loadMenu.entries[a]);
-    snprintf(path_tmp, sizeof(path_tmp), "%s", ui->loadMenu.entryPaths[a]);
-    snprintf(ui->loadMenu.entries[a], sizeof(ui->loadMenu.entries[a]), "%s", ui->loadMenu.entries[b]);
-    snprintf(ui->loadMenu.entryPaths[a], sizeof(ui->loadMenu.entryPaths[a]), "%s", ui->loadMenu.entryPaths[b]);
-    snprintf(ui->loadMenu.entries[b], sizeof(ui->loadMenu.entries[b]), "%s", name_tmp);
-    snprintf(ui->loadMenu.entryPaths[b], sizeof(ui->loadMenu.entryPaths[b]), "%s", path_tmp);
+static int UIPanel_FontHeightPx(void) {
+    TTF_Font* font = UIPanel_GetLayoutFont();
+    int h = 14;
+    if (font) {
+        h = TTF_FontHeight(font);
+    }
+    if (h < 12) h = 12;
+    return h;
 }
 
-void UIPanel_RefreshConfigList(void) {
-    UIPanelState* ui = &g_uiPanel;
-    const char* input_root = Global_GetInputRoot();
-    ui->loadMenu.count = 0;
-    ui->loadMenu.hoverIndex = -1;
-    memset(ui->loadMenu.entries, 0, sizeof(ui->loadMenu.entries));
-    memset(ui->loadMenu.entryPaths, 0, sizeof(ui->loadMenu.entryPaths));
-
-    UIPanel_ScanConfigDirectory(ui, input_root ? input_root : k_legacy_layout_root);
-    if (!UIPanel_IsLegacyLayoutRoot(input_root)) {
-        UIPanel_ScanConfigDirectory(ui, k_legacy_layout_root);
+static int UIPanel_MeasureTextWidthPx(const char* text) {
+    TTF_Font* font = UIPanel_GetLayoutFont();
+    int width = 0;
+    if (!text || !text[0]) return 0;
+    if (font && TTF_SizeUTF8(font, text, &width, NULL) == 0 && width > 0) {
+        return width;
     }
+    return (int)strlen(text) * 8;
+}
 
-    for (int i = 0; i < ui->loadMenu.count - 1; ++i) {
-        for (int j = i + 1; j < ui->loadMenu.count; ++j) {
-            if (strcasecmp(ui->loadMenu.entries[j], ui->loadMenu.entries[i]) < 0) {
-                UIPanel_SwapLoadEntries(ui, i, j);
-            }
-        }
+const char* UIPanel_ViewPlaneAxisLabel(ViewPlaneAxis axis) {
+    switch (axis) {
+        case VIEW_PLANE_YZ: return "YZ";
+        case VIEW_PLANE_XZ: return "XZ";
+        case VIEW_PLANE_XY:
+        default: return "XY";
     }
 }
 
-UIPanelState* UIPanel_Get(void) {
-    return &g_uiPanel;
-}
-
-static void UIPanel_PopulateDefaultFilename(UIPanelState* ui) {
-    const char* path = Global_GetCurrentConfigPath();
-    ui->saveDialog.buffer[0] = '\0';
-    ui->saveDialog.length = 0;
-    ui->saveDialog.cursor = 0;
-
-    if (!path || !*path) return;
-
-    const char* base = strrchr(path, '/');
-    base = base ? base + 1 : path;
-
-    size_t len = strlen(base);
-    if (len >= 5 && strcasecmp(base + len - 5, ".json") == 0) {
-        len -= 5;
-    }
-    if (len >= sizeof(ui->saveDialog.buffer)) len = sizeof(ui->saveDialog.buffer) - 1;
-
-    memcpy(ui->saveDialog.buffer, base, len);
-    ui->saveDialog.buffer[len] = '\0';
-    ui->saveDialog.length = len;
-    ui->saveDialog.cursor = len;
-}
-
-static const char* UIPanel_GetRootValue(UIRootDialogTarget target) {
-    switch (target) {
-        case UI_ROOT_TARGET_INPUT:
-            return Global_GetInputRoot();
-        case UI_ROOT_TARGET_OUTPUT:
-            return Global_GetOutputRoot();
-        default:
-            return NULL;
+const char* UIPanel_ViewPlaneCoordinateLabel(ViewPlaneAxis axis) {
+    switch (axis) {
+        case VIEW_PLANE_YZ: return "x";
+        case VIEW_PLANE_XZ: return "y";
+        case VIEW_PLANE_XY:
+        default: return "z";
     }
 }
 
-static bool UIPanel_SetRootValue(UIRootDialogTarget target, const char* value) {
-    switch (target) {
-        case UI_ROOT_TARGET_INPUT:
-            return Global_SetInputRoot(value, true);
-        case UI_ROOT_TARGET_OUTPUT:
-            return Global_SetOutputRoot(value, true);
-        default:
-            return false;
+ViewPlane UIPanel_CurrentConstructionViewPlane(const GlobalState* state) {
+    if (state && Layout_ConstructionPlane3D_IsValid(&state->layout.scene3d.constructionPlane)) {
+        return Layout_ConstructionPlane3D_ToViewPlane(&state->layout.scene3d.constructionPlane);
     }
+    if (state) {
+        return state->activePlane;
+    }
+    return (ViewPlane){ .axis = VIEW_PLANE_XY, .offset = 0.0f };
 }
 
-static bool UIPanel_SelectFolderWithPrompt(const char* prompt, char* out_path, size_t out_path_size) {
-#if defined(__APPLE__)
-    FILE* pipe = NULL;
-    char command[512];
-    if (!prompt || !out_path || out_path_size == 0) return false;
-    out_path[0] = '\0';
-    snprintf(command,
-             sizeof(command),
-             "/usr/bin/osascript -e 'POSIX path of (choose folder with prompt \"%s\")'",
-             prompt);
-    pipe = popen(command, "r");
-    if (!pipe) return false;
-    if (!fgets(out_path, (int)out_path_size, pipe)) {
-        (void)pclose(pipe);
-        out_path[0] = '\0';
-        return false;
-    }
-    (void)pclose(pipe);
-    SanitizeBuffer(out_path);
-    return out_path[0] != '\0';
-#else
-    (void)prompt;
-    (void)out_path;
-    (void)out_path_size;
-    return false;
-#endif
-}
-
-static void UIPanel_BeginRootDialog(UIRootDialogTarget target) {
-    UIPanelState* ui = &g_uiPanel;
-    const char* current = UIPanel_GetRootValue(target);
-    ui->rootDialog.active = true;
-    ui->rootDialog.target = target;
-    ui->rootDialog.buffer[0] = '\0';
-    ui->rootDialog.length = 0;
-    ui->rootDialog.cursor = 0;
-    if (current && current[0]) {
-        snprintf(ui->rootDialog.buffer, sizeof(ui->rootDialog.buffer), "%s", current);
-        ui->rootDialog.length = strlen(ui->rootDialog.buffer);
-        ui->rootDialog.cursor = ui->rootDialog.length;
-    }
-    ui->loadMenu.open = false;
-    UIPanel_CloseSaveDialog(ui);
-    if (!SDL_IsTextInputActive()) SDL_StartTextInput();
-}
-
-static bool UIPanel_ApplyRootDialog(UIPanelState* ui) {
-    if (!ui || !ui->rootDialog.active) return false;
-    SanitizeBuffer(ui->rootDialog.buffer);
-    ui->rootDialog.length = strlen(ui->rootDialog.buffer);
-    if (ui->rootDialog.length == 0) {
-        SDL_Log("[UI] Root update aborted: path is empty.");
-        return false;
-    }
-    if (!UIPanel_SetRootValue(ui->rootDialog.target, ui->rootDialog.buffer)) {
-        SDL_Log("[UI] Root update failed for path '%s'", ui->rootDialog.buffer);
-        return false;
-    }
-    if (ui->rootDialog.target == UI_ROOT_TARGET_INPUT) {
-        UIPanel_RefreshConfigList();
-    }
-    SDL_Log("[UI] Root updated: %s", ui->rootDialog.buffer);
-    UIPanel_CloseRootDialog(ui);
-    return true;
-}
-
-static bool UIPanel_PerformSave(UIPanelState* ui) {
-    SanitizeBuffer(ui->saveDialog.buffer);
-    ui->saveDialog.length = strlen(ui->saveDialog.buffer);
-    if (ui->saveDialog.cursor > ui->saveDialog.length) ui->saveDialog.cursor = ui->saveDialog.length;
-
-    if (ui->saveDialog.length == 0) {
-        SDL_Log("[UI] Save aborted: filename is empty.");
-        return false;
-    }
-
-    char filename[160];
-    strncpy(filename, ui->saveDialog.buffer, sizeof(filename) - 1);
-    filename[sizeof(filename) - 1] = '\0';
-
-    size_t len = strlen(filename);
-    if (len < 5 || strcasecmp(filename + len - 5, ".json") != 0) {
-        if (len + 5 < sizeof(filename)) {
-            strcat(filename, ".json");
-        } else {
-            SDL_Log("[UI] Save aborted: filename too long.");
-            return false;
-        }
-    }
-
-    char path[256];
-    char fallback_path[256];
-    const char* input_root = Global_GetInputRoot();
-    bool saved = false;
-
+static const char* UIPanel_ButtonLayoutLabel(const UIButton* btn, char* dynamic_label, size_t dynamic_label_size) {
     GlobalState* state = Global_Get();
-    Layout_CompactDeletedElements(&state->layout);
+    if (!btn) return "";
+    if (!dynamic_label || dynamic_label_size == 0) return btn->label;
 
-    if (LineDrawingDataPaths_BuildPath(path, sizeof(path), input_root ? input_root : k_legacy_layout_root, filename)) {
-        if (Layout_SaveToFile(&state->layout, path)) {
-            saved = true;
-        } else {
-            SDL_Log("[UI] Primary save failed at %s; trying legacy fallback.", path);
+    switch (btn->id) {
+        case UI_BTN_TOGGLE_SPACE_MODE: {
+            const char* modeLabel = state ? Global_GetSpaceModeLabel(state->spaceMode) : "3D";
+            snprintf(dynamic_label, dynamic_label_size, "%s (M)", modeLabel);
+            return dynamic_label;
         }
+        case UI_BTN_TOGGLE_OBJECT_GIZMO_MODE: {
+            const bool rotateMode = state ? state->editor.object3DRotateMode : false;
+            snprintf(dynamic_label, dynamic_label_size, "%s (X)", rotateMode ? "Rotate" : "Move");
+            return dynamic_label;
+        }
+        case UI_BTN_TOGGLE_SCENE_BOUNDS: {
+            const bool enabled = state ? state->layout.scene3d.bounds.enabled : false;
+            snprintf(dynamic_label, dynamic_label_size, "Bounds: %s", enabled ? "On" : "Off");
+            return dynamic_label;
+        }
+        case UI_BTN_TOGGLE_SCENE_BOUNDS_CLAMP: {
+            const bool clampOnEdit = state ? state->layout.scene3d.bounds.clampOnEdit : false;
+            snprintf(dynamic_label, dynamic_label_size, "Clamp: %s", clampOnEdit ? "On" : "Off");
+            return dynamic_label;
+        }
+        case UI_BTN_CYCLE_DISPLAY_UNITS:
+            snprintf(dynamic_label, dynamic_label_size, "%s", UIPanel_GetDisplayUnitSymbol());
+            return dynamic_label;
+        case UI_BTN_EDIT_PRISM_WIDTH:
+            snprintf(dynamic_label, dynamic_label_size, "W");
+            return dynamic_label;
+        case UI_BTN_EDIT_PRISM_HEIGHT:
+            snprintf(dynamic_label, dynamic_label_size, "H");
+            return dynamic_label;
+        case UI_BTN_EDIT_PRISM_DEPTH:
+            snprintf(dynamic_label, dynamic_label_size, "D");
+            return dynamic_label;
+        case UI_BTN_SET_CONSTRUCTION_PLANE_XY:
+        case UI_BTN_SET_CONSTRUCTION_PLANE_YZ:
+        case UI_BTN_SET_CONSTRUCTION_PLANE_XZ: {
+            const ViewPlane plane = UIPanel_CurrentConstructionViewPlane(state);
+            const ViewPlaneAxis button_axis =
+                (btn->id == UI_BTN_SET_CONSTRUCTION_PLANE_YZ) ? VIEW_PLANE_YZ :
+                (btn->id == UI_BTN_SET_CONSTRUCTION_PLANE_XZ) ? VIEW_PLANE_XZ :
+                VIEW_PLANE_XY;
+            snprintf(dynamic_label,
+                     dynamic_label_size,
+                     "%s%s%s",
+                     (plane.axis == button_axis) ? "[" : "",
+                     UIPanel_ViewPlaneAxisLabel(button_axis),
+                     (plane.axis == button_axis) ? "]" : "");
+            return dynamic_label;
+        }
+        case UI_BTN_EDIT_CONSTRUCTION_PLANE_OFFSET: {
+            const ViewPlane plane = UIPanel_CurrentConstructionViewPlane(state);
+            snprintf(dynamic_label,
+                     dynamic_label_size,
+                     "Edit %s",
+                     UIPanel_ViewPlaneCoordinateLabel(plane.axis));
+            return dynamic_label;
+        }
+        default:
+            return btn->label;
     }
+}
 
-    if (!saved) {
-        if (!LineDrawingDataPaths_BuildPath(fallback_path, sizeof(fallback_path), k_legacy_layout_root, filename)) {
-            SDL_Log("[UI] Save failed: invalid legacy fallback path.");
-            return false;
-        }
-        if (!Layout_SaveToFile(&state->layout, fallback_path)) {
-            SDL_Log("[UI] Failed to save layout to %s", fallback_path);
-            return false;
-        }
-        snprintf(path, sizeof(path), "%s", fallback_path);
+static int UIPanel_CompactButtonWidthPx(const UIButton* btn, int text_pad_x) {
+    char dynamic_label[64];
+    int width = UIPanel_MeasureTextWidthPx(UIPanel_ButtonLayoutLabel(btn, dynamic_label, sizeof(dynamic_label)));
+    width += text_pad_x * 2;
+    if (width < 22) width = 22;
+    return width;
+}
+
+static int UIPanel_MaxWidthForLabels(const char* const* labels, size_t count) {
+    int max_width = 0;
+    for (size_t i = 0; i < count; ++i) {
+        int width = UIPanel_MeasureTextWidthPx(labels[i]);
+        if (width > max_width) max_width = width;
     }
+    return max_width;
+}
 
-    SDL_Log("[UI] Layout saved to %s", path);
-    Global_OnLayoutSaved(path);
-    Editor_ClearHistory(&state->editor);
-    Editor_HistoryCapture(&state->editor, &state->layout);
-    UIPanel_RefreshConfigList();
-    ui->saveDialog.cursor = ui->saveDialog.length;
-    UIPanel_CloseSaveDialog(ui);
-    return true;
+void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
+    static const char* k_left_button_labels[] = {
+        "Save JSON",
+        "Load JSON",
+        "Export Shape",
+        "Input Edit",
+        "Input Folder",
+        "Output Edit",
+        "Output Folder"
+    };
+    static const char* k_left_group_titles[] = {
+        "File / IO",
+        "Root Paths"
+    };
+    static const char* k_right_button_labels[] = {
+        "Toggle Delete (D)",
+        "Pin Anchor (P)",
+        "Link Handles (L)",
+        "Mode: 3D (M)",
+        "Gizmo: Rotate (X)",
+        "Bounds: Off",
+        "Clamp: Off",
+        "Edit BMin",
+        "Edit BMax"
+    };
+    static const char* k_right_group_titles[] = {
+        "View",
+        "Modes",
+        "Primitives",
+        "Construction",
+        "Prism",
+        "Gizmo",
+        "Scene Bounds"
+    };
+    int font_h = 14;
+    int text_pad_x = 9;
+    int pane_padding = 8;
+    int spacing = 5;
+    int button_h = 26;
+    int group_header_h = 14;
+    int group_gap = 8;
+    int compact_row_gap = 3;
+    int overlay_h = 64;
+    int left_button_w = 168;
+    int right_button_w = 168;
+    int left_label_w = 0;
+    int right_label_w = 0;
+    int left_title_w = 0;
+    int right_title_w = 0;
+
+    if (!out_metrics) return;
+    memset(out_metrics, 0, sizeof(*out_metrics));
+
+    font_h = UIPanel_FontHeightPx();
+    text_pad_x = 5 + (font_h / 4);
+    if (text_pad_x < 5) text_pad_x = 5;
+    pane_padding = 4 + (font_h / 5);
+    if (pane_padding < 5) pane_padding = 5;
+    spacing = 2 + (font_h / 10);
+    if (spacing < 3) spacing = 3;
+    button_h = font_h + 4;
+    if (button_h < 18) button_h = 18;
+    group_header_h = font_h + 1;
+    if (group_header_h < 13) group_header_h = 13;
+    group_gap = 4 + (font_h / 7);
+    if (group_gap < 5) group_gap = 5;
+    compact_row_gap = 2 + (font_h / 10);
+    if (compact_row_gap < 2) compact_row_gap = 2;
+    overlay_h = InfoOverlay_HeightPx();
+    if (overlay_h < 48) overlay_h = 48;
+
+    left_label_w = UIPanel_MaxWidthForLabels(
+        k_left_button_labels,
+        sizeof(k_left_button_labels) / sizeof(k_left_button_labels[0]));
+    right_label_w = UIPanel_MaxWidthForLabels(
+        k_right_button_labels,
+        sizeof(k_right_button_labels) / sizeof(k_right_button_labels[0]));
+    left_title_w = UIPanel_MaxWidthForLabels(
+        k_left_group_titles,
+        sizeof(k_left_group_titles) / sizeof(k_left_group_titles[0]));
+    right_title_w = UIPanel_MaxWidthForLabels(
+        k_right_group_titles,
+        sizeof(k_right_group_titles) / sizeof(k_right_group_titles[0]));
+
+    left_button_w = left_label_w + (text_pad_x * 2);
+    right_button_w = right_label_w + (text_pad_x * 2);
+    if (left_button_w < left_title_w + text_pad_x) left_button_w = left_title_w + text_pad_x;
+    if (right_button_w < right_title_w + text_pad_x) right_button_w = right_title_w + text_pad_x;
+    if (left_button_w < 84) left_button_w = 84;
+    if (right_button_w < 96) right_button_w = 96;
+
+    out_metrics->button_text_pad_px = text_pad_x;
+    out_metrics->overlay_height_px = overlay_h;
+    out_metrics->top_offset_px = overlay_h + pane_padding;
+    out_metrics->pane_padding_px = pane_padding;
+    out_metrics->button_spacing_px = spacing;
+    out_metrics->button_height_px = button_h;
+    out_metrics->group_header_height_px = group_header_h;
+    out_metrics->group_gap_px = group_gap;
+    out_metrics->compact_row_gap_px = compact_row_gap;
+    out_metrics->left_button_width_px = left_button_w;
+    out_metrics->right_button_width_px = right_button_w;
+    out_metrics->desired_top_pane_height_px = overlay_h + 1;
+    out_metrics->desired_left_pane_width_px = left_button_w + (pane_padding * 2);
+    out_metrics->desired_right_pane_width_px = right_button_w + (pane_padding * 2);
 }
 
 void UIPanel_ExportShape(void) {
@@ -367,8 +438,306 @@ void UIPanel_ExportShape(void) {
     ShapeDocument_Free(&doc);
 }
 
+static PlaneFrame3 UIPanel_FrameFromConstructionPlane(const GlobalState* state) {
+    PlaneFrame3 frame = {0};
+    if (!state) return frame;
+
+    const ConstructionPlane3D* cp = &state->layout.scene3d.constructionPlane;
+    if (!Layout_ConstructionPlane3D_IsValid(cp)) {
+        Plane3 fallbackPlane = Plane3_FromViewPlane((ViewPlane){ .axis = VIEW_PLANE_XY, .offset = 0.0f });
+        return PlaneFrame3_FromPlane(fallbackPlane, (Vec3){ 0.0f, 0.0f, 0.0f });
+    }
+
+    if (cp->mode == CONSTRUCTION_PLANE_MODE_CUSTOM_FRAME) {
+        frame = cp->customFrame;
+    } else {
+        Plane3 p = Plane3_FromViewPlane(cp->axisAligned);
+        Vec3 origin = { 0.0f, 0.0f, 0.0f };
+        switch (cp->axisAligned.axis) {
+            case VIEW_PLANE_YZ: origin.x = cp->axisAligned.offset; break;
+            case VIEW_PLANE_XZ: origin.y = cp->axisAligned.offset; break;
+            case VIEW_PLANE_XY:
+            default: origin.z = cp->axisAligned.offset; break;
+        }
+        frame = PlaneFrame3_FromPlane(p, origin);
+        frame.origin = origin;
+    }
+    return frame;
+}
+
+static Vec3 UIPanel_ResolvePlaneSpawnOrigin(const GlobalState* state,
+                                            const SpaceViewContext* viewCtx,
+                                            PlaneFrame3 frame) {
+    Vec3 origin = frame.origin;
+    if (!state || !viewCtx) return origin;
+
+    Vec3 candidate = origin;
+    const int cx = state->screenWidth / 2;
+    const int cy = state->screenHeight / 2;
+    if (SpaceAdapter_ScreenToWorld(cx, cy, &state->grid, viewCtx, false, &candidate)) {
+        // candidate from screen center.
+    } else {
+        candidate = viewCtx->camera.target;
+    }
+
+    if (state->layout.scene3d.constructionPlane.mode == CONSTRUCTION_PLANE_MODE_AXIS_ALIGNED) {
+        switch (state->layout.scene3d.constructionPlane.axisAligned.axis) {
+            case VIEW_PLANE_YZ:
+                candidate.x = state->layout.scene3d.constructionPlane.axisAligned.offset;
+                break;
+            case VIEW_PLANE_XZ:
+                candidate.y = state->layout.scene3d.constructionPlane.axisAligned.offset;
+                break;
+            case VIEW_PLANE_XY:
+            default:
+                candidate.z = state->layout.scene3d.constructionPlane.axisAligned.offset;
+                break;
+        }
+        return candidate;
+    }
+
+    {
+        Plane3 plane = Plane3_FromPointNormal(frame.origin, frame.normal);
+        return Plane3_ProjectPoint(plane, candidate);
+    }
+}
+
+bool UIPanel_CreatePlanePrimitiveFromActiveContext(bool disable_bounds_lock) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    if (state->spaceMode != SPACE_MODE_3D) {
+        SDL_Log("[UI] Plane creation blocked: SPACE_MODE_3D required.");
+        return false;
+    }
+
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    PlaneFrame3 frame = UIPanel_FrameFromConstructionPlane(state);
+    frame.origin = UIPanel_ResolvePlaneSpawnOrigin(state, &viewCtx, frame);
+
+    PlanePrimitiveCreateParams params;
+    Layout_PlanePrimitiveCreateParams_SetDefaults(&params);
+    params.width = fmaxf(state->grid.gridSize * 4.0f, 1.0f);
+    params.height = fmaxf(state->grid.gridSize * 4.0f, 1.0f);
+    params.lockToBounds = !disable_bounds_lock;
+    params.useExplicitFrame = true;
+    params.explicitFrame = frame;
+
+    Editor_HistoryCapture(&state->editor, &state->layout);
+    uint32_t objectId = 0u;
+    bool boundsAdjusted = false;
+    if (!Layout_CreatePlanePrimitive(&state->layout, &params, &objectId, &boundsAdjusted)) {
+        SDL_Log("[UI] Plane primitive creation failed.");
+        return false;
+    }
+
+    Editor_ClearAnchorSelection(&state->editor);
+    state->editor.selectedObject3DId = objectId;
+    state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    state->editor.selectedWallIndex = -1;
+    state->editor.selectedHandleAnchor = -1;
+    state->editor.selectedHandleComponent = -1;
+    Global_FlagHitboxesDirty();
+    SDL_Log("[UI] Plane primitive created (id=%u%s)",
+            objectId,
+            boundsAdjusted ? ", bounds-adjusted" : "");
+    return true;
+}
+
+bool UIPanel_CreateRectPrismPrimitiveFromActiveContext(bool disable_bounds_lock) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    if (state->spaceMode != SPACE_MODE_3D) {
+        SDL_Log("[UI] Rect prism creation blocked: SPACE_MODE_3D required.");
+        return false;
+    }
+
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    PlaneFrame3 frame = UIPanel_FrameFromConstructionPlane(state);
+    frame.origin = UIPanel_ResolvePlaneSpawnOrigin(state, &viewCtx, frame);
+
+    RectPrismPrimitiveCreateParams params;
+    Layout_RectPrismPrimitiveCreateParams_SetDefaults(&params);
+    params.width = fmaxf(state->grid.gridSize * 4.0f, 1.0f);
+    params.height = fmaxf(state->grid.gridSize * 4.0f, 1.0f);
+    params.depth = fmaxf(state->grid.gridSize * 4.0f, 1.0f);
+    params.lockToBounds = !disable_bounds_lock;
+    params.useExplicitFrame = true;
+    params.explicitFrame = frame;
+
+    Editor_HistoryCapture(&state->editor, &state->layout);
+    uint32_t objectId = 0u;
+    bool boundsAdjusted = false;
+    if (!Layout_CreateRectPrismPrimitive(&state->layout, &params, &objectId, &boundsAdjusted)) {
+        SDL_Log("[UI] Rect prism primitive creation failed.");
+        return false;
+    }
+
+    Editor_ClearAnchorSelection(&state->editor);
+    state->editor.selectedObject3DId = objectId;
+    state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    state->editor.selectedWallIndex = -1;
+    state->editor.selectedHandleAnchor = -1;
+    state->editor.selectedHandleComponent = -1;
+    Global_FlagHitboxesDirty();
+    SDL_Log("[UI] Rect prism primitive created (id=%u%s)",
+            objectId,
+            boundsAdjusted ? ", bounds-adjusted" : "");
+    return true;
+}
+
+void UIPanel_OnWindowResized(int screenW, int screenH) {
+    UIPanelLayoutMetrics metrics;
+    int padding = 10;
+    int leftBtnW = 168;
+    int rightBtnW = 168;
+    int btnH = 26;
+    int spacing = 5;
+    int compactRowGap = 4;
+    int groupHeaderHeight = 14;
+    int groupGap = 10;
+    int textPadX = 9;
+    int topOffset = 74;
+    int leftX = padding;
+    int leftY = topOffset;
+    int leftW = leftBtnW;
+    int rightX = screenW - rightBtnW - padding;
+    int rightY = topOffset;
+    int rightW = rightBtnW;
+    UIPanelGroup leftGroup = UI_PANEL_GROUP_NONE;
+    UIPanelGroup rightGroup = UI_PANEL_GROUP_NONE;
+
+    UIPanel_GetLayoutMetrics(&metrics);
+    padding = metrics.pane_padding_px;
+    leftBtnW = metrics.left_button_width_px;
+    rightBtnW = metrics.right_button_width_px;
+    btnH = metrics.button_height_px;
+    spacing = metrics.button_spacing_px;
+    compactRowGap = metrics.compact_row_gap_px;
+    groupHeaderHeight = metrics.group_header_height_px;
+    groupGap = metrics.group_gap_px;
+    textPadX = metrics.button_text_pad_px;
+    topOffset = metrics.top_offset_px;
+    leftX = padding;
+    leftY = topOffset;
+    leftW = leftBtnW;
+    rightX = screenW - rightBtnW - padding;
+    rightY = topOffset;
+    rightW = rightBtnW;
+
+    UIPanel_ResolveButtonLaneLayout(screenW,
+                                    screenH,
+                                    UI_PANEL_LEFT,
+                                    leftX,
+                                    leftY,
+                                    leftBtnW,
+                                    &leftX,
+                                    &leftY,
+                                    &leftW);
+    UIPanel_ResolveButtonLaneLayout(screenW,
+                                    screenH,
+                                    UI_PANEL_RIGHT,
+                                    rightX,
+                                    rightY,
+                                    rightBtnW,
+                                    &rightX,
+                                    &rightY,
+                                    &rightW);
+
+    for (int i = 0; i < g_uiPanel.count; ++i) {
+        UIButton* btn = &g_uiPanel.buttons[i];
+        if (btn->side == UI_PANEL_LEFT) {
+            if (btn->group != leftGroup) {
+                if (leftGroup != UI_PANEL_GROUP_NONE) leftY += groupGap;
+                leftY += groupHeaderHeight;
+                leftGroup = btn->group;
+            }
+            btn->bounds = (SDL_Rect){ leftX, leftY, leftW, btnH };
+            leftY += btnH + spacing;
+        }
+    }
+
+    for (int i = 0; i < g_uiPanel.count; ++i) {
+        UIButton* btn = &g_uiPanel.buttons[i];
+        UIPanelCompactRowSpec rowSpec = {0, 0, 0};
+        if (btn->side != UI_PANEL_RIGHT) continue;
+        if (btn->group != rightGroup) {
+            if (rightGroup != UI_PANEL_GROUP_NONE) rightY += groupGap;
+            rightY += groupHeaderHeight;
+            rightGroup = btn->group;
+        }
+
+        if (UIPanel_GetCompactRowSpec(btn->id, &rowSpec)) {
+            int rowStart = i;
+            int rowEnd = i;
+            int rowWidths[4] = {0, 0, 0, 0};
+            int rowTotalWidth = 0;
+            int rowStartX = rightX;
+
+            while ((rowEnd + 1) < g_uiPanel.count) {
+                UIPanelCompactRowSpec nextSpec = {0, 0, 0};
+                UIButton* next = &g_uiPanel.buttons[rowEnd + 1];
+                if (next->side != UI_PANEL_RIGHT || next->group != btn->group) break;
+                if (!UIPanel_GetCompactRowSpec(next->id, &nextSpec)) break;
+                if (nextSpec.row_key != rowSpec.row_key) break;
+                rowEnd++;
+            }
+
+            for (int j = rowStart; j <= rowEnd; ++j) {
+                UIButton* place = &g_uiPanel.buttons[j];
+                UIPanelCompactRowSpec placeSpec = {0, 0, 0};
+                int col = 0;
+                int cellWidth = 22;
+                if (UIPanel_GetCompactRowSpec(place->id, &placeSpec)) {
+                    col = placeSpec.column_index;
+                    if (col < 0) col = 0;
+                    if (col >= 4) col = 3;
+                }
+                cellWidth = UIPanel_CompactButtonWidthPx(place, textPadX);
+                if (cellWidth > rightW) cellWidth = rightW;
+                rowWidths[col] = cellWidth;
+            }
+
+            for (int col = 0; col < rowSpec.columns && col < 4; ++col) {
+                if (col > 0) rowTotalWidth += compactRowGap;
+                rowTotalWidth += rowWidths[col];
+            }
+            if (rowTotalWidth < rightW) {
+                rowStartX = rightX + (rightW - rowTotalWidth) / 2;
+            }
+
+            for (int j = rowStart; j <= rowEnd; ++j) {
+                UIPanelCompactRowSpec placeSpec = {0, 0, 0};
+                UIButton* place = &g_uiPanel.buttons[j];
+                int col = 0;
+                int x = rowStartX;
+                if (UIPanel_GetCompactRowSpec(place->id, &placeSpec)) {
+                    col = placeSpec.column_index;
+                    if (col < 0) col = 0;
+                    if (col >= rowSpec.columns) col = rowSpec.columns - 1;
+                }
+                for (int prior = 0; prior < col; ++prior) {
+                    x += rowWidths[prior] + compactRowGap;
+                }
+                place->bounds = (SDL_Rect){
+                    x,
+                    rightY,
+                    rowWidths[col],
+                    btnH
+                };
+            }
+            rightY += btnH + spacing;
+            i = rowEnd;
+            continue;
+        }
+
+        btn->bounds = (SDL_Rect){ rightX, rightY, rightW, btnH };
+        rightY += btnH + spacing;
+    }
+}
+
 void UIPanel_Init(int screenW, int screenH) {
-    (void)screenH;
     g_uiPanel.count = 0;
     g_uiPanel.saveDialog.active = false;
     g_uiPanel.saveDialog.buffer[0] = '\0';
@@ -382,61 +751,127 @@ void UIPanel_Init(int screenW, int screenH) {
     g_uiPanel.rootDialog.buffer[0] = '\0';
     g_uiPanel.rootDialog.length = 0;
     g_uiPanel.rootDialog.cursor = 0;
+    g_uiPanel.prismDimensionDialog.active = false;
+    g_uiPanel.prismDimensionDialog.target = UI_PRISM_DIMENSION_TARGET_NONE;
+    g_uiPanel.prismDimensionDialog.objectId = 0u;
+    g_uiPanel.prismDimensionDialog.buffer[0] = '\0';
+    g_uiPanel.prismDimensionDialog.length = 0;
+    g_uiPanel.prismDimensionDialog.cursor = 0;
+    g_uiPanel.sceneBoundsDialog.active = false;
+    g_uiPanel.sceneBoundsDialog.target = UI_SCENE_BOUNDS_TARGET_NONE;
+    g_uiPanel.sceneBoundsDialog.buffer[0] = '\0';
+    g_uiPanel.sceneBoundsDialog.length = 0;
+    g_uiPanel.sceneBoundsDialog.cursor = 0;
+    g_uiPanel.constructionPlaneDialog.active = false;
+    g_uiPanel.constructionPlaneDialog.target = UI_CONSTRUCTION_PLANE_DIALOG_TARGET_NONE;
+    g_uiPanel.constructionPlaneDialog.buffer[0] = '\0';
+    g_uiPanel.constructionPlaneDialog.length = 0;
+    g_uiPanel.constructionPlaneDialog.cursor = 0;
+    g_uiPanel.objectTransformDialog.active = false;
+    g_uiPanel.objectTransformDialog.target = UI_OBJECT_TRANSFORM_DIALOG_TARGET_NONE;
+    g_uiPanel.objectTransformDialog.objectId = 0u;
+    g_uiPanel.objectTransformDialog.buffer[0] = '\0';
+    g_uiPanel.objectTransformDialog.length = 0;
+    g_uiPanel.objectTransformDialog.cursor = 0;
+    g_uiPanel.displayUnit = CORE_UNIT_FOOT;
 
+    UIPanelLayoutMetrics metrics;
     int padding = 10;
-    int btnW = 140;
-    int btnH = 28;
-    int spacing = 6;
+    int leftBtnW = 168;
+    int rightBtnW = 168;
+    int btnH = 26;
+    int spacing = 5;
+    int topOffset = 74;
 
-    int topOffset = INFO_OVERLAY_HEIGHT + padding;
+    UIPanel_GetLayoutMetrics(&metrics);
+    padding = metrics.pane_padding_px;
+    leftBtnW = metrics.left_button_width_px;
+    rightBtnW = metrics.right_button_width_px;
+    btnH = metrics.button_height_px;
+    spacing = metrics.button_spacing_px;
+    topOffset = metrics.top_offset_px;
 
     int xL = padding;
     int yL = topOffset;
-    AddButton(&g_uiPanel, "Save JSON", xL, yL, btnW, btnH, UI_PANEL_LEFT, UI_BTN_SAVE_JSON);
+    AddButton(&g_uiPanel, "Save JSON", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_SAVE_JSON);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Load JSON", xL, yL, btnW, btnH, UI_PANEL_LEFT, UI_BTN_LOAD_JSON);
+    AddButton(&g_uiPanel, "Load JSON", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_JSON);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Export Shape", xL, yL, btnW, btnH, UI_PANEL_LEFT, UI_BTN_EXPORT_SHAPE);
+    AddButton(&g_uiPanel, "Export Shape", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_EXPORT_SHAPE);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Input Edit", xL, yL, btnW, btnH, UI_PANEL_LEFT, UI_BTN_INPUT_ROOT_EDIT);
+    AddButton(&g_uiPanel, "Input Edit", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_INPUT_ROOT_EDIT);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Input Folder", xL, yL, btnW, btnH, UI_PANEL_LEFT, UI_BTN_INPUT_ROOT_FOLDER);
+    AddButton(&g_uiPanel, "Input Folder", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_INPUT_ROOT_FOLDER);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Output Edit", xL, yL, btnW, btnH, UI_PANEL_LEFT, UI_BTN_OUTPUT_ROOT_EDIT);
+    AddButton(&g_uiPanel, "Output Edit", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_OUTPUT_ROOT_EDIT);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Output Folder", xL, yL, btnW, btnH, UI_PANEL_LEFT, UI_BTN_OUTPUT_ROOT_FOLDER);
+    AddButton(&g_uiPanel, "Output Folder", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_OUTPUT_ROOT_FOLDER);
 
-    int xR = screenW - btnW - padding;
+    int xR = screenW - rightBtnW - padding;
     int yR = topOffset;
-    AddButton(&g_uiPanel, "Reset Origin (O)", xR, yR, btnW, btnH, UI_PANEL_RIGHT, UI_BTN_RESET_ORIGIN);
+    AddButton(&g_uiPanel, "O", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_RESET_ORIGIN);
     yR += btnH + spacing;
-    AddButton(&g_uiPanel, "Zoom In (+)", xR, yR, btnW, btnH, UI_PANEL_RIGHT, UI_BTN_ZOOM_IN);
+    AddButton(&g_uiPanel, "+", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_ZOOM_IN);
     yR += btnH + spacing;
-    AddButton(&g_uiPanel, "Zoom Out (-)", xR, yR, btnW, btnH, UI_PANEL_RIGHT, UI_BTN_ZOOM_OUT);
+    AddButton(&g_uiPanel, "-", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_ZOOM_OUT);
     yR += btnH + spacing;
-    AddButton(&g_uiPanel, "Toggle Delete (D)", xR, yR, btnW, btnH, UI_PANEL_RIGHT, UI_BTN_TOGGLE_DELETE);
+    AddButton(&g_uiPanel, "Toggle Delete (D)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_TOGGLE_DELETE);
     yR += btnH + spacing;
-    AddButton(&g_uiPanel, "Pin Anchor (P)", xR, yR, btnW, btnH, UI_PANEL_RIGHT, UI_BTN_PIN_ANCHOR);
+    AddButton(&g_uiPanel, "Pin Anchor (P)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_PIN_ANCHOR);
     yR += btnH + spacing;
-    AddButton(&g_uiPanel, "Link Handles (L)", xR, yR, btnW, btnH, UI_PANEL_RIGHT, UI_BTN_LINK_HANDLES);
+    AddButton(&g_uiPanel, "Link Handles (L)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_LINK_HANDLES);
     yR += btnH + spacing;
-    AddButton(&g_uiPanel, "Mode: 3D (M)", xR, yR, btnW, btnH, UI_PANEL_RIGHT, UI_BTN_TOGGLE_SPACE_MODE);
+    AddButton(&g_uiPanel, "Mode: 3D (M)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_TOGGLE_SPACE_MODE);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "+Plane", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_CREATE_PLANE);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "+Prism", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_CREATE_RECT_PRISM);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "XY", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CONSTRUCTION, UI_BTN_SET_CONSTRUCTION_PLANE_XY);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "YZ", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CONSTRUCTION, UI_BTN_SET_CONSTRUCTION_PLANE_YZ);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "XZ", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CONSTRUCTION, UI_BTN_SET_CONSTRUCTION_PLANE_XZ);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "-", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CONSTRUCTION, UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_NEG);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "+", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CONSTRUCTION, UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_POS);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Edit Off", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CONSTRUCTION, UI_BTN_EDIT_CONSTRUCTION_PLANE_OFFSET);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "W", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_EDIT_PRISM_WIDTH);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "H", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_EDIT_PRISM_HEIGHT);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "D", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_EDIT_PRISM_DEPTH);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "ft", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_CYCLE_DISPLAY_UNITS);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Gizmo: Move (X)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_GIZMO, UI_BTN_TOGGLE_OBJECT_GIZMO_MODE);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Edit Pos", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_EDIT_OBJECT_POSITION);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Rot X", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_EDIT_OBJECT_ROTATION_X);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Rot Y", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_EDIT_OBJECT_ROTATION_Y);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Rot Z", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_EDIT_OBJECT_ROTATION_Z);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Bounds: Off", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_BOUNDS, UI_BTN_TOGGLE_SCENE_BOUNDS);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Clamp: Off", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_BOUNDS, UI_BTN_TOGGLE_SCENE_BOUNDS_CLAMP);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Edit BMin", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_BOUNDS, UI_BTN_EDIT_SCENE_BOUNDS_MIN);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Edit BMax", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_BOUNDS, UI_BTN_EDIT_SCENE_BOUNDS_MAX);
 
+    UIPanel_OnWindowResized(screenW, screenH);
     UIPanel_RefreshConfigList();
 }
 
 const UIButton* UIPanel_GetButtons(UIPanelState* ui, int* outCount) {
     if (outCount) *outCount = ui->count;
     return ui->buttons;
-}
-
-void UIPanel_BeginSaveDialog(void) {
-    UIPanelState* ui = &g_uiPanel;
-    ui->saveDialog.active = true;
-    UIPanel_PopulateDefaultFilename(ui);
-    ui->loadMenu.open = false;
-    UIPanel_CloseRootDialog(ui);
-    if (!SDL_IsTextInputActive()) SDL_StartTextInput();
 }
 
 bool UIPanel_IsSaveDialogActive(void) {
@@ -447,663 +882,31 @@ bool UIPanel_IsRootDialogActive(void) {
     return g_uiPanel.rootDialog.active;
 }
 
+bool UIPanel_IsPrismDimensionDialogActive(void) {
+    return g_uiPanel.prismDimensionDialog.active;
+}
+
+bool UIPanel_IsSceneBoundsDialogActive(void) {
+    return g_uiPanel.sceneBoundsDialog.active;
+}
+
+bool UIPanel_IsConstructionPlaneDialogActive(void) {
+    return g_uiPanel.constructionPlaneDialog.active;
+}
+
+bool UIPanel_IsObjectTransformDialogActive(void) {
+    return g_uiPanel.objectTransformDialog.active;
+}
+
 bool UIPanel_IsCapturingKeyboard(void) {
-    return UIPanel_IsSaveDialogActive() || UIPanel_IsRootDialogActive();
-}
-
-void UIPanel_BeginInputRootDialog(void) {
-    UIPanel_BeginRootDialog(UI_ROOT_TARGET_INPUT);
-}
-
-void UIPanel_BeginOutputRootDialog(void) {
-    UIPanel_BeginRootDialog(UI_ROOT_TARGET_OUTPUT);
-}
-
-bool UIPanel_OpenInputRootFolderDialog(void) {
-    char path[256];
-    if (!UIPanel_SelectFolderWithPrompt("Choose sCulpt Input Root", path, sizeof(path))) {
-        SDL_Log("[UI] Input root folder dialog canceled/unavailable.");
-        return false;
-    }
-    if (!Global_SetInputRoot(path, true)) {
-        SDL_Log("[UI] Failed to set input root: %s", path);
-        return false;
-    }
-    UIPanel_RefreshConfigList();
-    SDL_Log("[UI] Input root updated from folder dialog: %s", path);
-    return true;
-}
-
-bool UIPanel_OpenOutputRootFolderDialog(void) {
-    char path[256];
-    if (!UIPanel_SelectFolderWithPrompt("Choose sCulpt Output Root", path, sizeof(path))) {
-        SDL_Log("[UI] Output root folder dialog canceled/unavailable.");
-        return false;
-    }
-    if (!Global_SetOutputRoot(path, true)) {
-        SDL_Log("[UI] Failed to set output root: %s", path);
-        return false;
-    }
-    SDL_Log("[UI] Output root updated from folder dialog: %s", path);
-    return true;
-}
-
-bool UIPanel_HandleTextInput(const char* text) {
-    UIPanelState* ui = &g_uiPanel;
-    if (!text) return false;
-
-    if (ui->saveDialog.active) {
-        for (const char* p = text; *p; ++p) {
-            unsigned char c = (unsigned char)*p;
-            if (!(isalnum(c) || c == '_' || c == '-' || c == ' ')) continue;
-            if (ui->saveDialog.length + 1 >= sizeof(ui->saveDialog.buffer)) break;
-            memmove(&ui->saveDialog.buffer[ui->saveDialog.cursor + 1],
-                    &ui->saveDialog.buffer[ui->saveDialog.cursor],
-                    ui->saveDialog.length - ui->saveDialog.cursor + 1);
-            ui->saveDialog.buffer[ui->saveDialog.cursor] = (char)c;
-            ui->saveDialog.length++;
-            ui->saveDialog.cursor++;
-        }
-        ui->saveDialog.buffer[ui->saveDialog.length] = '\0';
-        return true;
-    }
-
-    if (ui->rootDialog.active) {
-        for (const char* p = text; *p; ++p) {
-            unsigned char c = (unsigned char)*p;
-            if (c < 32 || c == 127) continue;
-            if (ui->rootDialog.length + 1 >= sizeof(ui->rootDialog.buffer)) break;
-            memmove(&ui->rootDialog.buffer[ui->rootDialog.cursor + 1],
-                    &ui->rootDialog.buffer[ui->rootDialog.cursor],
-                    ui->rootDialog.length - ui->rootDialog.cursor + 1);
-            ui->rootDialog.buffer[ui->rootDialog.cursor] = (char)c;
-            ui->rootDialog.length++;
-            ui->rootDialog.cursor++;
-        }
-        ui->rootDialog.buffer[ui->rootDialog.length] = '\0';
-        return true;
-    }
-
-    return false;
-}
-
-bool UIPanel_HandleKeyEvent(const SDL_Event* event) {
-    UIPanelState* ui = &g_uiPanel;
-    if (event->type != SDL_KEYDOWN) return false;
-
-    SDL_Keycode key = event->key.keysym.sym;
-    if (ui->saveDialog.active) {
-        if (key == SDLK_RETURN) {
-            return UIPanel_PerformSave(ui);
-        }
-        if (key == SDLK_ESCAPE) {
-            UIPanel_CloseSaveDialog(ui);
-            return true;
-        }
-        switch (key) {
-            case SDLK_BACKSPACE:
-                if (ui->saveDialog.cursor > 0 && ui->saveDialog.length > 0) {
-                    memmove(&ui->saveDialog.buffer[ui->saveDialog.cursor - 1],
-                            &ui->saveDialog.buffer[ui->saveDialog.cursor],
-                            ui->saveDialog.length - ui->saveDialog.cursor + 1);
-                    ui->saveDialog.cursor--;
-                    ui->saveDialog.length--;
-                }
-                return true;
-            case SDLK_DELETE:
-                if (ui->saveDialog.cursor < ui->saveDialog.length) {
-                    memmove(&ui->saveDialog.buffer[ui->saveDialog.cursor],
-                            &ui->saveDialog.buffer[ui->saveDialog.cursor + 1],
-                            ui->saveDialog.length - ui->saveDialog.cursor);
-                    ui->saveDialog.length--;
-                }
-                return true;
-            case SDLK_LEFT:
-                if (ui->saveDialog.cursor > 0) ui->saveDialog.cursor--;
-                return true;
-            case SDLK_RIGHT:
-                if (ui->saveDialog.cursor < ui->saveDialog.length) ui->saveDialog.cursor++;
-                return true;
-            case SDLK_HOME:
-                ui->saveDialog.cursor = 0;
-                return true;
-            case SDLK_END:
-                ui->saveDialog.cursor = ui->saveDialog.length;
-                return true;
-            default:
-                break;
-        }
-        return false;
-    }
-
-    if (ui->rootDialog.active) {
-        if (key == SDLK_RETURN) {
-            return UIPanel_ApplyRootDialog(ui);
-        }
-        if (key == SDLK_ESCAPE) {
-            UIPanel_CloseRootDialog(ui);
-            return true;
-        }
-        switch (key) {
-            case SDLK_BACKSPACE:
-                if (ui->rootDialog.cursor > 0 && ui->rootDialog.length > 0) {
-                    memmove(&ui->rootDialog.buffer[ui->rootDialog.cursor - 1],
-                            &ui->rootDialog.buffer[ui->rootDialog.cursor],
-                            ui->rootDialog.length - ui->rootDialog.cursor + 1);
-                    ui->rootDialog.cursor--;
-                    ui->rootDialog.length--;
-                }
-                return true;
-            case SDLK_DELETE:
-                if (ui->rootDialog.cursor < ui->rootDialog.length) {
-                    memmove(&ui->rootDialog.buffer[ui->rootDialog.cursor],
-                            &ui->rootDialog.buffer[ui->rootDialog.cursor + 1],
-                            ui->rootDialog.length - ui->rootDialog.cursor);
-                    ui->rootDialog.length--;
-                }
-                return true;
-            case SDLK_LEFT:
-                if (ui->rootDialog.cursor > 0) ui->rootDialog.cursor--;
-                return true;
-            case SDLK_RIGHT:
-                if (ui->rootDialog.cursor < ui->rootDialog.length) ui->rootDialog.cursor++;
-                return true;
-            case SDLK_HOME:
-                ui->rootDialog.cursor = 0;
-                return true;
-            case SDLK_END:
-                ui->rootDialog.cursor = ui->rootDialog.length;
-                return true;
-            default:
-                break;
-        }
-        return false;
-    }
-
-    return false;
-}
-
-void UIPanel_ToggleLoadMenu(void) {
-    UIPanelState* ui = &g_uiPanel;
-    ui->loadMenu.open = !ui->loadMenu.open;
-    if (ui->loadMenu.open) {
-        UIPanel_RefreshConfigList();
-    }
-    ui->loadMenu.hoverIndex = -1;
-    UIPanel_CloseSaveDialog(ui);
-    UIPanel_CloseRootDialog(ui);
-}
-
-bool UIPanel_IsLoadMenuOpen(void) {
-    return g_uiPanel.loadMenu.open;
-}
-
-static SDL_Rect UIPanel_GetLoadMenuRect(const UIPanelState* ui) {
-    const UIButton* loadBtn = UIPanel_FindButtonById((UIPanelState*)ui, UI_BTN_LOAD_JSON);
-    SDL_Rect rect = {0, 0, 0, 0};
-    if (!loadBtn) return rect;
-
-    rect.x = loadBtn->bounds.x + loadBtn->bounds.w + 10;
-    rect.y = loadBtn->bounds.y;
-    rect.w = 200;
-    int itemHeight = 24;
-    int count = ui->loadMenu.count > 0 ? ui->loadMenu.count : 1;
-    rect.h = count * itemHeight + 12;
-    return rect;
-}
-
-static void UIPanel_LoadConfigByIndex(int index) {
-    UIPanelState* ui = &g_uiPanel;
-    if (index < 0 || index >= ui->loadMenu.count) return;
-
-    char path[256];
-    if (ui->loadMenu.entryPaths[index][0]) {
-        snprintf(path, sizeof(path), "%s", ui->loadMenu.entryPaths[index]);
-    } else if (!LineDrawingDataPaths_BuildPath(path,
-                                               sizeof(path),
-                                               k_legacy_layout_root,
-                                               ui->loadMenu.entries[index])) {
-        SDL_Log("[UI] Invalid layout path for entry '%s'", ui->loadMenu.entries[index]);
-        return;
-    }
-
-    GlobalState* state = Global_Get();
-    Editor_ClearHistory(&state->editor);
-
-    if (Layout_LoadFromFile(&state->layout, path)) {
-        SDL_Log("[UI] Loaded layout %s", path);
-        Global_OnLayoutLoaded(path);
-        state->editor.selectedAnchorIndex = -1;
-        state->editor.selectedWallIndex = -1;
-        state->editor.hoveredAnchorIndex = -1;
-        state->editor.hoveredWallIndex = -1;
-        state->editor.hoveredHandleAnchor = -1;
-        state->editor.hoveredHandleComponent = -1;
-        state->editor.hoveredGizmoAxis = -1;
-        Editor_HistoryCapture(&state->editor, &state->layout);
-    } else {
-        SDL_Log("[UI] Failed to load layout %s", path);
-    }
-}
-
-bool UIPanel_HandleLoadMenuClick(int mouseX, int mouseY) {
-    UIPanelState* ui = &g_uiPanel;
-    if (!ui->loadMenu.open) return false;
-
-    SDL_Rect rect = UIPanel_GetLoadMenuRect(ui);
-    if (SDL_PointInRect(&(SDL_Point){ mouseX, mouseY }, &rect)) {
-        if (ui->loadMenu.count == 0) {
-            ui->loadMenu.open = false;
-            return true;
-        }
-        int itemHeight = 24;
-        int index = (mouseY - rect.y - 6) / itemHeight;
-        if (index >= 0 && index < ui->loadMenu.count) {
-            UIPanel_LoadConfigByIndex(index);
-        }
-        ui->loadMenu.open = false;
-        return true;
-    }
-
-    ui->loadMenu.open = false;
-    return false;
-}
-
-void UIPanel_HandleMouseMotion(int mouseX, int mouseY) {
-    UIPanelState* ui = &g_uiPanel;
-    if (!ui->loadMenu.open) {
-        ui->loadMenu.hoverIndex = -1;
-        return;
-    }
-
-    SDL_Rect rect = UIPanel_GetLoadMenuRect(ui);
-    if (!SDL_PointInRect(&(SDL_Point){ mouseX, mouseY }, &rect)) {
-        ui->loadMenu.hoverIndex = -1;
-        return;
-    }
-
-    int itemHeight = 24;
-    int index = (mouseY - rect.y - 6) / itemHeight;
-    if (index >= 0 && index < ui->loadMenu.count) {
-        ui->loadMenu.hoverIndex = index;
-    } else {
-        ui->loadMenu.hoverIndex = -1;
-    }
-}
-
-static void DrawText(SDL_Renderer* renderer, const char* text, int x, int y, SDL_Color color) {
-    if (!text || !*text) return;
-    TTF_Font* font = FontManager_Get(FONT_DEFAULT);
-    if (!font) return;
-
-#if USE_VULKAN
-    VulkanAdapter_DrawText(renderer, font, text, x, y, color);
-#else
-    SDL_Surface* surf = TTF_RenderText_Blended(font, text, color);
-    if (!surf) return;
-
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
-    if (!tex) {
-        SDL_FreeSurface(surf);
-        return;
-    }
-
-    SDL_Rect dst = { x, y, surf->w, surf->h };
-    SDL_RenderCopy(renderer, tex, NULL, &dst);
-    SDL_DestroyTexture(tex);
-    SDL_FreeSurface(surf);
-#endif
-}
-
-static void DrawTextClipped(SDL_Renderer* renderer,
-                            const char* text,
-                            int x,
-                            int y,
-                            int max_width,
-                            SDL_Color color) {
-    TTF_Font* font = NULL;
-    static const char* k_ellipsis = "...";
-    char clipped[512];
-    size_t len = 0;
-    int text_w = 0;
-    int ellipsis_w = 0;
-
-    if (!text || !text[0] || max_width <= 0) return;
-    font = FontManager_Get(FONT_DEFAULT);
-    if (!font) return;
-
-    if (TTF_SizeUTF8(font, text, &text_w, NULL) == 0 && text_w <= max_width) {
-        DrawText(renderer, text, x, y, color);
-        return;
-    }
-
-    if (TTF_SizeUTF8(font, k_ellipsis, &ellipsis_w, NULL) != 0 || ellipsis_w >= max_width) {
-        return;
-    }
-
-    len = strlen(text);
-    while (len > 0) {
-        --len;
-        if (len + strlen(k_ellipsis) + 1 >= sizeof(clipped)) continue;
-        memcpy(clipped, text, len);
-        clipped[len] = '\0';
-        strcat(clipped, k_ellipsis);
-        if (TTF_SizeUTF8(font, clipped, &text_w, NULL) == 0 && text_w <= max_width) {
-            DrawText(renderer, clipped, x, y, color);
-            return;
-        }
-    }
-}
-
-static void RenderSaveDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
-    if (!ui->saveDialog.active) return;
-    LineDrawing3dThemePalette palette = {0};
-    const bool has_shared_palette = line_drawing3d_shared_theme_resolve_palette(&palette);
-
-    int width = Global_GetScreenWidth();
-    int height = Global_GetScreenHeight();
-
-    SDL_Rect backdrop = { 0, 0, width, height };
-#if !USE_VULKAN
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-#endif
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.modal_scrim.r, palette.modal_scrim.g,
-                               palette.modal_scrim.b, palette.modal_scrim.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 140);
-    }
-    SDL_RenderFillRect(renderer, &backdrop);
-
-    SDL_Rect panel = {
-        width / 2 - 220,
-        INFO_OVERLAY_HEIGHT + 20,
-        440,
-        130
-    };
-
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.panel_fill.r, palette.panel_fill.g,
-                               palette.panel_fill.b, palette.panel_fill.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 35, 40, 48, 240);
-    }
-    SDL_RenderFillRect(renderer, &panel);
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.panel_border.r, palette.panel_border.g,
-                               palette.panel_border.b, palette.panel_border.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 90, 100, 115, 255);
-    }
-    SDL_RenderDrawRect(renderer, &panel);
-
-    int textX = panel.x + 16;
-    int textY = panel.y + 16;
-    char line[256];
-
-    snprintf(line, sizeof(line), "Save layout as (*.json):");
-    DrawText(renderer, line, textX, textY,
-             has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 235, 255});
-
-    SDL_Rect inputRect = {
-        panel.x + 14,
-        panel.y + 48,
-        panel.w - 28,
-        32
-    };
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.background_fill.r, palette.background_fill.g,
-                               palette.background_fill.b, palette.background_fill.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 20, 20, 24, 255);
-    }
-    SDL_RenderFillRect(renderer, &inputRect);
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.panel_border.r, palette.panel_border.g,
-                               palette.panel_border.b, palette.panel_border.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 130, 140, 155, 255);
-    }
-    SDL_RenderDrawRect(renderer, &inputRect);
-
-    char buffer[200];
-    snprintf(buffer, sizeof(buffer), "%s", ui->saveDialog.buffer);
-    DrawTextClipped(renderer,
-                    buffer,
-                    inputRect.x + 8,
-                    inputRect.y + 6,
-                    inputRect.w - 16,
-                    has_shared_palette ? palette.text_primary : (SDL_Color){255, 255, 255, 255});
-
-    TTF_Font* font = FontManager_Get(FONT_DEFAULT);
-    if (font) {
-        char caretBuf[128];
-        size_t len = ui->saveDialog.cursor;
-        if (len > sizeof(caretBuf) - 1) len = sizeof(caretBuf) - 1;
-        memcpy(caretBuf, ui->saveDialog.buffer, len);
-        caretBuf[len] = '\0';
-        int caretOffset = 0;
-        TTF_SizeUTF8(font, caretBuf, &caretOffset, NULL);
-        int caretX = inputRect.x + 8 + caretOffset;
-        if (caretX > inputRect.x + inputRect.w - 8) caretX = inputRect.x + inputRect.w - 8;
-        int caretTop = inputRect.y + 4;
-        int caretBottom = inputRect.y + inputRect.h - 4;
-        if (has_shared_palette) {
-            SDL_SetRenderDrawColor(renderer,
-                                   palette.text_primary.r, palette.text_primary.g,
-                                   palette.text_primary.b, 220);
-        } else {
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 220);
-        }
-        SDL_RenderDrawLine(renderer, caretX, caretTop, caretX, caretBottom);
-    }
-
-    snprintf(line, sizeof(line), "Press Enter to confirm, Esc to cancel.");
-    DrawText(renderer, line, textX, panel.y + panel.h - 36,
-             has_shared_palette ? palette.text_muted : (SDL_Color){180, 180, 190, 255});
-}
-
-static void RenderRootDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
-    const char* title = NULL;
-    const char* description = "Enter to apply, Esc to cancel.";
-    int width = 0;
-    int height = 0;
-    int textX = 0;
-    int textY = 0;
-    SDL_Rect backdrop = {0, 0, 0, 0};
-    SDL_Rect panel = {0, 0, 0, 0};
-    SDL_Rect inputRect = {0, 0, 0, 0};
-    TTF_Font* font = NULL;
-    char caretBuf[256];
-    int caretOffset = 0;
-    int caretX = 0;
-    int caretTop = 0;
-    int caretBottom = 0;
-    LineDrawing3dThemePalette palette = {0};
-    const bool has_shared_palette = line_drawing3d_shared_theme_resolve_palette(&palette);
-
-    if (!ui->rootDialog.active) return;
-
-    switch (ui->rootDialog.target) {
-        case UI_ROOT_TARGET_INPUT:
-            title = "Set Input Root";
-            break;
-        case UI_ROOT_TARGET_OUTPUT:
-            title = "Set Output Root";
-            break;
-        default:
-            title = "Set Root";
-            break;
-    }
-
-    width = Global_GetScreenWidth();
-    height = Global_GetScreenHeight();
-    backdrop = (SDL_Rect){0, 0, width, height};
-#if !USE_VULKAN
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-#endif
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.modal_scrim.r, palette.modal_scrim.g,
-                               palette.modal_scrim.b, palette.modal_scrim.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
-    }
-    SDL_RenderFillRect(renderer, &backdrop);
-
-    panel = (SDL_Rect){
-        width / 2 - 300,
-        INFO_OVERLAY_HEIGHT + 20,
-        600,
-        154
-    };
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.panel_fill.r, palette.panel_fill.g,
-                               palette.panel_fill.b, palette.panel_fill.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 35, 40, 48, 240);
-    }
-    SDL_RenderFillRect(renderer, &panel);
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.panel_border.r, palette.panel_border.g,
-                               palette.panel_border.b, palette.panel_border.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 90, 100, 115, 255);
-    }
-    SDL_RenderDrawRect(renderer, &panel);
-
-    textX = panel.x + 16;
-    textY = panel.y + 14;
-    DrawText(renderer,
-             title,
-             textX,
-             textY,
-             has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 235, 255});
-    DrawText(renderer,
-             description,
-             textX,
-             textY + 22,
-             has_shared_palette ? palette.text_muted : (SDL_Color){180, 180, 190, 255});
-
-    inputRect = (SDL_Rect){
-        panel.x + 14,
-        panel.y + 58,
-        panel.w - 28,
-        34
-    };
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.background_fill.r, palette.background_fill.g,
-                               palette.background_fill.b, palette.background_fill.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 20, 20, 24, 255);
-    }
-    SDL_RenderFillRect(renderer, &inputRect);
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.panel_border.r, palette.panel_border.g,
-                               palette.panel_border.b, palette.panel_border.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 130, 140, 155, 255);
-    }
-    SDL_RenderDrawRect(renderer, &inputRect);
-    DrawTextClipped(renderer,
-                    ui->rootDialog.buffer,
-                    inputRect.x + 8,
-                    inputRect.y + 8,
-                    inputRect.w - 16,
-                    has_shared_palette ? palette.text_primary : (SDL_Color){255, 255, 255, 255});
-
-    font = FontManager_Get(FONT_DEFAULT);
-    if (font) {
-        size_t len = ui->rootDialog.cursor;
-        if (len >= sizeof(caretBuf)) len = sizeof(caretBuf) - 1;
-        memcpy(caretBuf, ui->rootDialog.buffer, len);
-        caretBuf[len] = '\0';
-        if (TTF_SizeUTF8(font, caretBuf, &caretOffset, NULL) == 0) {
-            caretX = inputRect.x + 8 + caretOffset;
-            if (caretX > inputRect.x + inputRect.w - 8) caretX = inputRect.x + inputRect.w - 8;
-            caretTop = inputRect.y + 4;
-            caretBottom = inputRect.y + inputRect.h - 4;
-            if (has_shared_palette) {
-                SDL_SetRenderDrawColor(renderer,
-                                       palette.text_primary.r, palette.text_primary.g,
-                                       palette.text_primary.b, 220);
-            } else {
-                SDL_SetRenderDrawColor(renderer, 255, 255, 255, 220);
-            }
-            SDL_RenderDrawLine(renderer, caretX, caretTop, caretX, caretBottom);
-        }
-    }
-}
-
-static void RenderLoadMenu(SDL_Renderer* renderer, const UIPanelState* ui) {
-    if (!ui->loadMenu.open) return;
-    LineDrawing3dThemePalette palette = {0};
-    const bool has_shared_palette = line_drawing3d_shared_theme_resolve_palette(&palette);
-
-    SDL_Rect rect = UIPanel_GetLoadMenuRect(ui);
-#if !USE_VULKAN
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-#endif
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.panel_fill.r, palette.panel_fill.g,
-                               palette.panel_fill.b, palette.panel_fill.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 28, 32, 40, 240);
-    }
-    SDL_RenderFillRect(renderer, &rect);
-    if (has_shared_palette) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.panel_border.r, palette.panel_border.g,
-                               palette.panel_border.b, palette.panel_border.a);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 90, 100, 115, 255);
-    }
-    SDL_RenderDrawRect(renderer, &rect);
-
-    int itemHeight = 24;
-    int y = rect.y + 6;
-
-    if (ui->loadMenu.count == 0) {
-        DrawText(renderer, "(No layouts found)", rect.x + 10, y,
-                 has_shared_palette ? palette.text_muted : (SDL_Color){190, 190, 195, 255});
-        return;
-    }
-
-    for (int i = 0; i < ui->loadMenu.count; ++i) {
-        if (i == ui->loadMenu.hoverIndex) {
-            SDL_Rect highlight = { rect.x + 2, y - 2, rect.w - 4, itemHeight };
-            if (has_shared_palette) {
-                SDL_SetRenderDrawColor(renderer,
-                                       palette.menu_highlight.r, palette.menu_highlight.g,
-                                       palette.menu_highlight.b, palette.menu_highlight.a);
-            } else {
-                SDL_SetRenderDrawColor(renderer, 60, 90, 140, 180);
-            }
-            SDL_RenderFillRect(renderer, &highlight);
-        }
-        DrawTextClipped(renderer,
-                        ui->loadMenu.entries[i],
-                        rect.x + 10,
-                        y + 2,
-                        rect.w - 20,
-                        has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 235, 255});
-        y += itemHeight;
-    }
+    return UIPanel_IsSaveDialogActive() ||
+           UIPanel_IsRootDialogActive() ||
+           UIPanel_IsPrismDimensionDialogActive() ||
+           UIPanel_IsSceneBoundsDialogActive() ||
+           UIPanel_IsConstructionPlaneDialogActive() ||
+           UIPanel_IsObjectTransformDialogActive();
 }
 
 void UIPanel_RenderOverlays(SDL_Renderer* renderer) {
-    const UIPanelState* ui = &g_uiPanel;
-    RenderLoadMenu(renderer, ui);
-    RenderSaveDialog(renderer, ui);
-    RenderRootDialog(renderer, ui);
+    UIPanel_RenderOverlayDialogs(renderer, &g_uiPanel);
 }

@@ -19,6 +19,125 @@
 #include <math.h>
 #include <string.h>
 
+static SDL_Rect PaneRectToClipRect(CorePaneRect rect) {
+    SDL_Rect out = {0, 0, 0, 0};
+    int x0 = (int)floorf(rect.x);
+    int y0 = (int)floorf(rect.y);
+    int x1 = (int)ceilf(rect.x + rect.width);
+    int y1 = (int)ceilf(rect.y + rect.height);
+    if (x1 < x0) x1 = x0;
+    if (y1 < y0) y1 = y0;
+    out.x = x0;
+    out.y = y0;
+    out.w = x1 - x0;
+    out.h = y1 - y0;
+    return out;
+}
+
+static bool ResolvePaneClipRect(const GlobalState* state,
+                                LineDrawingPaneRole role,
+                                SDL_Rect* out_clip) {
+    const LineDrawingPaneHost* pane_host = NULL;
+    CorePaneRect pane_rect = {0};
+    if (!state || !out_clip) return false;
+    pane_host = &state->paneHost;
+    if (!pane_host->initialized) return false;
+    if (!LineDrawingPaneHost_GetRectForRole(pane_host, role, &pane_rect)) return false;
+    *out_clip = PaneRectToClipRect(pane_rect);
+    return out_clip->w > 0 && out_clip->h > 0;
+}
+
+static void ResolvePaneChromeColors(SDL_Color* out_top_fill,
+                                    SDL_Color* out_side_fill,
+                                    SDL_Color* out_center_fill,
+                                    SDL_Color* out_border,
+                                    SDL_Color fallback_center) {
+    LineDrawing3dThemePalette palette = {0};
+    SDL_Color top_fill = (SDL_Color){ 28, 30, 35, 235 };
+    SDL_Color side_fill = (SDL_Color){ 24, 27, 33, 245 };
+    SDL_Color center_fill = fallback_center;
+    SDL_Color border = (SDL_Color){ 74, 82, 96, 255 };
+
+    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
+        top_fill = palette.panel_fill;
+        side_fill = palette.panel_fill;
+        center_fill = palette.background_fill;
+        border = palette.panel_border;
+    }
+
+    top_fill.a = 235;
+    side_fill.a = 245;
+    center_fill.a = 255;
+    border.a = 255;
+
+    if (out_top_fill) *out_top_fill = top_fill;
+    if (out_side_fill) *out_side_fill = side_fill;
+    if (out_center_fill) *out_center_fill = center_fill;
+    if (out_border) *out_border = border;
+}
+
+static void FillPaneRect(SDL_Renderer* renderer, const SDL_Rect* rect, SDL_Color color) {
+    if (!renderer || !rect || rect->w <= 0 || rect->h <= 0) return;
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    (void)SDL_RenderFillRect(renderer, rect);
+}
+
+static void RenderPaneChromeBase(SDL_Renderer* renderer,
+                                 const SDL_Rect* top_rect,
+                                 const SDL_Rect* left_rect,
+                                 const SDL_Rect* center_rect,
+                                 const SDL_Rect* right_rect,
+                                 bool has_top,
+                                 bool has_left,
+                                 bool has_center,
+                                 bool has_right,
+                                 SDL_Color top_fill,
+                                 SDL_Color side_fill,
+                                 SDL_Color center_fill) {
+    if (!renderer) return;
+    if (has_top) FillPaneRect(renderer, top_rect, top_fill);
+    if (has_left) FillPaneRect(renderer, left_rect, side_fill);
+    if (has_center) FillPaneRect(renderer, center_rect, center_fill);
+    if (has_right) FillPaneRect(renderer, right_rect, side_fill);
+}
+
+static void RenderPaneChromeBorders(SDL_Renderer* renderer,
+                                    const SDL_Rect* top_rect,
+                                    const SDL_Rect* left_rect,
+                                    const SDL_Rect* center_rect,
+                                    const SDL_Rect* right_rect,
+                                    bool has_top,
+                                    bool has_left,
+                                    bool has_center,
+                                    bool has_right,
+                                    SDL_Color border) {
+    if (!renderer) return;
+    SDL_SetRenderDrawColor(renderer, border.r, border.g, border.b, border.a);
+    if (has_top) (void)SDL_RenderDrawRect(renderer, top_rect);
+    if (has_left) (void)SDL_RenderDrawRect(renderer, left_rect);
+    if (has_center) (void)SDL_RenderDrawRect(renderer, center_rect);
+    if (has_right) (void)SDL_RenderDrawRect(renderer, right_rect);
+
+    if (has_top) {
+        const int y = top_rect->y + top_rect->h - 1;
+        int x1 = top_rect->x;
+        int x2 = top_rect->x + top_rect->w - 1;
+        (void)SDL_RenderDrawLine(renderer, x1, y, x2, y);
+    }
+    if (has_left && has_center) {
+        const int x = left_rect->x + left_rect->w - 1;
+        const int y1 = left_rect->y;
+        const int y2 = left_rect->y + left_rect->h - 1;
+        (void)SDL_RenderDrawLine(renderer, x, y1, x, y2);
+    }
+    if (has_right && has_center) {
+        const int x = right_rect->x;
+        const int y1 = right_rect->y;
+        const int y2 = right_rect->y + right_rect->h - 1;
+        (void)SDL_RenderDrawLine(renderer, x, y1, x, y2);
+    }
+}
+
 static void DrawAxisArrow(SDL_Renderer* renderer,
                           const Grid* grid,
                           Vec2 from,
@@ -157,18 +276,54 @@ void Render_SubmitFrame(AppContext* ctx,
     uint32_t before_draws = 0;
     bool should_log = false;
     UIPanelState* panel = NULL;
+    SDL_Rect center_clip = {0, 0, 0, 0};
+    SDL_Rect top_clip = {0, 0, 0, 0};
+    SDL_Rect left_clip = {0, 0, 0, 0};
+    SDL_Rect right_clip = {0, 0, 0, 0};
+    bool has_center_clip = false;
+    bool has_top_clip = false;
+    bool has_left_clip = false;
+    bool has_right_clip = false;
+    SDL_Color chrome_top_fill = {0};
+    SDL_Color chrome_side_fill = {0};
+    SDL_Color chrome_center_fill = {0};
+    SDL_Color chrome_border = {0};
 
     if (!ctx || !derive_frame || !derive_frame->valid || !derive_frame->state) return;
 
     vk = (VkRenderer*)ctx->renderer;
     before_draws = derive_frame->vk_draw_calls_before;
     should_log = (logged_counts == 0);
+    has_center_clip = ResolvePaneClipRect(derive_frame->state, LINE_DRAWING_PANE_ROLE_CENTER_CANVAS, &center_clip);
+    has_top_clip = ResolvePaneClipRect(derive_frame->state, LINE_DRAWING_PANE_ROLE_TOP_BAR, &top_clip);
+    has_left_clip = ResolvePaneClipRect(derive_frame->state, LINE_DRAWING_PANE_ROLE_LEFT_CONTROLS, &left_clip);
+    has_right_clip = ResolvePaneClipRect(derive_frame->state, LINE_DRAWING_PANE_ROLE_RIGHT_CONTROLS, &right_clip);
 
     VulkanAdapter_Clear(ctx->renderer,
                         derive_frame->screen_width,
                         derive_frame->screen_height,
                         derive_frame->background);
+    ResolvePaneChromeColors(&chrome_top_fill,
+                            &chrome_side_fill,
+                            &chrome_center_fill,
+                            &chrome_border,
+                            derive_frame->background);
+    RenderPaneChromeBase(ctx->renderer,
+                         &top_clip,
+                         &left_clip,
+                         &center_clip,
+                         &right_clip,
+                         has_top_clip,
+                         has_left_clip,
+                         has_center_clip,
+                         has_right_clip,
+                         chrome_top_fill,
+                         chrome_side_fill,
+                         chrome_center_fill);
 
+    if (has_center_clip) {
+        (void)SDL_RenderSetClipRect(ctx->renderer, &center_clip);
+    }
     if (!derive_frame->free_view_enabled) {
         Render_Grid(derive_frame->grid,
                     ctx->renderer,
@@ -187,13 +342,50 @@ void Render_SubmitFrame(AppContext* ctx,
     Render_Editor_GhostWall(derive_frame->editor, ctx);
     Render_Editor_SelectionBox(derive_frame->editor, ctx);
     Render_ViewCenterCrosshair(ctx->renderer, derive_frame->state);
+    if (has_center_clip) {
+        (void)SDL_RenderSetClipRect(ctx->renderer, NULL);
+    }
     LogDrawCallDelta("Editor overlay", should_log, vk, &before_draws);
 
+    if (has_top_clip) {
+        (void)SDL_RenderSetClipRect(ctx->renderer, &top_clip);
+    }
     Render_InfoOverlay(ctx->renderer);
+    if (has_top_clip) {
+        (void)SDL_RenderSetClipRect(ctx->renderer, NULL);
+    }
     LogDrawCallDelta("Info overlay", should_log, vk, &before_draws);
 
     panel = UIPanel_Get();
-    Render_UIPanel(panel, ctx->renderer);
+    if (has_left_clip) {
+        (void)SDL_RenderSetClipRect(ctx->renderer, &left_clip);
+    }
+    Render_UIPanelSide(panel, ctx->renderer, UI_PANEL_LEFT);
+    Render_UIPanelRootSummary(panel, ctx->renderer);
+    if (has_left_clip) {
+        (void)SDL_RenderSetClipRect(ctx->renderer, NULL);
+    }
+
+    if (has_right_clip) {
+        (void)SDL_RenderSetClipRect(ctx->renderer, &right_clip);
+    }
+    Render_UIPanelSide(panel, ctx->renderer, UI_PANEL_RIGHT);
+    Render_UIPanelObjectSummary(panel, ctx->renderer);
+    if (has_right_clip) {
+        (void)SDL_RenderSetClipRect(ctx->renderer, NULL);
+    }
+
+    RenderPaneChromeBorders(ctx->renderer,
+                            &top_clip,
+                            &left_clip,
+                            &center_clip,
+                            &right_clip,
+                            has_top_clip,
+                            has_left_clip,
+                            has_center_clip,
+                            has_right_clip,
+                            chrome_border);
+
     UIPanel_RenderOverlays(ctx->renderer);
     LogDrawCallDelta("UI panel", should_log, vk, &before_draws);
 
