@@ -1,5 +1,7 @@
 # Line Drawing Docs Index
 
+Last updated: 2026-04-12
+
 Start here for public repository documentation.
 
 ## Scaffold State
@@ -21,6 +23,7 @@ Current verification contract:
 ## Public Runtime Docs
 - `README.md` (repo root): product/runtime overview and build/run flow.
 - `docs/KEYBINDINGS.md`: current runtime keybind reference.
+- `src/*/README.md`: module-level current-state references for the rehomed source tree (`adapters/`, `panel/`, `overlay/`, `scene/`, `primitives/`, `mouse/`, `render/`, `gizmo/`).
 
 ## Private Planning Docs
 - Private scaffold plans and internal execution docs are in the workspace private docs bucket:

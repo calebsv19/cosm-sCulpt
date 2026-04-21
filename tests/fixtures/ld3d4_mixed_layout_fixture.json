@@ -1,0 +1,113 @@
+{
+  "file": {
+    "schemaVersion": 8,
+    "generator": "LineDrawing",
+    "gridSize": 1
+  },
+  "scene3d": {
+    "bounds": {
+      "enabled": true,
+      "clampOnEdit": false,
+      "min": { "x": -20, "y": -20, "z": -10 },
+      "max": { "x": 20, "y": 20, "z": 10 }
+    },
+    "constructionPlane": {
+      "mode": "axis_aligned",
+      "axis": "xy",
+      "offset": 0.5,
+      "customFrame": {
+        "origin": { "x": 0, "y": 0, "z": 0.5 },
+        "axisU": { "x": 1, "y": 0, "z": 0 },
+        "axisV": { "x": 0, "y": 1, "z": 0 },
+        "normal": { "x": 0, "y": 0, "z": 1 }
+      }
+    }
+  },
+  "objects3d": [
+    {
+      "id": 7,
+      "kind": "rect_prism",
+      "objectType": "rect_prism_primitive",
+      "dimensionalMode": "full_3d",
+      "lockedPlane": "xy",
+      "transform": {
+        "position": { "x": 1.5, "y": 0.5, "z": 1.25 },
+        "rotationDeg": { "x": 0, "y": 0, "z": 0 },
+        "scale": { "x": 1, "y": 1, "z": 1 }
+      },
+      "rectPrism": {
+        "width": 2.5,
+        "height": 1.5,
+        "depth": 3.0,
+        "lockToConstructionPlane": true,
+        "lockToBounds": false,
+        "frame": {
+          "origin": { "x": 1.5, "y": 0.5, "z": 1.25 },
+          "axisU": { "x": 1, "y": 0, "z": 0 },
+          "axisV": { "x": 0, "y": 1, "z": 0 },
+          "normal": { "x": 0, "y": 0, "z": 1 }
+        }
+      }
+    }
+  ],
+  "anchors": [
+    {
+      "x": -5,
+      "y": -2,
+      "z": 0,
+      "persistent": false,
+      "type": "corner",
+      "handlesLinked": true,
+      "handleAxis": "xy",
+      "handleInLength": 0,
+      "handleInAngleDeg": 0,
+      "handleOutLength": 0,
+      "handleOutAngleDeg": 0
+    },
+    {
+      "x": 5,
+      "y": -2,
+      "z": 0,
+      "persistent": false,
+      "type": "corner",
+      "handlesLinked": true,
+      "handleAxis": "xy",
+      "handleInLength": 0,
+      "handleInAngleDeg": 0,
+      "handleOutLength": 0,
+      "handleOutAngleDeg": 0
+    },
+    {
+      "x": 5,
+      "y": 3,
+      "z": 0,
+      "persistent": false,
+      "type": "corner",
+      "handlesLinked": true,
+      "handleAxis": "xy",
+      "handleInLength": 0,
+      "handleInAngleDeg": 0,
+      "handleOutLength": 0,
+      "handleOutAngleDeg": 0
+    },
+    {
+      "x": -5,
+      "y": 3,
+      "z": 0,
+      "persistent": false,
+      "type": "corner",
+      "handlesLinked": true,
+      "handleAxis": "xy",
+      "handleInLength": 0,
+      "handleInAngleDeg": 0,
+      "handleOutLength": 0,
+      "handleOutAngleDeg": 0
+    }
+  ],
+  "walls": [
+    { "a": 0, "b": 1 },
+    { "a": 1, "b": 2 },
+    { "a": 2, "b": 3 },
+    { "a": 3, "b": 0 }
+  ]
+}

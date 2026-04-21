@@ -1,0 +1,79 @@
+{
+  "file": {
+    "schemaVersion": 8,
+    "generator": "LineDrawing",
+    "gridSize": 1
+  },
+  "scene3d": {
+    "bounds": {
+      "enabled": true,
+      "clampOnEdit": true,
+      "min": { "x": -12, "y": -10, "z": -8 },
+      "max": { "x": 12, "y": 10, "z": 8 }
+    },
+    "constructionPlane": {
+      "mode": "axis_aligned",
+      "axis": "yz",
+      "offset": 1.25,
+      "customFrame": {
+        "origin": { "x": 1.25, "y": 0, "z": 0 },
+        "axisU": { "x": 0, "y": 1, "z": 0 },
+        "axisV": { "x": 0, "y": 0, "z": 1 },
+        "normal": { "x": 1, "y": 0, "z": 0 }
+      }
+    }
+  },
+  "objects3d": [
+    {
+      "id": 1,
+      "kind": "plane",
+      "objectType": "plane_primitive",
+      "dimensionalMode": "plane_locked",
+      "lockedPlane": "yz",
+      "transform": {
+        "position": { "x": 1.25, "y": 0.5, "z": -0.75 },
+        "rotationDeg": { "x": 0, "y": 0, "z": 0 },
+        "scale": { "x": 1, "y": 1, "z": 1 }
+      },
+      "plane": {
+        "width": 4.5,
+        "height": 2.5,
+        "lockToConstructionPlane": true,
+        "lockToBounds": false,
+        "frame": {
+          "origin": { "x": 1.25, "y": 0.5, "z": -0.75 },
+          "axisU": { "x": 0, "y": 1, "z": 0 },
+          "axisV": { "x": 0, "y": 0, "z": 1 },
+          "normal": { "x": 1, "y": 0, "z": 0 }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "kind": "rect_prism",
+      "objectType": "rect_prism_primitive",
+      "dimensionalMode": "full_3d",
+      "lockedPlane": "yz",
+      "transform": {
+        "position": { "x": 2.75, "y": -1.5, "z": 1.0 },
+        "rotationDeg": { "x": 0, "y": 0, "z": 0 },
+        "scale": { "x": 1, "y": 1, "z": 1 }
+      },
+      "rectPrism": {
+        "width": 3.0,
+        "height": 2.0,
+        "depth": 1.5,
+        "lockToConstructionPlane": false,
+        "lockToBounds": true,
+        "frame": {
+          "origin": { "x": 2.75, "y": -1.5, "z": 1.0 },
+          "axisU": { "x": 0, "y": 1, "z": 0 },
+          "axisV": { "x": 0, "y": 0, "z": 1 },
+          "normal": { "x": 1, "y": 0, "z": 0 }
+        }
+      }
+    }
+  ],
+  "anchors": [],
+  "walls": []
+}

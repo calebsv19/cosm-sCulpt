@@ -1,6 +1,6 @@
 # Line Drawing Current Truth
 
-Last updated: 2026-04-11
+Last updated: 2026-04-12
 
 ## Program Identity
 - repository directory: `line_drawing/`
@@ -21,6 +21,19 @@ Last updated: 2026-04-11
   - `external/` (vendored dependency lane)
 - active source subsystem lanes:
   - `Core`, `Editor`, `Input`, `Layout`, `Math`, `Render`, `Tools`, `UI`, `app`
+- current source-layout rehome notes:
+  - `src/Core/adapters/space_mode_adapter.c`
+  - `src/Editor/render/render_editor.c`
+  - `src/Editor/gizmo/space_gizmo_drag.c`
+  - `src/Input/mouse/input_mouse_drag.c`
+  - `src/Layout/scene/layout_scene3d.c`
+  - `src/Layout/scene/layout_object_store.c`
+  - `src/Layout/primitives/layout_primitives_create.c`
+  - `src/Layout/primitives/layout_primitives_resize.c`
+  - `src/Layout/primitives/layout_primitives_rect_prism_resize.c`
+  - `src/Render/adapters/vulkan_adapter.c`
+  - `src/UI/panel/` now owns the pane/button input-render/dialog/file-op slices
+  - `src/UI/overlay/ui_panel_overlay_render.c` owns panel overlay/dropdown/modal rendering
 
 ## Runtime/Verification Contract (Current)
 - build:
@@ -36,6 +49,10 @@ Stable test lane:
   - `test`
 - scene export/compile smoke lane:
   - `make -C line_drawing scene-pipeline-smoke`
+  - current fixture coverage:
+    - `tests/fixtures/ld3d2_layout_fixture.json` (baseline 2D)
+    - `tests/fixtures/ld3d3_primitive_layout_fixture.json` (pure 3D primitives)
+    - `tests/fixtures/ld3d4_mixed_layout_fixture.json` (mixed 2D + 3D)
 
 Legacy test lane:
 - `make -C line_drawing test-legacy`
@@ -164,7 +181,12 @@ Desktop packaging lane:
   - construction plane: `mode`, `axis`, `offset`, `custom_frame`
 - authored plane/prism primitives now export as canonical `objects[]` entries:
   - stable object IDs lift from the layout object store (`obj3d_<id>`)
-  - object-local primitive dimensions/frame remain namespaced under `extensions.line_drawing.primitive_payload`
+  - object-local canonical `primitive` payload now carries:
+    - `kind`
+    - dimensions (`width`, `height`, optional `depth`)
+    - lock flags
+    - frame (`origin`, `axis_u`, `axis_v`, `normal`)
+  - compatibility/provenance remains preserved under `extensions.line_drawing.primitive_payload`
 - root 2D/3D intent now reflects authored 3D state from scene settings/object-store content, so pure-primitive scenes export as `3d` without requiring nonzero anchor `z`.
 - right-pane selected-object transform controls are now active:
   - `Edit Pos` opens a typed vector dialog in the current display units and applies via `Layout_SetObject3DPosition(...)`
@@ -181,6 +203,14 @@ Desktop packaging lane:
   - `tools/scene_export_compile_pipeline.sh`
   - `make -C line_drawing scene-export-compile`
   - runtime compile path uses shared `core_scene_compile` tool boundary.
+- post-`F8` shared-scene contract lane status:
+  - `LD3D-SC0` complete: layer model + current exporter/runtime gap frozen
+  - `LD3D-SC1` shared-model/bootstrap complete in shared `core_scene`
+  - exporter remap slice complete: canonical primitive payload now exports directly from `line_drawing`
+  - `LD3D-SC3` complete: `core_scene_compile` now explicitly validates known primitive object contracts and preserves canonical `objects[].primitive` payloads in runtime output
+  - `LD3D-SC4` complete: deterministic fixture coverage now includes real schema-v8 pure-3D and mixed-scene layout documents in stable tests and smoke
+  - `LD3D-SC5` complete: `line_drawing` is now closed as the upstream authoring/export source for the current primitive scope
+  - next downstream boundary should move into consumer planning, starting with `physics_sim`
 
 ## Scaffold Migration State
 - private migration plan:

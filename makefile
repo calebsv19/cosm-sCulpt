@@ -125,7 +125,7 @@ LDFLAGS := $(SDL_LDFLAGS) $(SDL_LIBS) $(SDL_TTF_LIB) $(SDL_FRAMEWORKS) $(VULKAN_
 APP_SRCS := $(shell find $(SRC_DIR) -name '*.c' ! -path '$(TOOLS_DIR)/*')
 VK_RENDERER_SRCS := $(shell find $(VK_RENDERER_DIR)/src -name '*.c')
 SHAPE_LIB_SRCS := $(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
-SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c $(TOOLS_DIR)/canonical_scene_export.c
+SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c $(TOOLS_DIR)/canonical_scene_export.c $(TOOLS_DIR)/canonical_scene_export_primitives.c
 EXT_SRCS := $(EXT_DIR)/cjson/cJSON.c
 CORE_TIME_SRCS := $(CORE_TIME_DIR)/src/core_time.c
 ifeq ($(UNAME_S),Darwin)
@@ -216,12 +216,7 @@ scene-export-compile:
 		--runtime-out ./tmp/ld3d2/scene_runtime.json
 
 scene-pipeline-smoke:
-	@./tools/scene_export_compile_pipeline.sh \
-		--layout ./tests/fixtures/ld3d2_layout_fixture.json \
-		--scene-id scene_line_drawing_ld3d2_smoke \
-		--authoring-out ./tmp/ld3d2_smoke/scene_authoring.json \
-		--runtime-out ./tmp/ld3d2_smoke/scene_runtime.json \
-		--determinism-check
+	@bash ./tests/test_scene_pipeline_fixtures.sh
 
 visual-harness:
 	@$(MAKE) all
@@ -499,24 +494,29 @@ SHAPE_TOOL_SRCS := \
 	$(TOOLS_DIR)/shape_from_layout.c \
 	$(TOOLS_DIR)/shape_export.c \
 	$(TOOLS_DIR)/canonical_scene_export.c \
+	$(TOOLS_DIR)/canonical_scene_export_primitives.c \
 	$(TOOLS_DIR)/shape_dataset.c \
 	$(TOOLS_DIR)/global_state_stub.c \
 	$(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
 SHAPE_TOOL_OBJS := $(patsubst $(TOOLS_DIR)/%.c,$(BUILD_DIR)/tools/%.o,$(SHAPE_TOOL_SRCS))
-SHAPE_TOOL_SHARED_OBJS := \
-	$(OBJ_DIR)/external/cjson/cJSON.o \
-	$(OBJ_DIR)/src/Core/data_paths.o \
-	$(OBJ_DIR)/src/Core/space_mode_adapter.o \
-	$(OBJ_DIR)/src/Layout/layout.o \
-	$(OBJ_DIR)/src/Layout/layout_json.o \
-	$(OBJ_DIR)/../shared/core/core_base/src/core_base.o \
-	$(OBJ_DIR)/../shared/core/core_io/src/core_io.o \
-	$(OBJ_DIR)/../shared/core/core_data/src/core_data.o \
-	$(OBJ_DIR)/../shared/core/core_pack/src/core_pack.o \
-	$(OBJ_DIR)/../shared/core/core_math/src/core_math.o \
-	$(OBJ_DIR)/../shared/core/core_scene/src/core_scene.o \
-	$(OBJ_DIR)/../shared/core/core_object/src/core_object.o \
-	$(OBJ_DIR)/../shared/core/core_units/src/core_units.o
+SHAPE_TOOL_SUPPORT_SRCS := \
+	$(EXT_DIR)/cjson/cJSON.c \
+	$(SRC_DIR)/Core/data_paths.c \
+	$(SRC_DIR)/Core/adapters/space_mode_adapter.c \
+	$(SRC_DIR)/Layout/layout.c \
+	$(SRC_DIR)/Layout/layout_json.c \
+	$(SRC_DIR)/Layout/scene/layout_scene3d.c \
+	$(SRC_DIR)/Layout/scene/layout_object_store.c \
+	$(SRC_DIR)/Layout/primitives/layout_primitives_create.c \
+	$(CORE_BASE_DIR)/src/core_base.c \
+	$(CORE_IO_DIR)/src/core_io.c \
+	$(CORE_DATA_DIR)/src/core_data.c \
+	$(CORE_PACK_DIR)/src/core_pack.c \
+	$(CORE_MATH_DIR)/src/core_math.c \
+	$(CORE_SCENE_DIR)/src/core_scene.c \
+	$(CORE_OBJECT_DIR)/src/core_object.c \
+	$(CORE_UNITS_DIR)/src/core_units.c
+SHAPE_TOOL_SHARED_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SHAPE_TOOL_SUPPORT_SRCS))
 SHAPE_TOOL_BIN := $(BIN_DIR)/shape_tool
 
 # Compile Tools/*.c into build/tools/*.o
@@ -538,16 +538,7 @@ SHAPE_PACK_TOOL_SRCS := \
 	$(TOOLS_DIR)/shape_pack_tool.c \
 	$(TOOLS_DIR)/shape_dataset.c \
 	$(TOOLS_DIR)/global_state_stub.c \
-	$(SRC_DIR)/Core/space_mode_adapter.c \
-	$(SRC_DIR)/Layout/layout.c \
-	$(SRC_DIR)/Layout/layout_json.c \
-	$(EXT_DIR)/cjson/cJSON.c \
-	$(CORE_DATA_DIR)/src/core_data.c \
-	$(CORE_PACK_DIR)/src/core_pack.c \
-	$(CORE_SCENE_DIR)/src/core_scene.c \
-	$(CORE_IO_DIR)/src/core_io.c \
-	$(CORE_MATH_DIR)/src/core_math.c \
-	$(CORE_BASE_DIR)/src/core_base.c
+	$(SHAPE_TOOL_SUPPORT_SRCS)
 
 shape_pack_tool:
 	@mkdir -p $(BIN_DIR)

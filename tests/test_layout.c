@@ -21,6 +21,38 @@ static bool nearly_equal(float a, float b) {
     return fabsf(a - b) < 0.0001f;
 }
 
+static char* read_text_file(const char* path) {
+    FILE* f = NULL;
+    long len = 0;
+    char* buf = NULL;
+
+    if (!path) return NULL;
+    f = fopen(path, "rb");
+    if (!f) return NULL;
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return NULL;
+    }
+    len = ftell(f);
+    if (len < 0 || fseek(f, 0, SEEK_SET) != 0) {
+        fclose(f);
+        return NULL;
+    }
+    buf = (char*)malloc((size_t)len + 1u);
+    if (!buf) {
+        fclose(f);
+        return NULL;
+    }
+    if (fread(buf, 1u, (size_t)len, f) != (size_t)len) {
+        fclose(f);
+        free(buf);
+        return NULL;
+    }
+    fclose(f);
+    buf[len] = '\0';
+    return buf;
+}
+
 static bool vec3_nearly_equal(Vec3 a, Vec3 b) {
     return nearly_equal(a.x, b.x) &&
            nearly_equal(a.y, b.y) &&
@@ -2816,10 +2848,19 @@ static bool test_canonical_scene_export_includes_scene3d_and_primitive_payloads(
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(plane_obj, "projection_policy")->valuestring, "plane_yz_lock") == 0);
 
         {
+            cJSON* plane_canonical = cJSON_GetObjectItem(plane_obj, "primitive");
             cJSON* plane_ext = cJSON_GetObjectItem(cJSON_GetObjectItem(plane_obj, "extensions"), "line_drawing");
             cJSON* plane_payload = cJSON_IsObject(plane_ext)
                 ? cJSON_GetObjectItem(plane_ext, "primitive_payload")
                 : NULL;
+            TEST_ASSERT(cJSON_IsObject(plane_canonical));
+            TEST_ASSERT(strcmp(cJSON_GetObjectItem(plane_canonical, "kind")->valuestring,
+                               "plane_primitive") == 0);
+            TEST_ASSERT(nearly_equal((float)cJSON_GetObjectItem(plane_canonical, "width")->valuedouble, 4.0f));
+            TEST_ASSERT(nearly_equal((float)cJSON_GetObjectItem(plane_canonical, "height")->valuedouble, 2.0f));
+            TEST_ASSERT(cJSON_IsObject(cJSON_GetObjectItem(plane_canonical, "frame")));
+            TEST_ASSERT(cJSON_IsObject(cJSON_GetObjectItem(cJSON_GetObjectItem(plane_canonical, "frame"),
+                                                           "axis_u")));
             TEST_ASSERT(cJSON_IsObject(plane_payload));
             TEST_ASSERT(strcmp(cJSON_GetObjectItem(plane_ext, "primitive_kind")->valuestring, "plane") == 0);
             TEST_ASSERT(nearly_equal((float)cJSON_GetObjectItem(plane_payload, "width")->valuedouble, 4.0f));
@@ -2833,10 +2874,18 @@ static bool test_canonical_scene_export_includes_scene3d_and_primitive_payloads(
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(prism_obj, "space_mode_intent")->valuestring, "3d") == 0);
 
         {
+            cJSON* prism_canonical = cJSON_GetObjectItem(prism_obj, "primitive");
             cJSON* prism_ext = cJSON_GetObjectItem(cJSON_GetObjectItem(prism_obj, "extensions"), "line_drawing");
             cJSON* prism_payload = cJSON_IsObject(prism_ext)
                 ? cJSON_GetObjectItem(prism_ext, "primitive_payload")
                 : NULL;
+            TEST_ASSERT(cJSON_IsObject(prism_canonical));
+            TEST_ASSERT(strcmp(cJSON_GetObjectItem(prism_canonical, "kind")->valuestring,
+                               "rect_prism_primitive") == 0);
+            TEST_ASSERT(nearly_equal((float)cJSON_GetObjectItem(prism_canonical, "depth")->valuedouble, 1.5f));
+            TEST_ASSERT(cJSON_IsObject(cJSON_GetObjectItem(prism_canonical, "frame")));
+            TEST_ASSERT(cJSON_IsObject(cJSON_GetObjectItem(cJSON_GetObjectItem(prism_canonical, "frame"),
+                                                           "axis_u")));
             TEST_ASSERT(cJSON_IsObject(prism_payload));
             TEST_ASSERT(strcmp(cJSON_GetObjectItem(prism_ext, "primitive_kind")->valuestring, "rect_prism") == 0);
             TEST_ASSERT(nearly_equal((float)cJSON_GetObjectItem(prism_payload, "depth")->valuedouble, 1.5f));
@@ -2845,6 +2894,100 @@ static bool test_canonical_scene_export_includes_scene3d_and_primitive_payloads(
     }
 
     cJSON_Delete(root);
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_fixture_pure_3d_primitives_export_contract(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    char* fixture_json = read_text_file("tests/fixtures/ld3d3_primitive_layout_fixture.json");
+    TEST_ASSERT(fixture_json != NULL);
+    TEST_ASSERT(Layout_LoadFromString(layout, fixture_json));
+    free(fixture_json);
+
+    TEST_ASSERT(Layout_ObjectStore_LiveCount(&layout->objectStore) == 2u);
+    TEST_ASSERT(layout->scene3d.bounds.enabled == true);
+    TEST_ASSERT(layout->scene3d.constructionPlane.axisAligned.axis == VIEW_PLANE_YZ);
+
+    {
+        const Object3D* plane = Layout_ObjectStore_FindConst(&layout->objectStore, 1u);
+        const Object3D* prism = Layout_ObjectStore_FindConst(&layout->objectStore, 2u);
+        char* scene_json = NULL;
+        cJSON* root = NULL;
+        cJSON* objects = NULL;
+        cJSON* plane_obj = NULL;
+        cJSON* prism_obj = NULL;
+
+        TEST_ASSERT(plane != NULL);
+        TEST_ASSERT(prism != NULL);
+        TEST_ASSERT(plane->kind == OBJECT3D_KIND_PLANE);
+        TEST_ASSERT(prism->kind == OBJECT3D_KIND_RECT_PRISM);
+        TEST_ASSERT(nearly_equal(plane->plane.width, 4.5f));
+        TEST_ASSERT(nearly_equal(prism->rectPrism.depth, 1.5f));
+
+        scene_json = LineDrawingCanonicalScene_ExportLayoutToString(layout, "scene_fixture_pure_3d");
+        TEST_ASSERT(scene_json != NULL);
+        root = cJSON_Parse(scene_json);
+        TEST_ASSERT(root != NULL);
+        free(scene_json);
+
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(root, "space_mode_default")->valuestring, "3d") == 0);
+        objects = cJSON_GetObjectItem(root, "objects");
+        TEST_ASSERT(cJSON_IsArray(objects));
+        plane_obj = find_object_by_id(objects, "obj3d_1");
+        prism_obj = find_object_by_id(objects, "obj3d_2");
+        TEST_ASSERT(cJSON_IsObject(plane_obj));
+        TEST_ASSERT(cJSON_IsObject(prism_obj));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(cJSON_GetObjectItem(plane_obj, "primitive"), "kind")->valuestring,
+                           "plane_primitive") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(cJSON_GetObjectItem(prism_obj, "primitive"), "kind")->valuestring,
+                           "rect_prism_primitive") == 0);
+        cJSON_Delete(root);
+    }
+
+    shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_fixture_mixed_2d_3d_export_contract(void) {
+    init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    char* fixture_json = read_text_file("tests/fixtures/ld3d4_mixed_layout_fixture.json");
+    TEST_ASSERT(fixture_json != NULL);
+    TEST_ASSERT(Layout_LoadFromString(layout, fixture_json));
+    free(fixture_json);
+
+    TEST_ASSERT(layout->anchorCount == 4u);
+    TEST_ASSERT(layout->wallCount == 4u);
+    TEST_ASSERT(Layout_ObjectStore_LiveCount(&layout->objectStore) == 1u);
+
+    {
+        char* scene_json = LineDrawingCanonicalScene_ExportLayoutToString(layout, "scene_fixture_mixed");
+        cJSON* root = NULL;
+        cJSON* objects = NULL;
+        cJSON* layout_obj = NULL;
+        cJSON* prism_obj = NULL;
+        TEST_ASSERT(scene_json != NULL);
+        root = cJSON_Parse(scene_json);
+        TEST_ASSERT(root != NULL);
+        free(scene_json);
+
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(root, "space_mode_default")->valuestring, "3d") == 0);
+        objects = cJSON_GetObjectItem(root, "objects");
+        TEST_ASSERT(cJSON_IsArray(objects));
+        layout_obj = find_object_by_id(objects, "obj_line_drawing_layout");
+        prism_obj = find_object_by_id(objects, "obj3d_7");
+        TEST_ASSERT(cJSON_IsObject(layout_obj));
+        TEST_ASSERT(cJSON_IsObject(prism_obj));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(layout_obj, "object_type")->valuestring, "curve_path") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(cJSON_GetObjectItem(prism_obj, "primitive"), "kind")->valuestring,
+                           "rect_prism_primitive") == 0);
+        cJSON_Delete(root);
+    }
+
     shutdown_runtime();
     return true;
 }
@@ -3027,6 +3170,10 @@ bool layout_run_tests(void) {
           test_canonical_scene_export_preserves_existing_scene_id_and_canonical_object_ids },
         { "CanonicalSceneExportIncludesScene3DAndPrimitivePayloads",
           test_canonical_scene_export_includes_scene3d_and_primitive_payloads },
+        { "LayoutFixturePure3DPrimitivesExportContract",
+          test_layout_fixture_pure_3d_primitives_export_contract },
+        { "LayoutFixtureMixed2D3DExportContract",
+          test_layout_fixture_mixed_2d_3d_export_contract },
         { "CanonicalSceneExportAppliesSceneAuthoringOptions",
           test_canonical_scene_export_applies_scene_authoring_options },
         { "CanonicalSceneExportRejectsInvalidSceneAuthoringOptions",
