@@ -10,23 +10,27 @@ SRC_DIR := src
 TOOLS_DIR := $(SRC_DIR)/Tools
 EXT_DIR := external
 TEST_DIR := tests
-VK_RENDERER_DIR := ../shared/vk_renderer
-CORE_BASE_DIR := ../shared/core/core_base
-CORE_IO_DIR := ../shared/core/core_io
-CORE_DATA_DIR := ../shared/core/core_data
-CORE_MATH_DIR := ../shared/core/core_math
-CORE_TIME_DIR := ../shared/core/core_time
-CORE_SCENE_DIR := ../shared/core/core_scene
-CORE_OBJECT_DIR := ../shared/core/core_object
-CORE_UNITS_DIR := ../shared/core/core_units
-CORE_LAYOUT_DIR := ../shared/core/core_layout
-CORE_PANE_DIR := ../shared/core/core_pane
-CORE_PANE_MODULE_DIR := ../shared/core/core_pane_module
-CORE_PACK_DIR := ../shared/core/core_pack
-CORE_TRACE_DIR := ../shared/core/core_trace
-CORE_THEME_DIR := ../shared/core/core_theme
-CORE_FONT_DIR := ../shared/core/core_font
-TIMER_HUD_DIR := ../shared/timer_hud
+SHARED_ROOT ?= third_party/codework_shared
+SHARED_ASSETS_DIR := $(SHARED_ROOT)/assets
+SHAPE_DIR := $(SHARED_ROOT)/shape
+KIT_RENDER_DIR := $(SHARED_ROOT)/kit/kit_render
+VK_RENDERER_DIR := $(SHARED_ROOT)/vk_renderer
+CORE_BASE_DIR := $(SHARED_ROOT)/core/core_base
+CORE_IO_DIR := $(SHARED_ROOT)/core/core_io
+CORE_DATA_DIR := $(SHARED_ROOT)/core/core_data
+CORE_MATH_DIR := $(SHARED_ROOT)/core/core_math
+CORE_TIME_DIR := $(SHARED_ROOT)/core/core_time
+CORE_SCENE_DIR := $(SHARED_ROOT)/core/core_scene
+CORE_OBJECT_DIR := $(SHARED_ROOT)/core/core_object
+CORE_UNITS_DIR := $(SHARED_ROOT)/core/core_units
+CORE_LAYOUT_DIR := $(SHARED_ROOT)/core/core_layout
+CORE_PANE_DIR := $(SHARED_ROOT)/core/core_pane
+CORE_PANE_MODULE_DIR := $(SHARED_ROOT)/core/core_pane_module
+CORE_PACK_DIR := $(SHARED_ROOT)/core/core_pack
+CORE_TRACE_DIR := $(SHARED_ROOT)/core/core_trace
+CORE_THEME_DIR := $(SHARED_ROOT)/core/core_theme
+CORE_FONT_DIR := $(SHARED_ROOT)/core/core_font
+TIMER_HUD_DIR := $(SHARED_ROOT)/timer_hud
 
 # SDL detection aligned with physics_sim style: explicit macOS paths first,
 # sdl2-config/pkg-config elsewhere.
@@ -104,7 +108,7 @@ ifeq ($(strip $(SDL_LDFLAGS)),)
 endif
 
 WARN_FLAGS := -Wall -Wextra -Werror -Wpedantic
-BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Iinclude -Isrc -Isrc/Tools -Iexternal -I$(VK_RENDERER_DIR)/include -I$(CORE_BASE_DIR)/include -I$(CORE_IO_DIR)/include -I$(CORE_DATA_DIR)/include -I$(CORE_MATH_DIR)/include -I$(CORE_TIME_DIR)/include -I$(CORE_SCENE_DIR)/include -I$(CORE_OBJECT_DIR)/include -I$(CORE_UNITS_DIR)/include -I$(CORE_LAYOUT_DIR)/include -I$(CORE_PANE_DIR)/include -I$(CORE_PANE_MODULE_DIR)/include -I$(CORE_PACK_DIR)/include -I$(CORE_TRACE_DIR)/include -I$(CORE_THEME_DIR)/include -I$(CORE_FONT_DIR)/include -I$(TIMER_HUD_DIR)/include $(SDL_CFLAGS)
+BASE_CFLAGS := $(WARN_FLAGS) -std=c11 -Iinclude -Isrc -Isrc/Tools -Iexternal -I$(VK_RENDERER_DIR)/include -I$(KIT_RENDER_DIR)/include -I$(CORE_BASE_DIR)/include -I$(CORE_IO_DIR)/include -I$(CORE_DATA_DIR)/include -I$(CORE_MATH_DIR)/include -I$(CORE_TIME_DIR)/include -I$(CORE_SCENE_DIR)/include -I$(CORE_OBJECT_DIR)/include -I$(CORE_UNITS_DIR)/include -I$(CORE_LAYOUT_DIR)/include -I$(CORE_PANE_DIR)/include -I$(CORE_PANE_MODULE_DIR)/include -I$(CORE_PACK_DIR)/include -I$(CORE_TRACE_DIR)/include -I$(CORE_THEME_DIR)/include -I$(CORE_FONT_DIR)/include -I$(TIMER_HUD_DIR)/include $(SDL_CFLAGS)
 DEBUG ?= 0
 
 ifeq ($(DEBUG),1)
@@ -122,6 +126,12 @@ endif
 
 LDFLAGS := $(SDL_LDFLAGS) $(SDL_LIBS) $(SDL_TTF_LIB) $(SDL_FRAMEWORKS) $(VULKAN_LIBS) -lm
 
+KIT_RENDER_SRCS := \
+	$(KIT_RENDER_DIR)/src/kit_render.c \
+	$(KIT_RENDER_DIR)/src/kit_render_backend_null.c \
+	$(KIT_RENDER_DIR)/src/kit_render_backend_vk.c \
+	$(KIT_RENDER_DIR)/src/kit_render_external_text.c
+
 APP_SRCS := $(shell find $(SRC_DIR) -name '*.c' ! -path '$(TOOLS_DIR)/*')
 VK_RENDERER_SRCS := $(shell find $(VK_RENDERER_DIR)/src -name '*.c')
 SHAPE_LIB_SRCS := $(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
@@ -135,7 +145,7 @@ else
 endif
 CORE_SRCS := $(CORE_BASE_DIR)/src/core_base.c $(CORE_IO_DIR)/src/core_io.c $(CORE_DATA_DIR)/src/core_data.c $(CORE_PACK_DIR)/src/core_pack.c $(CORE_MATH_DIR)/src/core_math.c $(CORE_TIME_SRCS) $(CORE_SCENE_DIR)/src/core_scene.c $(CORE_OBJECT_DIR)/src/core_object.c $(CORE_UNITS_DIR)/src/core_units.c $(CORE_LAYOUT_DIR)/src/core_layout.c $(CORE_PANE_DIR)/src/core_pane.c $(CORE_PANE_MODULE_DIR)/src/core_pane_module.c $(CORE_THEME_DIR)/src/core_theme.c $(CORE_FONT_DIR)/src/core_font.c
 TIMER_HUD_SRCS := $(shell find $(TIMER_HUD_DIR)/src -name '*.c')
-ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
+ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(KIT_RENDER_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
 
 APP_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(ALL_SRCS))
 APP_TARGET := $(BIN_DIR)/LineDrawing
@@ -179,7 +189,7 @@ TEST_TARGET := $(TEST_BIN_DIR)/run_tests
 
 SHAPE_SANITY_BIN := $(BIN_DIR)/shape_sanity_tool
 SHAPE_PACK_TOOL_BIN := $(BIN_DIR)/shape_pack_tool
-SHAPE_SYNC_SCRIPT := ../shared/shape/sync_exports.sh
+SHAPE_SYNC_SCRIPT := $(SHAPE_DIR)/sync_exports.sh
 
 .DEFAULT_GOAL := all
 
@@ -234,7 +244,7 @@ package-desktop: all
 	@mkdir -p "$(PACKAGE_RESOURCES_DIR)/include"
 	@cp -R include/fonts "$(PACKAGE_RESOURCES_DIR)/include/"
 	@mkdir -p "$(PACKAGE_RESOURCES_DIR)/shared/assets/fonts"
-	@cp -R "../shared/assets/fonts/." "$(PACKAGE_RESOURCES_DIR)/shared/assets/fonts/"
+	@cp -R "$(SHARED_ASSETS_DIR)/fonts/." "$(PACKAGE_RESOURCES_DIR)/shared/assets/fonts/"
 	@mkdir -p "$(PACKAGE_RESOURCES_DIR)/data/runtime" "$(PACKAGE_RESOURCES_DIR)/data/snapshots" "$(PACKAGE_RESOURCES_DIR)/export"
 	@mkdir -p "$(PACKAGE_RESOURCES_DIR)/vk_renderer" "$(PACKAGE_RESOURCES_DIR)/shaders"
 	@cp -R "$(VK_RENDERER_DIR)/shaders" "$(PACKAGE_RESOURCES_DIR)/vk_renderer/"
@@ -448,7 +458,7 @@ SHAPE_TRACE_TOOL_SRCS := \
 	$(CORE_BASE_DIR)/src/core_base.c \
 	$(EXT_DIR)/cjson/cJSON.c
 SHAPE_TRACE_TOOL_INCS := \
-	-I$(SRC_DIR) -I$(EXT_DIR) -I../shared/shape \
+	-I$(SRC_DIR) -I$(EXT_DIR) -I$(SHAPE_DIR) \
 	-I$(CORE_TRACE_DIR)/include -I$(CORE_PACK_DIR)/include -I$(CORE_BASE_DIR)/include
 
 $(SHAPE_SANITY_BIN): src/Tools/shape_sanity_tool.c

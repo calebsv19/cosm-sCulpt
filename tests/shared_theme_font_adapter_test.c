@@ -29,11 +29,11 @@ int main(void) {
     unsetenv("LINE_DRAWING3D_THEME_PRESET");
     unsetenv("LINE_DRAWING3D_FONT_PRESET");
 
-    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
-        return fail("theme should be disabled by default");
+    if (!line_drawing3d_shared_theme_resolve_palette(&palette)) {
+        return fail("theme should resolve by default");
     }
-    if (line_drawing3d_shared_font_resolve_ui_regular(path, sizeof(path), &point_size)) {
-        return fail("font should be disabled by default");
+    if (!line_drawing3d_shared_font_resolve_ui_regular(path, sizeof(path), &point_size)) {
+        return fail("font should resolve by default");
     }
 
     setenv("LINE_DRAWING3D_USE_SHARED_THEME_FONT", "1", 1);

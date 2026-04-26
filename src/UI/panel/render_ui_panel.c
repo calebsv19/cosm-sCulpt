@@ -1,9 +1,9 @@
 #include "UI/render_ui_panel.h"
 #include "UI/ui_panel.h"
 #include "UI/font_manager.h"
+#include "UI/text_draw.h"
 #include "UI/shared_theme_font_adapter.h"
 #include "Core/global_state.h"
-#include "Render/vulkan_adapter.h"
 
 #include <SDL2/SDL.h>
 #include <limits.h>
@@ -12,29 +12,11 @@
 
 static void DrawTextBasic(SDL_Renderer* renderer, TTF_Font* font, const char* text, int x, int y, SDL_Color color) {
     if (!renderer || !font || !text || !text[0]) return;
-#if USE_VULKAN
-    VulkanAdapter_DrawText(renderer, font, text, x, y, color);
-#else
-    SDL_Surface* surf = TTF_RenderText_Blended(font, text, color);
-    SDL_Texture* tex = NULL;
-    SDL_Rect dst = {0, 0, 0, 0};
-    if (!surf) return;
-    tex = SDL_CreateTextureFromSurface(renderer, surf);
-    if (!tex) {
-        SDL_FreeSurface(surf);
-        return;
-    }
-    dst.x = x;
-    dst.y = y;
-    dst.w = surf->w;
-    dst.h = surf->h;
-    SDL_RenderCopy(renderer, tex, NULL, &dst);
-    SDL_DestroyTexture(tex);
-    SDL_FreeSurface(surf);
-#endif
+    (void)line_drawing_text_draw_utf8_at(renderer, font, text, x, y, color);
 }
 
-static void BuildEllipsizedText(TTF_Font* font,
+static void BuildEllipsizedText(SDL_Renderer* renderer,
+                                TTF_Font* font,
                                 const char* text,
                                 int maxWidth,
                                 char* out,
@@ -47,11 +29,12 @@ static void BuildEllipsizedText(TTF_Font* font,
         if (out && outSize > 0) out[0] = '\0';
         return;
     }
-    if (TTF_SizeUTF8(font, text, &width, NULL) == 0 && width <= maxWidth) {
+    if (line_drawing_text_measure_utf8(renderer, font, text, &width, NULL) && width <= maxWidth) {
         snprintf(out, outSize, "%s", text);
         return;
     }
-    if (TTF_SizeUTF8(font, k_ellipsis, &ellipsisWidth, NULL) != 0 || ellipsisWidth >= maxWidth) {
+    if (!line_drawing_text_measure_utf8(renderer, font, k_ellipsis, &ellipsisWidth, NULL) ||
+        ellipsisWidth >= maxWidth) {
         out[0] = '\0';
         return;
     }
@@ -62,7 +45,7 @@ static void BuildEllipsizedText(TTF_Font* font,
         memcpy(out, text, len);
         out[len] = '\0';
         strcat(out, k_ellipsis);
-        if (TTF_SizeUTF8(font, out, &width, NULL) == 0 && width <= maxWidth) {
+        if (line_drawing_text_measure_utf8(renderer, font, out, &width, NULL) && width <= maxWidth) {
             return;
         }
     }
@@ -74,10 +57,10 @@ static void DrawTextClipped(SDL_Renderer* renderer,
                             const char* text,
                             int x,
                             int y,
-                            int maxWidth,
-                            SDL_Color color) {
+    int maxWidth,
+    SDL_Color color) {
     char clipped[512];
-    BuildEllipsizedText(font, text, maxWidth, clipped, sizeof(clipped));
+    BuildEllipsizedText(renderer, font, text, maxWidth, clipped, sizeof(clipped));
     DrawTextBasic(renderer, font, clipped, x, y, color);
 }
 
@@ -236,42 +219,23 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         label = dynamicLabel;
     }
 
-#if USE_VULKAN
-    int textW = 0;
-    int textH = 0;
-    if (TTF_SizeText(font, label, &textW, &textH) != 0) {
-        return;
-    }
-#else
-    SDL_Surface* surf = TTF_RenderText_Blended(font, label, textColor);
-    if (!surf) return;
-
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(r, surf);
-    if (!tex) {
-        SDL_FreeSurface(surf);
-        return;
-    }
-
-    int textW, textH;
-    SDL_QueryTexture(tex, NULL, NULL, &textW, &textH);
-#endif
-
     {
         char clippedLabel[128];
+        int textW = 0;
+        int textH = 0;
         const int maxTextW = btn->bounds.w - 8;
-        SDL_Rect dst = {0, 0, textW, textH};
+        SDL_Rect dst = {0, 0, 0, 0};
+        if (!line_drawing_text_measure_utf8(r, font, label, &textW, &textH)) {
+            return;
+        }
+        dst.w = textW;
+        dst.h = textH;
         if (maxTextW > 0 && textW > maxTextW) {
-            BuildEllipsizedText(font, label, maxTextW, clippedLabel, sizeof(clippedLabel));
+            BuildEllipsizedText(r, font, label, maxTextW, clippedLabel, sizeof(clippedLabel));
             label = clippedLabel;
-#if USE_VULKAN
-            if (TTF_SizeText(font, label, &textW, &textH) != 0) {
+            if (!line_drawing_text_measure_utf8(r, font, label, &textW, &textH)) {
                 return;
             }
-#else
-            if (TTF_SizeUTF8(font, label, &textW, &textH) != 0) {
-                textW = maxTextW;
-            }
-#endif
             dst.w = textW;
             dst.h = textH;
         }
@@ -279,11 +243,6 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         dst.y = btn->bounds.y + (btn->bounds.h - dst.h) / 2;
         DrawTextBasic(r, font, label, dst.x, dst.y, textColor);
     }
-
-#if !USE_VULKAN
-    SDL_DestroyTexture(tex);
-    SDL_FreeSurface(surf);
-#endif
 }
 
 static const char* UIPanel_GroupTitle(UIPanelGroup group, UIPanelSide side) {

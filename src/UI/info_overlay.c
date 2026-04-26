@@ -3,11 +3,11 @@
 #include "Core/space_mode_adapter.h"
 #include "Layout/layout.h"
 #include "Layout/Grid/grid.h"
+#include "UI/text_draw.h"
 #include "UI/font_manager.h"
 #include "UI/ui_panel.h"
 #include "UI/shared_theme_font_adapter.h"
 #include "Editor/editor.h"
-#include "Render/vulkan_adapter.h"
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <math.h>
@@ -17,30 +17,7 @@ static void DrawText(SDL_Renderer* renderer, const char* text, int x, int y, SDL
     if (!text || !renderer) return;
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     if (!font) return;
-
-#if USE_VULKAN
-    VulkanAdapter_DrawText(renderer, font, text, x, y, color);
-#else
-    SDL_Surface* surf = TTF_RenderText_Blended(font, text, color);
-    if (!surf) return;
-
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
-    if (!tex) {
-        SDL_FreeSurface(surf);
-        return;
-    }
-
-    SDL_Rect dst = {
-        .x = x,
-        .y = y,
-        .w = surf->w,
-        .h = surf->h
-    };
-
-    SDL_RenderCopy(renderer, tex, NULL, &dst);
-    SDL_DestroyTexture(tex);
-    SDL_FreeSurface(surf);
-#endif
+    (void)line_drawing_text_draw_utf8_at(renderer, font, text, x, y, color);
 }
 
 static int InfoOverlay_FontHeightPx(void) {

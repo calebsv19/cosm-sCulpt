@@ -2,9 +2,9 @@
 
 #include "UI/ui_panel_internal.h"
 #include "UI/font_manager.h"
+#include "UI/text_draw.h"
 #include "UI/info_overlay.h"
 #include "UI/shared_theme_font_adapter.h"
-#include "Render/vulkan_adapter.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -12,24 +12,7 @@ static void DrawText(SDL_Renderer* renderer, const char* text, int x, int y, SDL
     if (!text || !*text) return;
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     if (!font) return;
-
-#if USE_VULKAN
-    VulkanAdapter_DrawText(renderer, font, text, x, y, color);
-#else
-    SDL_Surface* surf = TTF_RenderText_Blended(font, text, color);
-    if (!surf) return;
-
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
-    if (!tex) {
-        SDL_FreeSurface(surf);
-        return;
-    }
-
-    SDL_Rect dst = { x, y, surf->w, surf->h };
-    SDL_RenderCopy(renderer, tex, NULL, &dst);
-    SDL_DestroyTexture(tex);
-    SDL_FreeSurface(surf);
-#endif
+    (void)line_drawing_text_draw_utf8_at(renderer, font, text, x, y, color);
 }
 
 static void DrawTextClipped(SDL_Renderer* renderer,
@@ -49,12 +32,12 @@ static void DrawTextClipped(SDL_Renderer* renderer,
     font = FontManager_Get(FONT_DEFAULT);
     if (!font) return;
 
-    if (TTF_SizeUTF8(font, text, &text_w, NULL) == 0 && text_w <= max_width) {
+    if (line_drawing_text_measure_utf8(renderer, font, text, &text_w, NULL) && text_w <= max_width) {
         DrawText(renderer, text, x, y, color);
         return;
     }
 
-    if (TTF_SizeUTF8(font, k_ellipsis, &ellipsis_w, NULL) != 0 || ellipsis_w >= max_width) {
+    if (!line_drawing_text_measure_utf8(renderer, font, k_ellipsis, &ellipsis_w, NULL) || ellipsis_w >= max_width) {
         return;
     }
 
@@ -65,7 +48,7 @@ static void DrawTextClipped(SDL_Renderer* renderer,
         memcpy(clipped, text, len);
         clipped[len] = '\0';
         strcat(clipped, k_ellipsis);
-        if (TTF_SizeUTF8(font, clipped, &text_w, NULL) == 0 && text_w <= max_width) {
+        if (line_drawing_text_measure_utf8(renderer, font, clipped, &text_w, NULL) && text_w <= max_width) {
             DrawText(renderer, clipped, x, y, color);
             return;
         }
@@ -165,7 +148,7 @@ static void RenderSaveDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
         memcpy(caretBuf, ui->saveDialog.buffer, len);
         caretBuf[len] = '\0';
         int caretOffset = 0;
-        TTF_SizeUTF8(font, caretBuf, &caretOffset, NULL);
+        (void)line_drawing_text_measure_utf8(renderer, font, caretBuf, &caretOffset, NULL);
         int caretX = inputRect.x + 8 + caretOffset;
         if (caretX > inputRect.x + inputRect.w - 8) caretX = inputRect.x + inputRect.w - 8;
         int caretTop = inputRect.y + 4;

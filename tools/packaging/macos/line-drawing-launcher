@@ -14,6 +14,12 @@ mkdir -p "$RUNTIME_DIR/data/runtime" "$RUNTIME_DIR/data/snapshots" "$RUNTIME_DIR
 if [ -d "$RES_DIR/export" ] && [ -z "$(find "$RUNTIME_DIR/export" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]; then
     cp -R "$RES_DIR/export/." "$RUNTIME_DIR/export/" 2>/dev/null || true
 fi
+if [ -L "$RUNTIME_DIR/include" ] || [ ! -e "$RUNTIME_DIR/include" ]; then
+    ln -sfn "$RES_DIR/include" "$RUNTIME_DIR/include"
+fi
+if [ -L "$RUNTIME_DIR/shared" ] || [ ! -e "$RUNTIME_DIR/shared" ]; then
+    ln -sfn "$RES_DIR/shared" "$RUNTIME_DIR/shared"
+fi
 if [ -L "$RUNTIME_DIR/vk_renderer" ] || [ ! -e "$RUNTIME_DIR/vk_renderer" ]; then
     ln -sfn "$RES_DIR/vk_renderer" "$RUNTIME_DIR/vk_renderer"
 fi
@@ -49,7 +55,7 @@ export MOLTENVK_DYLIB
 export LINE_DRAWING3D_USE_SHARED_THEME="${LINE_DRAWING3D_USE_SHARED_THEME:-1}"
 export LINE_DRAWING3D_USE_SHARED_THEME_FONT="${LINE_DRAWING3D_USE_SHARED_THEME_FONT:-1}"
 export LINE_DRAWING3D_USE_SHARED_FONT="${LINE_DRAWING3D_USE_SHARED_FONT:-1}"
-export LINE_DRAWING3D_FONT_PRESET="${LINE_DRAWING3D_FONT_PRESET:-daw_default}"
+export LINE_DRAWING3D_FONT_PRESET="${LINE_DRAWING3D_FONT_PRESET:-ide}"
 
 if [ "${1:-}" = "--print-config" ]; then
     echo "APP_CONTENTS_DIR=$APP_CONTENTS_DIR"

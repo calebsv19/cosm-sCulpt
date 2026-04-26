@@ -1,23 +1,16 @@
 #include "UI/font_manager.h"
-#include "UI/shared_theme_font_adapter.h"
+
+#include "UI/font_bridge.h"
+#include "UI/text_draw.h"
+
 #include <SDL2/SDL.h>
-#include <math.h>
-#include <stdio.h>
 #include <string.h>
 
 static TTF_Font* fonts[FONT_COUNT] = {0};
-static char g_font_paths[FONT_COUNT][256];
+static char g_font_paths[FONT_COUNT][384];
 static int g_font_point_sizes[FONT_COUNT] = {0};
-enum { FONT_RENDER_CACHE_CAPACITY = 8 };
-static TTF_Font* g_raster_fonts[FONT_COUNT][FONT_RENDER_CACHE_CAPACITY] = {{0}};
-static int g_raster_point_sizes[FONT_COUNT][FONT_RENDER_CACHE_CAPACITY] = {{0}};
+static int g_font_kerning_enabled[FONT_COUNT] = {0};
 static int g_font_zoom_step = 0;
-
-static void FontManager_ConfigureFont(TTF_Font* font) {
-    if (!font) return;
-    TTF_SetFontHinting(font, TTF_HINTING_LIGHT);
-    TTF_SetFontKerning(font, 1);
-}
 
 static int FontManager_ClampZoomStep(int step) {
     if (step < -2) return -2;
@@ -25,88 +18,78 @@ static int FontManager_ClampZoomStep(int step) {
     return step;
 }
 
-static int FontManager_AdjustPointSize(int base_size) {
-    int adjusted = base_size + (g_font_zoom_step * 2);
-    if (adjusted < 8) adjusted = 8;
-    if (adjusted > 48) adjusted = 48;
-    return adjusted;
+static void FontManager_ConfigureFont(TTF_Font* font, int kerning_enabled) {
+    if (!font) return;
+    TTF_SetFontStyle(font, TTF_STYLE_NORMAL);
+    TTF_SetFontHinting(font, TTF_HINTING_LIGHT);
+    TTF_SetFontKerning(font, kerning_enabled ? 1 : 0);
 }
 
-static void FontManager_ClearRasterCacheForId(UIFontID id) {
+static void FontManager_ClearLoadedFonts(void) {
     int i = 0;
-    if (id < 0 || id >= FONT_COUNT) return;
-    for (i = 0; i < FONT_RENDER_CACHE_CAPACITY; ++i) {
-        if (g_raster_fonts[id][i]) {
-            TTF_CloseFont(g_raster_fonts[id][i]);
-            g_raster_fonts[id][i] = NULL;
-        }
-        g_raster_point_sizes[id][i] = 0;
-    }
-}
-
-static void FontManager_ClearRasterCache(void) {
-    int id = 0;
-    for (id = 0; id < FONT_COUNT; ++id) {
-        FontManager_ClearRasterCacheForId((UIFontID)id);
-    }
-}
-
-static bool FontManager_OpenFontsForCurrentStep(TTF_Font* out_fonts[FONT_COUNT]) {
-    char shared_font_path[256];
-    int shared_point_size = 14;
-    const char* default_path = "include/fonts/Lato/Lato-Regular.ttf";
-    int default_size = 14;
-    int mono_size = 13;
-    int serif_size = 13;
-    int i = 0;
-
-    if (!out_fonts) return false;
-    for (i = 0; i < FONT_COUNT; ++i) out_fonts[i] = NULL;
-
-    if (line_drawing3d_shared_font_resolve_ui_regular(
-            shared_font_path, sizeof(shared_font_path), &shared_point_size)) {
-        default_path = shared_font_path;
-        default_size = shared_point_size;
-        mono_size = shared_point_size - 1;
-        serif_size = shared_point_size - 1;
-    }
-
-    default_size = FontManager_AdjustPointSize(default_size);
-    mono_size = FontManager_AdjustPointSize(mono_size);
-    serif_size = FontManager_AdjustPointSize(serif_size);
-
-    out_fonts[FONT_DEFAULT] = TTF_OpenFont(default_path, default_size);
-    out_fonts[FONT_MONO] = TTF_OpenFont("include/fonts/Montserrat/static/Montserrat-Regular.ttf", mono_size);
-    out_fonts[FONT_SERIF] = TTF_OpenFont("include/fonts/Montserrat/static/Montserrat-Italic.ttf", serif_size);
-
-    for (i = 0; i < FONT_COUNT; ++i) {
-        if (!out_fonts[i]) {
-            SDL_Log("FontManager: Failed to load font %d at zoom step %d: %s",
-                    i,
-                    g_font_zoom_step,
-                    TTF_GetError());
-            for (int j = 0; j < FONT_COUNT; ++j) {
-                if (out_fonts[j]) {
-                    TTF_CloseFont(out_fonts[j]);
-                    out_fonts[j] = NULL;
-                }
-            }
-            return false;
-        }
-        FontManager_ConfigureFont(out_fonts[i]);
-    }
-    return true;
-}
-
-static void FontManager_ReplaceFonts(TTF_Font* new_fonts[FONT_COUNT]) {
-    int i = 0;
-    FontManager_ClearRasterCache();
     for (i = 0; i < FONT_COUNT; ++i) {
         if (fonts[i]) {
+            line_drawing_text_unregister_font_source(fonts[i]);
             TTF_CloseFont(fonts[i]);
+            fonts[i] = NULL;
         }
-        fonts[i] = new_fonts[i];
+        g_font_paths[i][0] = '\0';
+        g_font_point_sizes[i] = 0;
+        g_font_kerning_enabled[i] = 0;
     }
+}
+
+static LineDrawingFontSlot FontManager_SlotForId(UIFontID id) {
+    switch (id) {
+        case FONT_MONO:
+            return LINE_DRAWING_FONT_SLOT_MONO;
+        case FONT_SERIF:
+            return LINE_DRAWING_FONT_SLOT_SERIF;
+        case FONT_DEFAULT:
+        default:
+            return LINE_DRAWING_FONT_SLOT_DEFAULT;
+    }
+}
+
+static bool FontManager_LoadSlot(UIFontID id,
+                                 TTF_Font** out_font,
+                                 char* out_path,
+                                 size_t out_path_size,
+                                 int* out_point_size,
+                                 int* out_kerning_enabled) {
+    LineDrawingResolvedFont resolved;
+    TTF_Font* font = NULL;
+    CoreResult result;
+
+    if (!out_font || !out_path || out_path_size == 0 || !out_point_size || !out_kerning_enabled) {
+        return false;
+    }
+
+    result = line_drawing_font_bridge_resolve(FontManager_SlotForId(id),
+                                              g_font_zoom_step,
+                                              &resolved);
+    if (result.code != CORE_OK) {
+        SDL_Log("FontManager: bridge resolve failed for slot %d: %s",
+                (int)id,
+                result.message ? result.message : "unknown");
+        return false;
+    }
+
+    font = TTF_OpenFont(resolved.resolved_path, resolved.text_run.logical_point_size);
+    if (!font) {
+        SDL_Log("FontManager: failed to load font %s (%dpt): %s",
+                resolved.resolved_path,
+                resolved.text_run.logical_point_size,
+                TTF_GetError());
+        return false;
+    }
+
+    FontManager_ConfigureFont(font, resolved.text_run.kerning_enabled);
+    SDL_strlcpy(out_path, resolved.resolved_path, out_path_size);
+    *out_font = font;
+    *out_point_size = resolved.text_run.logical_point_size;
+    *out_kerning_enabled = resolved.text_run.kerning_enabled;
+    return true;
 }
 
 bool FontManager_Init(void) {
@@ -118,15 +101,7 @@ bool FontManager_Init(void) {
 }
 
 void FontManager_Quit(void) {
-    FontManager_ClearRasterCache();
-    for (int i = 0; i < FONT_COUNT; ++i) {
-        if (fonts[i]) {
-            TTF_CloseFont(fonts[i]);
-            fonts[i] = NULL;
-        }
-        g_font_paths[i][0] = '\0';
-        g_font_point_sizes[i] = 0;
-    }
+    FontManager_ClearLoadedFonts();
     TTF_Quit();
 }
 
@@ -136,32 +111,43 @@ bool FontManager_LoadFonts(void) {
 
 bool FontManager_ReloadFonts(void) {
     TTF_Font* new_fonts[FONT_COUNT] = {0};
-    int default_size = 14;
-    int mono_size = 13;
-    int serif_size = 13;
-    char shared_font_path[256];
-    const char* default_path = "include/fonts/Lato/Lato-Regular.ttf";
-    const char* mono_path = "include/fonts/Montserrat/static/Montserrat-Regular.ttf";
-    const char* serif_path = "include/fonts/Montserrat/static/Montserrat-Italic.ttf";
-    if (!FontManager_OpenFontsForCurrentStep(new_fonts)) {
-        return false;
+    char new_paths[FONT_COUNT][384];
+    int new_point_sizes[FONT_COUNT] = {0};
+    int new_kerning_enabled[FONT_COUNT] = {0};
+    int i = 0;
+
+    memset(new_paths, 0, sizeof(new_paths));
+
+    for (i = 0; i < FONT_COUNT; ++i) {
+        if (!FontManager_LoadSlot((UIFontID)i,
+                                  &new_fonts[i],
+                                  new_paths[i],
+                                  sizeof(new_paths[i]),
+                                  &new_point_sizes[i],
+                                  &new_kerning_enabled[i])) {
+            int j = 0;
+            for (j = 0; j < FONT_COUNT; ++j) {
+                if (new_fonts[j]) {
+                    TTF_CloseFont(new_fonts[j]);
+                }
+            }
+            return false;
+        }
     }
-    if (line_drawing3d_shared_font_resolve_ui_regular(
-            shared_font_path, sizeof(shared_font_path), &default_size)) {
-        default_path = shared_font_path;
-        mono_size = default_size - 1;
-        serif_size = default_size - 1;
+
+    FontManager_ClearLoadedFonts();
+    for (i = 0; i < FONT_COUNT; ++i) {
+        fonts[i] = new_fonts[i];
+        SDL_strlcpy(g_font_paths[i], new_paths[i], sizeof(g_font_paths[i]));
+        g_font_point_sizes[i] = new_point_sizes[i];
+        g_font_kerning_enabled[i] = new_kerning_enabled[i];
+        line_drawing_text_register_font_source(fonts[i],
+                                               g_font_paths[i],
+                                               g_font_point_sizes[i],
+                                               g_font_point_sizes[i],
+                                               g_font_kerning_enabled[i]);
     }
-    default_size = FontManager_AdjustPointSize(default_size);
-    mono_size = FontManager_AdjustPointSize(mono_size);
-    serif_size = FontManager_AdjustPointSize(serif_size);
-    FontManager_ReplaceFonts(new_fonts);
-    SDL_strlcpy(g_font_paths[FONT_DEFAULT], default_path, sizeof(g_font_paths[FONT_DEFAULT]));
-    SDL_strlcpy(g_font_paths[FONT_MONO], mono_path, sizeof(g_font_paths[FONT_MONO]));
-    SDL_strlcpy(g_font_paths[FONT_SERIF], serif_path, sizeof(g_font_paths[FONT_SERIF]));
-    g_font_point_sizes[FONT_DEFAULT] = default_size;
-    g_font_point_sizes[FONT_MONO] = mono_size;
-    g_font_point_sizes[FONT_SERIF] = serif_size;
+
     return true;
 }
 
@@ -208,62 +194,11 @@ UIFontID FontManager_FindIdForFont(TTF_Font* font) {
 }
 
 TTF_Font* FontManager_GetRasterFontForScale(UIFontID id, float scale, float* out_raster_scale) {
-    int point_size = 0;
-    int requested_size = 0;
-    int i = 0;
+    (void)scale;
     if (out_raster_scale) {
         *out_raster_scale = 1.0f;
     }
-    if (id < 0 || id >= FONT_COUNT || !fonts[id]) {
-        return NULL;
-    }
-    point_size = g_font_point_sizes[id];
-    if (point_size <= 0) {
-        return fonts[id];
-    }
-    if (scale < 1.0f) {
-        scale = 1.0f;
-    }
-    if (scale > 4.0f) {
-        scale = 4.0f;
-    }
-    requested_size = (int)lroundf((float)point_size * scale);
-    if (requested_size < point_size) {
-        requested_size = point_size;
-    }
-    if (requested_size <= point_size || !g_font_paths[id][0]) {
-        return fonts[id];
-    }
-    for (i = 0; i < FONT_RENDER_CACHE_CAPACITY; ++i) {
-        if (g_raster_fonts[id][i] && g_raster_point_sizes[id][i] == requested_size) {
-            if (out_raster_scale) {
-                *out_raster_scale = (float)requested_size / (float)point_size;
-            }
-            return g_raster_fonts[id][i];
-        }
-    }
-    for (i = 0; i < FONT_RENDER_CACHE_CAPACITY; ++i) {
-        if (!g_raster_fonts[id][i]) {
-            g_raster_fonts[id][i] = TTF_OpenFont(g_font_paths[id], requested_size);
-            if (!g_raster_fonts[id][i]) {
-                SDL_Log("FontManager: Failed to load raster font %d size %d: %s",
-                        id,
-                        requested_size,
-                        TTF_GetError());
-                return fonts[id];
-            }
-            FontManager_ConfigureFont(g_raster_fonts[id][i]);
-            g_raster_point_sizes[id][i] = requested_size;
-            if (out_raster_scale) {
-                *out_raster_scale = (float)requested_size / (float)point_size;
-            }
-            return g_raster_fonts[id][i];
-        }
-    }
-    if (out_raster_scale) {
-        *out_raster_scale = (float)g_raster_point_sizes[id][0] / (float)point_size;
-    }
-    return g_raster_fonts[id][0] ? g_raster_fonts[id][0] : fonts[id];
+    return FontManager_Get(id);
 }
 
 int FontManager_GetZoomStep(void) {
