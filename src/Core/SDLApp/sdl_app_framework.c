@@ -1,16 +1,86 @@
 #include "sdl_app_framework.h"
 #include "Core/global_state.h"
+#include "Core/SDLApp/sdl_app_loop_diag.h"
+#include "Core/SDLApp/sdl_app_loop_policy.h"
 #include "Render/vulkan_adapter.h"
 #include "core_time.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
+#include <stdint.h>
 #include <stdio.h>
+
+#define SDL_APP_LOOP_IDLE_HEARTBEAT_MS 250u
+#define SDL_APP_LOOP_INTERACTION_HOLD_MS 180u
 
 static bool app_try_recreate_swapchain(AppContext* ctx, int width, int height) {
     if (!ctx || !ctx->renderer || !ctx->window) {
         return false;
     }
     return VulkanAdapter_RecreateSwapchain(ctx, width, height);
+}
+
+static uint32_t app_elapsed_ms(uint64_t start, uint64_t end, uint64_t frequency) {
+    uint64_t elapsed_ms = 0u;
+    if (frequency == 0u || end < start) return 0u;
+    elapsed_ms = ((end - start) * 1000u) / frequency;
+    if (elapsed_ms > (uint64_t)UINT32_MAX) return UINT32_MAX;
+    return (uint32_t)elapsed_ms;
+}
+
+static bool app_event_is_interaction(const SDL_Event* event) {
+    if (!event) return false;
+    switch (event->type) {
+        case SDL_KEYDOWN:
+        case SDL_KEYUP:
+        case SDL_TEXTINPUT:
+        case SDL_MOUSEBUTTONDOWN:
+        case SDL_MOUSEBUTTONUP:
+        case SDL_MOUSEMOTION:
+        case SDL_MOUSEWHEEL:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static bool app_process_event(AppContext* ctx,
+                              AppCallbacks* callbacks,
+                              const SDL_Event* event,
+                              Uint32* interaction_active_until_ms) {
+    SDL_Event mutable_event;
+    bool dirty = false;
+    if (!ctx || !event) return false;
+
+    mutable_event = *event;
+    if (mutable_event.type == SDL_QUIT) {
+        ctx->quit = true;
+        dirty = true;
+    }
+
+    if (mutable_event.type == SDL_WINDOWEVENT &&
+        (mutable_event.window.event == SDL_WINDOWEVENT_RESIZED ||
+         mutable_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)) {
+        int newW = mutable_event.window.data1;
+        int newH = mutable_event.window.data2;
+        Global_SetWindowSize(newW, newH);
+        ctx->pending_swapchain_recreate = true;
+        ctx->pending_swapchain_width = newW;
+        ctx->pending_swapchain_height = newH;
+        dirty = true;
+    }
+
+    if (app_event_is_interaction(&mutable_event)) {
+        if (interaction_active_until_ms) {
+            *interaction_active_until_ms = SDL_GetTicks() + SDL_APP_LOOP_INTERACTION_HOLD_MS;
+        }
+        dirty = true;
+    }
+
+    if (callbacks && callbacks->handleInput) {
+        callbacks->handleInput(ctx, &mutable_event);
+        dirty = true;
+    }
+    return dirty;
 }
 
 bool App_Init(AppContext* ctx, const char* title, int width, int height, bool vsync) {
@@ -51,67 +121,112 @@ bool App_Init(AppContext* ctx, const char* title, int width, int height, bool vs
 
 void App_Run(AppContext* ctx, AppCallbacks* callbacks) {
     uint64_t last_time_ns = core_time_now_ns();
+    uint64_t perf_freq = SDL_GetPerformanceFrequency();
     SDL_Event event;
+    bool frame_dirty = true;
+    Uint32 last_render_ms = 0u;
+    Uint32 interaction_active_until_ms = 0u;
 
     while (!ctx->quit) {
-        // Input Handling
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                ctx->quit = true;
-            }
+        uint64_t frame_begin_counter = SDL_GetPerformanceCounter();
+        uint32_t wait_blocked_ms = 0u;
+        uint32_t wait_call_count = 0u;
+        Uint32 now_ms = SDL_GetTicks();
+        bool interaction_active = now_ms < interaction_active_until_ms;
+        bool background_busy = false;
 
-            if (event.type == SDL_WINDOWEVENT &&
-                (event.window.event == SDL_WINDOWEVENT_RESIZED ||
-                 event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)) {
-                int newW = event.window.data1;
-                int newH = event.window.data2;
-                Global_SetWindowSize(newW, newH);
-                ctx->pending_swapchain_recreate = true;
-                ctx->pending_swapchain_width = newW;
-                ctx->pending_swapchain_height = newH;
+        if (!frame_dirty) {
+            SDLAppLoopWaitPolicyInput wait_input = {
+                .high_intensity_mode = (ctx->renderMode == RENDER_ALWAYS),
+                .interaction_active = interaction_active,
+                .background_busy = background_busy,
+                .resize_pending = ctx->pending_swapchain_recreate,
+            };
+            int wait_timeout_ms = SDLAppLoop_ComputeWaitTimeoutMs(&wait_input);
+            if (wait_timeout_ms > 0) {
+                uint64_t wait_start = SDL_GetPerformanceCounter();
+                int wait_result = SDL_WaitEventTimeout(&event, wait_timeout_ms);
+                uint64_t wait_end = SDL_GetPerformanceCounter();
+                wait_blocked_ms += app_elapsed_ms(wait_start, wait_end, perf_freq);
+                wait_call_count += 1u;
+                if (wait_result == 1) {
+                    frame_dirty |= app_process_event(ctx,
+                                                     callbacks,
+                                                     &event,
+                                                     &interaction_active_until_ms);
+                }
             }
-    
-            if (callbacks && callbacks->handleInput) {
-                callbacks->handleInput(ctx, &event);
+        }
+        while (SDL_PollEvent(&event)) {
+            frame_dirty |= app_process_event(ctx,
+                                             callbacks,
+                                             &event,
+                                             &interaction_active_until_ms);
+        }
+        if (ctx->quit) {
+            if (perf_freq > 0u) {
+                uint64_t frame_end_counter = SDL_GetPerformanceCounter();
+                double frame_elapsed_sec =
+                    (double)(frame_end_counter - frame_begin_counter) / (double)perf_freq;
+                SDLAppLoop_DiagTick(frame_elapsed_sec, wait_blocked_ms, wait_call_count);
             }
-	}
+            break;
+        }
 
         // Delta Time Calculation
         uint64_t now_ns = core_time_now_ns();
         ctx->deltaTime = (float)core_time_ns_to_seconds(core_time_diff_ns(now_ns, last_time_ns));
         last_time_ns = now_ns;
-	
-	ctx->timeSinceLastRender += ctx->deltaTime;
-	
-	// Update logic
-	if (callbacks && callbacks->handleUpdate) {
-	    callbacks->handleUpdate(ctx);
-	}
-	
+
+        ctx->timeSinceLastRender += ctx->deltaTime;
+
+        // Update logic
+        if (callbacks && callbacks->handleUpdate) {
+            callbacks->handleUpdate(ctx);
+        }
+
         if (ctx->pending_swapchain_recreate) {
             if (app_try_recreate_swapchain(ctx,
                                            ctx->pending_swapchain_width,
                                            ctx->pending_swapchain_height)) {
                 ctx->pending_swapchain_recreate = false;
+                frame_dirty = true;
             }
         }
 
-	// Render logic
-	bool shouldRender = false;
-	
-	if (ctx->renderMode == RENDER_ALWAYS) {
-	    shouldRender = true;
-	} else if (ctx->renderMode == RENDER_THROTTLED) {
-	    if (ctx->timeSinceLastRender >= ctx->renderThreshold) {
-	        shouldRender = true;
-	    }
-	}
-	
-	if (shouldRender && callbacks && callbacks->handleRender) {
-	    App_RenderOnce(ctx, callbacks->handleRender);
-	    ctx->timeSinceLastRender = 0.0f;
-	}
-        // Optional: You could insert a manual delay or frame cap here if needed.
+        now_ms = SDL_GetTicks();
+        interaction_active = now_ms < interaction_active_until_ms;
+
+        // Render logic
+        bool shouldRender = false;
+        bool heartbeat_due = (last_render_ms == 0u) ||
+                             ((Uint32)(now_ms - last_render_ms) >= SDL_APP_LOOP_IDLE_HEARTBEAT_MS);
+        bool threshold_due = ctx->timeSinceLastRender >= ctx->renderThreshold;
+
+        if (ctx->renderMode == RENDER_ALWAYS) {
+            shouldRender = true;
+        } else if (ctx->renderMode == RENDER_THROTTLED) {
+            if (frame_dirty || heartbeat_due || (interaction_active && threshold_due)) {
+                shouldRender = true;
+            }
+        }
+
+        if (shouldRender && callbacks && callbacks->handleRender) {
+            if (App_RenderOnce(ctx, callbacks->handleRender)) {
+                ctx->timeSinceLastRender = 0.0f;
+                frame_dirty = false;
+                last_render_ms = SDL_GetTicks();
+            } else {
+                frame_dirty = true;
+            }
+        }
+
+        if (perf_freq > 0u) {
+            uint64_t frame_end_counter = SDL_GetPerformanceCounter();
+            double frame_elapsed_sec =
+                (double)(frame_end_counter - frame_begin_counter) / (double)perf_freq;
+            SDLAppLoop_DiagTick(frame_elapsed_sec, wait_blocked_ms, wait_call_count);
+        }
     }
 }
 
