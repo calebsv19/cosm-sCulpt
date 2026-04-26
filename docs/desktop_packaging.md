@@ -1,6 +1,6 @@
 # Line Drawing Desktop Packaging
 
-Last updated: 2026-04-05
+Last updated: 2026-04-25
 
 ## Standard Targets
 - `make -C line_drawing package-desktop`
@@ -11,6 +11,28 @@ Last updated: 2026-04-05
 - `make -C line_drawing package-desktop-open`
 - `make -C line_drawing package-desktop-remove`
 - `make -C line_drawing package-desktop-refresh`
+
+Optional icon inputs:
+
+```sh
+make -C line_drawing package-desktop-refresh \
+  PACKAGE_APP_ICONSET_SRC="/absolute/path/AppIcon.iconset"
+```
+
+or
+
+```sh
+make -C line_drawing package-desktop-refresh \
+  PACKAGE_APP_ICON_SRC="/absolute/path/AppIcon.icns"
+```
+
+If either variable is supplied, packaging will bundle `Contents/Resources/AppIcon.icns` and the app plist will advertise `CFBundleIconFile=AppIcon`.
+
+Default local icon store:
+- `line_drawing/tools/packaging/macos/local_app_icon/AppIcon.icns`
+- `line_drawing/tools/packaging/macos/local_app_icon/AppIcon.iconset`
+
+Plain `make -C line_drawing package-desktop-refresh` and `package-desktop-self-test` now look in that local store first. The local icon store is gitignored so refreshed icon copies do not dirty the normal repo worktree.
 
 Bundle output:
 - `line_drawing/dist/sCulpt.app`
@@ -73,3 +95,6 @@ Bundled framework contract:
 5. `/Users/<user>/Desktop/sCulpt.app/Contents/MacOS/line-drawing-launcher --print-config`
 6. `open /Users/<user>/Desktop/sCulpt.app`
 7. `tail -n 120 ~/Library/Logs/LineDrawing/launcher.log`
+
+Note:
+- a fresh clone will still need an `AppIcon.icns` copied into `tools/packaging/macos/local_app_icon/` before plain packaging picks it up, because that lane is intentionally ignored.

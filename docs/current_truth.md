@@ -64,6 +64,12 @@ Desktop packaging lane:
 - `make -C line_drawing package-desktop-smoke`
 - `make -C line_drawing package-desktop-self-test`
 - `make -C line_drawing package-desktop-refresh`
+- icon packaging contract:
+  - plist advertises `CFBundleIconFile=AppIcon`
+  - default local icon store is `tools/packaging/macos/local_app_icon/AppIcon.icns` and `tools/packaging/macos/local_app_icon/AppIcon.iconset`
+  - `package-desktop*` also accepts either `PACKAGE_APP_ICON_SRC=/absolute/path/AppIcon.icns` or `PACKAGE_APP_ICONSET_SRC=/absolute/path/AppIcon.iconset`
+  - bundle output path is `Contents/Resources/AppIcon.icns`
+  - the local packaging icon store is gitignored and treated as a local distribution asset lane
 - `make -C line_drawing release-contract`
 - `make -C line_drawing release-bundle-audit`
 - `make -C line_drawing release-sign APPLE_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)"`
