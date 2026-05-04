@@ -223,3 +223,43 @@ bool FontManager_SetZoomStep(int step) {
 bool FontManager_AdjustZoomStep(int delta) {
     return FontManager_SetZoomStep(g_font_zoom_step + delta);
 }
+
+CoreFontPresetId FontManager_GetSharedFontPresetId(void) {
+    return line_drawing_font_bridge_current_preset_id();
+}
+
+const char* FontManager_GetSharedFontPresetName(void) {
+    return line_drawing_font_bridge_current_preset_name();
+}
+
+bool FontManager_SetSharedFontPresetId(CoreFontPresetId preset_id) {
+    CoreFontPresetId previous = line_drawing_font_bridge_current_preset_id();
+    if (previous == preset_id) {
+        return true;
+    }
+    if (line_drawing_font_bridge_set_preset_id(preset_id).code != CORE_OK) {
+        return false;
+    }
+    if (!FontManager_ReloadFonts()) {
+        (void)line_drawing_font_bridge_set_preset_id(previous);
+        (void)FontManager_ReloadFonts();
+        return false;
+    }
+    return true;
+}
+
+bool FontManager_SetSharedFontPresetName(const char* preset_name) {
+    CoreFontPresetId previous = line_drawing_font_bridge_current_preset_id();
+    if (line_drawing_font_bridge_set_preset_name(preset_name).code != CORE_OK) {
+        return false;
+    }
+    if (previous == line_drawing_font_bridge_current_preset_id()) {
+        return true;
+    }
+    if (!FontManager_ReloadFonts()) {
+        (void)line_drawing_font_bridge_set_preset_id(previous);
+        (void)FontManager_ReloadFonts();
+        return false;
+    }
+    return true;
+}

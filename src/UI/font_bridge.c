@@ -30,6 +30,9 @@ static const char* const k_serif_legacy_paths[] = {
     "third_party/codework_shared/assets/fonts/Lato-Regular.ttf"
 };
 
+static int g_font_runtime_initialized = 0;
+static CoreFontPresetId g_font_runtime_preset = CORE_FONT_PRESET_IDE;
+
 static CoreResult line_drawing_font_bridge_invalid(const char* message) {
     CoreResult r = {CORE_ERR_INVALID_ARG, message};
     return r;
@@ -73,15 +76,52 @@ static int line_drawing_font_bridge_shared_enabled(void) {
     return 1;
 }
 
-static CoreFontPresetId line_drawing_font_bridge_font_preset_id(void) {
+static void line_drawing_font_bridge_runtime_init_if_needed(void) {
     const char* preset_name = getenv("LINE_DRAWING3D_FONT_PRESET");
     CoreFontPreset preset;
 
+    if (g_font_runtime_initialized) {
+        return;
+    }
     if (preset_name && preset_name[0] &&
         core_font_get_preset_by_name(preset_name, &preset).code == CORE_OK) {
-        return preset.id;
+        g_font_runtime_preset = preset.id;
+    } else {
+        g_font_runtime_preset = CORE_FONT_PRESET_IDE;
     }
-    return CORE_FONT_PRESET_IDE;
+    g_font_runtime_initialized = 1;
+}
+
+CoreFontPresetId line_drawing_font_bridge_current_preset_id(void) {
+    line_drawing_font_bridge_runtime_init_if_needed();
+    return g_font_runtime_preset;
+}
+
+const char* line_drawing_font_bridge_current_preset_name(void) {
+    line_drawing_font_bridge_runtime_init_if_needed();
+    return core_font_preset_name(g_font_runtime_preset);
+}
+
+CoreResult line_drawing_font_bridge_set_preset_id(CoreFontPresetId preset_id) {
+    CoreFontPreset preset;
+    CoreResult result = core_font_get_preset(preset_id, &preset);
+    if (result.code != CORE_OK) {
+        return result;
+    }
+    g_font_runtime_preset = preset_id;
+    g_font_runtime_initialized = 1;
+    return core_result_ok();
+}
+
+CoreResult line_drawing_font_bridge_set_preset_name(const char* preset_name) {
+    CoreFontPreset preset;
+    if (!preset_name || !preset_name[0]) {
+        return line_drawing_font_bridge_invalid("missing font preset name");
+    }
+    if (core_font_get_preset_by_name(preset_name, &preset).code != CORE_OK) {
+        return line_drawing_font_bridge_invalid("unknown font preset name");
+    }
+    return line_drawing_font_bridge_set_preset_id(preset.id);
 }
 
 static CoreResult line_drawing_font_bridge_context_init(KitRenderContext* ctx, int zoom_step) {
@@ -94,7 +134,7 @@ static CoreResult line_drawing_font_bridge_context_init(KitRenderContext* ctx, i
     result = kit_render_context_init(ctx,
                                      KIT_RENDER_BACKEND_NULL,
                                      CORE_THEME_PRESET_GREYSCALE,
-                                     line_drawing_font_bridge_font_preset_id());
+                                     line_drawing_font_bridge_current_preset_id());
     if (result.code != CORE_OK) {
         return result;
     }

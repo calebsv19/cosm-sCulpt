@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core_base.h"
+#include "core_font.h"
 #include "kit_render.h"
 
 typedef enum LineDrawingFontSlot {
@@ -19,4 +20,7 @@ typedef struct LineDrawingResolvedFont {
 CoreResult line_drawing_font_bridge_resolve(LineDrawingFontSlot slot,
                                             int zoom_step,
                                             LineDrawingResolvedFont* out_resolved);
-
+CoreFontPresetId line_drawing_font_bridge_current_preset_id(void);
+const char* line_drawing_font_bridge_current_preset_name(void);
+CoreResult line_drawing_font_bridge_set_preset_id(CoreFontPresetId preset_id);
+CoreResult line_drawing_font_bridge_set_preset_name(const char* preset_name);

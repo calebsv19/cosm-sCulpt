@@ -147,6 +147,35 @@ static SDL_Event authoring_mouse_down(int x, int y) {
     return event;
 }
 
+static bool authoring_font_theme_button_point(int width,
+                                              int height,
+                                              KitWorkspaceAuthoringFontThemeButtonId button_id,
+                                              int* out_x,
+                                              int* out_y) {
+    KitWorkspaceAuthoringFontThemeLayout layout;
+    memset(&layout, 0, sizeof(layout));
+    TEST_ASSERT(kit_workspace_authoring_ui_font_theme_build_layout(NULL, width, height, &layout));
+    switch (button_id) {
+        case KIT_WORKSPACE_AUTHORING_FONT_THEME_BUTTON_CUSTOM_THEME_CREATE_STUB:
+            *out_x = (int)(layout.custom_theme_buttons[0].x +
+                           layout.custom_theme_buttons[0].width * 0.5f);
+            *out_y = (int)(layout.custom_theme_buttons[0].y +
+                           layout.custom_theme_buttons[0].height * 0.5f);
+            return true;
+        case KIT_WORKSPACE_AUTHORING_FONT_THEME_BUTTON_TEXT_SIZE_INC:
+            *out_x = (int)(layout.text_size_inc_button.x +
+                           layout.text_size_inc_button.width * 0.5f);
+            *out_y = (int)(layout.text_size_inc_button.y +
+                           layout.text_size_inc_button.height * 0.5f);
+            return true;
+        default:
+            break;
+    }
+    *out_x = 0;
+    *out_y = 0;
+    return false;
+}
+
 static bool test_authoring_overlay_buttons_control_state(void) {
     GlobalState state;
     SDL_Event alt_c;
@@ -178,12 +207,46 @@ static bool test_authoring_overlay_buttons_control_state(void) {
     return true;
 }
 
+static bool test_authoring_font_theme_overlay_hit_uses_shared_layout(void) {
+    GlobalState state;
+    SDL_Event alt_c;
+    SDL_Event alt_v;
+    SDL_Event tab;
+    SDL_Event click;
+    int x = 0;
+    int y = 0;
+    TEST_ASSERT(authoring_seed_state(&state));
+
+    alt_c = authoring_key_event(SDL_KEYDOWN, SDL_SCANCODE_C, SDLK_c, KMOD_ALT);
+    alt_v = authoring_key_event(SDL_KEYDOWN, SDL_SCANCODE_V, SDLK_v, KMOD_ALT);
+    tab = authoring_key_event(SDL_KEYDOWN, SDL_SCANCODE_TAB, SDLK_TAB, KMOD_NONE);
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &alt_c));
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &alt_v));
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &tab));
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_FontThemeOverlayActive(&state));
+
+    TEST_ASSERT(authoring_font_theme_button_point(
+        state.screenWidth,
+        state.screenHeight,
+        KIT_WORKSPACE_AUTHORING_FONT_THEME_BUTTON_CUSTOM_THEME_CREATE_STUB,
+        &x,
+        &y));
+    TEST_ASSERT(x > 0 && y > 0);
+    click = authoring_mouse_down(x, y);
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &click));
+    TEST_ASSERT(state.workspaceAuthoring.font_theme_button_click_count == 1u);
+    TEST_ASSERT(state.workspaceAuthoring.font_theme_status[0] != '\0');
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_FontThemeOverlayActive(&state));
+    return true;
+}
+
 bool workspace_authoring_host_run_tests(void) {
     const TestCase cases[] = {
         {"entry chord and cancel", test_authoring_entry_chord_and_cancel},
         {"sequential physical chord and apply", test_authoring_sequential_physical_chord_and_apply},
         {"runtime events captured while active", test_authoring_captures_runtime_events_while_active},
         {"overlay buttons control state", test_authoring_overlay_buttons_control_state},
+        {"font theme overlay hit uses shared layout", test_authoring_font_theme_overlay_hit_uses_shared_layout},
     };
     return run_test_cases("WorkspaceAuthoringHost", cases, sizeof(cases) / sizeof(cases[0]));
 }

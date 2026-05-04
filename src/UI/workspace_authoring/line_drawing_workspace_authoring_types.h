@@ -19,13 +19,18 @@ typedef struct LineDrawingWorkspaceAuthoringHostState {
     unsigned int overlay_cycle_count;
     unsigned int consumed_event_count;
     unsigned int overlay_button_click_count;
+    unsigned int font_theme_button_click_count;
     unsigned int last_event_consumed;
     unsigned int last_event_entered;
     unsigned int last_event_exited;
+    char font_theme_status[128];
     int last_pointer_x;
     int last_pointer_y;
     unsigned int last_pointer_ready;
     unsigned int draft_baseline_valid;
+    int baseline_font_zoom_step;
+    char baseline_theme_preset[64];
+    char baseline_font_preset[64];
     uint32_t baseline_node_count;
     uint32_t baseline_root_index;
     float baseline_top_height;

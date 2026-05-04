@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "core_font.h"
+
 typedef enum {
     FONT_DEFAULT,
     FONT_MONO,
@@ -31,3 +33,7 @@ TTF_Font* FontManager_GetRasterFontForScale(UIFontID id, float scale, float* out
 int FontManager_GetZoomStep(void);
 bool FontManager_SetZoomStep(int step);
 bool FontManager_AdjustZoomStep(int delta);
+CoreFontPresetId FontManager_GetSharedFontPresetId(void);
+const char* FontManager_GetSharedFontPresetName(void);
+bool FontManager_SetSharedFontPresetId(CoreFontPresetId preset_id);
+bool FontManager_SetSharedFontPresetName(const char* preset_name);
