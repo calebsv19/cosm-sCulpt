@@ -6,6 +6,7 @@
 #include "UI/render_ui_panel.h"
 #include "UI/info_overlay.h"
 #include "UI/shared_theme_font_adapter.h"
+#include "UI/workspace_authoring/line_drawing_workspace_authoring_overlay.h"
 
 #include "Layout/Grid/render_grid.h"
 #include "Layout/layout.h"
@@ -421,6 +422,7 @@ void Render_SubmitFrame(AppContext* ctx,
     RenderPaneSplitterHandle(ctx->renderer, derive_frame->state, chrome_border);
 
     UIPanel_RenderOverlays(ctx->renderer);
+    LineDrawingWorkspaceAuthoringOverlay_Draw(ctx->renderer, derive_frame->state);
     LogDrawCallDelta("UI panel", should_log, vk, &before_draws);
 
     if (should_log && vk) {

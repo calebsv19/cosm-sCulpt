@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "kit_workspace_authoring.h"
+#include "kit_workspace_authoring_ui.h"
 
 static CoreResult line_drawing_authoring_invalid(const char* message) {
     CoreResult result = { CORE_ERR_INVALID_ARG, message };
@@ -210,6 +211,53 @@ int LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(GlobalState* state, const S
     state->workspaceAuthoring.last_event_consumed = 0u;
     state->workspaceAuthoring.last_event_entered = 0u;
     state->workspaceAuthoring.last_event_exited = 0u;
+
+    if (event->type == SDL_MOUSEMOTION) {
+        if (LineDrawingWorkspaceAuthoringHost_Active(state)) {
+            state->workspaceAuthoring.last_pointer_x = event->motion.x;
+            state->workspaceAuthoring.last_pointer_y = event->motion.y;
+            state->workspaceAuthoring.last_pointer_ready = 1u;
+            line_drawing_authoring_note_consumed(state);
+            return 1;
+        }
+        return 0;
+    }
+
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+        if (LineDrawingWorkspaceAuthoringHost_Active(state)) {
+            KitWorkspaceAuthoringOverlayButton buttons[4];
+            KitWorkspaceAuthoringOverlayButtonId hit;
+            uint32_t count = 0u;
+            state->workspaceAuthoring.last_pointer_x = event->button.x;
+            state->workspaceAuthoring.last_pointer_y = event->button.y;
+            state->workspaceAuthoring.last_pointer_ready = 1u;
+            count = kit_workspace_authoring_ui_build_overlay_buttons(
+                state->screenWidth,
+                1,
+                LineDrawingWorkspaceAuthoringHost_PaneOverlayActive(state),
+                buttons,
+                4u);
+            hit = kit_workspace_authoring_ui_overlay_hit_test(buttons,
+                                                             count,
+                                                             (float)event->button.x,
+                                                             (float)event->button.y);
+            if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_MODE) {
+                (void)LineDrawingWorkspaceAuthoringHost_CycleOverlay(state);
+                state->workspaceAuthoring.overlay_button_click_count += 1u;
+            } else if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_APPLY) {
+                (void)LineDrawingWorkspaceAuthoringHost_Apply(state);
+                state->workspaceAuthoring.overlay_button_click_count += 1u;
+            } else if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_CANCEL) {
+                (void)LineDrawingWorkspaceAuthoringHost_Cancel(state);
+                state->workspaceAuthoring.overlay_button_click_count += 1u;
+            } else if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_ADD) {
+                state->workspaceAuthoring.overlay_button_click_count += 1u;
+            }
+            line_drawing_authoring_note_consumed(state);
+            return 1;
+        }
+        return 0;
+    }
 
     if (event->type != SDL_KEYDOWN && event->type != SDL_KEYUP) {
         if (LineDrawingWorkspaceAuthoringHost_Active(state)) {

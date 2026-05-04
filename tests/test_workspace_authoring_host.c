@@ -1,6 +1,7 @@
 #include "test_framework.h"
 
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
+#include "kit_workspace_authoring_ui.h"
 
 #include <string.h>
 
@@ -112,11 +113,77 @@ static bool test_authoring_captures_runtime_events_while_active(void) {
     return true;
 }
 
+static void authoring_button_point(const GlobalState* state,
+                                   KitWorkspaceAuthoringOverlayButtonId button_id,
+                                   int* out_x,
+                                   int* out_y) {
+    KitWorkspaceAuthoringOverlayButton buttons[4];
+    uint32_t count = kit_workspace_authoring_ui_build_overlay_buttons(
+        state->screenWidth,
+        LineDrawingWorkspaceAuthoringHost_Active(state),
+        LineDrawingWorkspaceAuthoringHost_PaneOverlayActive(state),
+        buttons,
+        4u);
+    uint32_t i;
+    for (i = 0u; i < count; ++i) {
+        if (buttons[i].id == button_id) {
+            *out_x = (int)(buttons[i].rect.x + buttons[i].rect.width * 0.5f);
+            *out_y = (int)(buttons[i].rect.y + buttons[i].rect.height * 0.5f);
+            return;
+        }
+    }
+    *out_x = 0;
+    *out_y = 0;
+}
+
+static SDL_Event authoring_mouse_down(int x, int y) {
+    SDL_Event event;
+    memset(&event, 0, sizeof(event));
+    event.type = SDL_MOUSEBUTTONDOWN;
+    event.button.type = SDL_MOUSEBUTTONDOWN;
+    event.button.button = SDL_BUTTON_LEFT;
+    event.button.x = x;
+    event.button.y = y;
+    return event;
+}
+
+static bool test_authoring_overlay_buttons_control_state(void) {
+    GlobalState state;
+    SDL_Event alt_c;
+    SDL_Event alt_v;
+    SDL_Event click;
+    int x = 0;
+    int y = 0;
+    TEST_ASSERT(authoring_seed_state(&state));
+
+    alt_c = authoring_key_event(SDL_KEYDOWN, SDL_SCANCODE_C, SDLK_c, KMOD_ALT);
+    alt_v = authoring_key_event(SDL_KEYDOWN, SDL_SCANCODE_V, SDLK_v, KMOD_ALT);
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &alt_c));
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &alt_v));
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_PaneOverlayActive(&state));
+
+    authoring_button_point(&state, KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_MODE, &x, &y);
+    TEST_ASSERT(x > 0 && y > 0);
+    click = authoring_mouse_down(x, y);
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &click));
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_FontThemeOverlayActive(&state));
+    TEST_ASSERT(state.workspaceAuthoring.overlay_button_click_count == 1u);
+
+    authoring_button_point(&state, KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_CANCEL, &x, &y);
+    TEST_ASSERT(x > 0 && y > 0);
+    click = authoring_mouse_down(x, y);
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &click));
+    TEST_ASSERT(!LineDrawingWorkspaceAuthoringHost_Active(&state));
+    TEST_ASSERT(state.workspaceAuthoring.cancel_count == 1u);
+    return true;
+}
+
 bool workspace_authoring_host_run_tests(void) {
     const TestCase cases[] = {
         {"entry chord and cancel", test_authoring_entry_chord_and_cancel},
         {"sequential physical chord and apply", test_authoring_sequential_physical_chord_and_apply},
         {"runtime events captured while active", test_authoring_captures_runtime_events_while_active},
+        {"overlay buttons control state", test_authoring_overlay_buttons_control_state},
     };
     return run_test_cases("WorkspaceAuthoringHost", cases, sizeof(cases) / sizeof(cases[0]));
 }
