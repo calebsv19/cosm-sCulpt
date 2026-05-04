@@ -302,6 +302,7 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         "Save JSON",
         "Load JSON",
         "Export Shape",
+        "Export Scene",
         "Input Edit",
         "Input Folder",
         "Output Edit",
@@ -406,15 +407,20 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
 
 void UIPanel_ExportShape(void) {
     GlobalState* state = Global_Get();
+    const char* output_root = NULL;
     if (!state) return;
 
     const char* requested = Global_GetCurrentConfigPath();
     if (!requested || !*requested) {
         requested = "layout_export.json";
     }
+    output_root = Global_GetOutputRoot();
 
     char exportPath[SHAPE_EXPORT_PATH_MAX];
-    if (!ShapeExport_BuildPath(requested, exportPath, sizeof(exportPath))) {
+    if (!ShapeExport_BuildPathInRoot(output_root ? output_root : ShapeExport_GetExportDir(),
+                                     requested,
+                                     exportPath,
+                                     sizeof(exportPath))) {
         SDL_Log("[UI] Export failed: unable to prepare export path for '%s'", requested);
         return;
     }
@@ -798,6 +804,8 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "Load JSON", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_JSON);
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Export Shape", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_EXPORT_SHAPE);
+    yL += btnH + spacing;
+    AddButton(&g_uiPanel, "Export Scene", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_EXPORT_SCENE);
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Input Edit", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_INPUT_ROOT_EDIT);
     yL += btnH + spacing;

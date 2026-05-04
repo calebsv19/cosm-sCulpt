@@ -138,6 +138,39 @@ static void RenderPaneChromeBorders(SDL_Renderer* renderer,
     }
 }
 
+static void RenderPaneSplitterHandle(SDL_Renderer* renderer,
+                                     const GlobalState* state,
+                                     SDL_Color border) {
+    CorePaneRect splitter_rect = {0};
+    SDL_Rect handle_rect = {0};
+    SDL_Color handle_fill = border;
+    bool hovered = false;
+    bool active = false;
+
+    if (!renderer || !state) return;
+    if (!LineDrawingPaneHost_GetVisibleSplitter(&state->paneHost,
+                                                &splitter_rect,
+                                                &hovered,
+                                                &active)) {
+        return;
+    }
+
+    handle_rect = PaneRectToClipRect(splitter_rect);
+    if (handle_rect.w <= 0 || handle_rect.h <= 0) return;
+
+    if (active) {
+        handle_fill = (SDL_Color){ 230, 178, 92, 228 };
+    } else if (hovered) {
+        handle_fill = (SDL_Color){ 214, 220, 232, 170 };
+    } else {
+        handle_fill.a = 128;
+    }
+
+    FillPaneRect(renderer, &handle_rect, handle_fill);
+    SDL_SetRenderDrawColor(renderer, border.r, border.g, border.b, border.a);
+    (void)SDL_RenderDrawRect(renderer, &handle_rect);
+}
+
 static void DrawAxisArrow(SDL_Renderer* renderer,
                           const Grid* grid,
                           Vec2 from,
@@ -385,6 +418,7 @@ void Render_SubmitFrame(AppContext* ctx,
                             has_center_clip,
                             has_right_clip,
                             chrome_border);
+    RenderPaneSplitterHandle(ctx->renderer, derive_frame->state, chrome_border);
 
     UIPanel_RenderOverlays(ctx->renderer);
     LogDrawCallDelta("UI panel", should_log, vk, &before_draws);

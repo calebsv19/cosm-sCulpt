@@ -40,10 +40,11 @@ typedef struct {
 #define UI_BTN_SAVE_JSON 0
 #define UI_BTN_LOAD_JSON 1
 #define UI_BTN_EXPORT_SHAPE 2
-#define UI_BTN_INPUT_ROOT_EDIT 3
-#define UI_BTN_INPUT_ROOT_FOLDER 4
-#define UI_BTN_OUTPUT_ROOT_EDIT 5
-#define UI_BTN_OUTPUT_ROOT_FOLDER 6
+#define UI_BTN_EXPORT_SCENE 3
+#define UI_BTN_INPUT_ROOT_EDIT 4
+#define UI_BTN_INPUT_ROOT_FOLDER 5
+#define UI_BTN_OUTPUT_ROOT_EDIT 6
+#define UI_BTN_OUTPUT_ROOT_FOLDER 7
 
 #define UI_BTN_RESET_ORIGIN 10
 #define UI_BTN_ZOOM_IN 11
@@ -204,6 +205,7 @@ UIPanelState* UIPanel_Get(void);
 void UIPanel_RefreshConfigList(void);
 void UIPanel_BeginSaveDialog(void);
 void UIPanel_ExportShape(void);
+void UIPanel_ExportScene(void);
 bool UIPanel_IsSaveDialogActive(void);
 bool UIPanel_IsRootDialogActive(void);
 bool UIPanel_IsPrismDimensionDialogActive(void);

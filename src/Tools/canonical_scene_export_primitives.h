@@ -8,6 +8,7 @@
 #include "core_object.h"
 
 bool LineDrawingCanonicalScene_AddCanonicalPrimitivePayload(cJSON* object_json, const Object3D* object);
+bool LineDrawingCanonicalScene_ComputeFramingBounds(const Layout* layout, SceneBounds3D* out_bounds);
 bool LineDrawingCanonicalScene_PopulateScene3DExtension(cJSON* line_drawing_ext, const Layout* layout);
 cJSON* LineDrawingCanonicalScene_AppendSceneObjectFromCore(cJSON* objects,
                                                            const CoreObject* object,

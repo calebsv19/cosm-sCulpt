@@ -13,6 +13,10 @@ enum {
 };
 
 enum {
+    LINE_DRAWING_SPLITTER_HANDLE_THICKNESS = 8u
+};
+
+enum {
     LINE_DRAWING_MODULE_TYPE_TOP = 1201u,
     LINE_DRAWING_MODULE_TYPE_LEFT = 1202u,
     LINE_DRAWING_MODULE_TYPE_CENTER = 1203u,
@@ -36,6 +40,10 @@ static uint32_t LineDrawingPaneHost_PaneIdForRole(LineDrawingPaneRole role) {
         case LINE_DRAWING_PANE_ROLE_RIGHT_CONTROLS: return LINE_DRAWING_PANE_ID_RIGHT;
         default: return 0u;
     }
+}
+
+static CorePaneRect LineDrawingPaneHost_BoundsRect(float width, float height) {
+    return (CorePaneRect){ 0.0f, 0.0f, width, height };
 }
 
 static void LineDrawingPaneHost_NoopRender(void* host_context, uint32_t pane_node_id, uint32_t instance_id) {
@@ -176,13 +184,91 @@ static float LineDrawingPaneHost_Clamp(float value, float min_value, float max_v
     return value;
 }
 
-bool LineDrawingPaneHost_Rebuild(LineDrawingPaneHost* host, float width, float height) {
+static bool LineDrawingPaneHost_FindRectForPaneId(const LineDrawingPaneHost* host,
+                                                  uint32_t pane_id,
+                                                  CorePaneRect* out_rect) {
+    uint32_t i = 0u;
+
+    if (!host || !out_rect || pane_id == 0u) return false;
+    for (i = 0u; i < host->leaf_count; ++i) {
+        if (host->leaves[i].id == pane_id) {
+            *out_rect = host->leaves[i].rect;
+            return true;
+        }
+    }
+    return false;
+}
+
+static void LineDrawingPaneHost_SyncTargetsFromLeaves(LineDrawingPaneHost* host) {
+    CorePaneRect rect = {0};
+
+    if (!host) return;
+    if (LineDrawingPaneHost_FindRectForPaneId(host, LINE_DRAWING_PANE_ID_TOP, &rect)) {
+        host->target_top_height = rect.height;
+    }
+    if (LineDrawingPaneHost_FindRectForPaneId(host, LINE_DRAWING_PANE_ID_LEFT, &rect)) {
+        host->target_left_width = rect.width;
+    }
+    if (LineDrawingPaneHost_FindRectForPaneId(host, LINE_DRAWING_PANE_ID_RIGHT, &rect)) {
+        host->target_right_width = rect.width;
+    }
+}
+
+static bool LineDrawingPaneHost_SolveCurrent(LineDrawingPaneHost* host, float width, float height) {
     CorePaneRect bounds;
     CorePaneValidationReport report;
     uint32_t leaf_ids[LINE_DRAWING_PANE_LEAF_CAPACITY];
     CorePaneModuleResult module_result = CORE_PANE_MODULE_ERR_INVALID_ARG;
     uint32_t i = 0u;
 
+    if (!host) return false;
+
+    bounds = LineDrawingPaneHost_BoundsRect(width, height);
+    memset(&report, 0, sizeof(report));
+    if (!core_pane_validate_graph(host->nodes,
+                                  host->node_count,
+                                  host->root_index,
+                                  bounds,
+                                  &report)) {
+        LineDrawingPaneHost_SetError(host,
+                                     "pane graph invalid code=%s node=%u rel=%u",
+                                     core_pane_validation_code_string(report.code),
+                                     report.node_index,
+                                     report.related_index);
+        return false;
+    }
+    if (!core_pane_solve(host->nodes,
+                         host->node_count,
+                         host->root_index,
+                         bounds,
+                         host->leaves,
+                         LINE_DRAWING_PANE_LEAF_CAPACITY,
+                         &host->leaf_count)) {
+        LineDrawingPaneHost_SetError(host, "core_pane_solve failed");
+        return false;
+    }
+
+    for (i = 0u; i < host->leaf_count; ++i) {
+        leaf_ids[i] = host->leaves[i].id;
+    }
+    module_result = core_pane_module_validate_bindings(&host->module_registry,
+                                                       host->module_bindings,
+                                                       host->module_binding_count,
+                                                       leaf_ids,
+                                                       host->leaf_count);
+    if (module_result != CORE_PANE_MODULE_OK) {
+        LineDrawingPaneHost_SetError(host, "pane module bindings invalid (%d)", (int)module_result);
+        return false;
+    }
+
+    host->bounds_width = width;
+    host->bounds_height = height;
+    core_layout_acknowledge_rebuild(&host->layout_state);
+    host->last_error[0] = '\0';
+    return true;
+}
+
+bool LineDrawingPaneHost_Rebuild(LineDrawingPaneHost* host, float width, float height) {
     if (!host) return false;
     if (width < 64.0f || height < 64.0f) {
         LineDrawingPaneHost_SetError(host, "invalid bounds %.2fx%.2f", width, height);
@@ -245,50 +331,7 @@ bool LineDrawingPaneHost_Rebuild(LineDrawingPaneHost* host, float width, float h
         if (ratio > 0.90f) ratio = 0.90f;
         host->nodes[4].ratio_01 = ratio;
     }
-
-    bounds = (CorePaneRect){ 0.0f, 0.0f, width, height };
-    memset(&report, 0, sizeof(report));
-    if (!core_pane_validate_graph(host->nodes,
-                                  host->node_count,
-                                  host->root_index,
-                                  bounds,
-                                  &report)) {
-        LineDrawingPaneHost_SetError(host,
-                                     "pane graph invalid code=%s node=%u rel=%u",
-                                     core_pane_validation_code_string(report.code),
-                                     report.node_index,
-                                     report.related_index);
-        return false;
-    }
-    if (!core_pane_solve(host->nodes,
-                         host->node_count,
-                         host->root_index,
-                         bounds,
-                         host->leaves,
-                         LINE_DRAWING_PANE_LEAF_CAPACITY,
-                         &host->leaf_count)) {
-        LineDrawingPaneHost_SetError(host, "core_pane_solve failed");
-        return false;
-    }
-
-    for (i = 0u; i < host->leaf_count; ++i) {
-        leaf_ids[i] = host->leaves[i].id;
-    }
-    module_result = core_pane_module_validate_bindings(&host->module_registry,
-                                                       host->module_bindings,
-                                                       host->module_binding_count,
-                                                       leaf_ids,
-                                                       host->leaf_count);
-    if (module_result != CORE_PANE_MODULE_OK) {
-        LineDrawingPaneHost_SetError(host, "pane module bindings invalid (%d)", (int)module_result);
-        return false;
-    }
-
-    host->bounds_width = width;
-    host->bounds_height = height;
-    core_layout_acknowledge_rebuild(&host->layout_state);
-    host->last_error[0] = '\0';
-    return true;
+    return LineDrawingPaneHost_SolveCurrent(host, width, height);
 }
 
 void LineDrawingPaneHost_SetChromeTargets(LineDrawingPaneHost* host,
@@ -306,6 +349,8 @@ bool LineDrawingPaneHost_Init(LineDrawingPaneHost* host, float width, float heig
     memset(host, 0, sizeof(*host));
     core_layout_state_init(&host->layout_state);
     LineDrawingPaneHost_SeedGraph(host);
+    kit_pane_splitter_interaction_init(&host->splitter_interaction,
+                                       (float)LINE_DRAWING_SPLITTER_HANDLE_THICKNESS);
 
     if (!LineDrawingPaneHost_RegisterModuleDescriptors(host)) {
         return false;
@@ -349,22 +394,101 @@ bool LineDrawingPaneHost_Init(LineDrawingPaneHost* host, float width, float heig
     return true;
 }
 
+void LineDrawingPaneHost_UpdatePointer(LineDrawingPaneHost* host, float pointer_x, float pointer_y) {
+    CoreResult result;
+
+    if (!host || !host->initialized) return;
+    result = kit_pane_splitter_interaction_set_hover(&host->splitter_interaction,
+                                                     host->nodes,
+                                                     host->node_count,
+                                                     host->root_index,
+                                                     LineDrawingPaneHost_BoundsRect(host->bounds_width,
+                                                                                    host->bounds_height),
+                                                     pointer_x,
+                                                     pointer_y);
+    if (result.code == CORE_ERR_NOT_FOUND) {
+        return;
+    }
+}
+
+bool LineDrawingPaneHost_BeginSplitterDrag(LineDrawingPaneHost* host, float pointer_x, float pointer_y) {
+    CoreResult result;
+
+    if (!host || !host->initialized) return false;
+    result = kit_pane_splitter_interaction_begin_drag(&host->splitter_interaction,
+                                                      host->nodes,
+                                                      host->node_count,
+                                                      host->root_index,
+                                                      LineDrawingPaneHost_BoundsRect(host->bounds_width,
+                                                                                     host->bounds_height),
+                                                      pointer_x,
+                                                      pointer_y);
+    return result.code == CORE_OK;
+}
+
+bool LineDrawingPaneHost_UpdateSplitterDrag(LineDrawingPaneHost* host, float pointer_x, float pointer_y) {
+    CoreResult result;
+    int changed = 0;
+
+    if (!host || !host->initialized || !host->splitter_interaction.drag_active) return false;
+    result = kit_pane_splitter_interaction_update_drag(&host->splitter_interaction,
+                                                       host->nodes,
+                                                       host->node_count,
+                                                       pointer_x,
+                                                       pointer_y,
+                                                       &changed);
+    if (result.code != CORE_OK || !changed) {
+        return false;
+    }
+    if (!LineDrawingPaneHost_SolveCurrent(host, host->bounds_width, host->bounds_height)) {
+        return false;
+    }
+    LineDrawingPaneHost_SyncTargetsFromLeaves(host);
+    return true;
+}
+
+void LineDrawingPaneHost_EndSplitterDrag(LineDrawingPaneHost* host) {
+    if (!host) return;
+    kit_pane_splitter_interaction_end_drag(&host->splitter_interaction);
+}
+
+bool LineDrawingPaneHost_IsSplitterDragActive(const LineDrawingPaneHost* host) {
+    if (!host) return false;
+    return host->splitter_interaction.drag_active != 0;
+}
+
+bool LineDrawingPaneHost_GetVisibleSplitter(const LineDrawingPaneHost* host,
+                                            CorePaneRect* out_rect,
+                                            bool* out_hovered,
+                                            bool* out_active) {
+    int hovered = 0;
+    int active = 0;
+
+    if (!host || !out_rect) return false;
+    if (!kit_pane_splitter_interaction_current(&host->splitter_interaction,
+                                               out_rect,
+                                               &hovered,
+                                               &active)) {
+        return false;
+    }
+    if (out_hovered) {
+        *out_hovered = hovered != 0;
+    }
+    if (out_active) {
+        *out_active = active != 0;
+    }
+    return true;
+}
+
 bool LineDrawingPaneHost_GetRectForRole(const LineDrawingPaneHost* host,
                                         LineDrawingPaneRole role,
                                         CorePaneRect* out_rect) {
     uint32_t pane_id = 0u;
-    uint32_t i = 0u;
     if (!host || !out_rect || !host->initialized) return false;
 
     pane_id = LineDrawingPaneHost_PaneIdForRole(role);
     if (pane_id == 0u) return false;
-    for (i = 0u; i < host->leaf_count; ++i) {
-        if (host->leaves[i].id == pane_id) {
-            *out_rect = host->leaves[i].rect;
-            return true;
-        }
-    }
-    return false;
+    return LineDrawingPaneHost_FindRectForPaneId(host, pane_id, out_rect);
 }
 
 const char* LineDrawingPaneHost_LastError(const LineDrawingPaneHost* host) {

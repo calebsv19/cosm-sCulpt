@@ -66,11 +66,51 @@ static bool test_pane_host_chrome_targets_allow_compact_side_panes(void) {
     return true;
 }
 
+static bool test_pane_host_splitter_drag_updates_layout_and_targets(void) {
+    LineDrawingPaneHost host;
+    CorePaneRect left_before = {0};
+    CorePaneRect left_after = {0};
+    CorePaneRect visible_splitter = {0};
+    bool hovered = false;
+    bool active = false;
+    float splitter_x = 0.0f;
+    float splitter_y = 0.0f;
+
+    TEST_ASSERT(LineDrawingPaneHost_Init(&host, 1280.0f, 720.0f));
+    TEST_ASSERT(LineDrawingPaneHost_GetRectForRole(&host,
+                                                   LINE_DRAWING_PANE_ROLE_LEFT_CONTROLS,
+                                                   &left_before));
+
+    splitter_x = left_before.x + left_before.width;
+    splitter_y = left_before.y + (left_before.height * 0.5f);
+
+    LineDrawingPaneHost_UpdatePointer(&host, splitter_x, splitter_y);
+    TEST_ASSERT(LineDrawingPaneHost_GetVisibleSplitter(&host, &visible_splitter, &hovered, &active));
+    TEST_ASSERT(hovered);
+    TEST_ASSERT(!active);
+
+    TEST_ASSERT(LineDrawingPaneHost_BeginSplitterDrag(&host, splitter_x, splitter_y));
+    TEST_ASSERT(LineDrawingPaneHost_IsSplitterDragActive(&host));
+    TEST_ASSERT(LineDrawingPaneHost_UpdateSplitterDrag(&host, splitter_x + 42.0f, splitter_y));
+    TEST_ASSERT(LineDrawingPaneHost_GetRectForRole(&host,
+                                                   LINE_DRAWING_PANE_ROLE_LEFT_CONTROLS,
+                                                   &left_after));
+    TEST_ASSERT(left_after.width > left_before.width);
+    TEST_ASSERT(host.target_left_width == left_after.width);
+    TEST_ASSERT(LineDrawingPaneHost_GetVisibleSplitter(&host, &visible_splitter, &hovered, &active));
+    TEST_ASSERT(active);
+
+    LineDrawingPaneHost_EndSplitterDrag(&host);
+    TEST_ASSERT(!LineDrawingPaneHost_IsSplitterDragActive(&host));
+    return true;
+}
+
 bool pane_host_run_tests(void) {
     const TestCase cases[] = {
         {"pane host init + role rects", test_pane_host_init_and_role_rects},
         {"pane host rebuild tracks bounds", test_pane_host_rebuild_tracks_window_bounds},
         {"pane host chrome targets allow compact side panes", test_pane_host_chrome_targets_allow_compact_side_panes},
+        {"pane host splitter drag updates layout + targets", test_pane_host_splitter_drag_updates_layout_and_targets},
     };
     return run_test_cases("PaneHost", cases, sizeof(cases) / sizeof(cases[0]));
 }

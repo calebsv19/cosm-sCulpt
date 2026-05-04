@@ -350,7 +350,11 @@ void Global_SetWindowSize(int w, int h) {
     if (!global) return;
     global->screenWidth = w;
     global->screenHeight = h;
-    Global_ApplyPaneChromeTargets(global);
+    if (global->paneHost.target_top_height <= 0.0f ||
+        global->paneHost.target_left_width <= 0.0f ||
+        global->paneHost.target_right_width <= 0.0f) {
+        Global_ApplyPaneChromeTargets(global);
+    }
     if (global->paneHost.initialized &&
         !LineDrawingPaneHost_Rebuild(&global->paneHost, (float)w, (float)h)) {
         fprintf(stderr, "[Core] pane host rebuild failed: %s\n",

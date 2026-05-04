@@ -56,6 +56,11 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 UIPanel_ExportShape();
                 break;
             }
+                case UI_BTN_EXPORT_SCENE: { // Export Scene
+                    ui->loadMenu.open = false;
+                    UIPanel_ExportScene();
+                    break;
+                }
 
                 case UI_BTN_INPUT_ROOT_EDIT: { // Edit input root
                     ui->loadMenu.open = false;

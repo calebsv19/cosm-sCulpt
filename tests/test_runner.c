@@ -5,6 +5,7 @@
 bool layout_run_tests(void);
 bool math_run_tests(void);
 bool shape_dataset_run_tests(void);
+bool scene_export_run_tests(void);
 bool input_policy_run_tests(void);
 bool pane_host_run_tests(void);
 
@@ -13,6 +14,7 @@ int main(void) {
     ok &= layout_run_tests();
     ok &= math_run_tests();
     ok &= shape_dataset_run_tests();
+    ok &= scene_export_run_tests();
     ok &= input_policy_run_tests();
     ok &= pane_host_run_tests();
 

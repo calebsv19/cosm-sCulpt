@@ -24,7 +24,7 @@ LineDrawing is an SDL2-based layout and 3D modeling workspace for geometry proto
 - `src/Editor/` — wall placement workflow, multi-selection state (including undo/redo snapshots), bezier handle tracking, and editor overlays (ghost walls + selection marquee).
 - `src/Math/` — lightweight vector helpers used by layout, grid, and editor code.
 - `external/` — third-party libraries (currently cJSON) compiled in by the makefile.
-- `src/Tools/` — reusable tooling code; houses `ShapeLib/` (pure shape structs + bezier flattening + JSON IO), the Layout→Shape bridge, and helpers shared with other programs.
+- `src/Tools/` — reusable tooling code; houses `ShapeLib/` (pure shape structs + bezier flattening + JSON IO), the Layout→Shape bridge, canonical scene export helpers, and the scene-directory export seam that writes authoring + runtime scene files through shared `core_scene_compile`.
 - `export/` — auto-created when exporting; stores Shape JSON assets that downstream tools can consume. Run `make export-assets` to convert everything under `export/` into canonical ShapeAssets inside the shared directory (defaults to `shared/assets/shapes`, override with `SHAPE_ASSET_DIR`).
 - `include/` — project assets such as fonts that the font manager loads.
 - `tests/` — lightweight C test harness and suites covering math and layout behaviour.
@@ -169,6 +169,7 @@ Low-risk theme preset persistence paths now use shared `core_io`:
 - `Save JSON` button — opens a naming dialog that writes to `config/<name>.json` (layout changes prompt for a new file name).
 - `Load JSON` button — exposes a dropdown of every `.json` layout in `config/` for quick swapping between floor plans.
 - `Export Shape` button — converts the in-memory Layout into a canonical Shape asset and writes it to `export/<current config name>.json` using the shared ShapeLib pipeline (no dialog required). Export flattening uses the current active plane (`XY`/`YZ`/`XZ`).
+- `Export Scene` button — writes a named scene directory under the configured output root, exporting `scene_authoring.json` first and then compiling `scene_runtime.json` immediately for downstream consumers.
 
 Selection details (position, connections, bezier handle lengths/angles, drag mode, group count, delete mode) appear in the top overlay, while action buttons sit below it to keep the workspace tidy. Selected anchors glow while dragging, bezier handles render with hover/selection feedback, and the marquee indicates the lasso bounds.
 In `PLANE_VIEW`, the background grid is rendered for plane editing. In `FREE_VIEW`, the background grid is hidden and a world-axis gizmo (+X red, +Y green, +Z blue) is rendered around the layout centroid for orientation.

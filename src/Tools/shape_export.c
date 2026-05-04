@@ -54,10 +54,11 @@ static const char* ExtractFileName(const char* path) {
     return (*start) ? start : NULL;
 }
 
-bool ShapeExport_BuildPath(const char* requestedName,
-                           char* outPath,
-                           size_t outSize) {
-    if (!requestedName || !outPath || outSize == 0) {
+bool ShapeExport_BuildPathInRoot(const char* root,
+                                 const char* requestedName,
+                                 char* outPath,
+                                 size_t outSize) {
+    if (!root || !root[0] || !requestedName || !outPath || outSize == 0) {
         return false;
     }
 
@@ -69,14 +70,20 @@ bool ShapeExport_BuildPath(const char* requestedName,
         return false;
     }
 
-    if (!EnsureDirectoryExists(ShapeExport_GetExportDir())) {
+    if (!EnsureDirectoryExists(root)) {
         return false;
     }
 
     int written = snprintf(outPath, outSize, "%s/%s",
-                           ShapeExport_GetExportDir(), name);
+                           root, name);
     if (written <= 0 || (size_t)written >= outSize) {
         return false;
     }
     return true;
+}
+
+bool ShapeExport_BuildPath(const char* requestedName,
+                           char* outPath,
+                           size_t outSize) {
+    return ShapeExport_BuildPathInRoot(ShapeExport_GetExportDir(), requestedName, outPath, outSize);
 }

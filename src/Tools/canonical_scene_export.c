@@ -119,6 +119,14 @@ static bool vec3_nearly_equal(Vec3 a, Vec3 b) {
            fabsf(a.z - b.z) <= 0.0001f;
 }
 
+static Vec3 scene_bounds_center(SceneBounds3D bounds) {
+    return (Vec3){
+        .x = 0.5f * (bounds.min.x + bounds.max.x),
+        .y = 0.5f * (bounds.min.y + bounds.max.y),
+        .z = 0.5f * (bounds.min.z + bounds.max.z)
+    };
+}
+
 static bool layout_has_scene3d_authoring(const Layout* layout) {
     Scene3DSettings defaults;
     if (!layout) return false;
@@ -443,6 +451,7 @@ static cJSON* build_scene_json(const Layout* layout,
     size_t active_walls = 0;
     size_t active_objects3d = 0;
     Vec3 centroid;
+    Vec3 scene_focus;
     cJSON* root = NULL;
     cJSON* objects = NULL;
     cJSON* hierarchy = NULL;
@@ -464,6 +473,7 @@ static cJSON* build_scene_json(const Layout* layout,
     const char* resolved_light_type = NULL;
     const char* resolved_camera_id = NULL;
     const char* resolved_camera_type = NULL;
+    SceneBounds3D framing_bounds = {0};
 
     if (!layout) return NULL;
 
@@ -481,6 +491,12 @@ static cJSON* build_scene_json(const Layout* layout,
         centroid.x = 0.0f;
         centroid.y = 0.0f;
         centroid.z = 0.0f;
+    }
+
+    scene_focus = centroid;
+    if (LineDrawingCanonicalScene_ComputeFramingBounds(layout, &framing_bounds) &&
+        Layout_SceneBounds3D_IsValid(&framing_bounds)) {
+        scene_focus = scene_bounds_center(framing_bounds);
     }
 
     root = cJSON_CreateObject();
@@ -671,9 +687,9 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_AddStringToObject(light, "light_type", resolved_light_type);
         cJSON_AddItemToObject(light, "transform", light_transform);
         cJSON_AddItemToObject(light_transform, "position", light_position);
-        cJSON_AddNumberToObject(light_position, "x", centroid.x + 3.0f);
-        cJSON_AddNumberToObject(light_position, "y", centroid.y + 4.0f);
-        cJSON_AddNumberToObject(light_position, "z", centroid.z + (is_3d ? 5.0f : 2.0f));
+        cJSON_AddNumberToObject(light_position, "x", scene_focus.x + 3.0f);
+        cJSON_AddNumberToObject(light_position, "y", scene_focus.y + 4.0f);
+        cJSON_AddNumberToObject(light_position, "z", scene_focus.z + (is_3d ? 5.0f : 2.0f));
     }
 
     {
@@ -689,9 +705,9 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_AddStringToObject(camera, "camera_type", resolved_camera_type);
         cJSON_AddItemToObject(camera, "transform", camera_transform);
         cJSON_AddItemToObject(camera_transform, "position", camera_position);
-        cJSON_AddNumberToObject(camera_position, "x", centroid.x);
-        cJSON_AddNumberToObject(camera_position, "y", centroid.y);
-        cJSON_AddNumberToObject(camera_position, "z", centroid.z + (is_3d ? 8.0f : 3.0f));
+        cJSON_AddNumberToObject(camera_position, "x", scene_focus.x);
+        cJSON_AddNumberToObject(camera_position, "y", scene_focus.y);
+        cJSON_AddNumberToObject(camera_position, "z", scene_focus.z + (is_3d ? 8.0f : 3.0f));
     }
 
     {

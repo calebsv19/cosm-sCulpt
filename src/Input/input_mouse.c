@@ -55,6 +55,10 @@ static bool ResolvePaneRect(LineDrawingPaneRole role, SDL_Rect* out_rect) {
     return out_rect->w > 0 && out_rect->h > 0;
 }
 
+static LineDrawingPaneHost* ResolvePaneHostMutable(void) {
+    return Global_GetPaneHost();
+}
+
 static PointerPaneLane ResolvePointerPaneLane(int x, int y) {
     SDL_Point point = { x, y };
     SDL_Rect top = {0, 0, 0, 0};
@@ -265,12 +269,17 @@ static void HandleMouseWheel(AppContext* ctx, SDL_MouseWheelEvent* wheel) {
 // ============================================================
 static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     PointerPaneLane pane_lane = POINTER_PANE_OUTSIDE;
+    LineDrawingPaneHost* pane_host = ResolvePaneHostMutable();
     if (UIPanel_IsSaveDialogActive() ||
         UIPanel_IsRootDialogActive() ||
         UIPanel_IsPrismDimensionDialogActive() ||
         UIPanel_IsSceneBoundsDialogActive() ||
         UIPanel_IsLoadMenuOpen()) {
         (void)UIPanel_HandleClick(btn->x, btn->y);
+        return;
+    }
+    if (pane_host &&
+        LineDrawingPaneHost_BeginSplitterDrag(pane_host, (float)btn->x, (float)btn->y)) {
         return;
     }
 
@@ -532,6 +541,8 @@ static void HandleRightMouseDown(SDL_MouseButtonEvent* btn) {
 // 		Public interface
 // ============================================================
 void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
+    LineDrawingPaneHost* pane_host = ResolvePaneHostMutable();
+
     switch (event->type) {
         case SDL_MOUSEWHEEL:
             HandleMouseWheel(ctx, &event->wheel);
@@ -546,6 +557,14 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
 
         case SDL_MOUSEBUTTONUP:
             if (event->button.button == SDL_BUTTON_LEFT) {
+                if (pane_host && LineDrawingPaneHost_IsSplitterDragActive(pane_host)) {
+                    LineDrawingPaneHost_EndSplitterDrag(pane_host);
+                    LineDrawingPaneHost_UpdatePointer(pane_host,
+                                                      (float)event->button.x,
+                                                      (float)event->button.y);
+                    UpdateHover(event->button.x, event->button.y);
+                    break;
+                }
                 draggingPan = false;
                 draggingHandle = false;
                 draggingAnchor = false;
@@ -587,6 +606,18 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
             break;
 
         case SDL_MOUSEMOTION:
+            if (pane_host) {
+                if (LineDrawingPaneHost_IsSplitterDragActive(pane_host)) {
+                    (void)LineDrawingPaneHost_UpdateSplitterDrag(pane_host,
+                                                                 (float)event->motion.x,
+                                                                 (float)event->motion.y);
+                    UpdateHover(event->motion.x, event->motion.y);
+                    break;
+                }
+                LineDrawingPaneHost_UpdatePointer(pane_host,
+                                                  (float)event->motion.x,
+                                                  (float)event->motion.y);
+            }
             if (HandleFreeViewOrbitMotion(&event->motion)) {
                 UpdateHover(event->motion.x, event->motion.y);
                 break;

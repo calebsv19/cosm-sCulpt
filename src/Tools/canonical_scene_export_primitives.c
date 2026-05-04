@@ -2,6 +2,12 @@
 
 #include "core_scene.h"
 
+#include <math.h>
+
+static const float kFramingBoundsPaddingRatio = 0.05f;
+static const float kFramingBoundsMinPadding = 0.25f;
+static const float kFramingBoundsFallbackHalfExtent = 1.0f;
+
 static const char* core_plane_to_string(CoreObjectPlane plane) {
     switch (plane) {
         case CORE_OBJECT_PLANE_YZ: return "yz";
@@ -54,6 +60,98 @@ static CoreObjectVec3 core_object_vec3_from_vec3(Vec3 value) {
     out.x = value.x;
     out.y = value.y;
     out.z = value.z;
+    return out;
+}
+
+static bool vec3_nearly_equal(Vec3 a, Vec3 b) {
+    return fabsf(a.x - b.x) <= 0.0001f &&
+           fabsf(a.y - b.y) <= 0.0001f &&
+           fabsf(a.z - b.z) <= 0.0001f;
+}
+
+static bool scene_bounds_match_defaults(const SceneBounds3D* bounds) {
+    Scene3DSettings defaults;
+    if (!bounds) return false;
+    Layout_Scene3DSettings_SetDefaults(&defaults);
+    return bounds->enabled == defaults.bounds.enabled &&
+           bounds->clampOnEdit == defaults.bounds.clampOnEdit &&
+           vec3_nearly_equal(bounds->min, defaults.bounds.min) &&
+           vec3_nearly_equal(bounds->max, defaults.bounds.max);
+}
+
+static Vec3 construction_plane_origin(const ConstructionPlane3D* plane) {
+    if (!plane) return (Vec3){0.0f, 0.0f, 0.0f};
+    if (plane->mode == CONSTRUCTION_PLANE_MODE_CUSTOM_FRAME) {
+        return plane->customFrame.origin;
+    }
+    return Vec3_FromPlaneCoords((Vec2){0.0f, 0.0f}, plane->axisAligned.axis, plane->axisAligned.offset);
+}
+
+static void scene_bounds_include_point(SceneBounds3D* bounds, Vec3 point, bool* has_points) {
+    if (!bounds || !has_points) return;
+    if (!*has_points) {
+        bounds->min = point;
+        bounds->max = point;
+        *has_points = true;
+        return;
+    }
+
+    if (point.x < bounds->min.x) bounds->min.x = point.x;
+    if (point.y < bounds->min.y) bounds->min.y = point.y;
+    if (point.z < bounds->min.z) bounds->min.z = point.z;
+    if (point.x > bounds->max.x) bounds->max.x = point.x;
+    if (point.y > bounds->max.y) bounds->max.y = point.y;
+    if (point.z > bounds->max.z) bounds->max.z = point.z;
+}
+
+static void scene_bounds_include_anchor(SceneBounds3D* bounds, const Anchor* anchor, bool* has_points) {
+    if (!bounds || !anchor || !has_points || anchor->isDeleted) return;
+
+    scene_bounds_include_point(bounds, anchor->pos, has_points);
+    if (anchor->type != ANCHOR_TYPE_CURVE) return;
+
+    if (anchor->handleInLength > 0.0001f) {
+        scene_bounds_include_point(bounds,
+                                   Vec3_HandleWorldPosition(anchor->pos,
+                                                            anchor->handleAxis,
+                                                            anchor->handleInLength,
+                                                            anchor->handleInAngleDeg),
+                                   has_points);
+    }
+    if (anchor->handleOutLength > 0.0001f) {
+        scene_bounds_include_point(bounds,
+                                   Vec3_HandleWorldPosition(anchor->pos,
+                                                            anchor->handleAxis,
+                                                            anchor->handleOutLength,
+                                                            anchor->handleOutAngleDeg),
+                                   has_points);
+    }
+}
+
+static void scene_bounds_include_object(SceneBounds3D* bounds, const Object3D* object, bool* has_points) {
+    Vec3 corners[8];
+    size_t corner_count = 0u;
+    if (!bounds || !object || !has_points || object->isDeleted) return;
+
+    if (object->kind == OBJECT3D_KIND_PLANE) {
+        if (!Layout_Object3D_ComputePlaneCorners(object, corners)) return;
+        corner_count = 4u;
+    } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        if (!Layout_Object3D_ComputeRectPrismCorners(object, corners)) return;
+        corner_count = 8u;
+    } else {
+        return;
+    }
+
+    for (size_t i = 0; i < corner_count; ++i) {
+        scene_bounds_include_point(bounds, corners[i], has_points);
+    }
+}
+
+static float max3f(float a, float b, float c) {
+    float out = a;
+    if (b > out) out = b;
+    if (c > out) out = c;
     return out;
 }
 
@@ -145,13 +243,65 @@ bool LineDrawingCanonicalScene_AddCanonicalPrimitivePayload(cJSON* object_json, 
     return true;
 }
 
+bool LineDrawingCanonicalScene_ComputeFramingBounds(const Layout* layout, SceneBounds3D* out_bounds) {
+    SceneBounds3D bounds = {0};
+    bool has_points = false;
+
+    if (!layout || !out_bounds) return false;
+
+    for (size_t i = 0; i < layout->anchorCount; ++i) {
+        scene_bounds_include_anchor(&bounds, &layout->anchors[i], &has_points);
+    }
+    for (size_t i = 0; i < layout->objectStore.count; ++i) {
+        scene_bounds_include_object(&bounds, &layout->objectStore.items[i], &has_points);
+    }
+
+    if (!has_points &&
+        layout->scene3d.bounds.enabled &&
+        Layout_SceneBounds3D_IsValid(&layout->scene3d.bounds) &&
+        !scene_bounds_match_defaults(&layout->scene3d.bounds)) {
+        *out_bounds = layout->scene3d.bounds;
+        return true;
+    }
+
+    if (!has_points) {
+        const Vec3 center = construction_plane_origin(&layout->scene3d.constructionPlane);
+        bounds.enabled = true;
+        bounds.clampOnEdit = layout->scene3d.bounds.clampOnEdit;
+        bounds.min = (Vec3){ center.x - kFramingBoundsFallbackHalfExtent,
+                             center.y - kFramingBoundsFallbackHalfExtent,
+                             center.z - kFramingBoundsFallbackHalfExtent };
+        bounds.max = (Vec3){ center.x + kFramingBoundsFallbackHalfExtent,
+                             center.y + kFramingBoundsFallbackHalfExtent,
+                             center.z + kFramingBoundsFallbackHalfExtent };
+        *out_bounds = bounds;
+        return true;
+    }
+
+    {
+        const Vec3 span = Vec3_Sub(bounds.max, bounds.min);
+        const float max_dim = max3f(span.x, span.y, span.z);
+        const float padding = fmaxf(max_dim * kFramingBoundsPaddingRatio, kFramingBoundsMinPadding);
+        bounds.enabled = true;
+        bounds.clampOnEdit = layout->scene3d.bounds.clampOnEdit;
+        bounds.min = (Vec3){ bounds.min.x - padding, bounds.min.y - padding, bounds.min.z - padding };
+        bounds.max = (Vec3){ bounds.max.x + padding, bounds.max.y + padding, bounds.max.z + padding };
+    }
+
+    *out_bounds = bounds;
+    return true;
+}
+
 bool LineDrawingCanonicalScene_PopulateScene3DExtension(cJSON* line_drawing_ext, const Layout* layout) {
     cJSON* scene3d = NULL;
     cJSON* bounds = NULL;
+    cJSON* authoring_bounds = NULL;
     cJSON* construction_plane = NULL;
     cJSON* custom_frame = NULL;
+    SceneBounds3D framing_bounds = {0};
 
     if (!line_drawing_ext || !layout) return false;
+    if (!LineDrawingCanonicalScene_ComputeFramingBounds(layout, &framing_bounds)) return false;
 
     scene3d = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(line_drawing_ext, "scene3d"), 1);
     if (!scene3d) scene3d = cJSON_CreateObject();
@@ -165,10 +315,20 @@ bool LineDrawingCanonicalScene_PopulateScene3DExtension(cJSON* line_drawing_ext,
     if (!cJSON_ReplaceItemInObjectCaseSensitive(scene3d, "bounds", bounds)) {
         cJSON_AddItemToObject(scene3d, "bounds", bounds);
     }
-    cJSON_AddBoolToObject(bounds, "enabled", layout->scene3d.bounds.enabled);
-    cJSON_AddBoolToObject(bounds, "clamp_on_edit", layout->scene3d.bounds.clampOnEdit);
-    if (!add_vec3_item(bounds, "min", layout->scene3d.bounds.min)) return false;
-    if (!add_vec3_item(bounds, "max", layout->scene3d.bounds.max)) return false;
+    cJSON_AddBoolToObject(bounds, "enabled", framing_bounds.enabled);
+    cJSON_AddBoolToObject(bounds, "clamp_on_edit", framing_bounds.clampOnEdit);
+    if (!add_vec3_item(bounds, "min", framing_bounds.min)) return false;
+    if (!add_vec3_item(bounds, "max", framing_bounds.max)) return false;
+
+    authoring_bounds = cJSON_CreateObject();
+    if (!authoring_bounds) return false;
+    if (!cJSON_ReplaceItemInObjectCaseSensitive(scene3d, "authoring_bounds", authoring_bounds)) {
+        cJSON_AddItemToObject(scene3d, "authoring_bounds", authoring_bounds);
+    }
+    cJSON_AddBoolToObject(authoring_bounds, "enabled", layout->scene3d.bounds.enabled);
+    cJSON_AddBoolToObject(authoring_bounds, "clamp_on_edit", layout->scene3d.bounds.clampOnEdit);
+    if (!add_vec3_item(authoring_bounds, "min", layout->scene3d.bounds.min)) return false;
+    if (!add_vec3_item(authoring_bounds, "max", layout->scene3d.bounds.max)) return false;
 
     construction_plane = cJSON_CreateObject();
     if (!construction_plane) return false;

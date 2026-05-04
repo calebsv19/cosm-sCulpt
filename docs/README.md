@@ -1,6 +1,6 @@
 # Line Drawing Docs Index
 
-Last updated: 2026-04-12
+Last updated: 2026-04-29
 
 Start here for public repository documentation.
 
@@ -24,6 +24,13 @@ Current verification contract:
 - `README.md` (repo root): product/runtime overview and build/run flow.
 - `docs/KEYBINDINGS.md`: current runtime keybind reference.
 - `src/*/README.md`: module-level current-state references for the rehomed source tree (`adapters/`, `panel/`, `overlay/`, `scene/`, `primitives/`, `mouse/`, `render/`, `gizmo/`).
+
+## Current Published State
+- `line_drawing` remains the canonical upstream authoring/export source for the current primitive scope.
+- the current worktree also exposes a concrete scene-directory export path:
+  - `Export Scene` writes a named directory under the configured output root
+  - each scene directory contains `scene_authoring.json` and compiled `scene_runtime.json`
+  - runtime compilation flows through shared `core_scene_compile`
 
 ## Private Planning Docs
 - Private scaffold plans and internal execution docs are in the workspace private docs bucket:

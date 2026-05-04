@@ -1,6 +1,6 @@
 # Line Drawing Future Intent
 
-Last updated: 2026-04-10
+Last updated: 2026-04-29
 
 ## Scaffold Alignment Intent
 1. Keep existing 2D/3D parity behavior unchanged while normalizing scaffold contracts.
@@ -133,3 +133,11 @@ Last updated: 2026-04-10
   - configured roots are validated on startup
   - invalid/missing roots are corrected to defaults and persisted
 - future work should add behavior on top of this contract instead of replacing it ad hoc.
+
+## Current Maintain-Only Direction
+- `line_drawing` should stay maintain-only on the upstream authoring/export contract.
+- If local work continues here, keep it bounded to:
+  - scene-directory export UX
+  - output-root ergonomics
+  - small validation or test-coverage improvements around `scene_authoring.json` -> `scene_runtime.json`
+- Broader feature expansion should only reopen a new private plan if it materially changes the authoring/export contract instead of polishing the existing one.

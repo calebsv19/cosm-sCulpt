@@ -6,26 +6,36 @@ APP_CONTENTS_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 RES_DIR="$APP_CONTENTS_DIR/Resources"
 RUNTIME_DIR_DEFAULT="${HOME}/Library/Application Support/LineDrawing/runtime"
 RUNTIME_DIR="${LINE_DRAWING_RUNTIME_DIR:-$RUNTIME_DIR_DEFAULT}"
+
+ensure_symlink_lane() {
+    src="$1"
+    dst="$2"
+    if [ -L "$dst" ] || [ ! -e "$dst" ]; then
+        ln -sfn "$src" "$dst"
+    fi
+}
+
+seed_runtime_config() {
+    if [ -d "$RES_DIR/config" ]; then
+        mkdir -p "$RUNTIME_DIR/config" 2>/dev/null || true
+        cp -Rn "$RES_DIR/config/." "$RUNTIME_DIR/config/" 2>/dev/null || true
+    fi
+}
+
 if ! mkdir -p "$RUNTIME_DIR" 2>/dev/null; then
     RUNTIME_DIR="${TMPDIR:-/tmp}/LineDrawing/runtime"
     mkdir -p "$RUNTIME_DIR" 2>/dev/null || true
 fi
 mkdir -p "$RUNTIME_DIR/data/runtime" "$RUNTIME_DIR/data/snapshots" "$RUNTIME_DIR/export" "$RUNTIME_DIR/vk" "$RUNTIME_DIR/config/shared/shaders" 2>/dev/null || true
+seed_runtime_config
 if [ -d "$RES_DIR/export" ] && [ -z "$(find "$RUNTIME_DIR/export" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]; then
     cp -R "$RES_DIR/export/." "$RUNTIME_DIR/export/" 2>/dev/null || true
 fi
-if [ -L "$RUNTIME_DIR/include" ] || [ ! -e "$RUNTIME_DIR/include" ]; then
-    ln -sfn "$RES_DIR/include" "$RUNTIME_DIR/include"
-fi
-if [ -L "$RUNTIME_DIR/shared" ] || [ ! -e "$RUNTIME_DIR/shared" ]; then
-    ln -sfn "$RES_DIR/shared" "$RUNTIME_DIR/shared"
-fi
-if [ -L "$RUNTIME_DIR/vk_renderer" ] || [ ! -e "$RUNTIME_DIR/vk_renderer" ]; then
-    ln -sfn "$RES_DIR/vk_renderer" "$RUNTIME_DIR/vk_renderer"
-fi
-if [ -L "$RUNTIME_DIR/config/shared/shaders/vk_renderer" ] || [ ! -e "$RUNTIME_DIR/config/shared/shaders/vk_renderer" ]; then
-    ln -sfn "$RES_DIR/vk_renderer" "$RUNTIME_DIR/config/shared/shaders/vk_renderer"
-fi
+ensure_symlink_lane "$RES_DIR/include" "$RUNTIME_DIR/include"
+ensure_symlink_lane "$RES_DIR/shared" "$RUNTIME_DIR/shared"
+ensure_symlink_lane "$RES_DIR/shaders" "$RUNTIME_DIR/shaders"
+ensure_symlink_lane "$RES_DIR/vk_renderer" "$RUNTIME_DIR/vk_renderer"
+ensure_symlink_lane "$RES_DIR/vk_renderer" "$RUNTIME_DIR/config/shared/shaders/vk_renderer"
 MOLTENVK_DYLIB="$APP_CONTENTS_DIR/Frameworks/libMoltenVK.dylib"
 ICD_FILE="$RUNTIME_DIR/vk/MoltenVK_icd.json"
 cat >"$ICD_FILE" <<EOF
@@ -77,16 +87,16 @@ fi
 if [ "${1:-}" = "--self-test" ]; then
     [ -x "$SCRIPT_DIR/line-drawing-bin" ] || { echo "missing: line-drawing-bin" >&2; exit 1; }
     [ -f "$APP_CONTENTS_DIR/Info.plist" ] || { echo "missing: Info.plist" >&2; exit 1; }
-    [ -f "$RES_DIR/config/layout_config.json" ] || { echo "missing: config/layout_config.json" >&2; exit 1; }
-    [ -f "$RES_DIR/include/fonts/Lato/Lato-Regular.ttf" ] || { echo "missing: include/fonts/Lato/Lato-Regular.ttf" >&2; exit 1; }
-    [ -f "$RES_DIR/shared/assets/fonts/Montserrat-Regular.ttf" ] || { echo "missing: shared/assets/fonts/Montserrat-Regular.ttf" >&2; exit 1; }
-    [ -d "$RES_DIR/data/runtime" ] || { echo "missing: data/runtime" >&2; exit 1; }
-    [ -d "$RES_DIR/data/snapshots" ] || { echo "missing: data/snapshots" >&2; exit 1; }
-    [ -d "$RES_DIR/export" ] || { echo "missing: export" >&2; exit 1; }
+    [ -f "$RUNTIME_DIR/config/layout_config.json" ] || { echo "missing: runtime config/layout_config.json" >&2; exit 1; }
+    [ -f "$RUNTIME_DIR/include/fonts/Lato/Lato-Regular.ttf" ] || { echo "missing: runtime include/fonts/Lato/Lato-Regular.ttf" >&2; exit 1; }
+    [ -f "$RUNTIME_DIR/shared/assets/fonts/Montserrat-Regular.ttf" ] || { echo "missing: runtime shared/assets/fonts/Montserrat-Regular.ttf" >&2; exit 1; }
+    [ -d "$RUNTIME_DIR/data/runtime" ] || { echo "missing: runtime data/runtime" >&2; exit 1; }
+    [ -d "$RUNTIME_DIR/data/snapshots" ] || { echo "missing: runtime data/snapshots" >&2; exit 1; }
+    [ -d "$RUNTIME_DIR/export" ] || { echo "missing: runtime export" >&2; exit 1; }
     [ -f "$MOLTENVK_DYLIB" ] || { echo "missing: bundled MoltenVK dylib" >&2; exit 1; }
     [ -f "$ICD_FILE" ] || { echo "missing: runtime MoltenVK ICD file" >&2; exit 1; }
-    [ -f "$RES_DIR/vk_renderer/shaders/textured.vert.spv" ] || { echo "missing: bundled vk shader" >&2; exit 1; }
-    [ -f "$RES_DIR/shaders/textured.vert.spv" ] || { echo "missing: bundled runtime shader" >&2; exit 1; }
+    [ -f "$RUNTIME_DIR/vk_renderer/shaders/textured.vert.spv" ] || { echo "missing: runtime vk shader" >&2; exit 1; }
+    [ -f "$RUNTIME_DIR/shaders/textured.vert.spv" ] || { echo "missing: runtime shader" >&2; exit 1; }
     echo "self-test: ok"
     echo "LOG_FILE=$LOG_FILE"
     echo "LINE_DRAWING_RUNTIME_DIR=$LINE_DRAWING_RUNTIME_DIR"
@@ -101,4 +111,7 @@ fi
 
 cd "$RUNTIME_DIR"
 printf '%s launch begin pid=%s cwd=%s runtime=%s shader_root=%s shape_asset_dir=%s args=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$$" "$RUNTIME_DIR" "$LINE_DRAWING_RUNTIME_DIR" "$VK_RENDERER_SHADER_ROOT" "$SHAPE_ASSET_DIR" "$*" >>"$LOG_FILE" 2>/dev/null || true
-exec "$SCRIPT_DIR/line-drawing-bin" "$@" >>"$LOG_FILE" 2>&1
+"$SCRIPT_DIR/line-drawing-bin" "$@" >>"$LOG_FILE" 2>&1
+status=$?
+printf '%s launch end pid=%s status=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$$" "$status" >>"$LOG_FILE" 2>/dev/null || true
+exit "$status"

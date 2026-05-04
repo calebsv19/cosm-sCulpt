@@ -17,6 +17,8 @@ typedef struct LineDrawingSceneAuthoringOptions {
     const char* camera_type;
 } LineDrawingSceneAuthoringOptions;
 
+bool LineDrawingCanonicalScene_ComputeFramingBounds(const Layout* layout, SceneBounds3D* out_bounds);
+
 bool LineDrawingCanonicalScene_ExportLayoutToFileWithOptions(
     const Layout* layout,
     const char* sceneId,

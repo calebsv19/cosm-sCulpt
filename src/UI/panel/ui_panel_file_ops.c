@@ -3,6 +3,8 @@
 #include "Core/global_state.h"
 #include "Layout/layout_json.h"
 #include "Editor/editor.h"
+#include "Tools/scene_export.h"
+#include "Tools/shape_export.h"
 
 #include <SDL2/SDL.h>
 #include <ctype.h>
@@ -208,6 +210,31 @@ void UIPanel_BeginSaveDialog(void) {
     UIPanel_CloseConstructionPlaneDialog(ui);
     UIPanel_CloseObjectTransformDialog(ui);
     if (!SDL_IsTextInputActive()) SDL_StartTextInput();
+}
+
+void UIPanel_ExportScene(void) {
+    GlobalState* state = Global_Get();
+    LineDrawingSceneExportPaths export_paths;
+    char diagnostics[256];
+    const char* output_root = NULL;
+    if (!state) return;
+
+    output_root = Global_GetOutputRoot();
+    Layout_CompactDeletedElements(&state->layout);
+
+    if (!LineDrawingSceneExport_ExportLayoutToOutputRoot(&state->layout,
+                                                         Global_GetCurrentConfigPath(),
+                                                         output_root,
+                                                         &export_paths,
+                                                         diagnostics,
+                                                         sizeof(diagnostics))) {
+        SDL_Log("[UI] Scene export failed: %s", diagnostics[0] ? diagnostics : "unknown error");
+        return;
+    }
+
+    SDL_Log("[UI] Exported scene directory to %s", export_paths.scene_dir);
+    SDL_Log("[UI] Exported authoring scene to %s", export_paths.authoring_path);
+    SDL_Log("[UI] Exported runtime scene to %s", export_paths.runtime_path);
 }
 
 void UIPanel_BeginInputRootDialog(void) {
