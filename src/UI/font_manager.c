@@ -3,14 +3,22 @@
 #include "UI/font_bridge.h"
 #include "UI/text_draw.h"
 
+#include "core_io.h"
+
 #include <SDL2/SDL.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 static TTF_Font* fonts[FONT_COUNT] = {0};
 static char g_font_paths[FONT_COUNT][384];
 static int g_font_point_sizes[FONT_COUNT] = {0};
 static int g_font_kerning_enabled[FONT_COUNT] = {0};
 static int g_font_zoom_step = 0;
+static const char* k_font_preset_runtime_path = "data/runtime/font_preset.txt";
+static const char* k_font_zoom_runtime_path = "data/runtime/font_zoom_step.txt";
 
 static int FontManager_ClampZoomStep(int step) {
     if (step < -2) return -2;
@@ -23,6 +31,54 @@ static void FontManager_ConfigureFont(TTF_Font* font, int kerning_enabled) {
     TTF_SetFontStyle(font, TTF_STYLE_NORMAL);
     TTF_SetFontHinting(font, TTF_HINTING_LIGHT);
     TTF_SetFontKerning(font, kerning_enabled ? 1 : 0);
+}
+
+static bool FontManager_EnsureRuntimeDir(void) {
+    if (mkdir("data", 0755) != 0 && errno != EEXIST) {
+        return false;
+    }
+    if (mkdir("data/runtime", 0755) != 0 && errno != EEXIST) {
+        return false;
+    }
+    return true;
+}
+
+static void FontManager_TrimTrailingWhitespace(char* text) {
+    size_t len;
+    if (!text) {
+        return;
+    }
+    len = strlen(text);
+    while (len > 0u) {
+        char c = text[len - 1u];
+        if (c != '\n' && c != '\r' && c != '\t' && c != ' ') {
+            break;
+        }
+        text[len - 1u] = '\0';
+        --len;
+    }
+}
+
+static bool FontManager_ReadSmallTextFile(const char* path, char* out_text, size_t out_text_size) {
+    CoreBuffer file_data = {0};
+    CoreResult read_result;
+    size_t copy_len;
+    if (!path || !out_text || out_text_size == 0 || !core_io_path_exists(path)) {
+        return false;
+    }
+    read_result = core_io_read_all(path, &file_data);
+    if (read_result.code != CORE_OK || !file_data.data) {
+        return false;
+    }
+    copy_len = file_data.size;
+    if (copy_len >= out_text_size) {
+        copy_len = out_text_size - 1u;
+    }
+    memcpy(out_text, file_data.data, copy_len);
+    out_text[copy_len] = '\0';
+    core_io_buffer_free(&file_data);
+    FontManager_TrimTrailingWhitespace(out_text);
+    return out_text[0] != '\0';
 }
 
 static void FontManager_ClearLoadedFonts(void) {
@@ -262,4 +318,61 @@ bool FontManager_SetSharedFontPresetName(const char* preset_name) {
         return false;
     }
     return true;
+}
+
+bool FontManager_LoadPersistedPrefs(void) {
+    char preset_name[80];
+    char zoom_text[32];
+    bool loaded_any = false;
+
+    if (FontManager_ReadSmallTextFile(k_font_preset_runtime_path,
+                                      preset_name,
+                                      sizeof(preset_name))) {
+        loaded_any = line_drawing_font_bridge_set_preset_name(preset_name).code == CORE_OK
+                         ? true
+                         : loaded_any;
+    }
+    if (FontManager_ReadSmallTextFile(k_font_zoom_runtime_path,
+                                      zoom_text,
+                                      sizeof(zoom_text))) {
+        char* end = NULL;
+        long parsed = strtol(zoom_text, &end, 10);
+        if (end != zoom_text) {
+            g_font_zoom_step = FontManager_ClampZoomStep((int)parsed);
+            loaded_any = true;
+        }
+    }
+    return loaded_any;
+}
+
+bool FontManager_SavePersistedPrefs(void) {
+    const char* preset_name = FontManager_GetSharedFontPresetName();
+    char zoom_payload[32];
+    int written;
+    bool ok = true;
+
+    if (!FontManager_EnsureRuntimeDir()) {
+        return false;
+    }
+    if (preset_name && preset_name[0]) {
+        char preset_payload[96];
+        written = snprintf(preset_payload, sizeof(preset_payload), "%s\n", preset_name);
+        if (written <= 0 || (size_t)written >= sizeof(preset_payload) ||
+            core_io_write_all(k_font_preset_runtime_path,
+                              preset_payload,
+                              (size_t)written).code != CORE_OK) {
+            ok = false;
+        }
+    } else {
+        ok = false;
+    }
+
+    written = snprintf(zoom_payload, sizeof(zoom_payload), "%d\n", FontManager_GetZoomStep());
+    if (written <= 0 || (size_t)written >= sizeof(zoom_payload) ||
+        core_io_write_all(k_font_zoom_runtime_path,
+                          zoom_payload,
+                          (size_t)written).code != CORE_OK) {
+        ok = false;
+    }
+    return ok;
 }

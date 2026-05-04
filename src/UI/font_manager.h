@@ -37,3 +37,5 @@ CoreFontPresetId FontManager_GetSharedFontPresetId(void);
 const char* FontManager_GetSharedFontPresetName(void);
 bool FontManager_SetSharedFontPresetId(CoreFontPresetId preset_id);
 bool FontManager_SetSharedFontPresetName(const char* preset_name);
+bool FontManager_LoadPersistedPrefs(void);
+bool FontManager_SavePersistedPrefs(void);

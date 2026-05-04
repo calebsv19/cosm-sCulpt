@@ -142,6 +142,20 @@ static void line_drawing_authoring_note_font_theme_status(GlobalState* state,
                 sizeof(state->workspaceAuthoring.font_theme_status));
 }
 
+static CoreResult line_drawing_authoring_persist_accepted(GlobalState* state) {
+    bool theme_ok;
+    bool font_ok;
+    if (!state) return line_drawing_authoring_invalid("null global state");
+    theme_ok = line_drawing3d_shared_theme_save_persisted();
+    font_ok = FontManager_SavePersistedPrefs();
+    if (!theme_ok || !font_ok) {
+        line_drawing_authoring_note_font_theme_status(state, "Accepted preference persistence failed.");
+        return line_drawing_authoring_invalid("accepted authoring persistence failed");
+    }
+    line_drawing_authoring_note_font_theme_status(state, "Accepted preferences persisted.");
+    return core_result_ok();
+}
+
 static int line_drawing_authoring_apply_font_theme_button(
     GlobalState* state,
     KitWorkspaceAuthoringFontThemeButtonId button_id) {
@@ -255,9 +269,11 @@ CoreResult LineDrawingWorkspaceAuthoringHost_Enter(GlobalState* state) {
 }
 
 CoreResult LineDrawingWorkspaceAuthoringHost_Apply(GlobalState* state) {
+    CoreResult persist_result = core_result_ok();
     if (!state) return line_drawing_authoring_invalid("null global state");
 
     if (LineDrawingWorkspaceAuthoringHost_Active(state)) {
+        persist_result = line_drawing_authoring_persist_accepted(state);
         state->workspaceAuthoring.active = 0;
         line_drawing_authoring_clear_baseline(state);
         state->workspaceAuthoring.apply_count += 1u;
@@ -267,7 +283,7 @@ CoreResult LineDrawingWorkspaceAuthoringHost_Apply(GlobalState* state) {
     state->workspaceAuthoring.entry_chord_armed_key = KIT_WORKSPACE_AUTHORING_KEY_UNKNOWN;
     state->workspaceAuthoring.overlay_mode = LINE_DRAWING_WORKSPACE_AUTHORING_OVERLAY_PANE;
     state->workspaceAuthoring.last_event_exited = 1u;
-    return core_result_ok();
+    return persist_result;
 }
 
 CoreResult LineDrawingWorkspaceAuthoringHost_Cancel(GlobalState* state) {

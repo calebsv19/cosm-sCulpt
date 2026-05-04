@@ -1,8 +1,10 @@
 #include "test_framework.h"
 
+#include "UI/shared_theme_font_adapter.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
 #include "kit_workspace_authoring_ui.h"
 
+#include <stdio.h>
 #include <string.h>
 
 static SDL_Event authoring_key_event(Uint32 type,
@@ -147,6 +149,31 @@ static SDL_Event authoring_mouse_down(int x, int y) {
     return event;
 }
 
+static bool authoring_read_first_line(const char* path, char* out, size_t out_cap) {
+    FILE* fp;
+    size_t len;
+    if (!path || !out || out_cap == 0) {
+        return false;
+    }
+    fp = fopen(path, "r");
+    if (!fp) {
+        return false;
+    }
+    if (!fgets(out, (int)out_cap, fp)) {
+        fclose(fp);
+        return false;
+    }
+    fclose(fp);
+    len = strlen(out);
+    while (len > 0u &&
+           (out[len - 1u] == '\n' || out[len - 1u] == '\r' ||
+            out[len - 1u] == ' ' || out[len - 1u] == '\t')) {
+        out[len - 1u] = '\0';
+        --len;
+    }
+    return out[0] != '\0';
+}
+
 static bool authoring_font_theme_button_point(int width,
                                               int height,
                                               KitWorkspaceAuthoringFontThemeButtonId button_id,
@@ -240,6 +267,31 @@ static bool test_authoring_font_theme_overlay_hit_uses_shared_layout(void) {
     return true;
 }
 
+static bool test_authoring_persists_only_accepted_theme_draft(void) {
+    GlobalState state;
+    SDL_Event enter;
+    char value[96];
+
+    TEST_ASSERT(line_drawing3d_shared_theme_set_preset("soft_light"));
+    TEST_ASSERT(line_drawing3d_shared_theme_save_persisted());
+    TEST_ASSERT(authoring_seed_state(&state));
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_Enter(&state).code == CORE_OK);
+    TEST_ASSERT(line_drawing3d_shared_theme_set_preset("greyscale"));
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_Cancel(&state).code == CORE_OK);
+    TEST_ASSERT(authoring_read_first_line("data/runtime/theme_preset.txt", value, sizeof(value)));
+    TEST_ASSERT(strcmp(value, "soft_light") == 0);
+
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_Enter(&state).code == CORE_OK);
+    TEST_ASSERT(line_drawing3d_shared_theme_set_preset("greyscale"));
+    enter = authoring_key_event(SDL_KEYDOWN, SDL_SCANCODE_RETURN, SDLK_RETURN, KMOD_NONE);
+    TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &enter));
+    TEST_ASSERT(authoring_read_first_line("data/runtime/theme_preset.txt", value, sizeof(value)));
+    TEST_ASSERT(strcmp(value, "greyscale") == 0);
+    TEST_ASSERT(authoring_read_first_line("data/runtime/font_zoom_step.txt", value, sizeof(value)));
+    TEST_ASSERT(strcmp(value, "0") == 0);
+    return true;
+}
+
 bool workspace_authoring_host_run_tests(void) {
     const TestCase cases[] = {
         {"entry chord and cancel", test_authoring_entry_chord_and_cancel},
@@ -247,6 +299,7 @@ bool workspace_authoring_host_run_tests(void) {
         {"runtime events captured while active", test_authoring_captures_runtime_events_while_active},
         {"overlay buttons control state", test_authoring_overlay_buttons_control_state},
         {"font theme overlay hit uses shared layout", test_authoring_font_theme_overlay_hit_uses_shared_layout},
+        {"persists only accepted theme draft", test_authoring_persists_only_accepted_theme_draft},
     };
     return run_test_cases("WorkspaceAuthoringHost", cases, sizeof(cases) / sizeof(cases[0]));
 }

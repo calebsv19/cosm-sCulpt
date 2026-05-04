@@ -319,6 +319,7 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
 
     line_drawing3d_shared_theme_load_persisted();
     if (!FontManager_Init()) return 1;
+    (void)FontManager_LoadPersistedPrefs();
     if (!FontManager_LoadFonts()) return 1;
 
     // Initialize global program state (grid, layout, editor, etc.)
@@ -332,7 +333,11 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
     App_SetRenderMode(&app, RENDER_THROTTLED, 1.0f / 60.0f);
     App_Run(&app, &cbs);
 
+    if (LineDrawingWorkspaceAuthoringHost_Active(Global_Get())) {
+        (void)LineDrawingWorkspaceAuthoringHost_Cancel(Global_Get());
+    }
     line_drawing3d_shared_theme_save_persisted();
+    (void)FontManager_SavePersistedPrefs();
     FontManager_Quit();
     Global_Shutdown();  // free layout memory, etc.
     App_Shutdown(&app);
