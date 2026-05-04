@@ -6,6 +6,7 @@
 #include "Layout/Grid/grid.h"
 #include "Layout/layout.h"
 #include "Editor/editor.h"
+#include "UI/workspace_authoring/line_drawing_workspace_authoring_types.h"
 
 
 #define ANCHOR_RENDER_RADIUS 5
@@ -27,6 +28,7 @@ typedef struct GlobalState {
     int screenWidth;
     int screenHeight;
     LineDrawingPaneHost paneHost;
+    LineDrawingWorkspaceAuthoringHostState workspaceAuthoring;
 
     bool layoutDirty;
     bool hitboxDirty;

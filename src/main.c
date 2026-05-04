@@ -5,6 +5,7 @@
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
 #include "UI/ui_panel.h"
+#include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
 
 
 #include "Input/input_handler.h"
@@ -130,6 +131,14 @@ static void LineDrawingInputRoute(AppContext* ctx,
     if (!ctx || !normalized) return;
 
     if (normalized->action_class == LINE_DRAWING_INPUT_ACTION_IGNORED) {
+        return;
+    }
+
+    if (!normalized->text_entry_capture &&
+        LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(Global_Get(), &normalized->event)) {
+        out_result->consumed = true;
+        out_result->requested_target_invalidation = true;
+        out_result->invalidation_reason_bits |= LINE_DRAWING_INPUT_INVALIDATION_REASON_ACTION;
         return;
     }
 

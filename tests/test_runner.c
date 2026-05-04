@@ -8,6 +8,7 @@ bool shape_dataset_run_tests(void);
 bool scene_export_run_tests(void);
 bool input_policy_run_tests(void);
 bool pane_host_run_tests(void);
+bool workspace_authoring_host_run_tests(void);
 
 int main(void) {
     bool ok = true;
@@ -17,6 +18,7 @@ int main(void) {
     ok &= scene_export_run_tests();
     ok &= input_policy_run_tests();
     ok &= pane_host_run_tests();
+    ok &= workspace_authoring_host_run_tests();
 
     if (ok) {
         printf("All tests passed\n");

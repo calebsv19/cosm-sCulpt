@@ -3,6 +3,7 @@
 #include "Core/space_mode_adapter.h"
 #include "Layout/hitbox_system.h"
 #include "UI/ui_panel.h"
+#include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
 #include "Layout/layout_json.h"
 #include <stdlib.h>
 #include <string.h>
@@ -310,6 +311,7 @@ void Global_Init(int screenWidth, int screenHeight) {
     if (!LineDrawingPaneHost_Init(&global->paneHost, (float)screenWidth, (float)screenHeight)) {
         fprintf(stderr, "[Core] pane host init failed: %s\n", LineDrawingPaneHost_LastError(&global->paneHost));
     }
+    LineDrawingWorkspaceAuthoringHost_Reset(&global->workspaceAuthoring);
     UIPanel_Init(screenWidth, screenHeight);
     Global_SetWindowSize(screenWidth, screenHeight);
 

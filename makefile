@@ -39,6 +39,7 @@ SHARED_ASSETS_DIR := $(SHARED_ROOT)/assets
 SHAPE_DIR := $(SHARED_ROOT)/shape
 KIT_RENDER_DIR := $(SHARED_ROOT)/kit/kit_render
 KIT_PANE_DIR := $(SHARED_ROOT)/kit/kit_pane
+KIT_WORKSPACE_AUTHORING_DIR := $(SHARED_ROOT)/kit/kit_workspace_authoring
 VK_RENDERER_DIR := $(SHARED_ROOT)/vk_renderer
 CORE_BASE_DIR := $(SHARED_ROOT)/core/core_base
 CORE_IO_DIR := $(SHARED_ROOT)/core/core_io
@@ -136,7 +137,7 @@ ifeq ($(strip $(SDL_LDFLAGS)),)
 endif
 
 WARN_FLAGS := -Wall -Wextra -Werror -Wpedantic
-BASE_CFLAGS := $(WARN_FLAGS) -std=c11 $(ARCH_FLAGS) -Iinclude -Isrc -Isrc/Tools -Iexternal -I$(VK_RENDERER_DIR)/include -I$(KIT_RENDER_DIR)/include -I$(KIT_PANE_DIR)/include -I$(CORE_BASE_DIR)/include -I$(CORE_IO_DIR)/include -I$(CORE_DATA_DIR)/include -I$(CORE_MATH_DIR)/include -I$(CORE_TIME_DIR)/include -I$(CORE_SCENE_DIR)/include -I$(CORE_SCENE_COMPILE_DIR)/include -I$(CORE_OBJECT_DIR)/include -I$(CORE_UNITS_DIR)/include -I$(CORE_LAYOUT_DIR)/include -I$(CORE_PANE_DIR)/include -I$(CORE_PANE_MODULE_DIR)/include -I$(CORE_PACK_DIR)/include -I$(CORE_TRACE_DIR)/include -I$(CORE_THEME_DIR)/include -I$(CORE_FONT_DIR)/include -I$(TIMER_HUD_DIR)/include $(SDL_CFLAGS)
+BASE_CFLAGS := $(WARN_FLAGS) -std=c11 $(ARCH_FLAGS) -Iinclude -Isrc -Isrc/Tools -Iexternal -I$(VK_RENDERER_DIR)/include -I$(KIT_RENDER_DIR)/include -I$(KIT_PANE_DIR)/include -I$(KIT_WORKSPACE_AUTHORING_DIR)/include -I$(CORE_BASE_DIR)/include -I$(CORE_IO_DIR)/include -I$(CORE_DATA_DIR)/include -I$(CORE_MATH_DIR)/include -I$(CORE_TIME_DIR)/include -I$(CORE_SCENE_DIR)/include -I$(CORE_SCENE_COMPILE_DIR)/include -I$(CORE_OBJECT_DIR)/include -I$(CORE_UNITS_DIR)/include -I$(CORE_LAYOUT_DIR)/include -I$(CORE_PANE_DIR)/include -I$(CORE_PANE_MODULE_DIR)/include -I$(CORE_PACK_DIR)/include -I$(CORE_TRACE_DIR)/include -I$(CORE_THEME_DIR)/include -I$(CORE_FONT_DIR)/include -I$(TIMER_HUD_DIR)/include $(SDL_CFLAGS)
 DEBUG ?= 0
 
 ifeq ($(DEBUG),1)
@@ -160,6 +161,7 @@ KIT_RENDER_SRCS := \
 	$(KIT_RENDER_DIR)/src/kit_render_backend_vk.c \
 	$(KIT_RENDER_DIR)/src/kit_render_external_text.c
 KIT_PANE_SRCS := $(KIT_PANE_DIR)/src/kit_pane.c
+KIT_WORKSPACE_AUTHORING_SRCS := $(KIT_WORKSPACE_AUTHORING_DIR)/src/kit_workspace_authoring.c
 
 APP_SRCS := $(shell find $(SRC_DIR) -name '*.c' ! -path '$(TOOLS_DIR)/*')
 VK_RENDERER_SRCS := $(shell find $(VK_RENDERER_DIR)/src -name '*.c')
@@ -174,7 +176,7 @@ else
 endif
 CORE_SRCS := $(CORE_BASE_DIR)/src/core_base.c $(CORE_IO_DIR)/src/core_io.c $(CORE_DATA_DIR)/src/core_data.c $(CORE_PACK_DIR)/src/core_pack.c $(CORE_MATH_DIR)/src/core_math.c $(CORE_TIME_SRCS) $(CORE_SCENE_DIR)/src/core_scene.c $(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile.c $(CORE_OBJECT_DIR)/src/core_object.c $(CORE_UNITS_DIR)/src/core_units.c $(CORE_LAYOUT_DIR)/src/core_layout.c $(CORE_PANE_DIR)/src/core_pane.c $(CORE_PANE_MODULE_DIR)/src/core_pane_module.c $(CORE_THEME_DIR)/src/core_theme.c $(CORE_FONT_DIR)/src/core_font.c
 TIMER_HUD_SRCS := $(shell find $(TIMER_HUD_DIR)/src -name '*.c')
-ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(KIT_RENDER_SRCS) $(KIT_PANE_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
+ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(KIT_RENDER_SRCS) $(KIT_PANE_SRCS) $(KIT_WORKSPACE_AUTHORING_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
 
 APP_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(ALL_SRCS))
 APP_TARGET := $(BIN_DIR)/LineDrawing

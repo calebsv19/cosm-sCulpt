@@ -11,6 +11,7 @@ The UI layer provides a lightweight button panel and shared font management.
 - `panel/ui_panel_input.c` — panel-local keyboard/text-entry helpers layered under the UI panel state machine.
 - `panel/ui_panel_load_menu.c` — cached load-menu and config dropdown helpers.
 - `overlay/ui_panel_overlay_render.c` — draw panel overlays such as dropdowns and modal dialog chrome above the pane-clipped base panel render path.
+- `workspace_authoring/` — local host adapter for the shared Workspace Authoring layer. It stores authoring state on `GlobalState`, uses `kit_workspace_authoring` for entry-chord/trigger semantics, and currently owns the invisible S1 authoring runtime gate before pane overlay drawing is added.
 - `info_overlay.h` / `info_overlay.c` — render a top-of-screen status bar displaying details about the current selection, hover target, drag mode (snapped vs precise), bezier handle lengths/angles, multi-selection counts, current file name, active `SpaceMode`, active view/plane context, dirty state, and undo/redo depth.
 - `font_manager.h` / `font_manager.c` — initialise SDL_ttf, load font resources from `include/fonts`, expose typed getters, and release fonts on shutdown.
 
