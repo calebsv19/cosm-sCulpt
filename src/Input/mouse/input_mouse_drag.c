@@ -20,6 +20,7 @@ bool draggingObjectResize = false;
 bool draggingObjectGizmo = false;
 bool draggingObjectTranslate = false;
 bool draggingObjectRotate = false;
+bool draggingSceneBoundsGizmo = false;
 bool draggingSelectionBox = false;
 int draggingAnchorIndex = -1;
 bool anchorDragCaptured = false;
@@ -36,8 +37,12 @@ ObjectResizeDragState objectResizeDrag = {
 
 ObjectGizmoDragState objectGizmoDrag = {
     .active = false,
-    .objectId = 0u,
-    .handle = RECT_PRISM_RESIZE_HANDLE_NONE,
+    .target = {
+        .kind = OBJECT_HANDLE_GIZMO_TARGET_NONE,
+        .objectId = 0u,
+        .planeHandle = PLANE_RESIZE_HANDLE_NONE,
+        .prismHandle = RECT_PRISM_RESIZE_HANDLE_NONE
+    },
     .axisDirection = RECT_PRISM_AXIS_DIR_POS_U,
     .mouseStartScreen = { 0.0f, 0.0f },
     .handleStartWorld = { 0.0f, 0.0f, 0.0f },
@@ -68,6 +73,16 @@ ObjectRotateDragState objectRotateDrag = {
     .baselineObject = {0}
 };
 
+SceneBoundsGizmoDragState sceneBoundsGizmoDrag = {
+    .active = false,
+    .handle = SCENE_BOUNDS_HANDLE_NONE,
+    .axisDirection = RECT_PRISM_AXIS_DIR_POS_U,
+    .mouseStartScreen = { 0.0f, 0.0f },
+    .handleStartWorld = { 0.0f, 0.0f, 0.0f },
+    .worldUnitsPerPixel = 0.0f,
+    .historyCaptured = false
+};
+
 void ResetObjectResizeDrag(EditorState* editor) {
     objectResizeDrag.active = false;
     objectResizeDrag.objectId = 0u;
@@ -79,8 +94,7 @@ void ResetObjectResizeDrag(EditorState* editor) {
 
 void ResetObjectGizmoDrag(EditorState* editor) {
     objectGizmoDrag.active = false;
-    objectGizmoDrag.objectId = 0u;
-    objectGizmoDrag.handle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    objectGizmoDrag.target = ObjectHandleGizmoTarget_None();
     objectGizmoDrag.axisDirection = RECT_PRISM_AXIS_DIR_POS_U;
     objectGizmoDrag.mouseStartScreen = (Vec2){ 0.0f, 0.0f };
     objectGizmoDrag.handleStartWorld = (Vec3){ 0.0f, 0.0f, 0.0f };
@@ -118,16 +132,17 @@ void ResetObjectRotateDrag(EditorState* editor) {
     editor->isRotatingObject3D = false;
 }
 
-static bool RectPrismAxisAllowedForHandle(RectPrismResizeHandleKind handle,
-                                          RectPrismAxisDirection axisDirection) {
-    RectPrismHandleAxisMask mask = {0};
-    if (!Layout_RectPrismResizeHandleAxisMask(handle, &mask)) return false;
-    switch (Layout_RectPrismAxisDirection_Family(axisDirection)) {
-        case 0: return mask.allowU;
-        case 1: return mask.allowV;
-        case 2: return mask.allowN;
-        default: return false;
-    }
+void ResetSceneBoundsGizmoDrag(EditorState* editor) {
+    sceneBoundsGizmoDrag.active = false;
+    sceneBoundsGizmoDrag.handle = SCENE_BOUNDS_HANDLE_NONE;
+    sceneBoundsGizmoDrag.axisDirection = RECT_PRISM_AXIS_DIR_POS_U;
+    sceneBoundsGizmoDrag.mouseStartScreen = (Vec2){ 0.0f, 0.0f };
+    sceneBoundsGizmoDrag.handleStartWorld = (Vec3){ 0.0f, 0.0f, 0.0f };
+    sceneBoundsGizmoDrag.worldUnitsPerPixel = 0.0f;
+    sceneBoundsGizmoDrag.historyCaptured = false;
+    if (!editor) return;
+    editor->activeSceneBoundsGizmoAxis = -1;
+    editor->isResizingSceneBounds = false;
 }
 
 static bool ScreenToPlaneFrameWorld(int screenX,
@@ -232,28 +247,37 @@ bool BeginObjectResizeDragSession(GlobalState* state,
     return true;
 }
 
-bool BeginObjectGizmoDragSession(GlobalState* state,
-                                 EditorState* editor,
-                                 uint32_t objectId,
-                                 RectPrismResizeHandleKind handle,
-                                 RectPrismAxisDirection axisDirection,
-                                 int mouseX,
-                                 int mouseY) {
-    if (!state || !editor) return false;
-    if (objectId == 0u || handle == RECT_PRISM_RESIZE_HANDLE_NONE) return false;
-    if (!Layout_RectPrismAxisDirection_IsValid(axisDirection)) return false;
-    if (!RectPrismAxisAllowedForHandle(handle, axisDirection)) return false;
+static void ObjectHandleGizmo_ApplySelection(EditorState* editor,
+                                             const ObjectHandleGizmoTarget* target) {
+    if (!editor || !target) return;
+    if (target->kind == OBJECT_HANDLE_GIZMO_TARGET_PLANE_RESIZE) {
+        editor->selectedObject3DResizeHandle = (int)target->planeHandle;
+        editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    } else if (target->kind == OBJECT_HANDLE_GIZMO_TARGET_PRISM_RESIZE) {
+        editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+        editor->selectedObject3DPrismHandle = (int)target->prismHandle;
+    }
+}
 
-    Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, objectId);
-    if (!object || object->kind != OBJECT3D_KIND_RECT_PRISM) return false;
-    if (!Layout_ObjectStore_ValidateObject(object)) return false;
+bool BeginObjectHandleGizmoDragSession(GlobalState* state,
+                                       EditorState* editor,
+                                       ObjectHandleGizmoTarget target,
+                                       RectPrismAxisDirection axisDirection,
+                                       int mouseX,
+                                       int mouseY) {
+    if (!state || !editor) return false;
+    if (!Layout_RectPrismAxisDirection_IsValid(axisDirection)) return false;
+    if (!ObjectHandleGizmoTarget_AxisAllowed(&target, axisDirection)) return false;
+
+    Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, target.objectId);
+    if (!ObjectHandleGizmoTarget_ValidateForObject(&target, object)) return false;
 
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
 
     Vec3 handleWorld = {0};
-    if (!Layout_RectPrismResizeHandleWorldPoint(object, handle, &handleWorld)) return false;
-    Vec3 axisWorldVec = Layout_RectPrismAxisDirection_WorldVector(object, axisDirection);
+    if (!ObjectHandleGizmoTarget_HandleWorldPoint(&target, object, &handleWorld)) return false;
+    Vec3 axisWorldVec = ObjectHandleGizmoTarget_AxisWorldVector(&target, object, axisDirection);
     if (Vec3_Length(axisWorldVec) <= 1e-5f) return false;
     const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
     Vec3 tipWorld = Vec3_Add(handleWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
@@ -264,8 +288,7 @@ bool BeginObjectGizmoDragSession(GlobalState* state,
     if (axisPixels <= 1e-4f) return false;
 
     objectGizmoDrag.active = true;
-    objectGizmoDrag.objectId = objectId;
-    objectGizmoDrag.handle = handle;
+    objectGizmoDrag.target = target;
     objectGizmoDrag.axisDirection = axisDirection;
     objectGizmoDrag.mouseStartScreen = (Vec2){ (float)mouseX, (float)mouseY };
     objectGizmoDrag.handleStartWorld = handleWorld;
@@ -274,9 +297,85 @@ bool BeginObjectGizmoDragSession(GlobalState* state,
 
     editor->isResizingObject3D = true;
     editor->isRotatingObject3D = false;
-    editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-    editor->selectedObject3DPrismHandle = (int)handle;
+    ObjectHandleGizmo_ApplySelection(editor, &target);
     editor->activeObject3DGizmoAxis = (int)axisDirection;
+    editor->isPreciseDrag = (SDL_GetModState() & KMOD_ALT) != 0;
+    return true;
+}
+
+bool BeginObjectGizmoDragSession(GlobalState* state,
+                                 EditorState* editor,
+                                 uint32_t objectId,
+                                 RectPrismResizeHandleKind handle,
+                                 RectPrismAxisDirection axisDirection,
+                                 int mouseX,
+                                 int mouseY) {
+    ObjectHandleGizmoTarget target = ObjectHandleGizmoTarget_None();
+    if (!ObjectHandleGizmoTarget_FromPrism(objectId, handle, &target)) return false;
+    return BeginObjectHandleGizmoDragSession(state, editor, target, axisDirection, mouseX, mouseY);
+}
+
+bool BeginPlaneObjectGizmoDragSession(GlobalState* state,
+                                      EditorState* editor,
+                                      uint32_t objectId,
+                                      PlaneResizeHandleKind handle,
+                                      RectPrismAxisDirection axisDirection,
+                                      int mouseX,
+                                      int mouseY) {
+    ObjectHandleGizmoTarget target = ObjectHandleGizmoTarget_None();
+    if (!ObjectHandleGizmoTarget_FromPlane(objectId, handle, &target)) return false;
+    return BeginObjectHandleGizmoDragSession(state, editor, target, axisDirection, mouseX, mouseY);
+}
+
+bool BeginSceneBoundsGizmoDragSession(GlobalState* state,
+                                      EditorState* editor,
+                                      SceneBoundsHandleKind handle,
+                                      RectPrismAxisDirection axisDirection,
+                                      int mouseX,
+                                      int mouseY) {
+    if (!state || !editor) return false;
+    if (!Layout_SceneBoundsHandle_IsValid(handle)) return false;
+    if (!Layout_RectPrismAxisDirection_IsValid(axisDirection)) return false;
+
+    RectPrismHandleAxisMask axisMask = {0};
+    if (!Layout_SceneBoundsHandleAxisMask(handle, &axisMask)) return false;
+    const int family = Layout_RectPrismAxisDirection_Family(axisDirection);
+    if ((family == 0 && !axisMask.allowU) ||
+        (family == 1 && !axisMask.allowV) ||
+        (family == 2 && !axisMask.allowN)) {
+        return false;
+    }
+
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
+
+    Vec3 handleWorld = {0};
+    if (!Layout_SceneBoundsHandleWorldPoint(&state->layout.scene3d.bounds, handle, &handleWorld)) {
+        return false;
+    }
+    Vec3 axisWorldVec = Layout_SceneBoundsAxisDirection_WorldVector(axisDirection);
+    if (Vec3_Length(axisWorldVec) <= 1e-5f) return false;
+
+    const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
+    Vec3 tipWorld = Vec3_Add(handleWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
+    Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(handleWorld, &viewCtx), &state->grid);
+    Vec2 tipScreen = WorldToScreen(SpaceAdapter_ProjectToView(tipWorld, &viewCtx), &state->grid);
+    float axisPixels = Vec2_Distance(startScreen, tipScreen);
+    if (axisPixels <= 1e-4f) return false;
+
+    sceneBoundsGizmoDrag.active = true;
+    sceneBoundsGizmoDrag.handle = handle;
+    sceneBoundsGizmoDrag.axisDirection = axisDirection;
+    sceneBoundsGizmoDrag.mouseStartScreen = (Vec2){ (float)mouseX, (float)mouseY };
+    sceneBoundsGizmoDrag.handleStartWorld = handleWorld;
+    sceneBoundsGizmoDrag.worldUnitsPerPixel = axisWorldLen / axisPixels;
+    sceneBoundsGizmoDrag.historyCaptured = false;
+
+    editor->selectedSceneBoundsHandle = (int)handle;
+    editor->activeSceneBoundsGizmoAxis = (int)axisDirection;
+    editor->isResizingSceneBounds = true;
+    editor->isResizingObject3D = false;
+    editor->isRotatingObject3D = false;
     editor->isPreciseDrag = (SDL_GetModState() & KMOD_ALT) != 0;
     return true;
 }
@@ -560,15 +659,16 @@ static void UpdateObjectGizmoDragPosition(int mx, int my) {
     GlobalState* state = Global_Get();
     if (!state) return;
     EditorState* editor = &state->editor;
-    if (objectGizmoDrag.objectId == 0u ||
-        objectGizmoDrag.handle == RECT_PRISM_RESIZE_HANDLE_NONE ||
-        !Layout_RectPrismAxisDirection_IsValid(objectGizmoDrag.axisDirection)) {
+    if (!ObjectHandleGizmoTarget_IsActive(&objectGizmoDrag.target) ||
+        !Layout_RectPrismAxisDirection_IsValid(objectGizmoDrag.axisDirection) ||
+        !ObjectHandleGizmoTarget_AxisAllowed(&objectGizmoDrag.target,
+                                             objectGizmoDrag.axisDirection)) {
         return;
     }
 
-    Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, objectGizmoDrag.objectId);
-    if (!object || object->kind != OBJECT3D_KIND_RECT_PRISM) return;
-    if (!Layout_ObjectStore_ValidateObject(object)) return;
+    Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore,
+                                               objectGizmoDrag.target.objectId);
+    if (!ObjectHandleGizmoTarget_ValidateForObject(&objectGizmoDrag.target, object)) return;
 
     if (!objectGizmoDrag.historyCaptured) {
         Editor_HistoryCapture(editor, &state->layout);
@@ -578,7 +678,9 @@ static void UpdateObjectGizmoDragPosition(int mx, int my) {
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
 
-    Vec3 axisWorldVec = Layout_RectPrismAxisDirection_WorldVector(object, objectGizmoDrag.axisDirection);
+    Vec3 axisWorldVec = ObjectHandleGizmoTarget_AxisWorldVector(&objectGizmoDrag.target,
+                                                                object,
+                                                                objectGizmoDrag.axisDirection);
     if (Vec3_Length(axisWorldVec) <= 1e-5f) return;
 
     const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
@@ -596,8 +698,7 @@ static void UpdateObjectGizmoDragPosition(int mx, int my) {
     editor->isPreciseDrag = precise;
     editor->isResizingObject3D = true;
     editor->isRotatingObject3D = false;
-    editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-    editor->selectedObject3DPrismHandle = (int)objectGizmoDrag.handle;
+    ObjectHandleGizmo_ApplySelection(editor, &objectGizmoDrag.target);
     editor->activeObject3DGizmoAxis = (int)objectGizmoDrag.axisDirection;
 
     Vec2 mouseNow = { (float)mx, (float)my };
@@ -612,18 +713,77 @@ static void UpdateObjectGizmoDragPosition(int mx, int my) {
     Vec3 dragPoint = Vec3_Add(objectGizmoDrag.handleStartWorld,
                               Vec3_Scale(axisWorldVec, signedWorldDistance));
 
-    RectPrismResizeHandleKind resolvedHandle =
-        Layout_ResolveRectPrismResizeHandleFor3DDrag(object, objectGizmoDrag.handle, dragPoint);
-    if (resolvedHandle != objectGizmoDrag.handle &&
-        resolvedHandle != RECT_PRISM_RESIZE_HANDLE_NONE) {
-        objectGizmoDrag.handle = resolvedHandle;
-        editor->selectedObject3DPrismHandle = (int)resolvedHandle;
+    (void)ObjectHandleGizmoTarget_ResolveForDrag(object, &objectGizmoDrag.target, dragPoint);
+    ObjectHandleGizmo_ApplySelection(editor, &objectGizmoDrag.target);
+    (void)ObjectHandleGizmoTarget_ResizeFromDrag(&state->layout,
+                                                 &objectGizmoDrag.target,
+                                                 dragPoint,
+                                                 NULL);
+}
+
+static void UpdateSceneBoundsGizmoDragPosition(int mx, int my) {
+    if (!draggingSceneBoundsGizmo || !sceneBoundsGizmoDrag.active) return;
+
+    GlobalState* state = Global_Get();
+    if (!state) return;
+    EditorState* editor = &state->editor;
+    if (!Layout_SceneBoundsHandle_IsValid(sceneBoundsGizmoDrag.handle) ||
+        !Layout_RectPrismAxisDirection_IsValid(sceneBoundsGizmoDrag.axisDirection)) {
+        return;
     }
-    (void)Layout_ResizeRectPrismFrom3DHandle(&state->layout,
-                                             objectGizmoDrag.objectId,
-                                             objectGizmoDrag.handle,
-                                             dragPoint,
-                                             NULL);
+
+    if (!sceneBoundsGizmoDrag.historyCaptured) {
+        Editor_HistoryCapture(editor, &state->layout);
+        sceneBoundsGizmoDrag.historyCaptured = true;
+    }
+
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
+
+    Vec3 axisWorldVec =
+        Layout_SceneBoundsAxisDirection_WorldVector(sceneBoundsGizmoDrag.axisDirection);
+    if (Vec3_Length(axisWorldVec) <= 1e-5f) return;
+
+    const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
+    Vec3 tipWorld = Vec3_Add(sceneBoundsGizmoDrag.handleStartWorld,
+                             Vec3_Scale(axisWorldVec, axisWorldLen));
+    Vec2 startScreen =
+        WorldToScreen(SpaceAdapter_ProjectToView(sceneBoundsGizmoDrag.handleStartWorld, &viewCtx),
+                      &state->grid);
+    Vec2 tipScreen = WorldToScreen(SpaceAdapter_ProjectToView(tipWorld, &viewCtx), &state->grid);
+    Vec2 axisScreenVector = Vec2_Sub(tipScreen, startScreen);
+    float axisPixels = Vec2_Distance(startScreen, tipScreen);
+    if (axisPixels > 1e-4f) {
+        sceneBoundsGizmoDrag.worldUnitsPerPixel = axisWorldLen / axisPixels;
+    }
+
+    const bool precise = (SDL_GetModState() & KMOD_ALT) != 0;
+    editor->isPreciseDrag = precise;
+    editor->isResizingSceneBounds = true;
+    editor->isResizingObject3D = false;
+    editor->isRotatingObject3D = false;
+    editor->selectedSceneBoundsHandle = (int)sceneBoundsGizmoDrag.handle;
+    editor->activeSceneBoundsGizmoAxis = (int)sceneBoundsGizmoDrag.axisDirection;
+
+    Vec2 mouseNow = { (float)mx, (float)my };
+    float signedPixels = GizmoDrag_SignedPixelsAlongAxis(sceneBoundsGizmoDrag.mouseStartScreen,
+                                                         mouseNow,
+                                                         axisScreenVector);
+    const float step = fmaxf(state->grid.gridSize, 1e-4f);
+    float signedWorldDistance = GizmoDrag_ResolveDistance(signedPixels,
+                                                          sceneBoundsGizmoDrag.worldUnitsPerPixel,
+                                                          step,
+                                                          precise);
+    Vec3 dragPoint = Vec3_Add(sceneBoundsGizmoDrag.handleStartWorld,
+                              Vec3_Scale(axisWorldVec, signedWorldDistance));
+    if (sceneBoundsGizmoDrag.handle == SCENE_BOUNDS_HANDLE_CENTER) {
+        Vec3 delta = Vec3_Sub(dragPoint, sceneBoundsGizmoDrag.handleStartWorld);
+        (void)Layout_TranslateSceneBounds3D(&state->layout, delta);
+    } else {
+        (void)Layout_ResizeSceneBounds3DFromHandle(&state->layout,
+                                                   sceneBoundsGizmoDrag.handle,
+                                                   dragPoint);
+    }
 }
 
 static void UpdateObjectTranslateDragPosition(int mx, int my) {
@@ -756,6 +916,10 @@ static void UpdateObjectRotateDragPosition(int mx, int my) {
 void HandleMouseDrag(const SDL_MouseMotionEvent* motion) {
     if (draggingObjectRotate) {
         UpdateObjectRotateDragPosition(motion->x, motion->y);
+        return;
+    }
+    if (draggingSceneBoundsGizmo) {
+        UpdateSceneBoundsGizmoDragPosition(motion->x, motion->y);
         return;
     }
     if (draggingObjectTranslate) {

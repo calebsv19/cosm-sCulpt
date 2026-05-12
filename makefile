@@ -169,7 +169,7 @@ KIT_WORKSPACE_AUTHORING_SRCS := \
 APP_SRCS := $(shell find $(SRC_DIR) -name '*.c' ! -path '$(TOOLS_DIR)/*')
 VK_RENDERER_SRCS := $(shell find $(VK_RENDERER_DIR)/src -name '*.c')
 SHAPE_LIB_SRCS := $(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
-SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c $(TOOLS_DIR)/canonical_scene_export.c $(TOOLS_DIR)/canonical_scene_export_primitives.c $(TOOLS_DIR)/scene_export.c
+SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c $(TOOLS_DIR)/canonical_scene_export.c $(TOOLS_DIR)/canonical_scene_export_primitives.c $(TOOLS_DIR)/scene_export.c $(TOOLS_DIR)/scene_import.c
 EXT_SRCS := $(EXT_DIR)/cjson/cJSON.c
 CORE_TIME_SRCS := $(CORE_TIME_DIR)/src/core_time.c
 ifeq ($(UNAME_S),Darwin)

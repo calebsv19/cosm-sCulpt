@@ -89,12 +89,13 @@ Pack output includes:
 
 This does not replace existing JSON export paths; it is additive for shared-pipeline diagnostics and cross-program inspection.
 
-### Runtime Import Policy (Slice 1, 2026-03-10)
+### Runtime Import Policy (Updated 2026-05-06)
 
-Runtime layout loading is JSON-only.
+Runtime layout loading now supports two authoring sources:
 
-- Accepted runtime sources: `config/*.json` layout files
-- Rejected runtime sources: `.pack` diagnostics artifacts
+- `Load JSON`: `.json` layout files from a chosen JSON root, shown through the in-app scrollable picker
+- `Load Scene`: scene directories under a chosen scene root that contain both `scene_authoring.json` and `scene_runtime.json`; the importer restores the embedded `extensions.line_drawing.layout_snapshot` for exact round-trip restores
+- Rejected runtime sources: `.pack` diagnostics artifacts and compiled `scene_runtime.json` files
 - `.pack` remains tooling-only for diagnostics and cross-program inspection
 
 ### Shape Trace Tooling (Slice 2, 2026-03-10)
@@ -167,9 +168,10 @@ Low-risk theme preset persistence paths now use shared `core_io`:
 - `Alt` + drag — disables grid snapping for the anchor currently being dragged (other selected anchors follow the same delta without snapping).
 - Double-click a selected anchor — collapse the multi-selection down to that anchor (single drag target).
 - `Save JSON` button — opens a naming dialog that writes to `config/<name>.json` (layout changes prompt for a new file name).
-- `Load JSON` button — exposes a dropdown of every `.json` layout in `config/` for quick swapping between floor plans.
+- `Load JSON` button — opens a native folder picker for the JSON root, then shows a clipped, scrollable in-app list of every `.json` file in that directory for quick swapping between layouts.
+- `Load Scene` button — opens a native folder picker for the scene root, then shows a clipped, scrollable in-app list of valid scenes sourced from that folder. Scene discovery accepts a root that is itself a scene directory or one grouped layer deeper (`group/scene`). Each loaded scene restores the embedded line-drawing layout snapshot from `scene_authoring.json`.
 - `Export Shape` button — converts the in-memory Layout into a canonical Shape asset and writes it to `export/<current config name>.json` using the shared ShapeLib pipeline (no dialog required). Export flattening uses the current active plane (`XY`/`YZ`/`XZ`).
-- `Export Scene` button — writes a named scene directory under the configured output root, exporting `scene_authoring.json` first and then compiling `scene_runtime.json` immediately for downstream consumers.
+- `Export Scene` button — writes a named scene directory under the configured output root, exporting `scene_authoring.json` first and then compiling `scene_runtime.json` immediately for downstream consumers. If the current session came from `Load Scene`, export writes back to that same scene directory.
 
 Selection details (position, connections, bezier handle lengths/angles, drag mode, group count, delete mode) appear in the top overlay, while action buttons sit below it to keep the workspace tidy. Selected anchors glow while dragging, bezier handles render with hover/selection feedback, and the marquee indicates the lasso bounds.
 In `PLANE_VIEW`, the background grid is rendered for plane editing. In `FREE_VIEW`, the background grid is hidden and a world-axis gizmo (+X red, +Y green, +Z blue) is rendered around the layout centroid for orientation.

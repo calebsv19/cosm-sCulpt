@@ -3,6 +3,7 @@
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
 #include "Editor/editor.h"
+#include "Editor/primitive_placement_preview.h"
 #include "Math/math_util.h"
 #include <SDL2/SDL.h>
 #include <math.h>
@@ -142,6 +143,130 @@ static void Layout_RenderSceneBounds3D(const Layout* layout, SDL_Renderer* rende
                                220);
         DrawLineWithThickness(renderer, (int)a2.x, (int)a2.y, (int)b2.x, (int)b2.y, 1);
     }
+
+    if (!SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
+    const EditorState* editor = &state->editor;
+    if (!editor->sceneBoundsHandlesVisible) return;
+    const int hoveredHandle = editor->hoveredSceneBoundsHandle;
+    const int selectedHandle = editor->selectedSceneBoundsHandle;
+    const int activeHandle = (hoveredHandle != SCENE_BOUNDS_HANDLE_NONE)
+        ? hoveredHandle
+        : selectedHandle;
+    const int radius = SDL_max(4, (int)(grid->gridSize * grid->scale * 0.10f));
+    for (int handle = SCENE_BOUNDS_HANDLE_MIN_X;
+         handle <= SCENE_BOUNDS_HANDLE_CENTER;
+         ++handle) {
+        Vec3 point = {0};
+        if (!Layout_SceneBoundsHandleWorldPoint(&layout->scene3d.bounds,
+                                                (SceneBoundsHandleKind)handle,
+                                                &point)) {
+            continue;
+        }
+        Vec2 screen = WorldToScreen(SpaceAdapter_ProjectToView(point, &viewCtx), grid);
+        const bool highlight = (handle == activeHandle);
+        if (handle == SCENE_BOUNDS_HANDLE_CENTER) {
+            const int centerRadius = highlight ? radius + 2 : radius + 1;
+            SDL_SetRenderDrawColor(renderer,
+                                   highlight ? 255 : 225,
+                                   highlight ? 255 : 245,
+                                   highlight ? 255 : 255,
+                                   255);
+            DrawFilledCircle(renderer, (int)screen.x, (int)screen.y, centerRadius);
+            SDL_SetRenderDrawColor(renderer, 45, 70, 120, 255);
+            DrawLineWithThickness(renderer,
+                                  (int)screen.x - centerRadius - 2,
+                                  (int)screen.y,
+                                  (int)screen.x + centerRadius + 2,
+                                  (int)screen.y,
+                                  1);
+            DrawLineWithThickness(renderer,
+                                  (int)screen.x,
+                                  (int)screen.y - centerRadius - 2,
+                                  (int)screen.x,
+                                  (int)screen.y + centerRadius + 2,
+                                  1);
+        } else {
+            SDL_SetRenderDrawColor(renderer,
+                                   highlight ? 255 : 120,
+                                   highlight ? 190 : 165,
+                                   highlight ? 45 : 240,
+                                   255);
+            DrawFilledSquare(renderer,
+                             (int)screen.x,
+                             (int)screen.y,
+                             highlight ? radius + 1 : radius);
+        }
+    }
+}
+
+static void Layout_RenderPrimitivePlacementPreview(SDL_Renderer* renderer) {
+    GlobalState* state = Global_Get();
+    if (!renderer || !state) return;
+
+    PrimitivePlacementPreview preview = {0};
+    if (!Editor_PrimitivePlacementPreview_Build(state,
+                                                state->editor.primitivePlacementPreview,
+                                                &preview)) {
+        return;
+    }
+
+    Vec3 corners3[8] = {0};
+    size_t cornerCount = 0u;
+    if (!Editor_PrimitivePlacementPreview_ComputeCorners(&preview, corners3, &cornerCount)) {
+        return;
+    }
+
+    const Grid* grid = &state->grid;
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    Vec2 corners2[8] = {0};
+    for (size_t i = 0u; i < cornerCount; ++i) {
+        corners2[i] = WorldToScreen(SpaceAdapter_ProjectToView(corners3[i], &viewCtx), grid);
+    }
+
+    SDL_SetRenderDrawColor(renderer, 70, 240, 215, 170);
+    if (preview.kind == PRIMITIVE_PLACEMENT_PREVIEW_PLANE) {
+        for (int edge = 0; edge < 4; ++edge) {
+            const int next = (edge + 1) % 4;
+            DrawLineWithThickness(renderer,
+                                  (int)corners2[edge].x,
+                                  (int)corners2[edge].y,
+                                  (int)corners2[next].x,
+                                  (int)corners2[next].y,
+                                  2);
+        }
+        SDL_SetRenderDrawColor(renderer, 70, 240, 215, 115);
+        DrawLineWithThickness(renderer,
+                              (int)corners2[0].x, (int)corners2[0].y,
+                              (int)corners2[2].x, (int)corners2[2].y,
+                              1);
+        DrawLineWithThickness(renderer,
+                              (int)corners2[1].x, (int)corners2[1].y,
+                              (int)corners2[3].x, (int)corners2[3].y,
+                              1);
+    } else if (preview.kind == PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM) {
+        static const int kRectEdges[12][2] = {
+            {0, 1}, {1, 2}, {2, 3}, {3, 0},
+            {4, 5}, {5, 6}, {6, 7}, {7, 4},
+            {0, 4}, {1, 5}, {2, 6}, {3, 7}
+        };
+        for (int e = 0; e < 12; ++e) {
+            const Vec2 a = corners2[kRectEdges[e][0]];
+            const Vec2 b = corners2[kRectEdges[e][1]];
+            DrawLineWithThickness(renderer,
+                                  (int)a.x,
+                                  (int)a.y,
+                                  (int)b.x,
+                                  (int)b.y,
+                                  2);
+        }
+    }
+
+    Vec2 center = WorldToScreen(SpaceAdapter_ProjectToView(preview.frame.origin, &viewCtx), grid);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 210);
+    DrawLineWithThickness(renderer, (int)center.x - 7, (int)center.y,
+                          (int)center.x + 7, (int)center.y, 1);
+    DrawLineWithThickness(renderer, (int)center.x, (int)center.y - 7,
+                          (int)center.x, (int)center.y + 7, 1);
 }
 
 static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer) {
@@ -625,6 +750,7 @@ void Layout_Render(const Layout* layout, AppContext* ctx) {
     SDL_Renderer* renderer = ctx->renderer;
 
     Layout_RenderSceneBounds3D(layout, renderer);
+    Layout_RenderPrimitivePlacementPreview(renderer);
     Layout_RenderObjects3D(layout, renderer);
     Layout_RenderWalls(layout, renderer);
     Layout_RenderHandles(layout, renderer);

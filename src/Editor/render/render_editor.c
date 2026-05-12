@@ -2,6 +2,7 @@
 #include "Editor/render_editor.h"
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
+#include "Editor/object_handle_gizmo.h"
 #include "Editor/space_gizmo_drag.h"
 #include "Layout/Grid/grid.h"
 #include "Math/math_util.h"
@@ -200,23 +201,93 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
     const float axisWorldLen = fmaxf(grid->gridSize * 2.0f, 1.0f);
     const int baseRadius = SDL_max(6, (int)(grid->gridSize * grid->scale * 0.13f));
 
+    if (editor->sceneBoundsHandlesVisible &&
+        Layout_SceneBoundsHandle_IsValid((SceneBoundsHandleKind)editor->selectedSceneBoundsHandle)) {
+        RectPrismHandleAxisMask axisMask = {0};
+        Vec3 handleWorld = {0};
+        if (Layout_SceneBoundsHandleAxisMask(
+                (SceneBoundsHandleKind)editor->selectedSceneBoundsHandle,
+                &axisMask) &&
+            Layout_SceneBoundsHandleWorldPoint(&state->layout.scene3d.bounds,
+                                               (SceneBoundsHandleKind)editor->selectedSceneBoundsHandle,
+                                               &handleWorld)) {
+            Vec2 handleView = SpaceAdapter_ProjectToView(handleWorld, &viewCtx);
+            Vec2 handleScreen = WorldToScreen(handleView, grid);
+            const bool allowed[3] = { axisMask.allowU, axisMask.allowV, axisMask.allowN };
+            for (int axisFamily = 0; axisFamily < 3; ++axisFamily) {
+                if (!allowed[axisFamily]) continue;
+                for (int signPass = 0; signPass < 2; ++signPass) {
+                    RectPrismAxisDirection dir = (RectPrismAxisDirection)(axisFamily * 2 + signPass);
+                    Vec3 axisDir = Layout_SceneBoundsAxisDirection_WorldVector(dir);
+                    if (Vec3_Length(axisDir) <= 1e-5f) continue;
+                    Vec3 tipWorld = Vec3_Add(handleWorld, Vec3_Scale(axisDir, axisWorldLen));
+                    Vec2 tipView = SpaceAdapter_ProjectToView(tipWorld, &viewCtx);
+                    Vec2 tipScreen = WorldToScreen(tipView, grid);
+
+                    float dx = tipScreen.x - handleScreen.x;
+                    float dy = tipScreen.y - handleScreen.y;
+                    float screenLen = sqrtf(dx * dx + dy * dy);
+                    if (screenLen <= 3.0f) continue;
+
+                    bool isHovered = (editor->hoveredSceneBoundsGizmoAxis == (int)dir);
+                    bool isActive = (editor->activeSceneBoundsGizmoAxis == (int)dir) &&
+                                    editor->isResizingSceneBounds;
+                    SDL_Color axisColor = RectPrismAxis_ColorState(dir, isHovered, isActive);
+
+                    SDL_SetRenderDrawColor(ctx->renderer,
+                                           axisColor.r,
+                                           axisColor.g,
+                                           axisColor.b,
+                                           axisColor.a);
+                    DrawLineWithThickness(ctx->renderer,
+                                          (int)handleScreen.x,
+                                          (int)handleScreen.y,
+                                          (int)tipScreen.x,
+                                          (int)tipScreen.y,
+                                          (isHovered || isActive) ? 3 : 2);
+
+                    int handleRadius = baseRadius + (isHovered ? 1 : 0) + (isActive ? 1 : 0);
+                    DrawFilledCircle(ctx->renderer, (int)tipScreen.x, (int)tipScreen.y, handleRadius);
+
+                    SDL_Color ringColor = (SDL_Color){ 30, 30, 30, 255 };
+                    if (isHovered) ringColor = (SDL_Color){ 235, 235, 235, 255 };
+                    if (isActive) ringColor = (SDL_Color){ 255, 220, 120, 255 };
+                    SDL_SetRenderDrawColor(ctx->renderer,
+                                           ringColor.r,
+                                           ringColor.g,
+                                           ringColor.b,
+                                           ringColor.a);
+                    DrawCircleRing(ctx->renderer,
+                                   (int)tipScreen.x,
+                                   (int)tipScreen.y,
+                                   handleRadius + 2,
+                                   2);
+                }
+            }
+        }
+    }
+
     if (editor->selectedObject3DId != 0u) {
         const Object3D* selectedObject =
             Layout_ObjectStore_FindConst(&state->layout.objectStore, editor->selectedObject3DId);
         if (selectedObject && Layout_ObjectStore_ValidateObject(selectedObject)) {
+            ObjectHandleGizmoTarget handleTarget = ObjectHandleGizmoTarget_None();
             const bool handleGizmoActive =
-                (selectedObject->kind == OBJECT3D_KIND_RECT_PRISM) &&
-                (editor->selectedObject3DPrismHandle != RECT_PRISM_RESIZE_HANDLE_NONE);
+                ObjectHandleGizmoTarget_FromSelection(
+                    selectedObject,
+                    selectedObject->objectId,
+                    (PlaneResizeHandleKind)editor->selectedObject3DResizeHandle,
+                    (RectPrismResizeHandleKind)editor->selectedObject3DPrismHandle,
+                    &handleTarget);
             const bool centerGizmoActive =
                 (editor->selectedObject3DResizeHandle == PLANE_RESIZE_HANDLE_NONE) &&
                 (editor->selectedObject3DPrismHandle == RECT_PRISM_RESIZE_HANDLE_NONE);
 
             if (handleGizmoActive) {
-                RectPrismResizeHandleKind handle = (RectPrismResizeHandleKind)editor->selectedObject3DPrismHandle;
                 RectPrismHandleAxisMask axisMask = {0};
                 Vec3 handleWorld = {0};
-                if (Layout_RectPrismResizeHandleAxisMask(handle, &axisMask) &&
-                    Layout_RectPrismResizeHandleWorldPoint(selectedObject, handle, &handleWorld)) {
+                if (ObjectHandleGizmoTarget_AxisMask(&handleTarget, &axisMask) &&
+                    ObjectHandleGizmoTarget_HandleWorldPoint(&handleTarget, selectedObject, &handleWorld)) {
                     Vec2 handleView = SpaceAdapter_ProjectToView(handleWorld, &viewCtx);
                     Vec2 handleScreen = WorldToScreen(handleView, grid);
                     const bool allowed[3] = { axisMask.allowU, axisMask.allowV, axisMask.allowN };
@@ -225,7 +296,11 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
                         if (!allowed[axisFamily]) continue;
                         for (int signPass = 0; signPass < 2; ++signPass) {
                             RectPrismAxisDirection dir = (RectPrismAxisDirection)(axisFamily * 2 + signPass);
-                            Vec3 axisDir = Layout_RectPrismAxisDirection_WorldVector(selectedObject, dir);
+                            Vec3 axisDir =
+                                ObjectHandleGizmoTarget_AxisWorldVector(&handleTarget,
+                                                                        selectedObject,
+                                                                        dir);
+                            if (Vec3_Length(axisDir) <= 1e-5f) continue;
                             Vec3 tipWorld = Vec3_Add(handleWorld, Vec3_Scale(axisDir, axisWorldLen));
                             Vec2 tipView = SpaceAdapter_ProjectToView(tipWorld, &viewCtx);
                             Vec2 tipScreen = WorldToScreen(tipView, grid);

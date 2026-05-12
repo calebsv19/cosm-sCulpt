@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/global_state.h"
+#include "Editor/object_handle_gizmo.h"
 
 typedef struct {
     bool active;
@@ -11,8 +12,7 @@ typedef struct {
 
 typedef struct {
     bool active;
-    uint32_t objectId;
-    RectPrismResizeHandleKind handle;
+    ObjectHandleGizmoTarget target;
     RectPrismAxisDirection axisDirection;
     Vec2 mouseStartScreen;
     Vec3 handleStartWorld;
@@ -43,6 +43,16 @@ typedef struct {
     Object3D baselineObject;
 } ObjectRotateDragState;
 
+typedef struct {
+    bool active;
+    SceneBoundsHandleKind handle;
+    RectPrismAxisDirection axisDirection;
+    Vec2 mouseStartScreen;
+    Vec3 handleStartWorld;
+    float worldUnitsPerPixel;
+    bool historyCaptured;
+} SceneBoundsGizmoDragState;
+
 extern bool draggingPan;
 extern bool draggingHandle;
 extern bool draggingAnchor;
@@ -51,6 +61,7 @@ extern bool draggingObjectResize;
 extern bool draggingObjectGizmo;
 extern bool draggingObjectTranslate;
 extern bool draggingObjectRotate;
+extern bool draggingSceneBoundsGizmo;
 extern bool draggingSelectionBox;
 extern int draggingAnchorIndex;
 extern bool anchorDragCaptured;
@@ -62,3 +73,4 @@ extern ObjectResizeDragState objectResizeDrag;
 extern ObjectGizmoDragState objectGizmoDrag;
 extern ObjectTranslateDragState objectTranslateDrag;
 extern ObjectRotateDragState objectRotateDrag;
+extern SceneBoundsGizmoDragState sceneBoundsGizmoDrag;

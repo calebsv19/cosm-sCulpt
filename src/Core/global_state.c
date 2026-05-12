@@ -407,6 +407,8 @@ void Global_RebuildHitboxesIfDirty(void) {
                          state->editor.selectedObject3DId,
                          state->editor.selectedObject3DResizeHandle,
                          state->editor.selectedObject3DPrismHandle,
+                         state->editor.selectedSceneBoundsHandle,
+                         state->editor.sceneBoundsHandlesVisible,
                          gizmoEnabled);
     state->hitboxDirty = false;
 }
@@ -431,6 +433,31 @@ void Global_OnLayoutLoaded(const char* path) {
         strncpy(state->currentConfigPath, path, sizeof(state->currentConfigPath) - 1);
         state->currentConfigPath[sizeof(state->currentConfigPath) - 1] = '\0';
     }
+    state->currentSceneAuthoringPath[0] = '\0';
+    state->layoutDirtySinceSave = false;
+    state->layoutDirty = false;
+    state->hitboxDirty = true;
+    Global_UpdateSavedSnapshot();
+}
+
+void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_path_hint) {
+    GlobalState* state = Global_Get();
+    if (!state) return;
+    if (scene_authoring_path && *scene_authoring_path) {
+        strncpy(state->currentSceneAuthoringPath,
+                scene_authoring_path,
+                sizeof(state->currentSceneAuthoringPath) - 1);
+        state->currentSceneAuthoringPath[sizeof(state->currentSceneAuthoringPath) - 1] = '\0';
+    } else {
+        state->currentSceneAuthoringPath[0] = '\0';
+    }
+    if (layout_path_hint && *layout_path_hint) {
+        strncpy(state->currentConfigPath, layout_path_hint, sizeof(state->currentConfigPath) - 1);
+        state->currentConfigPath[sizeof(state->currentConfigPath) - 1] = '\0';
+    } else if (scene_authoring_path && *scene_authoring_path) {
+        strncpy(state->currentConfigPath, scene_authoring_path, sizeof(state->currentConfigPath) - 1);
+        state->currentConfigPath[sizeof(state->currentConfigPath) - 1] = '\0';
+    }
     state->layoutDirtySinceSave = false;
     state->layoutDirty = false;
     state->hitboxDirty = true;
@@ -441,6 +468,12 @@ const char* Global_GetCurrentConfigPath(void) {
     GlobalState* state = Global_Get();
     if (!state) return NULL;
     return state->currentConfigPath;
+}
+
+const char* Global_GetCurrentSceneAuthoringPath(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return state->currentSceneAuthoringPath;
 }
 
 bool Global_IsLayoutDirty(void) {

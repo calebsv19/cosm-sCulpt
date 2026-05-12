@@ -492,6 +492,72 @@ PlaneResizeHandleKind Layout_ResolvePlaneResizeHandleForDrag(const Object3D* obj
     return (resolved == PLANE_RESIZE_HANDLE_NONE) ? handle : resolved;
 }
 
+bool Layout_PlaneResizeHandleAxisMask(PlaneResizeHandleKind handle,
+                                      RectPrismHandleAxisMask* outMask) {
+    if (!outMask) return false;
+    PlaneResizeHandleSpec spec = {0};
+    if (!PlaneResize_HandleSpec(handle, &spec)) return false;
+
+    outMask->allowU = spec.affectsU;
+    outMask->allowV = spec.affectsV;
+    outMask->allowN = false;
+    return true;
+}
+
+Vec3 Layout_PlaneAxisDirection_WorldVector(const Object3D* object,
+                                           RectPrismAxisDirection direction) {
+    Vec3 zero = {0.0f, 0.0f, 0.0f};
+    if (!object || object->kind != OBJECT3D_KIND_PLANE) return zero;
+    if (!Layout_RectPrismAxisDirection_IsValid(direction)) return zero;
+
+    const Vec3 axisU = Vec3_Normalize(object->plane.frame.axisU);
+    const Vec3 axisV = Vec3_Normalize(object->plane.frame.axisV);
+    if (Vec3_Length(axisU) <= kConstructionPlaneEpsilon ||
+        Vec3_Length(axisV) <= kConstructionPlaneEpsilon) {
+        return zero;
+    }
+
+    switch (direction) {
+        case RECT_PRISM_AXIS_DIR_POS_U: return axisU;
+        case RECT_PRISM_AXIS_DIR_NEG_U: return Vec3_Scale(axisU, -1.0f);
+        case RECT_PRISM_AXIS_DIR_POS_V: return axisV;
+        case RECT_PRISM_AXIS_DIR_NEG_V: return Vec3_Scale(axisV, -1.0f);
+        case RECT_PRISM_AXIS_DIR_POS_N:
+        case RECT_PRISM_AXIS_DIR_NEG_N:
+        default:
+            return zero;
+    }
+}
+
+bool Layout_PlaneResizeHandleWorldPoint(const Object3D* object,
+                                        PlaneResizeHandleKind handle,
+                                        Vec3* outPoint) {
+    if (!object || !outPoint || object->kind != OBJECT3D_KIND_PLANE) return false;
+    if (!Layout_ObjectStore_ValidateObject(object)) return false;
+
+    PlaneResizeHandleSpec spec = {0};
+    if (!PlaneResize_HandleSpec(handle, &spec)) return false;
+
+    const Vec3 axisU = Vec3_Normalize(object->plane.frame.axisU);
+    const Vec3 axisV = Vec3_Normalize(object->plane.frame.axisV);
+    if (Vec3_Length(axisU) <= kConstructionPlaneEpsilon ||
+        Vec3_Length(axisV) <= kConstructionPlaneEpsilon) {
+        return false;
+    }
+
+    const float halfW = object->plane.width * 0.5f;
+    const float halfH = object->plane.height * 0.5f;
+    float localU = 0.0f;
+    float localV = 0.0f;
+    if (spec.affectsU) localU = spec.signU * halfW;
+    if (spec.affectsV) localV = spec.signV * halfH;
+
+    *outPoint = Vec3_Add(object->plane.frame.origin,
+                         Vec3_Add(Vec3_Scale(axisU, localU),
+                                  Vec3_Scale(axisV, localV)));
+    return true;
+}
+
 bool Layout_ResizePlanePrimitiveFromHandle(Layout* layout,
                                            uint32_t objectId,
                                            PlaneResizeHandleKind handle,

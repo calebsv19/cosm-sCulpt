@@ -51,6 +51,37 @@ typedef struct {
 } SceneBounds3D;
 
 typedef enum {
+    SCENE_BOUNDS_HANDLE_NONE = 0,
+    SCENE_BOUNDS_HANDLE_MIN_X = 1,
+    SCENE_BOUNDS_HANDLE_MAX_X = 2,
+    SCENE_BOUNDS_HANDLE_MIN_Y = 3,
+    SCENE_BOUNDS_HANDLE_MAX_Y = 4,
+    SCENE_BOUNDS_HANDLE_MIN_Z = 5,
+    SCENE_BOUNDS_HANDLE_MAX_Z = 6,
+    SCENE_BOUNDS_HANDLE_CORNER_MIN_X_MIN_Y_MIN_Z = 7,
+    SCENE_BOUNDS_HANDLE_CORNER_MAX_X_MIN_Y_MIN_Z = 8,
+    SCENE_BOUNDS_HANDLE_CORNER_MIN_X_MAX_Y_MIN_Z = 9,
+    SCENE_BOUNDS_HANDLE_CORNER_MAX_X_MAX_Y_MIN_Z = 10,
+    SCENE_BOUNDS_HANDLE_CORNER_MIN_X_MIN_Y_MAX_Z = 11,
+    SCENE_BOUNDS_HANDLE_CORNER_MAX_X_MIN_Y_MAX_Z = 12,
+    SCENE_BOUNDS_HANDLE_CORNER_MIN_X_MAX_Y_MAX_Z = 13,
+    SCENE_BOUNDS_HANDLE_CORNER_MAX_X_MAX_Y_MAX_Z = 14,
+    SCENE_BOUNDS_HANDLE_EDGE_X_MIN_Y_MIN_Z = 15,
+    SCENE_BOUNDS_HANDLE_EDGE_X_MAX_Y_MIN_Z = 16,
+    SCENE_BOUNDS_HANDLE_EDGE_X_MIN_Y_MAX_Z = 17,
+    SCENE_BOUNDS_HANDLE_EDGE_X_MAX_Y_MAX_Z = 18,
+    SCENE_BOUNDS_HANDLE_EDGE_Y_MIN_X_MIN_Z = 19,
+    SCENE_BOUNDS_HANDLE_EDGE_Y_MAX_X_MIN_Z = 20,
+    SCENE_BOUNDS_HANDLE_EDGE_Y_MIN_X_MAX_Z = 21,
+    SCENE_BOUNDS_HANDLE_EDGE_Y_MAX_X_MAX_Z = 22,
+    SCENE_BOUNDS_HANDLE_EDGE_Z_MIN_X_MIN_Y = 23,
+    SCENE_BOUNDS_HANDLE_EDGE_Z_MAX_X_MIN_Y = 24,
+    SCENE_BOUNDS_HANDLE_EDGE_Z_MIN_X_MAX_Y = 25,
+    SCENE_BOUNDS_HANDLE_EDGE_Z_MAX_X_MAX_Y = 26,
+    SCENE_BOUNDS_HANDLE_CENTER = 27
+} SceneBoundsHandleKind;
+
+typedef enum {
     CONSTRUCTION_PLANE_MODE_AXIS_ALIGNED = 0,
     CONSTRUCTION_PLANE_MODE_CUSTOM_FRAME = 1
 } ConstructionPlaneMode;
@@ -206,6 +237,20 @@ Vec3 Layout_ComputeCentroid(const Layout* layout, bool* outHasAnchors);
 void Layout_Scene3DSettings_SetDefaults(Scene3DSettings* settings);
 bool Layout_SceneBounds3D_IsValid(const SceneBounds3D* bounds);
 bool Layout_SceneBounds3D_ClampPoint(const SceneBounds3D* bounds, Vec3* point, bool* outClamped);
+bool Layout_SceneBoundsHandle_IsValid(SceneBoundsHandleKind handle);
+bool Layout_SceneBoundsHandleAxisMask(SceneBoundsHandleKind handle,
+                                      RectPrismHandleAxisMask* outMask);
+Vec3 Layout_SceneBoundsAxisDirection_WorldVector(RectPrismAxisDirection direction);
+bool Layout_SceneBoundsHandleWorldPoint(const SceneBounds3D* bounds,
+                                        SceneBoundsHandleKind handle,
+                                        Vec3* outPoint);
+bool Layout_ResizeSceneBounds3DFromHandle(Layout* layout,
+                                          SceneBoundsHandleKind handle,
+                                          Vec3 draggedWorldPoint);
+bool Layout_TranslateSceneBounds3D(Layout* layout, Vec3 delta);
+bool Layout_FitSceneBounds3DToObject(Layout* layout,
+                                     uint32_t objectId,
+                                     float padding);
 void Layout_ConstructionPlane3D_SetDefaults(ConstructionPlane3D* plane);
 void Layout_ConstructionPlane3D_SetFromViewPlane(ConstructionPlane3D* plane, ViewPlane viewPlane);
 bool Layout_ConstructionPlane3D_IsValid(const ConstructionPlane3D* plane);
@@ -233,6 +278,13 @@ float Layout_PlanePrimitiveMinSize(void);
 PlaneResizeHandleKind Layout_ResolvePlaneResizeHandleForDrag(const Object3D* object,
                                                              PlaneResizeHandleKind handle,
                                                              Vec3 draggedWorldPoint);
+bool Layout_PlaneResizeHandleAxisMask(PlaneResizeHandleKind handle,
+                                      RectPrismHandleAxisMask* outMask);
+Vec3 Layout_PlaneAxisDirection_WorldVector(const Object3D* object,
+                                           RectPrismAxisDirection direction);
+bool Layout_PlaneResizeHandleWorldPoint(const Object3D* object,
+                                        PlaneResizeHandleKind handle,
+                                        Vec3* outPoint);
 PlaneResizeHandleKind Layout_ResolveRectPrismResizeHandleForDrag(const Object3D* object,
                                                                  PlaneResizeHandleKind handle,
                                                                  Vec3 draggedWorldPoint);
@@ -304,6 +356,7 @@ bool Layout_ObjectStore_ValidateObject(const Object3D* object);
 size_t Layout_ObjectStore_LiveCount(const LayoutObjectStore* store);
 bool Layout_Object3D_ComputePlaneCorners(const Object3D* object, Vec3 outCorners[4]);
 bool Layout_Object3D_ComputeRectPrismCorners(const Object3D* object, Vec3 outCorners[8]);
+bool Layout_Object3D_ComputeWorldAABB(const Object3D* object, Vec3* outMin, Vec3* outMax);
 
 
 //        Anchor management

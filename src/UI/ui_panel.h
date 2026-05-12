@@ -39,12 +39,13 @@ typedef struct {
 
 #define UI_BTN_SAVE_JSON 0
 #define UI_BTN_LOAD_JSON 1
-#define UI_BTN_EXPORT_SHAPE 2
-#define UI_BTN_EXPORT_SCENE 3
-#define UI_BTN_INPUT_ROOT_EDIT 4
-#define UI_BTN_INPUT_ROOT_FOLDER 5
-#define UI_BTN_OUTPUT_ROOT_EDIT 6
-#define UI_BTN_OUTPUT_ROOT_FOLDER 7
+#define UI_BTN_LOAD_SCENE 2
+#define UI_BTN_EXPORT_SHAPE 3
+#define UI_BTN_EXPORT_SCENE 4
+#define UI_BTN_INPUT_ROOT_EDIT 5
+#define UI_BTN_INPUT_ROOT_FOLDER 6
+#define UI_BTN_OUTPUT_ROOT_EDIT 7
+#define UI_BTN_OUTPUT_ROOT_FOLDER 8
 
 #define UI_BTN_RESET_ORIGIN 10
 #define UI_BTN_ZOOM_IN 11
@@ -74,9 +75,16 @@ typedef struct {
 #define UI_BTN_EDIT_OBJECT_ROTATION_X 35
 #define UI_BTN_EDIT_OBJECT_ROTATION_Y 36
 #define UI_BTN_EDIT_OBJECT_ROTATION_Z 37
+#define UI_BTN_FIT_SCENE_BOUNDS_TO_OBJECT 38
 
-#define MAX_CONFIG_FILES 32
-#define MAX_CONFIG_PATH 256
+#define MAX_CONFIG_FILES 128
+#define MAX_CONFIG_PATH 512
+
+typedef enum {
+    UI_LOAD_MENU_MODE_NONE = 0,
+    UI_LOAD_MENU_MODE_JSON = 1,
+    UI_LOAD_MENU_MODE_SCENE = 2
+} UILoadMenuMode;
 
 typedef enum {
     UI_ROOT_TARGET_NONE = 0,
@@ -123,10 +131,18 @@ typedef struct {
 
     struct {
         bool open;
+        UILoadMenuMode mode;
+        int anchorButtonId;
+        char rootPath[MAX_CONFIG_PATH];
         char entries[MAX_CONFIG_FILES][128];
         char entryPaths[MAX_CONFIG_FILES][MAX_CONFIG_PATH];
         int count;
         int hoverIndex;
+        int activeIndex;
+        float scrollOffsetPx;
+        bool scrollbarDragging;
+        int scrollbarDragStartY;
+        float scrollbarDragStartOffsetPx;
     } loadMenu;
 
     struct {
@@ -204,6 +220,8 @@ const UIButton* UIPanel_GetButtons(UIPanelState* ui, int* outCount);
 UIPanelState* UIPanel_Get(void);
 void UIPanel_RefreshConfigList(void);
 void UIPanel_BeginSaveDialog(void);
+bool UIPanel_OpenJsonFolderDialog(void);
+bool UIPanel_OpenSceneFolderDialog(void);
 void UIPanel_ExportShape(void);
 void UIPanel_ExportScene(void);
 bool UIPanel_IsSaveDialogActive(void);
@@ -217,6 +235,7 @@ bool UIPanel_HandleKeyEvent(const SDL_Event* event);
 bool UIPanel_IsCapturingKeyboard(void);
 void UIPanel_RenderOverlays(SDL_Renderer* renderer);
 bool UIPanel_HandleLoadMenuClick(int mouseX, int mouseY);
+bool UIPanel_HandleLoadMenuWheel(int mouseX, int mouseY, float wheel_delta);
 void UIPanel_ToggleLoadMenu(void);
 bool UIPanel_IsLoadMenuOpen(void);
 void UIPanel_HandleMouseMotion(int mouseX, int mouseY);
@@ -248,3 +267,4 @@ bool UIPanel_OpenInputRootFolderDialog(void);
 bool UIPanel_OpenOutputRootFolderDialog(void);
 bool UIPanel_CreatePlanePrimitiveFromActiveContext(bool disable_bounds_lock);
 bool UIPanel_CreateRectPrismPrimitiveFromActiveContext(bool disable_bounds_lock);
+bool UIPanel_FitSceneBoundsToSelectedObject(void);

@@ -1,6 +1,7 @@
 // src/Input/input_keyboard.c
 #include "input_keyboard.h"
 #include "Core/global_state.h"
+#include "Core/viewport_zoom.h"
 #include "Editor/editor.h"
 #include "Layout/layout.h"
 #include "Layout/layout_origin.h"
@@ -32,8 +33,12 @@ static void HandleHeldKeys(AppContext* ctx) {
     if (keys[SDL_SCANCODE_DOWN])   { Grid_pan(grid, 0,  -panSpeed); gridChanged = true; }
 
     if (!primaryModifierHeld) {
-        if (keys[SDL_SCANCODE_EQUALS]) { Grid_zoom(grid, 1.05f, w / 2.0f, h / 2.0f); gridChanged = true; }
-        if (keys[SDL_SCANCODE_MINUS])  { Grid_zoom(grid, 0.95f, w / 2.0f, h / 2.0f); gridChanged = true; }
+        if (keys[SDL_SCANCODE_EQUALS]) {
+            gridChanged = LineDrawingViewportZoom_Apply(state, 1.05f, w / 2.0f, h / 2.0f) || gridChanged;
+        }
+        if (keys[SDL_SCANCODE_MINUS]) {
+            gridChanged = LineDrawingViewportZoom_Apply(state, 0.95f, w / 2.0f, h / 2.0f) || gridChanged;
+        }
     }
 
     if (gridChanged) {
@@ -189,6 +194,23 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
             }
             Global_FlagHitboxesDirty();
             printf("[Editor] View mode: %s\n", state->freeViewCamera.enabled ? "FREE_VIEW" : "PLANE_VIEW");
+        }
+
+        if (event->type == SDL_KEYDOWN &&
+            event->key.keysym.sym == SDLK_h &&
+            (mods & (KMOD_CTRL | KMOD_GUI | KMOD_ALT)) == 0) {
+            state->editor.sceneBoundsHandlesVisible = !state->editor.sceneBoundsHandlesVisible;
+            if (!state->editor.sceneBoundsHandlesVisible) {
+                state->editor.selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+                state->editor.hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+                state->editor.hoveredSceneBoundsGizmoAxis = -1;
+                state->editor.activeSceneBoundsGizmoAxis = -1;
+                state->editor.isResizingSceneBounds = false;
+            }
+            Global_FlagHitboxesDirty();
+            printf("[Editor] Scene bounds handles: %s\n",
+                   state->editor.sceneBoundsHandlesVisible ? "ON" : "OFF");
+            return;
         }
 
         if (event->type == SDL_KEYDOWN && Input_Is3DMode(state) && state->freeViewCamera.enabled) {

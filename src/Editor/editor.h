@@ -17,6 +17,12 @@ typedef enum {
     TOOL_PLACING_WALL
 } ToolMode;
 
+typedef enum {
+    PRIMITIVE_PLACEMENT_PREVIEW_NONE = 0,
+    PRIMITIVE_PLACEMENT_PREVIEW_PLANE = 1,
+    PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM = 2
+} PrimitivePlacementPreviewKind;
+
 typedef struct {
     char** entries;
     size_t count;
@@ -47,14 +53,18 @@ typedef struct {
     uint32_t selectedObject3DId;
     int selectedObject3DResizeHandle; // PlaneResizeHandleKind or PLANE_RESIZE_HANDLE_NONE
     int selectedObject3DPrismHandle;  // RectPrismResizeHandleKind or RECT_PRISM_RESIZE_HANDLE_NONE
+    int selectedSceneBoundsHandle;    // SceneBoundsHandleKind or SCENE_BOUNDS_HANDLE_NONE
     int hoveredHandleAnchor;
     int hoveredHandleComponent;
     int hoveredGizmoAxis;          // GizmoAxisDirection or -1
     int hoveredObject3DGizmoAxis;  // RectPrismAxisDirection or -1
     int activeObject3DGizmoAxis;   // RectPrismAxisDirection or -1 while dragging
+    int hoveredSceneBoundsGizmoAxis; // RectPrismAxisDirection or -1
+    int activeSceneBoundsGizmoAxis;  // RectPrismAxisDirection or -1 while dragging
     uint32_t hoveredObject3DId;
     int hoveredObject3DResizeHandle; // PlaneResizeHandleKind or PLANE_RESIZE_HANDLE_NONE
     int hoveredObject3DPrismHandle;  // RectPrismResizeHandleKind or RECT_PRISM_RESIZE_HANDLE_NONE
+    int hoveredSceneBoundsHandle;    // SceneBoundsHandleKind or SCENE_BOUNDS_HANDLE_NONE
 
     DeleteMode deleteMode;
 
@@ -67,8 +77,11 @@ typedef struct {
     int dragSnapshotCapacity;
     bool isDraggingAnchor;
     bool isResizingObject3D;
+    bool isResizingSceneBounds;
     bool isRotatingObject3D;
     bool object3DRotateMode;
+    bool sceneBoundsHandlesVisible;
+    PrimitivePlacementPreviewKind primitivePlacementPreview;
     bool isPreciseDrag;
     GizmoAxisDragSession gizmoDrag;
 

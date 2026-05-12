@@ -10,6 +10,7 @@
 #include "Editor/editor.h"
 #include "Math/math_util.h"
 #include "Tools/canonical_scene_export.h"
+#include "Tools/scene_import.h"
 #include "Tools/shape_from_layout.h"
 #include "UI/ui_panel.h"
 #include "core_units.h"

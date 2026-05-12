@@ -112,6 +112,30 @@ static bool build_path(const char* root,
     return written > 0 && (size_t)written < out_path_size;
 }
 
+static bool extract_directory_path(const char* path, char* out_dir, size_t out_dir_size) {
+    const char* slash = NULL;
+    size_t len = 0u;
+    if (!path || !path[0] || !out_dir || out_dir_size == 0u) return false;
+    slash = strrchr(path, '/');
+    if (!slash) return false;
+    len = (size_t)(slash - path);
+    if (len == 0u || len >= out_dir_size) return false;
+    memcpy(out_dir, path, len);
+    out_dir[len] = '\0';
+    return true;
+}
+
+static const char* extract_parent_basename(const char* path) {
+    static char parent_name[128];
+    char directory[SHAPE_EXPORT_PATH_MAX];
+    const char* base = NULL;
+    if (!extract_directory_path(path, directory, sizeof(directory))) return NULL;
+    base = extract_basename(directory);
+    if (!base || !base[0]) return NULL;
+    snprintf(parent_name, sizeof(parent_name), "%s", base);
+    return parent_name;
+}
+
 bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
                                                      const char* layout_path_hint,
                                                      const char* output_root,
@@ -151,6 +175,66 @@ bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
         write_diagnostics(diagnostics, diagnostics_size, "failed to prepare runtime export path");
         return false;
     }
+    if (!LineDrawingCanonicalScene_ExportLayoutToFile(layout, scene_id, authoring_path)) {
+        write_diagnostics(diagnostics, diagnostics_size, "failed to export canonical authoring scene");
+        return false;
+    }
+
+    compile_result = core_scene_compile_authoring_file_to_runtime_file(authoring_path,
+                                                                       runtime_path,
+                                                                       diagnostics,
+                                                                       diagnostics_size);
+    if (compile_result.code != CORE_OK) {
+        if (!diagnostics || diagnostics[0] == '\0') {
+            write_diagnostics(diagnostics, diagnostics_size, "scene compile failed");
+        }
+        return false;
+    }
+
+    if (out_paths) {
+        snprintf(out_paths->scene_id, sizeof(out_paths->scene_id), "%s", scene_id);
+        snprintf(out_paths->scene_dir, sizeof(out_paths->scene_dir), "%s", scene_dir);
+        snprintf(out_paths->authoring_path, sizeof(out_paths->authoring_path), "%s", authoring_path);
+        snprintf(out_paths->runtime_path, sizeof(out_paths->runtime_path), "%s", runtime_path);
+    }
+    return true;
+}
+
+bool LineDrawingSceneExport_ExportLayoutToAuthoringPath(const Layout* layout,
+                                                        const char* authoring_path,
+                                                        LineDrawingSceneExportPaths* out_paths,
+                                                        char* diagnostics,
+                                                        size_t diagnostics_size) {
+    char scene_dir[SHAPE_EXPORT_PATH_MAX];
+    char runtime_path[SHAPE_EXPORT_PATH_MAX];
+    char scene_id[64];
+    const char* parent_stem = NULL;
+    CoreResult compile_result = {0};
+
+    write_diagnostics(diagnostics, diagnostics_size, NULL);
+    if (!layout) {
+        write_diagnostics(diagnostics, diagnostics_size, "layout missing");
+        return false;
+    }
+    if (!authoring_path || !authoring_path[0]) {
+        write_diagnostics(diagnostics, diagnostics_size, "authoring path missing");
+        return false;
+    }
+    if (!extract_directory_path(authoring_path, scene_dir, sizeof(scene_dir))) {
+        write_diagnostics(diagnostics, diagnostics_size, "failed to resolve scene directory");
+        return false;
+    }
+    if (!ensure_directory_exists(scene_dir)) {
+        write_diagnostics(diagnostics, diagnostics_size, "failed to create scene directory");
+        return false;
+    }
+    if (!ShapeExport_BuildPathInRoot(scene_dir, k_runtime_filename, runtime_path, sizeof(runtime_path))) {
+        write_diagnostics(diagnostics, diagnostics_size, "failed to prepare runtime export path");
+        return false;
+    }
+
+    parent_stem = extract_parent_basename(authoring_path);
+    build_scene_id_from_stem(parent_stem ? parent_stem : k_default_scene_stem, scene_id, sizeof(scene_id));
     if (!LineDrawingCanonicalScene_ExportLayoutToFile(layout, scene_id, authoring_path)) {
         write_diagnostics(diagnostics, diagnostics_size, "failed to export canonical authoring scene");
         return false;

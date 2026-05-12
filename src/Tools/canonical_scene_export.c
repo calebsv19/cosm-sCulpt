@@ -1,5 +1,6 @@
 #include "Tools/canonical_scene_export.h"
 
+#include "Layout/layout_json.h"
 #include "core_io.h"
 #include "core_scene.h"
 #include "core_object.h"
@@ -181,6 +182,28 @@ static cJSON* duplicate_or_empty_object(const cJSON* source) {
 }
 
 static bool upsert_object_item(cJSON* object, const char* key, cJSON* item);
+
+static bool add_layout_snapshot_extension(cJSON* line_drawing_ext, const Layout* layout) {
+    cJSON* layout_snapshot = NULL;
+    char* layout_json = NULL;
+
+    if (!line_drawing_ext || !layout) return false;
+
+    layout_json = Layout_SaveToString(layout);
+    if (!layout_json) return false;
+
+    layout_snapshot = cJSON_Parse(layout_json);
+    free(layout_json);
+    if (!cJSON_IsObject(layout_snapshot)) {
+        cJSON_Delete(layout_snapshot);
+        return false;
+    }
+
+    if (!cJSON_ReplaceItemInObjectCaseSensitive(line_drawing_ext, "layout_snapshot", layout_snapshot)) {
+        cJSON_AddItemToObject(line_drawing_ext, "layout_snapshot", layout_snapshot);
+    }
+    return true;
+}
 
 static bool add_object_tag(cJSON* tags, const char* tag) {
     if (!tags || !tag) return false;
@@ -639,6 +662,10 @@ static cJSON* build_scene_json(const Layout* layout,
     cJSON_AddStringToObject(line_drawing_ext, "producer", "line_drawing");
     cJSON_AddStringToObject(line_drawing_ext, "authoring_contract", "np2");
     cJSON_AddNumberToObject(line_drawing_ext, "active_object3d_count", (double)active_objects3d);
+    if (!add_layout_snapshot_extension(line_drawing_ext, layout)) {
+        cJSON_Delete(root);
+        return NULL;
+    }
     if (!LineDrawingCanonicalScene_PopulateScene3DExtension(line_drawing_ext, layout)) {
         cJSON_Delete(root);
         return NULL;

@@ -2,6 +2,7 @@
 #include "UI/ui_panel.h"
 
 #include "Core/global_state.h"
+#include "Core/viewport_zoom.h"
 
 #include "Layout/layout_origin.h"
 #include "Layout/Grid/grid.h"
@@ -47,9 +48,16 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 	}
 
 	case UI_BTN_LOAD_JSON: { // Load JSON
-                UIPanel_ToggleLoadMenu();
+                ui->loadMenu.open = false;
+                UIPanel_OpenJsonFolderDialog();
 			break;
 		}
+
+            case UI_BTN_LOAD_SCENE: { // Load Scene
+                ui->loadMenu.open = false;
+                UIPanel_OpenSceneFolderDialog();
+                break;
+            }
 
 	case UI_BTN_EXPORT_SHAPE: { // Export Shape
                 ui->loadMenu.open = false;
@@ -98,16 +106,18 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     ui->loadMenu.open = false;
                     int w = state->screenWidth;
                     int h = state->screenHeight;
-                    Grid_zoom(grid, 1.1f, w / 2.0f, h / 2.0f);
-                    Global_FlagGridChanged();
+                    if (LineDrawingViewportZoom_Apply(state, 1.1f, w / 2.0f, h / 2.0f)) {
+                        Global_FlagGridChanged();
+                    }
                     break;
                 }
                 case UI_BTN_ZOOM_OUT: { // Zoom Out
                     ui->loadMenu.open = false;
                     int w = state->screenWidth;
                     int h = state->screenHeight;
-                    Grid_zoom(grid, 0.9f, w / 2.0f, h / 2.0f);
-                    Global_FlagGridChanged();
+                    if (LineDrawingViewportZoom_Apply(state, 0.9f, w / 2.0f, h / 2.0f)) {
+                        Global_FlagGridChanged();
+                    }
                     break;
                 }
                 case UI_BTN_TOGGLE_DELETE: { // Toggle Delete Mode
@@ -215,6 +225,11 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 case UI_BTN_EDIT_SCENE_BOUNDS_MAX: { // Edit scene bounds max vector
                     ui->loadMenu.open = false;
                     (void)UIPanel_BeginSceneBoundsMaxDialog();
+                    break;
+                }
+                case UI_BTN_FIT_SCENE_BOUNDS_TO_OBJECT: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_FitSceneBoundsToSelectedObject();
                     break;
                 }
                 case UI_BTN_SET_CONSTRUCTION_PLANE_XY: {

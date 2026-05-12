@@ -1,5 +1,6 @@
 #include "test_framework.h"
 
+#include "Core/viewport_zoom.h"
 #include "Editor/space_gizmo_drag.h"
 #include "Layout/Grid/grid.h"
 #include "Math/math_util.h"
@@ -31,6 +32,63 @@ static bool test_screen_to_world_roundtrip(void) {
 
     TEST_ASSERT(fabsf(back.x - (float)sx) < 0.01f);
     TEST_ASSERT(fabsf(back.y - (float)sy) < 0.01f);
+    return true;
+}
+
+static bool test_grid_zoom_clamped_allows_scene_scale_floor(void) {
+    Grid grid;
+    Grid_init(&grid, 1.0f, 800, 600);
+    grid.scale = 32.0f;
+
+    Vec2 beforeAnchorWorld = ScreenToWorld(400, 300, &grid);
+    Grid_zoom_clamped(&grid, 0.001f, 400.0f, 300.0f, 0.5f, GRID_DEFAULT_MAX_SCALE);
+    Vec2 afterAnchorWorld = ScreenToWorld(400, 300, &grid);
+
+    TEST_ASSERT(nearly_equal(grid.scale, 0.5f));
+    TEST_ASSERT(nearly_equal(beforeAnchorWorld.x, afterAnchorWorld.x));
+    TEST_ASSERT(nearly_equal(beforeAnchorWorld.y, afterAnchorWorld.y));
+    return true;
+}
+
+static bool test_viewport_zoom_scene_bounds_min_scale_uses_projected_extents(void) {
+    SceneBounds3D bounds = {
+        .enabled = true,
+        .clampOnEdit = true,
+        .min = { -500.0f, -500.0f, -10.0f },
+        .max = {  500.0f,  500.0f,  10.0f }
+    };
+    SpaceViewContext view = {
+        .plane = { .axis = VIEW_PLANE_XY, .offset = 0.0f },
+        .camera = { .enabled = false }
+    };
+
+    float minScale = LineDrawingViewportZoom_MinScaleForSceneBounds(&bounds,
+                                                                    &view,
+                                                                    800.0f,
+                                                                    600.0f,
+                                                                    1.0f);
+    TEST_ASSERT(nearly_equal(minScale, 0.504f));
+    return true;
+}
+
+static bool test_viewport_zoom_scene_bounds_min_scale_keeps_default_for_tiny_bounds(void) {
+    SceneBounds3D bounds = {
+        .enabled = true,
+        .clampOnEdit = true,
+        .min = { -1.0f, -1.0f, -1.0f },
+        .max = {  1.0f,  1.0f,  1.0f }
+    };
+    SpaceViewContext view = {
+        .plane = { .axis = VIEW_PLANE_XY, .offset = 0.0f },
+        .camera = { .enabled = false }
+    };
+
+    float minScale = LineDrawingViewportZoom_MinScaleForSceneBounds(&bounds,
+                                                                    &view,
+                                                                    800.0f,
+                                                                    600.0f,
+                                                                    1.0f);
+    TEST_ASSERT(nearly_equal(minScale, GRID_DEFAULT_MIN_SCALE));
     return true;
 }
 
@@ -328,6 +386,11 @@ bool math_run_tests(void) {
     const TestCase cases[] = {
         { "Vec2SnapAlignsToGrid", test_vec2_snap_aligns_to_grid },
         { "ScreenWorldRoundtrip", test_screen_to_world_roundtrip },
+        { "GridZoomClampedAllowsSceneScaleFloor", test_grid_zoom_clamped_allows_scene_scale_floor },
+        { "ViewportZoomSceneBoundsMinScaleUsesProjectedExtents",
+          test_viewport_zoom_scene_bounds_min_scale_uses_projected_extents },
+        { "ViewportZoomSceneBoundsMinScaleKeepsDefaultForTinyBounds",
+          test_viewport_zoom_scene_bounds_min_scale_keeps_default_for_tiny_bounds },
         { "Vec3BasicOps", test_vec3_basic_ops },
         { "Vec3NormalizeHandlesZero", test_vec3_normalize_handles_zero },
         { "PlaneAndRayIntersection", test_plane_and_ray_intersection },

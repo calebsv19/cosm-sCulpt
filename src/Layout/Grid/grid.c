@@ -1,5 +1,6 @@
-// src/grid.c
 #include "grid.h"
+
+#include <math.h>
 
 void Grid_init(Grid* g, float gridSize, int screenW, int screenH) {
     g->gridSize = gridSize;
@@ -22,15 +23,30 @@ void Grid_pan(Grid* g, float dx_pixels, float dy_pixels) {
 }
 
 
-void Grid_zoom(Grid *g, float zoomFactor, float cx_px, float cy_px) {
+void Grid_zoom_clamped(Grid* g,
+                       float zoomFactor,
+                       float cx_px,
+                       float cy_px,
+                       float minScale,
+                       float maxScale) {
+    if (!g) return;
+    if (!isfinite(zoomFactor) || zoomFactor <= 0.0f) return;
+    if (!isfinite(minScale) || minScale <= 0.0f) {
+        minScale = GRID_DEFAULT_MIN_SCALE;
+    }
+    if (!isfinite(maxScale) || maxScale < minScale) {
+        maxScale = GRID_DEFAULT_MAX_SCALE;
+    }
+
     float oldScale = g->scale;
     float newScale = g->scale * zoomFactor;
 
-    if (newScale < 10.0f) newScale = 10.0f;
-    if (newScale > 100.0f) newScale = 100.0f;
+    if (newScale < minScale) newScale = minScale;
+    if (newScale > maxScale) newScale = maxScale;
 
     float pixelsPerUnitOld = oldScale * g->gridSize;
     float pixelsPerUnitNew = newScale * g->gridSize;
+    if (pixelsPerUnitOld <= 0.0f || pixelsPerUnitNew <= 0.0f) return;
 
     // Convert center point to world coords before zoom
     float cx_world = cx_px / pixelsPerUnitOld + g->offsetX;
@@ -44,3 +60,11 @@ void Grid_zoom(Grid *g, float zoomFactor, float cx_px, float cy_px) {
     g->offsetY = cy_world - cy_px / pixelsPerUnitNew;
 }
 
+void Grid_zoom(Grid* g, float zoomFactor, float cx_px, float cy_px) {
+    Grid_zoom_clamped(g,
+                      zoomFactor,
+                      cx_px,
+                      cy_px,
+                      GRID_DEFAULT_MIN_SCALE,
+                      GRID_DEFAULT_MAX_SCALE);
+}

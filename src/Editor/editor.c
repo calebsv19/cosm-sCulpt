@@ -130,19 +130,26 @@ void Editor_Init(EditorState* editor) {
     editor->selectedObject3DId = 0u;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
     editor->hoveredHandleAnchor = -1;
     editor->hoveredHandleComponent = -1;
     editor->hoveredGizmoAxis = -1;
     editor->hoveredObject3DGizmoAxis = -1;
     editor->activeObject3DGizmoAxis = -1;
+    editor->hoveredSceneBoundsGizmoAxis = -1;
+    editor->activeSceneBoundsGizmoAxis = -1;
     editor->hoveredObject3DId = 0u;
     editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
     editor->deleteMode = DELETE_MODE_SAFE;
     editor->isDraggingAnchor = false;
     editor->isResizingObject3D = false;
+    editor->isResizingSceneBounds = false;
     editor->isRotatingObject3D = false;
     editor->object3DRotateMode = false;
+    editor->sceneBoundsHandlesVisible = true;
+    editor->primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
     editor->isPreciseDrag = false;
     editor->anchorSelection = NULL;
     editor->anchorSelectionCount = 0;
@@ -189,16 +196,22 @@ static void Editor_ResetSelection(EditorState* editor) {
     editor->selectedObject3DId = 0u;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
     editor->hoveredGizmoAxis = -1;
     editor->hoveredObject3DGizmoAxis = -1;
     editor->activeObject3DGizmoAxis = -1;
+    editor->hoveredSceneBoundsGizmoAxis = -1;
+    editor->activeSceneBoundsGizmoAxis = -1;
     editor->hoveredObject3DId = 0u;
     editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
     editor->isDraggingAnchor = false;
     editor->isResizingObject3D = false;
+    editor->isResizingSceneBounds = false;
     editor->isRotatingObject3D = false;
     editor->isPreciseDrag = false;
+    editor->primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
     editor->selectionBoxActive = false;
     editor->selectionBoxAdditive = false;
     editor->mode = TOOL_IDLE;
@@ -210,6 +223,7 @@ void Editor_SelectAnchorsInBox(EditorState* editor, const Layout* layout, Vec2 m
     editor->selectedObject3DId = 0u;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
     if (!additive) {
         AnchorSelection_Clear(editor);
     }
@@ -298,10 +312,15 @@ void Editor_ClearAnchorSelection(EditorState* editor) {
     editor->hoveredObject3DId = 0u;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
     editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->activeObject3DGizmoAxis = -1;
+    editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+    editor->hoveredSceneBoundsGizmoAxis = -1;
+    editor->activeSceneBoundsGizmoAxis = -1;
     editor->isResizingObject3D = false;
+    editor->isResizingSceneBounds = false;
     editor->isRotatingObject3D = false;
     Editor_ResetGizmoDrag(editor);
 }
@@ -316,6 +335,7 @@ void Editor_SelectAnchor(EditorState* editor, int anchorIndex, bool additive) {
         editor->selectedObject3DId = 0u;
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+        editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
         return;
     }
     AnchorSelection_Add(editor, anchorIndex);
@@ -323,6 +343,7 @@ void Editor_SelectAnchor(EditorState* editor, int anchorIndex, bool additive) {
     editor->selectedObject3DId = 0u;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
 }
 
 bool Editor_IsAnchorSelected(const EditorState* editor, int anchorIndex) {

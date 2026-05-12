@@ -5,11 +5,13 @@
 
 typedef enum {
     HITBOX_NONE,
+    HITBOX_SCENE_BOUNDS_GIZMO_AXIS,
     HITBOX_GIZMO_AXIS,
     HITBOX_OBJECT3D_GIZMO_AXIS,
     HITBOX_OBJECT3D_PRISM_HANDLE,
     HITBOX_OBJECT3D_PLANE_CORNER,
     HITBOX_OBJECT3D_PLANE_EDGE,
+    HITBOX_SCENE_BOUNDS_HANDLE,
     HITBOX_WALL,
     HITBOX_POINT,
     HITBOX_HANDLE,
@@ -35,6 +37,8 @@ void HitboxSystem_Rebuild(const Layout* layout,
                          uint32_t selectedObject3DId,
                          int selectedObject3DResizeHandle,
                          int selectedObject3DPrismHandle,
+                         int selectedSceneBoundsHandle,
+                         bool sceneBoundsHandlesVisible,
                          bool gizmoEnabled);
 
 // Returns hitbox under screen-space mouse position

@@ -843,14 +843,42 @@ static void RenderObjectTransformDialog(SDL_Renderer* renderer, const UIPanelSta
 }
 
 static void RenderLoadMenu(SDL_Renderer* renderer, const UIPanelState* ui) {
+    enum {
+        LOAD_MENU_PADDING_PX = 8,
+        LOAD_MENU_HEADER_H = 32,
+        LOAD_MENU_FOOTER_H = 24,
+        LOAD_MENU_ROW_H = 26,
+        LOAD_MENU_SCROLLBAR_W = 10,
+        LOAD_MENU_GUTTER_PX = 8
+    };
     if (!ui->loadMenu.open) return;
     LineDrawing3dThemePalette palette = {0};
     const bool has_shared_palette = line_drawing3d_shared_theme_resolve_palette(&palette);
 
     SDL_Rect rect = UIPanel_GetLoadMenuRect(ui);
+    SDL_Rect pane_clip = UIPanel_GetLoadMenuPaneClipRect(ui);
+    SDL_Rect list_clip = {
+        rect.x + LOAD_MENU_PADDING_PX,
+        rect.y + LOAD_MENU_HEADER_H,
+        rect.w - (LOAD_MENU_PADDING_PX * 2) - LOAD_MENU_SCROLLBAR_W - LOAD_MENU_GUTTER_PX,
+        rect.h - LOAD_MENU_HEADER_H - LOAD_MENU_FOOTER_H
+    };
+    SDL_Rect render_clip = list_clip;
+    const float content_h = (float)ui->loadMenu.count * (float)LOAD_MENU_ROW_H;
+    const float max_scroll = (content_h > (float)list_clip.h) ? (content_h - (float)list_clip.h) : 0.0f;
+    const bool scrollable = max_scroll > 0.5f;
+    const char* title = (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON) ? "Load JSON" :
+                        (ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE) ? "Load Scene" :
+                        "Open";
+    const char* empty_label = (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON) ? "(No JSON files found)" :
+                              (ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE) ? "(No scenes found)" :
+                              "(No entries found)";
 #if !USE_VULKAN
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 #endif
+    if (pane_clip.w > 0 && pane_clip.h > 0) {
+        SDL_RenderSetClipRect(renderer, &pane_clip);
+    }
     if (has_shared_palette) {
         SDL_SetRenderDrawColor(renderer,
                                palette.panel_fill.r, palette.panel_fill.g,
@@ -868,35 +896,122 @@ static void RenderLoadMenu(SDL_Renderer* renderer, const UIPanelState* ui) {
     }
     SDL_RenderDrawRect(renderer, &rect);
 
-    int itemHeight = 24;
-    int y = rect.y + 6;
+    DrawText(renderer,
+             title,
+             rect.x + LOAD_MENU_PADDING_PX,
+             rect.y + 7,
+             has_shared_palette ? palette.text_primary : (SDL_Color){245, 245, 245, 255});
 
     if (ui->loadMenu.count == 0) {
-        DrawText(renderer, "(No layouts found)", rect.x + 10, y,
+        DrawText(renderer, empty_label, rect.x + LOAD_MENU_PADDING_PX, list_clip.y + 4,
                  has_shared_palette ? palette.text_muted : (SDL_Color){190, 190, 195, 255});
+        if (ui->loadMenu.rootPath[0] != '\0') {
+            DrawTextClipped(renderer,
+                            ui->loadMenu.rootPath,
+                            rect.x + LOAD_MENU_PADDING_PX,
+                            rect.y + rect.h - LOAD_MENU_FOOTER_H + 4,
+                            rect.w - (LOAD_MENU_PADDING_PX * 2),
+                            has_shared_palette ? palette.text_muted : (SDL_Color){170, 170, 175, 255});
+        }
+        SDL_RenderSetClipRect(renderer, NULL);
         return;
     }
 
-    for (int i = 0; i < ui->loadMenu.count; ++i) {
-        if (i == ui->loadMenu.hoverIndex) {
-            SDL_Rect highlight = { rect.x + 2, y - 2, rect.w - 4, itemHeight };
-            if (has_shared_palette) {
-                SDL_SetRenderDrawColor(renderer,
-                                       palette.menu_highlight.r, palette.menu_highlight.g,
-                                       palette.menu_highlight.b, palette.menu_highlight.a);
-            } else {
-                SDL_SetRenderDrawColor(renderer, 60, 90, 140, 180);
-            }
-            SDL_RenderFillRect(renderer, &highlight);
-        }
-        DrawTextClipped(renderer,
-                        ui->loadMenu.entries[i],
-                        rect.x + 10,
-                        y + 2,
-                        rect.w - 20,
-                        has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 235, 255});
-        y += itemHeight;
+    if (pane_clip.w > 0 && pane_clip.h > 0) {
+        (void)SDL_IntersectRect(&list_clip, &pane_clip, &render_clip);
     }
+    SDL_RenderSetClipRect(renderer, &render_clip);
+    {
+        const int first_index = (int)(ui->loadMenu.scrollOffsetPx / (float)LOAD_MENU_ROW_H);
+        const int offset_in_row = (int)ui->loadMenu.scrollOffsetPx % LOAD_MENU_ROW_H;
+        int y = list_clip.y - offset_in_row;
+        for (int i = first_index; i < ui->loadMenu.count && y < list_clip.y + list_clip.h; ++i) {
+            const bool hovered = (i == ui->loadMenu.hoverIndex);
+            const bool active = (i == ui->loadMenu.activeIndex);
+            SDL_Rect row_rect = {
+                rect.x + 2,
+                y,
+                rect.w - 4 - LOAD_MENU_SCROLLBAR_W - LOAD_MENU_GUTTER_PX,
+                LOAD_MENU_ROW_H
+            };
+            if (hovered || active) {
+                SDL_Rect highlight = {
+                    row_rect.x,
+                    row_rect.y,
+                    row_rect.w,
+                    row_rect.h - 2
+                };
+                SDL_Color fill = has_shared_palette ? palette.menu_highlight : (SDL_Color){60, 90, 140, 180};
+                if (active && !hovered) {
+                    fill.a = (Uint8)((fill.a > 40) ? fill.a - 40 : fill.a);
+                }
+                SDL_SetRenderDrawColor(renderer, fill.r, fill.g, fill.b, fill.a);
+                SDL_RenderFillRect(renderer, &highlight);
+            }
+            DrawTextClipped(renderer,
+                            ui->loadMenu.entries[i],
+                            row_rect.x + 8,
+                            row_rect.y + 4,
+                            row_rect.w - 16,
+                            has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 235, 255});
+            y += LOAD_MENU_ROW_H;
+        }
+    }
+    if (pane_clip.w > 0 && pane_clip.h > 0) {
+        SDL_RenderSetClipRect(renderer, &pane_clip);
+    } else {
+        SDL_RenderSetClipRect(renderer, NULL);
+    }
+
+    if (scrollable) {
+        SDL_Rect track = {
+            rect.x + rect.w - LOAD_MENU_PADDING_PX - LOAD_MENU_SCROLLBAR_W,
+            list_clip.y,
+            LOAD_MENU_SCROLLBAR_W,
+            list_clip.h
+        };
+        float ratio = (float)track.h / content_h;
+        float thumb_h = ratio * (float)track.h;
+        float travel = 0.0f;
+        float offset_ratio = 0.0f;
+        SDL_Rect thumb = track;
+        if (thumb_h < 12.0f) thumb_h = 12.0f;
+        if (thumb_h > (float)track.h) thumb_h = (float)track.h;
+        thumb.h = (int)thumb_h;
+        travel = (float)track.h - thumb_h;
+        if (travel > 0.0f && max_scroll > 0.0f) {
+            offset_ratio = ui->loadMenu.scrollOffsetPx / max_scroll;
+            if (offset_ratio < 0.0f) offset_ratio = 0.0f;
+            if (offset_ratio > 1.0f) offset_ratio = 1.0f;
+            thumb.y = track.y + (int)(travel * offset_ratio);
+        }
+        if (has_shared_palette) {
+            SDL_SetRenderDrawColor(renderer,
+                                   palette.panel_border.r, palette.panel_border.g,
+                                   palette.panel_border.b, 140);
+        } else {
+            SDL_SetRenderDrawColor(renderer, 80, 85, 96, 180);
+        }
+        SDL_RenderFillRect(renderer, &track);
+        if (has_shared_palette) {
+            SDL_SetRenderDrawColor(renderer,
+                                   palette.menu_highlight.r, palette.menu_highlight.g,
+                                   palette.menu_highlight.b, palette.menu_highlight.a);
+        } else {
+            SDL_SetRenderDrawColor(renderer, 120, 150, 205, 220);
+        }
+        SDL_RenderFillRect(renderer, &thumb);
+    }
+
+    if (ui->loadMenu.rootPath[0] != '\0') {
+        DrawTextClipped(renderer,
+                        ui->loadMenu.rootPath,
+                        rect.x + LOAD_MENU_PADDING_PX,
+                        rect.y + rect.h - LOAD_MENU_FOOTER_H + 4,
+                        rect.w - (LOAD_MENU_PADDING_PX * 2),
+                        has_shared_palette ? palette.text_muted : (SDL_Color){170, 170, 175, 255});
+    }
+    SDL_RenderSetClipRect(renderer, NULL);
 }
 
 

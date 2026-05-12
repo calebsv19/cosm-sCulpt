@@ -4,6 +4,7 @@
 #include "Input/input_mouse_drag_shared.h"
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
+#include "Core/viewport_zoom.h"
 #include "Editor/editor.h"
 
 #include "UI/input_ui_panel.h"
@@ -102,13 +103,16 @@ static void ClearHoverState(EditorState* editor) {
     editor->hoveredObject3DId = 0u;
     editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+    editor->hoveredSceneBoundsGizmoAxis = -1;
 }
 
 static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
     if (!motion) return false;
     if (draggingAnchor || draggingHandle || draggingSelectionBox || draggingGizmo ||
         draggingObjectResize || draggingObjectGizmo ||
-        draggingObjectTranslate || draggingObjectRotate) return false;
+        draggingObjectTranslate || draggingObjectRotate ||
+        draggingSceneBoundsGizmo) return false;
     GlobalState* state = Global_Get();
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (!state || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
@@ -149,6 +153,8 @@ static void UpdateHover(int mx, int my) {
     }
 
     Hitbox hit = HitboxSystem_GetHitAt(mx, my);
+    editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+    editor->hoveredSceneBoundsGizmoAxis = -1;
     if (hit.type == HITBOX_POINT) {
         editor->hoveredAnchorIndex = hit.index;
         editor->hoveredWallIndex = -1;
@@ -182,6 +188,28 @@ static void UpdateHover(int mx, int my) {
     } else if (hit.type == HITBOX_OBJECT3D_GIZMO_AXIS) {
         editor->hoveredObject3DId = (uint32_t)hit.index;
         editor->hoveredObject3DGizmoAxis = hit.subIndex;
+        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+        editor->hoveredWallIndex = -1;
+        editor->hoveredAnchorIndex = -1;
+        editor->hoveredHandleAnchor = -1;
+        editor->hoveredHandleComponent = -1;
+        editor->hoveredGizmoAxis = -1;
+    } else if (hit.type == HITBOX_SCENE_BOUNDS_GIZMO_AXIS) {
+        editor->hoveredSceneBoundsGizmoAxis = hit.subIndex;
+        editor->hoveredObject3DGizmoAxis = -1;
+        editor->hoveredObject3DId = 0u;
+        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+        editor->hoveredWallIndex = -1;
+        editor->hoveredAnchorIndex = -1;
+        editor->hoveredHandleAnchor = -1;
+        editor->hoveredHandleComponent = -1;
+        editor->hoveredGizmoAxis = -1;
+    } else if (hit.type == HITBOX_SCENE_BOUNDS_HANDLE) {
+        editor->hoveredSceneBoundsHandle = hit.subIndex;
+        editor->hoveredObject3DGizmoAxis = -1;
+        editor->hoveredObject3DId = 0u;
         editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
         editor->hoveredWallIndex = -1;
@@ -240,7 +268,6 @@ static void UpdateHover(int mx, int my) {
 // ============================================================
 static void HandleMouseWheel(AppContext* ctx, SDL_MouseWheelEvent* wheel) {
     GlobalState* state = Global_Get();
-    Grid* grid = &state->grid;
     int mx = 0;
     int my = 0;
     if (ctx && ctx->window) {
@@ -250,18 +277,19 @@ static void HandleMouseWheel(AppContext* ctx, SDL_MouseWheelEvent* wheel) {
         my = Global_GetScreenHeight() / 2;
     }
 
-    if (ResolvePointerPaneLane(mx, my) != POINTER_PANE_CENTER) return;
-
     float delta = (wheel->preciseY != 0.0f) ? wheel->preciseY : (float)wheel->y;
     if (wheel->direction == SDL_MOUSEWHEEL_FLIPPED) {
         delta = -delta;
     }
     if (fabsf(delta) <= 0.0001f) return;
+    if (UIPanel_HandleLoadMenuWheel(mx, my, delta)) return;
+    if (ResolvePointerPaneLane(mx, my) != POINTER_PANE_CENTER) return;
 
     // Exponential zoom for smoother high-precision wheel/trackpad input.
     float factor = powf(1.08f, delta);
-    Grid_zoom(grid, factor, (float)mx, (float)my);
-    Global_FlagGridChanged();
+    if (LineDrawingViewportZoom_Apply(state, factor, (float)mx, (float)my)) {
+        Global_FlagGridChanged();
+    }
 }
 
 
@@ -303,6 +331,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     draggingObjectGizmo = false;
     draggingObjectTranslate = false;
     draggingObjectRotate = false;
+    draggingSceneBoundsGizmo = false;
     draggingAnchorIndex = -1;
     anchorDragCaptured = false;
     lastMx = btn->x;
@@ -316,12 +345,14 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     ResetObjectGizmoDrag(editor);
     ResetObjectTranslateDrag(editor);
     ResetObjectRotateDrag(editor);
+    ResetSceneBoundsGizmoDrag(editor);
     bool shiftSelect = (SDL_GetModState() & KMOD_SHIFT) != 0;
     bool startedGizmoDrag = false;
     bool startedObjectResize = false;
     bool startedObjectGizmoDrag = false;
     bool startedObjectTranslateDrag = false;
     bool startedObjectRotateDrag = false;
+    bool startedSceneBoundsGizmoDrag = false;
 
     Global_RebuildHitboxesIfDirty();
     Hitbox hit = HitboxSystem_GetHitAt(btn->x, btn->y);
@@ -329,6 +360,8 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     bool clickedHandle = (hit.type == HITBOX_HANDLE);
     bool clickedGizmo = (hit.type == HITBOX_GIZMO_AXIS);
     bool clickedObjectGizmo = (hit.type == HITBOX_OBJECT3D_GIZMO_AXIS);
+    bool clickedSceneBoundsGizmo = (hit.type == HITBOX_SCENE_BOUNDS_GIZMO_AXIS);
+    bool clickedSceneBoundsHandle = (hit.type == HITBOX_SCENE_BOUNDS_HANDLE);
     bool clickedPrismHandle = (hit.type == HITBOX_OBJECT3D_PRISM_HANDLE);
     bool clickedObjectResize = (hit.type == HITBOX_OBJECT3D_PLANE_CORNER ||
                                 hit.type == HITBOX_OBJECT3D_PLANE_EDGE);
@@ -350,6 +383,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         editor->selectedObject3DId = 0u;
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+        editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
         if (!doubleClick) {
             draggingAnchor = true;
             draggingAnchorIndex = hit.index;
@@ -396,7 +430,10 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
         const bool freeView = (state->spaceMode == SPACE_MODE_3D) &&
                               SpaceAdapter_IsFreeViewEnabled(&viewCtx);
-        if (object && object->kind == OBJECT3D_KIND_RECT_PRISM && freeView) {
+        if (object &&
+            (object->kind == OBJECT3D_KIND_PLANE ||
+             object->kind == OBJECT3D_KIND_RECT_PRISM) &&
+            freeView) {
             startedObjectResize = false;
         } else {
             startedObjectResize = BeginObjectResizeDragSession(state,
@@ -413,22 +450,28 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         editor->selectedHandleAnchor = -1;
         editor->selectedHandleComponent = -1;
     } else if (hit.type == HITBOX_OBJECT3D_GIZMO_AXIS) {
-        const int selectedHandle = editor->selectedObject3DPrismHandle;
+        const int selectedPlaneHandle = editor->selectedObject3DResizeHandle;
+        const int selectedPrismHandle = editor->selectedObject3DPrismHandle;
         Editor_ClearAnchorSelection(editor);
         editor->selectedObject3DId = (uint32_t)hit.index;
-        editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        editor->selectedObject3DPrismHandle = selectedHandle;
+        editor->selectedObject3DResizeHandle = selectedPlaneHandle;
+        editor->selectedObject3DPrismHandle = selectedPrismHandle;
         editor->selectedWallIndex = -1;
         editor->selectedHandleAnchor = -1;
         editor->selectedHandleComponent = -1;
-        if (editor->selectedObject3DPrismHandle != RECT_PRISM_RESIZE_HANDLE_NONE) {
-            startedObjectGizmoDrag = BeginObjectGizmoDragSession(state,
-                                                                 editor,
-                                                                 (uint32_t)hit.index,
-                                                                 (RectPrismResizeHandleKind)editor->selectedObject3DPrismHandle,
-                                                                 (RectPrismAxisDirection)hit.subIndex,
-                                                                 btn->x,
-                                                                 btn->y);
+        Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, (uint32_t)hit.index);
+        ObjectHandleGizmoTarget handleTarget = ObjectHandleGizmoTarget_None();
+        if (ObjectHandleGizmoTarget_FromSelection(object,
+                                                  (uint32_t)hit.index,
+                                                  (PlaneResizeHandleKind)editor->selectedObject3DResizeHandle,
+                                                  (RectPrismResizeHandleKind)editor->selectedObject3DPrismHandle,
+                                                  &handleTarget)) {
+            startedObjectGizmoDrag = BeginObjectHandleGizmoDragSession(state,
+                                                                       editor,
+                                                                       handleTarget,
+                                                                       (RectPrismAxisDirection)hit.subIndex,
+                                                                       btn->x,
+                                                                       btn->y);
         } else {
             if (editor->object3DRotateMode) {
                 startedObjectRotateDrag = BeginObjectRotateDragSession(state,
@@ -446,6 +489,32 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
                                                                              btn->y);
             }
         }
+    } else if (hit.type == HITBOX_SCENE_BOUNDS_HANDLE) {
+        Editor_ClearAnchorSelection(editor);
+        editor->selectedSceneBoundsHandle = hit.subIndex;
+        editor->selectedObject3DId = 0u;
+        editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+        editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+        editor->selectedWallIndex = -1;
+        editor->selectedHandleAnchor = -1;
+        editor->selectedHandleComponent = -1;
+    } else if (hit.type == HITBOX_SCENE_BOUNDS_GIZMO_AXIS) {
+        const int selectedBoundsHandle = editor->selectedSceneBoundsHandle;
+        Editor_ClearAnchorSelection(editor);
+        editor->selectedSceneBoundsHandle = selectedBoundsHandle;
+        editor->selectedObject3DId = 0u;
+        editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+        editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+        editor->selectedWallIndex = -1;
+        editor->selectedHandleAnchor = -1;
+        editor->selectedHandleComponent = -1;
+        startedSceneBoundsGizmoDrag =
+            BeginSceneBoundsGizmoDragSession(state,
+                                             editor,
+                                             (SceneBoundsHandleKind)selectedBoundsHandle,
+                                             (RectPrismAxisDirection)hit.subIndex,
+                                             btn->x,
+                                             btn->y);
     } else if (hit.type == HITBOX_WALL) {
         editor->selectedWallIndex = hit.index;
         Editor_ClearAnchorSelection(editor);
@@ -495,6 +564,14 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         draggingObjectGizmo = startedObjectGizmoDrag;
         draggingObjectTranslate = startedObjectTranslateDrag;
         draggingObjectRotate = startedObjectRotateDrag;
+    } else if (clickedSceneBoundsGizmo) {
+        draggingHandle = false;
+        draggingPan = false;
+        draggingSceneBoundsGizmo = startedSceneBoundsGizmoDrag;
+    } else if (clickedSceneBoundsHandle) {
+        draggingHandle = false;
+        draggingPan = false;
+        draggingSceneBoundsGizmo = false;
     } else if (clickedObjectResize) {
         draggingHandle = false;
         draggingPan = false;
@@ -573,6 +650,7 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
                 draggingObjectGizmo = false;
                 draggingObjectTranslate = false;
                 draggingObjectRotate = false;
+                draggingSceneBoundsGizmo = false;
                 draggingSelectionBox = false;
                 draggingAnchorIndex = -1;
                 anchorDragCaptured = false;
@@ -580,6 +658,7 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
                 if (state) {
                     state->editor.isDraggingAnchor = false;
                     state->editor.isResizingObject3D = false;
+                    state->editor.isResizingSceneBounds = false;
                     state->editor.isRotatingObject3D = false;
                     state->editor.isPreciseDrag = false;
                     Editor_EndAnchorDrag(&state->editor);
@@ -588,6 +667,7 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
                     ResetObjectGizmoDrag(&state->editor);
                     ResetObjectTranslateDrag(&state->editor);
                     ResetObjectRotateDrag(&state->editor);
+                    ResetSceneBoundsGizmoDrag(&state->editor);
                     if (state->editor.selectionBoxActive) {
                         Vec2 start = state->editor.selectionBoxStart;
                         Vec2 end = state->editor.selectionBoxEnd;

@@ -10,6 +10,7 @@ const char* UIPanel_PrismDimensionTargetLabel(UIPrismDimensionDialogTarget targe
 const char* UIPanel_SceneBoundsTargetLabel(UISceneBoundsDialogTarget target);
 const char* UIPanel_ObjectTransformTargetLabel(UIObjectTransformDialogTarget target);
 SDL_Rect UIPanel_GetLoadMenuRect(const UIPanelState* ui);
+SDL_Rect UIPanel_GetLoadMenuPaneClipRect(const UIPanelState* ui);
 
 void UIPanel_CloseRootDialog(UIPanelState* ui);
 void UIPanel_CloseSaveDialog(UIPanelState* ui);
@@ -31,3 +32,7 @@ bool UIPanel_ApplyObjectTransformDialog(UIPanelState* ui);
 void UIPanel_BeginRootDialog(UIRootDialogTarget target);
 bool UIPanel_ApplyRootDialog(UIPanelState* ui);
 bool UIPanel_PerformSave(UIPanelState* ui);
+bool UIPanel_LoadLayoutFromPath(const char* path);
+bool UIPanel_LoadSceneFromPath(const char* path);
+bool UIPanel_LoadJsonFromFolderSelection(const char* selected_folder, bool persist_root);
+bool UIPanel_LoadSceneFromFolderSelection(const char* selected_folder, bool persist_root);

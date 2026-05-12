@@ -34,6 +34,7 @@ typedef struct GlobalState {
     bool hitboxDirty;
 
     char currentConfigPath[LINE_DRAWING_PATH_CAP];
+    char currentSceneAuthoringPath[LINE_DRAWING_PATH_CAP];
     LineDrawingDataPaths dataPaths;
     bool layoutDirtySinceSave;
     char* lastSavedSnapshot;
@@ -59,7 +60,9 @@ int Global_GetScreenHeight(void);
 
 void Global_OnLayoutSaved(const char* path);
 void Global_OnLayoutLoaded(const char* path);
+void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_path_hint);
 const char* Global_GetCurrentConfigPath(void);
+const char* Global_GetCurrentSceneAuthoringPath(void);
 bool Global_IsLayoutDirty(void);
 const char* Global_GetInputRoot(void);
 const char* Global_GetOutputRoot(void);

@@ -194,6 +194,164 @@ static bool test_layout_scene_bounds_clamp_contract(void) {
     return true;
 }
 
+static bool test_layout_scene_bounds_face_handle_resize_contract(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    SceneBounds3D* bounds = &layout->scene3d.bounds;
+
+    bounds->enabled = true;
+    bounds->min = (Vec3){ -2.0f, -3.0f, -4.0f };
+    bounds->max = (Vec3){  2.0f,  3.0f,  4.0f };
+
+    RectPrismHandleAxisMask mask = {0};
+    TEST_ASSERT(Layout_SceneBoundsHandleAxisMask(SCENE_BOUNDS_HANDLE_MAX_X, &mask));
+    TEST_ASSERT(mask.allowU);
+    TEST_ASSERT(!mask.allowV);
+    TEST_ASSERT(!mask.allowN);
+
+    Vec3 handleWorld = {0};
+    TEST_ASSERT(Layout_SceneBoundsHandleWorldPoint(bounds,
+                                                   SCENE_BOUNDS_HANDLE_MAX_X,
+                                                   &handleWorld));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(handleWorld, (Vec3){ 2.0f, 0.0f, 0.0f }));
+
+    TEST_ASSERT(Layout_ResizeSceneBounds3DFromHandle(layout,
+                                                     SCENE_BOUNDS_HANDLE_MAX_X,
+                                                     (Vec3){ 6.0f, 99.0f, 99.0f }));
+    TEST_ASSERT(ld_test_nearly_equal(bounds->max.x, 6.0f));
+    TEST_ASSERT(ld_test_nearly_equal(bounds->max.y, 3.0f));
+    TEST_ASSERT(ld_test_nearly_equal(bounds->max.z, 4.0f));
+    TEST_ASSERT(Layout_SceneBounds3D_IsValid(bounds));
+
+    TEST_ASSERT(Layout_ResizeSceneBounds3DFromHandle(layout,
+                                                     SCENE_BOUNDS_HANDLE_MIN_Y,
+                                                     (Vec3){ 99.0f, 10.0f, 99.0f }));
+    TEST_ASSERT(ld_test_nearly_equal(bounds->min.y, bounds->max.y));
+    TEST_ASSERT(Layout_SceneBounds3D_IsValid(bounds));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_scene_bounds_edge_and_corner_handle_resize_contract(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    SceneBounds3D* bounds = &layout->scene3d.bounds;
+
+    bounds->enabled = true;
+    bounds->min = (Vec3){ -2.0f, -3.0f, -4.0f };
+    bounds->max = (Vec3){  2.0f,  3.0f,  4.0f };
+
+    RectPrismHandleAxisMask edgeMask = {0};
+    TEST_ASSERT(Layout_SceneBoundsHandleAxisMask(SCENE_BOUNDS_HANDLE_EDGE_X_MIN_Y_MAX_Z,
+                                                 &edgeMask));
+    TEST_ASSERT(!edgeMask.allowU);
+    TEST_ASSERT(edgeMask.allowV);
+    TEST_ASSERT(edgeMask.allowN);
+
+    Vec3 edgeWorld = {0};
+    TEST_ASSERT(Layout_SceneBoundsHandleWorldPoint(bounds,
+                                                   SCENE_BOUNDS_HANDLE_EDGE_X_MIN_Y_MAX_Z,
+                                                   &edgeWorld));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(edgeWorld, (Vec3){ 0.0f, -3.0f, 4.0f }));
+
+    TEST_ASSERT(Layout_ResizeSceneBounds3DFromHandle(layout,
+                                                     SCENE_BOUNDS_HANDLE_EDGE_X_MIN_Y_MAX_Z,
+                                                     (Vec3){ 99.0f, -1.0f, 7.0f }));
+    TEST_ASSERT(ld_test_nearly_equal(bounds->min.x, -2.0f));
+    TEST_ASSERT(ld_test_nearly_equal(bounds->max.x, 2.0f));
+    TEST_ASSERT(ld_test_nearly_equal(bounds->min.y, -1.0f));
+    TEST_ASSERT(ld_test_nearly_equal(bounds->max.z, 7.0f));
+
+    RectPrismHandleAxisMask cornerMask = {0};
+    TEST_ASSERT(Layout_SceneBoundsHandleAxisMask(SCENE_BOUNDS_HANDLE_CORNER_MAX_X_MIN_Y_MAX_Z,
+                                                 &cornerMask));
+    TEST_ASSERT(cornerMask.allowU);
+    TEST_ASSERT(cornerMask.allowV);
+    TEST_ASSERT(cornerMask.allowN);
+
+    TEST_ASSERT(Layout_ResizeSceneBounds3DFromHandle(layout,
+                                                     SCENE_BOUNDS_HANDLE_CORNER_MAX_X_MIN_Y_MAX_Z,
+                                                     (Vec3){ 5.0f, -10.0f, 1.0f }));
+    TEST_ASSERT(ld_test_nearly_equal(bounds->max.x, 5.0f));
+    TEST_ASSERT(ld_test_nearly_equal(bounds->min.y, -10.0f));
+    TEST_ASSERT(ld_test_nearly_equal(bounds->max.z, 1.0f));
+    TEST_ASSERT(Layout_SceneBounds3D_IsValid(bounds));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_scene_bounds_center_handle_translate_contract(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    SceneBounds3D* bounds = &layout->scene3d.bounds;
+
+    bounds->enabled = true;
+    bounds->min = (Vec3){ -2.0f, -3.0f, -4.0f };
+    bounds->max = (Vec3){  2.0f,  3.0f,  4.0f };
+
+    RectPrismHandleAxisMask mask = {0};
+    TEST_ASSERT(Layout_SceneBoundsHandleAxisMask(SCENE_BOUNDS_HANDLE_CENTER, &mask));
+    TEST_ASSERT(mask.allowU);
+    TEST_ASSERT(mask.allowV);
+    TEST_ASSERT(mask.allowN);
+
+    Vec3 centerWorld = {0};
+    TEST_ASSERT(Layout_SceneBoundsHandleWorldPoint(bounds,
+                                                   SCENE_BOUNDS_HANDLE_CENTER,
+                                                   &centerWorld));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(centerWorld, (Vec3){ 0.0f, 0.0f, 0.0f }));
+    TEST_ASSERT(!Layout_ResizeSceneBounds3DFromHandle(layout,
+                                                      SCENE_BOUNDS_HANDLE_CENTER,
+                                                      (Vec3){ 10.0f, 10.0f, 10.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(bounds->min, (Vec3){ -2.0f, -3.0f, -4.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(bounds->max, (Vec3){  2.0f,  3.0f,  4.0f }));
+
+    TEST_ASSERT(Layout_TranslateSceneBounds3D(layout, (Vec3){ 5.0f, -1.0f, 2.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(bounds->min, (Vec3){ 3.0f, -4.0f, -2.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(bounds->max, (Vec3){ 7.0f,  2.0f,  6.0f }));
+    TEST_ASSERT(Layout_SceneBounds3D_IsValid(bounds));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_fit_scene_bounds_to_object_uses_world_aabb(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    RectPrismPrimitiveCreateParams params;
+    Layout_RectPrismPrimitiveCreateParams_SetDefaults(&params);
+    params.width = 4.0f;
+    params.height = 6.0f;
+    params.depth = 8.0f;
+    params.lockToBounds = false;
+    params.useExplicitFrame = true;
+    params.explicitFrame = (PlaneFrame3){
+        .origin = { 10.0f, -5.0f, 2.0f },
+        .axisU = { 1.0f, 0.0f, 0.0f },
+        .axisV = { 0.0f, 1.0f, 0.0f },
+        .normal = { 0.0f, 0.0f, 1.0f }
+    };
+
+    uint32_t objectId = 0u;
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(layout, &params, &objectId, NULL));
+    TEST_ASSERT(Layout_FitSceneBounds3DToObject(layout, objectId, 1.0f));
+    TEST_ASSERT(layout->scene3d.bounds.enabled);
+    TEST_ASSERT(ld_test_vec3_nearly_equal(layout->scene3d.bounds.min,
+                                          (Vec3){ 7.0f, -9.0f, -3.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(layout->scene3d.bounds.max,
+                                          (Vec3){ 13.0f, -1.0f, 7.0f }));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_layout_json_v6_persists_scene_bounds(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
@@ -603,6 +761,13 @@ bool test_layout_core_run_tests(void) {
         { "LayoutJsonFutureVersionRejected", test_layout_json_future_version_rejected },
         { "LayoutJsonMissingVersionDefaults", test_layout_json_missing_version_defaults },
         { "LayoutSceneBoundsClampContract", test_layout_scene_bounds_clamp_contract },
+        { "LayoutSceneBoundsFaceHandleResizeContract", test_layout_scene_bounds_face_handle_resize_contract },
+        { "LayoutSceneBoundsEdgeAndCornerHandleResizeContract",
+          test_layout_scene_bounds_edge_and_corner_handle_resize_contract },
+        { "LayoutSceneBoundsCenterHandleTranslateContract",
+          test_layout_scene_bounds_center_handle_translate_contract },
+        { "LayoutFitSceneBoundsToObjectUsesWorldAABB",
+          test_layout_fit_scene_bounds_to_object_uses_world_aabb },
         { "LayoutJsonV6PersistsSceneBounds", test_layout_json_v6_persists_scene_bounds },
         { "LayoutJsonMissingScene3DDefaultsSceneBounds", test_layout_json_missing_scene3d_defaults_scene_bounds },
         { "ConstructionPlaneAxisModeMapsToViewContext", test_construction_plane_axis_mode_maps_to_view_context },

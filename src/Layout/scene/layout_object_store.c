@@ -157,3 +157,35 @@ bool Layout_Object3D_ComputeRectPrismCorners(const Object3D* object, Vec3 outCor
     outCorners[7] = Vec3_Add(center, Vec3_Add(Vec3_Add(Vec3_Scale(u, -1.0f), v), n));
     return true;
 }
+
+bool Layout_Object3D_ComputeWorldAABB(const Object3D* object, Vec3* outMin, Vec3* outMax) {
+    if (!object || !outMin || !outMax) return false;
+
+    Vec3 corners[8] = {0};
+    size_t cornerCount = 0u;
+    if (object->kind == OBJECT3D_KIND_PLANE) {
+        if (!Layout_Object3D_ComputePlaneCorners(object, corners)) return false;
+        cornerCount = 4u;
+    } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        if (!Layout_Object3D_ComputeRectPrismCorners(object, corners)) return false;
+        cornerCount = 8u;
+    } else {
+        return false;
+    }
+
+    Vec3 minPoint = corners[0];
+    Vec3 maxPoint = corners[0];
+    for (size_t i = 1u; i < cornerCount; ++i) {
+        const Vec3 p = corners[i];
+        minPoint.x = fminf(minPoint.x, p.x);
+        minPoint.y = fminf(minPoint.y, p.y);
+        minPoint.z = fminf(minPoint.z, p.z);
+        maxPoint.x = fmaxf(maxPoint.x, p.x);
+        maxPoint.y = fmaxf(maxPoint.y, p.y);
+        maxPoint.z = fmaxf(maxPoint.z, p.z);
+    }
+
+    *outMin = minPoint;
+    *outMax = maxPoint;
+    return true;
+}

@@ -8,6 +8,7 @@
 #include "Core/space_mode_adapter.h"
 #include "Layout/layout_json.h"
 #include "Editor/editor.h"
+#include "Editor/primitive_placement_preview.h"
 #include "Tools/shape_from_layout.h"
 #include "Tools/shape_export.h"
 #include "ShapeLib/shape_json.h"
@@ -301,6 +302,7 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
     static const char* k_left_button_labels[] = {
         "Save JSON",
         "Load JSON",
+        "Load Scene",
         "Export Shape",
         "Export Scene",
         "Input Edit",
@@ -444,70 +446,6 @@ void UIPanel_ExportShape(void) {
     ShapeDocument_Free(&doc);
 }
 
-static PlaneFrame3 UIPanel_FrameFromConstructionPlane(const GlobalState* state) {
-    PlaneFrame3 frame = {0};
-    if (!state) return frame;
-
-    const ConstructionPlane3D* cp = &state->layout.scene3d.constructionPlane;
-    if (!Layout_ConstructionPlane3D_IsValid(cp)) {
-        Plane3 fallbackPlane = Plane3_FromViewPlane((ViewPlane){ .axis = VIEW_PLANE_XY, .offset = 0.0f });
-        return PlaneFrame3_FromPlane(fallbackPlane, (Vec3){ 0.0f, 0.0f, 0.0f });
-    }
-
-    if (cp->mode == CONSTRUCTION_PLANE_MODE_CUSTOM_FRAME) {
-        frame = cp->customFrame;
-    } else {
-        Plane3 p = Plane3_FromViewPlane(cp->axisAligned);
-        Vec3 origin = { 0.0f, 0.0f, 0.0f };
-        switch (cp->axisAligned.axis) {
-            case VIEW_PLANE_YZ: origin.x = cp->axisAligned.offset; break;
-            case VIEW_PLANE_XZ: origin.y = cp->axisAligned.offset; break;
-            case VIEW_PLANE_XY:
-            default: origin.z = cp->axisAligned.offset; break;
-        }
-        frame = PlaneFrame3_FromPlane(p, origin);
-        frame.origin = origin;
-    }
-    return frame;
-}
-
-static Vec3 UIPanel_ResolvePlaneSpawnOrigin(const GlobalState* state,
-                                            const SpaceViewContext* viewCtx,
-                                            PlaneFrame3 frame) {
-    Vec3 origin = frame.origin;
-    if (!state || !viewCtx) return origin;
-
-    Vec3 candidate = origin;
-    const int cx = state->screenWidth / 2;
-    const int cy = state->screenHeight / 2;
-    if (SpaceAdapter_ScreenToWorld(cx, cy, &state->grid, viewCtx, false, &candidate)) {
-        // candidate from screen center.
-    } else {
-        candidate = viewCtx->camera.target;
-    }
-
-    if (state->layout.scene3d.constructionPlane.mode == CONSTRUCTION_PLANE_MODE_AXIS_ALIGNED) {
-        switch (state->layout.scene3d.constructionPlane.axisAligned.axis) {
-            case VIEW_PLANE_YZ:
-                candidate.x = state->layout.scene3d.constructionPlane.axisAligned.offset;
-                break;
-            case VIEW_PLANE_XZ:
-                candidate.y = state->layout.scene3d.constructionPlane.axisAligned.offset;
-                break;
-            case VIEW_PLANE_XY:
-            default:
-                candidate.z = state->layout.scene3d.constructionPlane.axisAligned.offset;
-                break;
-        }
-        return candidate;
-    }
-
-    {
-        Plane3 plane = Plane3_FromPointNormal(frame.origin, frame.normal);
-        return Plane3_ProjectPoint(plane, candidate);
-    }
-}
-
 bool UIPanel_CreatePlanePrimitiveFromActiveContext(bool disable_bounds_lock) {
     GlobalState* state = Global_Get();
     if (!state) return false;
@@ -516,17 +454,21 @@ bool UIPanel_CreatePlanePrimitiveFromActiveContext(bool disable_bounds_lock) {
         return false;
     }
 
-    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
-    PlaneFrame3 frame = UIPanel_FrameFromConstructionPlane(state);
-    frame.origin = UIPanel_ResolvePlaneSpawnOrigin(state, &viewCtx, frame);
+    PrimitivePlacementPreview preview = {0};
+    if (!Editor_PrimitivePlacementPreview_Build(state,
+                                                PRIMITIVE_PLACEMENT_PREVIEW_PLANE,
+                                                &preview)) {
+        SDL_Log("[UI] Plane primitive creation failed: no valid placement preview.");
+        return false;
+    }
 
     PlanePrimitiveCreateParams params;
     Layout_PlanePrimitiveCreateParams_SetDefaults(&params);
-    params.width = fmaxf(state->grid.gridSize * 4.0f, 1.0f);
-    params.height = fmaxf(state->grid.gridSize * 4.0f, 1.0f);
+    params.width = preview.width;
+    params.height = preview.height;
     params.lockToBounds = !disable_bounds_lock;
     params.useExplicitFrame = true;
-    params.explicitFrame = frame;
+    params.explicitFrame = preview.frame;
 
     Editor_HistoryCapture(&state->editor, &state->layout);
     uint32_t objectId = 0u;
@@ -538,8 +480,9 @@ bool UIPanel_CreatePlanePrimitiveFromActiveContext(bool disable_bounds_lock) {
 
     Editor_ClearAnchorSelection(&state->editor);
     state->editor.selectedObject3DId = objectId;
-    state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_CORNER_POS_U_POS_V;
     state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    state->editor.primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
     state->editor.selectedWallIndex = -1;
     state->editor.selectedHandleAnchor = -1;
     state->editor.selectedHandleComponent = -1;
@@ -558,18 +501,22 @@ bool UIPanel_CreateRectPrismPrimitiveFromActiveContext(bool disable_bounds_lock)
         return false;
     }
 
-    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
-    PlaneFrame3 frame = UIPanel_FrameFromConstructionPlane(state);
-    frame.origin = UIPanel_ResolvePlaneSpawnOrigin(state, &viewCtx, frame);
+    PrimitivePlacementPreview preview = {0};
+    if (!Editor_PrimitivePlacementPreview_Build(state,
+                                                PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM,
+                                                &preview)) {
+        SDL_Log("[UI] Rect prism primitive creation failed: no valid placement preview.");
+        return false;
+    }
 
     RectPrismPrimitiveCreateParams params;
     Layout_RectPrismPrimitiveCreateParams_SetDefaults(&params);
-    params.width = fmaxf(state->grid.gridSize * 4.0f, 1.0f);
-    params.height = fmaxf(state->grid.gridSize * 4.0f, 1.0f);
-    params.depth = fmaxf(state->grid.gridSize * 4.0f, 1.0f);
+    params.width = preview.width;
+    params.height = preview.height;
+    params.depth = preview.depth;
     params.lockToBounds = !disable_bounds_lock;
     params.useExplicitFrame = true;
-    params.explicitFrame = frame;
+    params.explicitFrame = preview.frame;
 
     Editor_HistoryCapture(&state->editor, &state->layout);
     uint32_t objectId = 0u;
@@ -582,7 +529,8 @@ bool UIPanel_CreateRectPrismPrimitiveFromActiveContext(bool disable_bounds_lock)
     Editor_ClearAnchorSelection(&state->editor);
     state->editor.selectedObject3DId = objectId;
     state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-    state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_CORNER_6;
+    state->editor.primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
     state->editor.selectedWallIndex = -1;
     state->editor.selectedHandleAnchor = -1;
     state->editor.selectedHandleComponent = -1;
@@ -590,6 +538,35 @@ bool UIPanel_CreateRectPrismPrimitiveFromActiveContext(bool disable_bounds_lock)
     SDL_Log("[UI] Rect prism primitive created (id=%u%s)",
             objectId,
             boundsAdjusted ? ", bounds-adjusted" : "");
+    return true;
+}
+
+bool UIPanel_FitSceneBoundsToSelectedObject(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+
+    const uint32_t objectId = state->editor.selectedObject3DId;
+    const Object3D* object = Layout_ObjectStore_FindConst(&state->layout.objectStore, objectId);
+    Vec3 objectMin = {0};
+    Vec3 objectMax = {0};
+    if (!Layout_Object3D_ComputeWorldAABB(object, &objectMin, &objectMax)) {
+        SDL_Log("[UI] Fit scene bounds blocked: select a plane or prism first.");
+        return false;
+    }
+
+    Editor_HistoryCapture(&state->editor, &state->layout);
+    if (!Layout_FitSceneBounds3DToObject(&state->layout, objectId, state->grid.gridSize)) {
+        SDL_Log("[UI] Fit scene bounds failed for object id=%u.", objectId);
+        return false;
+    }
+
+    state->editor.selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+    state->editor.hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+    state->editor.hoveredSceneBoundsGizmoAxis = -1;
+    state->editor.activeSceneBoundsGizmoAxis = -1;
+    state->editor.isResizingSceneBounds = false;
+    Global_FlagHitboxesDirty();
+    SDL_Log("[UI] Scene bounds fit to selected object id=%u.", objectId);
     return true;
 }
 
@@ -750,8 +727,16 @@ void UIPanel_Init(int screenW, int screenH) {
     g_uiPanel.saveDialog.length = 0;
     g_uiPanel.saveDialog.cursor = 0;
     g_uiPanel.loadMenu.open = false;
+    g_uiPanel.loadMenu.mode = UI_LOAD_MENU_MODE_NONE;
+    g_uiPanel.loadMenu.anchorButtonId = UI_BTN_LOAD_JSON;
+    g_uiPanel.loadMenu.rootPath[0] = '\0';
     g_uiPanel.loadMenu.count = 0;
     g_uiPanel.loadMenu.hoverIndex = -1;
+    g_uiPanel.loadMenu.activeIndex = -1;
+    g_uiPanel.loadMenu.scrollOffsetPx = 0.0f;
+    g_uiPanel.loadMenu.scrollbarDragging = false;
+    g_uiPanel.loadMenu.scrollbarDragStartY = 0;
+    g_uiPanel.loadMenu.scrollbarDragStartOffsetPx = 0.0f;
     g_uiPanel.rootDialog.active = false;
     g_uiPanel.rootDialog.target = UI_ROOT_TARGET_NONE;
     g_uiPanel.rootDialog.buffer[0] = '\0';
@@ -802,6 +787,8 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "Save JSON", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_SAVE_JSON);
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Load JSON", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_JSON);
+    yL += btnH + spacing;
+    AddButton(&g_uiPanel, "Load Scene", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_SCENE);
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Export Shape", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_EXPORT_SHAPE);
     yL += btnH + spacing;
@@ -872,6 +859,8 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "Edit BMin", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_BOUNDS, UI_BTN_EDIT_SCENE_BOUNDS_MIN);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Edit BMax", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_BOUNDS, UI_BTN_EDIT_SCENE_BOUNDS_MAX);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Fit B->Obj", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_BOUNDS, UI_BTN_FIT_SCENE_BOUNDS_TO_OBJECT);
 
     UIPanel_OnWindowResized(screenW, screenH);
     UIPanel_RefreshConfigList();
