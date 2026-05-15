@@ -1,0 +1,31 @@
+SRC_DIR := src
+TOOLS_DIR := $(SRC_DIR)/Tools
+EXT_DIR := external
+TEST_DIR := tests
+
+SHARED_ROOT ?= third_party/codework_shared
+SHARED_ASSETS_DIR := $(SHARED_ROOT)/assets
+SHAPE_DIR := $(SHARED_ROOT)/shape
+KIT_RENDER_DIR := $(SHARED_ROOT)/kit/kit_render
+KIT_PANE_DIR := $(SHARED_ROOT)/kit/kit_pane
+KIT_WORKSPACE_AUTHORING_DIR := $(SHARED_ROOT)/kit/kit_workspace_authoring
+VK_RENDERER_DIR := $(SHARED_ROOT)/vk_renderer
+CORE_BASE_DIR := $(SHARED_ROOT)/core/core_base
+CORE_IO_DIR := $(SHARED_ROOT)/core/core_io
+CORE_DATA_DIR := $(SHARED_ROOT)/core/core_data
+CORE_MATH_DIR := $(SHARED_ROOT)/core/core_math
+CORE_TIME_DIR := $(SHARED_ROOT)/core/core_time
+CORE_SCENE_DIR := $(SHARED_ROOT)/core/core_scene
+CORE_OBJECT_DIR := $(SHARED_ROOT)/core/core_object
+CORE_UNITS_DIR := $(SHARED_ROOT)/core/core_units
+CORE_LAYOUT_DIR := $(SHARED_ROOT)/core/core_layout
+CORE_SCENE_COMPILE_DIR := $(SHARED_ROOT)/core/core_scene_compile
+CORE_PANE_DIR := $(SHARED_ROOT)/core/core_pane
+CORE_PANE_MODULE_DIR := $(SHARED_ROOT)/core/core_pane_module
+CORE_PACK_DIR := $(SHARED_ROOT)/core/core_pack
+CORE_TRACE_DIR := $(SHARED_ROOT)/core/core_trace
+CORE_THEME_DIR := $(SHARED_ROOT)/core/core_theme
+CORE_FONT_DIR := $(SHARED_ROOT)/core/core_font
+TIMER_HUD_DIR := $(SHARED_ROOT)/timer_hud
+
+SHAPE_SYNC_SCRIPT := $(SHAPE_DIR)/sync_exports.sh
