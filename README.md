@@ -1,12 +1,23 @@
-# LineDrawing
+# sCulpt (`line_drawing`)
 
-LineDrawing is an SDL2-based layout and 3D modeling workspace for geometry prototyping. It now supports snap-to-grid wall drafting, bezier-curved anchors (with editable handles), multi-anchor selection/dragging, JSON persistence, and an overlay UI that can host diagnostics or future sensor readouts.
+`sCulpt` is the packaged desktop product for the `line_drawing` program. It is
+an SDL2-based layout and 3D modeling workspace for geometry prototyping. It now
+supports snap-to-grid wall drafting, bezier-curved anchors (with editable
+handles), multi-anchor selection/dragging, JSON persistence, and an overlay UI
+that can host diagnostics or future sensor readouts.
 
 ## Docs
 - docs index: `docs/README.md`
 - current state: `docs/current_truth.md`
 - future intent: `docs/future_intent.md`
 - keybinds: `docs/KEYBINDINGS.md`
+
+Identity note:
+
+- public product name: `sCulpt`
+- repository/program key: `line_drawing`
+- launcher/log/runtime env paths still use `LineDrawing` or `line_drawing`
+  identifiers where those are part of the current technical contract
 
 ## Run-time Flow
 1. `src/main.c` boots the SDL app framework, loads fonts, and initialises `GlobalState` (grid, layout, editor, UI).
@@ -38,6 +49,9 @@ make run        # builds then runs the application
 make debug=1    # builds with debug flags
 make clean      # removes build artifacts
 ```
+
+Packaging and Desktop refresh flows produce `sCulpt.app`; see
+`docs/desktop_packaging.md`.
 
 Compiler and linker flags are pulled from `sdl2-config`, and `external/cjson/cJSON.c` is compiled alongside the in-tree sources.
 

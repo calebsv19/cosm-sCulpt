@@ -1,8 +1,12 @@
-# Line Drawing Docs Index
+# sCulpt Docs Index
 
 Last updated: 2026-04-29
 
 Start here for public repository documentation.
+
+Public identity:
+- packaged desktop product: `sCulpt`
+- repository/program key: `line_drawing`
 
 ## Scaffold State
 - `docs/current_truth.md`: current scaffold/runtime structure and verification snapshot.
@@ -11,9 +15,11 @@ Start here for public repository documentation.
 
 Current verification contract:
 - `make -C line_drawing clean && make -C line_drawing`
-- `make -C line_drawing run-headless-smoke`
-- `make -C line_drawing visual-harness`
 - `make -C line_drawing test-stable`
+- `make -C line_drawing run-headless-smoke`
+  - currently routes through `test-stable` rather than a separate runtime-only lane
+- `make -C line_drawing visual-harness`
+  - build-only readiness gate, not an unattended execution surface
 - `make -C line_drawing test-legacy`
 - `make -C line_drawing scene-pipeline-smoke`
 - `make -C line_drawing package-desktop`
@@ -23,10 +29,13 @@ Current verification contract:
 ## Public Runtime Docs
 - `README.md` (repo root): product/runtime overview and build/run flow.
 - `docs/KEYBINDINGS.md`: current runtime keybind reference.
+- `docs/agent_scene_authoring_cli.md`: headless agent-authored scene request and output directory contract.
 - `src/*/README.md`: module-level current-state references for the rehomed source tree (`adapters/`, `panel/`, `overlay/`, `scene/`, `primitives/`, `mouse/`, `render/`, `gizmo/`).
 
 ## Current Published State
 - `line_drawing` remains the canonical upstream authoring/export source for the current primitive scope.
+- public product-facing docs should treat `sCulpt` as the primary app name and
+  use `line_drawing` where repo/runtime identifiers need to stay exact
 - the current worktree also exposes a concrete scene-directory export path:
   - `Export Scene` writes a named directory under the configured output root
   - each scene directory contains `scene_authoring.json` and compiled `scene_runtime.json`

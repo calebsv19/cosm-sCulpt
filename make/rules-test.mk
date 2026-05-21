@@ -23,6 +23,9 @@ scene-export-compile:
 scene-pipeline-smoke:
 	@bash ./tests/test_scene_pipeline_fixtures.sh
 
+agent-scene-smoke: agent_scene_tool
+	@bash ./tests/test_agent_scene_tool.sh
+
 visual-harness:
 	@$(MAKE) all
 

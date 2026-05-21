@@ -1,10 +1,12 @@
-# Line Drawing Current Truth
+# sCulpt Current Truth
 
-Last updated: 2026-04-29
+Last updated: 2026-05-21
 
 ## Program Identity
 - Repository directory: `line_drawing/`
-- Public product name: `LineDrawing`
+- Public product name: `sCulpt`
+- Internal/repo/runtime identifiers still use `line_drawing` and `LineDrawing`
+  in launcher, log, binary, and source-level contracts where required
 - Primary runtime entry:
   - `src/main.c` -> `line_drawing_app_main(...)`
   - wrapper shell: `include/line_drawing/line_drawing_app_main.h`, `src/app/line_drawing_app_main.c`
@@ -13,6 +15,16 @@ Last updated: 2026-04-29
 - 2D/3D parity lane is complete (`LD-U0` through `LD-U6.6`).
 - Trio scene-authoring and deep 3D behavior foundation lanes are complete through `LD3D-F8`.
 - Primitive authoring contract is active for planes and rectangular prisms with typed object payloads.
+- Agent-authored room-review scenes now have an optional deterministic
+  refinement lane through `line_drawing/tools/agent_scene_refine.py` for:
+  - opposite-corner default camera placement in open corner rooms
+  - authored camera-path points placed outside the floor footprint by default
+  - camera-path edits no longer forced back inside authored scene bounds
+    because the refiner disables `bounds.clamp_on_edit` on refined requests
+  - authored camera yaw/pitch now match focus-target direction so app-side
+    camera vectors and startup previews agree with headless runtime sampling
+  - transparent tall-prism spacing cleanup
+  - sampled RayTracing light-path clearance around object clusters
 - Scene export/compile path is wired and deterministic for canonical scene contract fixtures, and the desktop UI exports full scenes as stable per-scene directories through the configured output root.
 - The current scene-directory export contract is:
   - derive a scene stem from the current layout filename
@@ -38,11 +50,14 @@ Last updated: 2026-04-29
 ## Verification Contract
 - Build/harness:
   - `make -C line_drawing clean && make -C line_drawing`
-  - `make -C line_drawing run-headless-smoke`
-  - `make -C line_drawing visual-harness`
 - Stable tests:
   - `make -C line_drawing test-stable`
   - includes `tests/test_scene_export.c` in the current worktree
+- Headless wording note:
+  - `make -C line_drawing run-headless-smoke`
+  - currently routes through `test-stable` rather than a separate runtime-only lane
+- Build-only readiness:
+  - `make -C line_drawing visual-harness`
 - Scene pipeline smoke:
   - `make -C line_drawing scene-pipeline-smoke`
 - Packaging/release lanes:
