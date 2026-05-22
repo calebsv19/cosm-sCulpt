@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Core/data_paths.h"
+#include "Core/recent_contexts.h"
 #include "Core/line_drawing_pane_host.h"
 #include "Layout/Grid/grid.h"
 #include "Layout/layout.h"
@@ -35,7 +36,10 @@ typedef struct GlobalState {
 
     char currentConfigPath[LINE_DRAWING_PATH_CAP];
     char currentSceneAuthoringPath[LINE_DRAWING_PATH_CAP];
+    char lastLayoutPath[LINE_DRAWING_PATH_CAP];
+    char lastSceneAuthoringPath[LINE_DRAWING_PATH_CAP];
     LineDrawingDataPaths dataPaths;
+    LineDrawingRecentContexts recentContexts;
     bool layoutDirtySinceSave;
     char* lastSavedSnapshot;
 } GlobalState;
@@ -63,6 +67,9 @@ void Global_OnLayoutLoaded(const char* path);
 void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_path_hint);
 const char* Global_GetCurrentConfigPath(void);
 const char* Global_GetCurrentSceneAuthoringPath(void);
+const char* Global_GetLastLayoutPath(void);
+const char* Global_GetLastSceneAuthoringPath(void);
+const LineDrawingRecentContexts* Global_GetRecentContexts(void);
 bool Global_IsLayoutDirty(void);
 const char* Global_GetInputRoot(void);
 const char* Global_GetOutputRoot(void);
@@ -72,6 +79,8 @@ bool Global_SetOutputRoot(const char* path, bool persist);
 bool Global_SetLayoutRoot(const char* path, bool persist);
 bool Global_LoadDataRoots(void);
 bool Global_SaveDataRoots(void);
+bool Global_LoadRecentContexts(void);
+bool Global_SaveRecentContexts(void);
 SpaceMode Global_GetSpaceMode(void);
 const char* Global_GetSpaceModeLabel(SpaceMode mode);
 bool Global_SetSpaceMode(SpaceMode mode, bool persist);

@@ -56,6 +56,10 @@ static void Global_SetDefaultLayoutPath(GlobalState* state) {
                                         k_default_layout_filename)) {
         snprintf(state->currentConfigPath, sizeof(state->currentConfigPath), "config/layout_config.json");
     }
+    snprintf(state->lastLayoutPath,
+             sizeof(state->lastLayoutPath),
+             "%s",
+             state->currentConfigPath);
 }
 
 static bool Global_ApplyStartupRootFallbacks(GlobalState* state) {
@@ -126,6 +130,42 @@ static bool Global_ApplyStartupRootFallbacks(GlobalState* state) {
     }
 
     return changed;
+}
+
+static void Global_RecordRecentLayout(GlobalState* state, const char* path, bool persist) {
+    bool changed = false;
+    if (!state) return;
+    changed = LineDrawingRecentContexts_TrackLayout(&state->recentContexts, path);
+    if (persist && changed) {
+        (void)Global_SaveRecentContexts();
+    }
+}
+
+static void Global_RecordRecentScene(GlobalState* state, const char* path, bool persist) {
+    bool changed = false;
+    if (!state) return;
+    changed = LineDrawingRecentContexts_TrackScene(&state->recentContexts, path);
+    if (persist && changed) {
+        (void)Global_SaveRecentContexts();
+    }
+}
+
+static void Global_RecordRecentInputRoot(GlobalState* state, const char* path, bool persist) {
+    bool changed = false;
+    if (!state) return;
+    changed = LineDrawingRecentContexts_TrackInputRoot(&state->recentContexts, path);
+    if (persist && changed) {
+        (void)Global_SaveRecentContexts();
+    }
+}
+
+static void Global_RecordRecentOutputRoot(GlobalState* state, const char* path, bool persist) {
+    bool changed = false;
+    if (!state) return;
+    changed = LineDrawingRecentContexts_TrackOutputRoot(&state->recentContexts, path);
+    if (persist && changed) {
+        (void)Global_SaveRecentContexts();
+    }
 }
 
 const char* Global_GetSpaceModeLabel(SpaceMode mode) {
@@ -293,7 +333,9 @@ void Global_Init(int screenWidth, int screenHeight) {
     global->layoutDirtySinceSave = false;
     global->lastSavedSnapshot = NULL;
     LineDrawingDataPaths_SetDefaults(&global->dataPaths);
+    LineDrawingRecentContexts_Init(&global->recentContexts);
     Global_LoadDataRoots();
+    Global_LoadRecentContexts();
     if (Global_ApplyStartupRootFallbacks(global)) {
         if (!Global_SaveDataRoots()) {
             fprintf(stderr, "[startup] Failed to persist corrected root fallbacks.\n");
@@ -301,6 +343,8 @@ void Global_Init(int screenWidth, int screenHeight) {
     } else {
         Global_SaveDataRoots();
     }
+    Global_RecordRecentInputRoot(global, global->dataPaths.input_root, true);
+    Global_RecordRecentOutputRoot(global, global->dataPaths.output_root, true);
     Global_SetDefaultLayoutPath(global);
 
     Grid_init(&global->grid, 1.0f, screenWidth, screenHeight);
@@ -419,6 +463,9 @@ void Global_OnLayoutSaved(const char* path) {
     if (path && *path) {
         strncpy(state->currentConfigPath, path, sizeof(state->currentConfigPath) - 1);
         state->currentConfigPath[sizeof(state->currentConfigPath) - 1] = '\0';
+        strncpy(state->lastLayoutPath, path, sizeof(state->lastLayoutPath) - 1);
+        state->lastLayoutPath[sizeof(state->lastLayoutPath) - 1] = '\0';
+        Global_RecordRecentLayout(state, state->currentConfigPath, true);
     }
     state->layoutDirtySinceSave = false;
     state->layoutDirty = false;
@@ -432,6 +479,9 @@ void Global_OnLayoutLoaded(const char* path) {
     if (path && *path) {
         strncpy(state->currentConfigPath, path, sizeof(state->currentConfigPath) - 1);
         state->currentConfigPath[sizeof(state->currentConfigPath) - 1] = '\0';
+        strncpy(state->lastLayoutPath, path, sizeof(state->lastLayoutPath) - 1);
+        state->lastLayoutPath[sizeof(state->lastLayoutPath) - 1] = '\0';
+        Global_RecordRecentLayout(state, state->currentConfigPath, true);
     }
     state->currentSceneAuthoringPath[0] = '\0';
     state->layoutDirtySinceSave = false;
@@ -448,6 +498,11 @@ void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_p
                 scene_authoring_path,
                 sizeof(state->currentSceneAuthoringPath) - 1);
         state->currentSceneAuthoringPath[sizeof(state->currentSceneAuthoringPath) - 1] = '\0';
+        strncpy(state->lastSceneAuthoringPath,
+                scene_authoring_path,
+                sizeof(state->lastSceneAuthoringPath) - 1);
+        state->lastSceneAuthoringPath[sizeof(state->lastSceneAuthoringPath) - 1] = '\0';
+        Global_RecordRecentScene(state, state->currentSceneAuthoringPath, true);
     } else {
         state->currentSceneAuthoringPath[0] = '\0';
     }
@@ -474,6 +529,24 @@ const char* Global_GetCurrentSceneAuthoringPath(void) {
     GlobalState* state = Global_Get();
     if (!state) return NULL;
     return state->currentSceneAuthoringPath;
+}
+
+const char* Global_GetLastLayoutPath(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return state->lastLayoutPath;
+}
+
+const char* Global_GetLastSceneAuthoringPath(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return state->lastSceneAuthoringPath;
+}
+
+const LineDrawingRecentContexts* Global_GetRecentContexts(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return &state->recentContexts;
 }
 
 bool Global_IsLayoutDirty(void) {
@@ -512,21 +585,43 @@ bool Global_SaveDataRoots(void) {
     return LineDrawingDataPaths_Save(&state->dataPaths);
 }
 
+bool Global_LoadRecentContexts(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    return LineDrawingRecentContexts_Load(&state->recentContexts);
+}
+
+bool Global_SaveRecentContexts(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    return LineDrawingRecentContexts_Save(&state->recentContexts);
+}
+
 bool Global_SetInputRoot(const char* path, bool persist) {
     GlobalState* state = Global_Get();
+    bool ok = true;
     if (!state) return false;
     if (!Global_SetPathField(state->dataPaths.input_root, sizeof(state->dataPaths.input_root), path)) return false;
     Global_SetDefaultLayoutPath(state);
-    if (persist) return Global_SaveDataRoots();
-    return true;
+    Global_RecordRecentInputRoot(state, state->dataPaths.input_root, false);
+    if (persist) {
+        ok &= Global_SaveDataRoots();
+        ok &= Global_SaveRecentContexts();
+    }
+    return ok;
 }
 
 bool Global_SetOutputRoot(const char* path, bool persist) {
     GlobalState* state = Global_Get();
+    bool ok = true;
     if (!state) return false;
     if (!Global_SetPathField(state->dataPaths.output_root, sizeof(state->dataPaths.output_root), path)) return false;
-    if (persist) return Global_SaveDataRoots();
-    return true;
+    Global_RecordRecentOutputRoot(state, state->dataPaths.output_root, false);
+    if (persist) {
+        ok &= Global_SaveDataRoots();
+        ok &= Global_SaveRecentContexts();
+    }
+    return ok;
 }
 
 bool Global_SetLayoutRoot(const char* path, bool persist) {

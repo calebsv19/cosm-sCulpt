@@ -72,3 +72,27 @@ SHAPE_PACK_TOOL_SRCS := \
 	$(TOOLS_DIR)/shape_dataset.c \
 	$(TOOLS_DIR)/global_state_stub.c \
 	$(SHAPE_TOOL_SUPPORT_SRCS)
+
+AGENT_SCENE_TOOL_SRCS := \
+	$(TOOLS_DIR)/agent_scene_tool.c \
+	$(TOOLS_DIR)/canonical_scene_export.c \
+	$(TOOLS_DIR)/canonical_scene_export_primitives.c \
+	$(TOOLS_DIR)/global_state_stub.c
+AGENT_SCENE_TOOL_SUPPORT_SRCS := \
+	$(EXT_DIR)/cjson/cJSON.c \
+	$(SRC_DIR)/Core/data_paths.c \
+	$(SRC_DIR)/Core/adapters/space_mode_adapter.c \
+	$(SRC_DIR)/Layout/layout.c \
+	$(SRC_DIR)/Layout/layout_json.c \
+	$(SRC_DIR)/Layout/scene/layout_scene3d.c \
+	$(SRC_DIR)/Layout/scene/layout_object_store.c \
+	$(SRC_DIR)/Layout/primitives/layout_primitives_create.c \
+	$(CORE_BASE_DIR)/src/core_base.c \
+	$(CORE_IO_DIR)/src/core_io.c \
+	$(CORE_DATA_DIR)/src/core_data.c \
+	$(CORE_PACK_DIR)/src/core_pack.c \
+	$(CORE_MATH_DIR)/src/core_math.c \
+	$(CORE_SCENE_DIR)/src/core_scene.c \
+	$(CORE_OBJECT_DIR)/src/core_object.c \
+	$(CORE_UNITS_DIR)/src/core_units.c \
+	$(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile.c

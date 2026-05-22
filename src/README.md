@@ -3,7 +3,7 @@
 All engine code lives under `src/`, separated by responsibility so the floor-plan editor can grow into a richer home-monitoring tool.
 
 ## Entry Point
-- `main.c` — initialises SDL via the app framework, loads fonts, allocates `GlobalState`, registers callbacks, sets a throttled render mode (60 FPS), and orchestrates shutdown.
+- `main.c` — initialises SDL via the app framework, loads fonts, allocates `GlobalState`, registers callbacks, sets a throttled render mode (60 FPS), owns the top-level `MENU` vs `EDITOR` host split, and orchestrates shutdown.
 
 ## Update Loop
 1. SDL events are routed through `Input_Handle`, which dispatches to mouse and keyboard handlers, updates the grid camera, and mutates layout/editor state.
@@ -16,6 +16,8 @@ All engine code lives under `src/`, separated by responsibility so the floor-pla
 - `Input/` — user input handling split across devices (mouse/keyboard) plus marquee selection and multi-anchor drag plumbing.
 - `Layout/` — geometry data structures, bezier-aware rendering, hit detection (including handle hitboxes), and JSON persistence.
 - `Layout/Grid/` — grid camera maths and rendering helpers shared by layout and editor code.
+- `Menu/` — app-local top-level host menu state, input handling, and rendering for the menu-first launch surface.
+  - current scope includes the first Phase 2 scene catalog shell for layouts/scenes under the input root
 - `Render/` — top-level frame compositor.
 - `UI/` — UI panel data, rendering, click routing, and font management.
 - `Editor/` — wall-placement state machine, bezier handle/link tracking, multi-selection data structures, and overlay rendering (ghost walls + selection marquee).

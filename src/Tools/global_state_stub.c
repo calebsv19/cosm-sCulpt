@@ -22,6 +22,10 @@ void Global_Init(int screenWidth, int screenHeight) {
                    sizeof(g_stubState.currentConfigPath),
                    "%s/layout_config.json",
                    g_stubState.dataPaths.layout_root);
+    (void)snprintf(g_stubState.lastLayoutPath,
+                   sizeof(g_stubState.lastLayoutPath),
+                   "%s",
+                   g_stubState.currentConfigPath);
 }
 
 void Global_Shutdown(void) {
@@ -59,19 +63,70 @@ int Global_GetScreenHeight(void) {
 }
 
 void Global_OnLayoutSaved(const char* path) {
-    (void)path;
+    if (path && path[0]) {
+        (void)snprintf(g_stubState.currentConfigPath,
+                       sizeof(g_stubState.currentConfigPath),
+                       "%s",
+                       path);
+        (void)snprintf(g_stubState.lastLayoutPath,
+                       sizeof(g_stubState.lastLayoutPath),
+                       "%s",
+                       path);
+    }
     g_stubState.layoutDirty = false;
     g_stubState.layoutDirtySinceSave = false;
 }
 
 void Global_OnLayoutLoaded(const char* path) {
-    (void)path;
+    if (path && path[0]) {
+        (void)snprintf(g_stubState.currentConfigPath,
+                       sizeof(g_stubState.currentConfigPath),
+                       "%s",
+                       path);
+        (void)snprintf(g_stubState.lastLayoutPath,
+                       sizeof(g_stubState.lastLayoutPath),
+                       "%s",
+                       path);
+    }
+    g_stubState.layoutDirty = false;
+    g_stubState.layoutDirtySinceSave = false;
+}
+
+void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_path_hint) {
+    if (scene_authoring_path && scene_authoring_path[0]) {
+        (void)snprintf(g_stubState.currentSceneAuthoringPath,
+                       sizeof(g_stubState.currentSceneAuthoringPath),
+                       "%s",
+                       scene_authoring_path);
+        (void)snprintf(g_stubState.lastSceneAuthoringPath,
+                       sizeof(g_stubState.lastSceneAuthoringPath),
+                       "%s",
+                       scene_authoring_path);
+    }
+    if (layout_path_hint && layout_path_hint[0]) {
+        (void)snprintf(g_stubState.currentConfigPath,
+                       sizeof(g_stubState.currentConfigPath),
+                       "%s",
+                       layout_path_hint);
+    }
     g_stubState.layoutDirty = false;
     g_stubState.layoutDirtySinceSave = false;
 }
 
 const char* Global_GetCurrentConfigPath(void) {
     return g_stubState.currentConfigPath;
+}
+
+const char* Global_GetCurrentSceneAuthoringPath(void) {
+    return g_stubState.currentSceneAuthoringPath;
+}
+
+const char* Global_GetLastLayoutPath(void) {
+    return g_stubState.lastLayoutPath;
+}
+
+const char* Global_GetLastSceneAuthoringPath(void) {
+    return g_stubState.lastSceneAuthoringPath;
 }
 
 bool Global_IsLayoutDirty(void) {

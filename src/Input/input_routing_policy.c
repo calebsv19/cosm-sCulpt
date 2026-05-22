@@ -38,12 +38,6 @@ LineDrawingInputPolicyDecision LineDrawingInputPolicyNormalize(const SDL_Event* 
         }
 
         decision.global_shortcuts_allowed = true;
-        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
-            decision.route_policy = LINE_DRAWING_INPUT_ROUTE_GLOBAL;
-            decision.request_quit = true;
-            return decision;
-        }
-
         decision.route_policy = LINE_DRAWING_INPUT_ROUTE_FOCUSED;
         return decision;
     }

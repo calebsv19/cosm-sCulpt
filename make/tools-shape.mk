@@ -15,6 +15,13 @@ $(SHAPE_TOOL_BIN): $(SHAPE_TOOL_OBJS) $(SHAPE_TOOL_SHARED_OBJS)
 shape_tool: $(SHAPE_TOOL_BIN)
 	@echo "Built shape_tool successfully."
 
+$(AGENT_SCENE_TOOL_BIN): $(AGENT_SCENE_TOOL_OBJS) $(AGENT_SCENE_TOOL_SHARED_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $^ -o $@ $(LDFLAGS)
+
+agent_scene_tool: $(AGENT_SCENE_TOOL_BIN)
+	@echo "Built agent_scene_tool successfully."
+
 shape_pack_tool:
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $(SHAPE_PACK_TOOL_BIN) $(SHAPE_PACK_TOOL_SRCS) $(LDFLAGS)
@@ -49,3 +56,4 @@ shape_to_trace_batch: shape_trace_tool
 	done
 
 -include $(SHAPE_TOOL_OBJS:.o=.d)
+-include $(AGENT_SCENE_TOOL_OBJS:.o=.d)

@@ -1,0 +1,102 @@
+{
+  "schema": "line_drawing_agent_scene_request_v1",
+  "scene_id": "gallery_room_blocks_v2",
+  "scene_name": "Gallery Room Blocks V2",
+  "grid_size": 0.5,
+  "bounds": {
+    "enabled": true,
+    "clamp_on_edit": true,
+    "min": { "x": -5.5, "y": -4.5, "z": -0.25 },
+    "max": { "x": 5.5, "y": 4.5, "z": 3.5 }
+  },
+  "construction_plane": {
+    "axis": "xy",
+    "offset": 0.0
+  },
+  "scene_options": {
+    "material_id": "mat_gallery_default",
+    "material_type": "flat_color",
+    "light_id": "light_gallery_key",
+    "light_type": "directional",
+    "camera_id": "cam_gallery_default",
+    "camera_type": "perspective"
+  },
+  "objects": [
+    {
+      "id": "floor",
+      "kind": "plane",
+      "axis": "xy",
+      "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "width": 10.0,
+      "height": 8.0,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true
+    },
+    {
+      "id": "back_wall_slab",
+      "kind": "rect_prism",
+      "axis": "xz",
+      "position": { "x": 0.0, "y": 4.0, "z": 1.5 },
+      "width": 10.0,
+      "height": 3.0,
+      "depth": 0.12,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true
+    },
+    {
+      "id": "left_wall_slab",
+      "kind": "rect_prism",
+      "axis": "yz",
+      "position": { "x": -5.0, "y": 0.0, "z": 1.5 },
+      "width": 8.0,
+      "height": 3.0,
+      "depth": 0.12,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true
+    },
+    {
+      "id": "low_plinth",
+      "kind": "rect_prism",
+      "axis": "xy",
+      "position": { "x": -0.5, "y": 0.25, "z": 0.25 },
+      "width": 2.4,
+      "height": 1.4,
+      "depth": 0.5,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true
+    },
+    {
+      "id": "tall_block",
+      "kind": "rect_prism",
+      "axis": "xy",
+      "position": { "x": -2.9, "y": -1.75, "z": 0.9 },
+      "width": 0.8,
+      "height": 0.8,
+      "depth": 1.8,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true
+    },
+    {
+      "id": "wide_block",
+      "kind": "rect_prism",
+      "axis": "xy",
+      "position": { "x": 1.8, "y": -1.2, "z": 0.4 },
+      "width": 1.8,
+      "height": 0.75,
+      "depth": 0.8,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true
+    },
+    {
+      "id": "rear_block",
+      "kind": "rect_prism",
+      "axis": "xy",
+      "position": { "x": 2.7, "y": 2.55, "z": 0.6 },
+      "width": 1.1,
+      "height": 1.1,
+      "depth": 1.2,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true
+    }
+  ]
+}

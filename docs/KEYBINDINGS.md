@@ -2,6 +2,21 @@
 
 This file is the single reference for keyboard and mouse interactions in the editor.
 
+## Host Menu
+- App launch: opens the top-level host menu before entering the editor.
+- `Left` / `Right`: Switch focus between host-menu navigation and content regions.
+- `Up` / `Down`: Move host-menu selection.
+- `Tab` / `Shift + Tab`: Move host-menu selection forward/backward.
+- `Enter` / `Space`: Activate the selected host-menu action.
+- `Mouse Wheel` over the content region or host-menu scrollbar: Scroll recents, layout, scene, or browse lists.
+- `Left Click` on the host-menu scrollbar track: Jump the visible list toward that point.
+- `Left Drag` on the host-menu scrollbar thumb: Drag the visible list directly.
+- `Esc`: Quit from the host menu.
+- `Esc` in the editor: Return to the host menu unless text-entry or authoring overlays are actively capturing the key.
+- `Ctrl/Cmd + M`: Return from the editor to the host menu when text-entry and modal overlays are inactive.
+- `Ctrl/Cmd + B` from the host menu: Open native folder chooser and set input root.
+- `Ctrl/Cmd + Shift + B` from the host menu: Open native folder chooser and set output root.
+
 ## View And Camera
 - `M`: Toggle space mode between `2D` and `3D`.
 - `V`: Toggle view mode between `PLANE_VIEW` and `FREE_VIEW`.
@@ -34,7 +49,6 @@ These controls apply when view mode is `FREE_VIEW`.
 - `-`: Zoom out.
 - `Mouse Wheel`: Zoom in/out.
 - `Shift + C`: Toggle center crosshair overlay.
-- `Esc`: Quit app.
 
 ## Data Roots
 - `Ctrl/Cmd + B`: Open native folder chooser and set input root.

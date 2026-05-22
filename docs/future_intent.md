@@ -1,6 +1,6 @@
 # Line Drawing Future Intent
 
-Last updated: 2026-04-29
+Last updated: 2026-05-22
 
 ## Scaffold Alignment Intent
 1. Keep existing 2D/3D parity behavior unchanged while normalizing scaffold contracts.
@@ -141,3 +141,51 @@ Last updated: 2026-04-29
   - output-root ergonomics
   - small validation or test-coverage improvements around `scene_authoring.json` -> `scene_runtime.json`
 - Broader feature expansion should only reopen a new private plan if it materially changes the authoring/export contract instead of polishing the existing one.
+
+## Host Split Intent
+- `LD-HS1` complete:
+  - default launch now enters a top-level host menu before the editor session
+  - `src/main.c` owns the app-local `MENU` vs `EDITOR` mode boundary
+  - the new menu implementation lives under `src/Menu/`
+  - Phase 1 scope intentionally stopped at host routing and narrow reopen actions
+- `LD-HS2` next:
+  - `S1` complete:
+    - replaced the flat launch card with structured navigation/content/detail/footer regions
+    - added the first app-local scene catalog backend for layouts and authoring scenes under the input root
+    - moved text fitting onto explicit clipped render lanes
+  - `S2` complete:
+    - tightened host-menu spacing and selected-state contrast for denser use of the shell
+    - added inline filtering for layout/scene names and paths directly in the top-level catalog lane
+  - `S3` complete:
+    - added richer row metadata for layout and scene entries
+    - added an app-local lightweight preview cache that loads temporary layout snapshots and renders deterministic wireframe thumbnails inline
+    - upgraded the detail pane to show selected-entry counts and bounds extents derived from the preview cache
+  - `S4` complete:
+    - added a dedicated browse section to the host menu
+    - added app-local root-context controls instead of a deep filesystem browser
+    - added browse-header native picker controls for input/output roots plus nearby scene-like directory suggestions from child, sibling, and cousin branches
+    - nearby browse suggestions now resolve representative scene/layout previews so root switching has more visual context
+    - kept fast root switching in the host while leaving full arbitrary filesystem search to the macOS picker flow
+  - `S5` complete:
+    - split hover feedback from committed selection so mouse hover no longer mutates menu state
+    - tightened preview/detail rendering so metadata no longer sits directly on top of the large wireframe preview
+  - `S6` complete:
+    - added a dedicated recents section that reopens recent layouts/scenes and switches back to recent input/output roots
+    - added app-local recent-context persistence so host-menu recents survive editor loads plus root changes
+    - changed editor `Esc` so it returns to the top-level menu instead of directly quitting the program
+  - `S7` complete:
+    - tightened the shell framing so nav, list, detail, and footer panes read as one stronger physical host surface
+    - added count/kind/status badges plus selected-state accent bars for clearer section and row hierarchy
+    - tightened preview/detail presentation so the large preview block, summary labels, and info rows feel less flat
+  - `S8` complete:
+    - split quick-action remembered reopen state so last layout/JSON and last scene stay independent
+    - kept scene loads from overwriting the menu's last-layout quick action target
+  - `S9` complete:
+    - added a visible draggable scrollbar lane for recents, layouts, scenes, and browse
+    - added top-level `Ctrl/Cmd + B` input-root picking plus `Shift + Ctrl/Cmd + B` output-root picking through the existing native folder chooser flow
+  - next:
+    - continue only bounded visual follow-up where real usage still exposes rough edges
+    - only consider richer camera-based thumbnails after the cheap deterministic preview lane has proven useful
+- boundary rule:
+  - keep the editor-local load menu as a quick-switch surface
+  - keep the richer top-level browser/catalog behavior in the host lane

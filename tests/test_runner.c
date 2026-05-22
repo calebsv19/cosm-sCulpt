@@ -9,6 +9,11 @@ bool scene_export_run_tests(void);
 bool ui_panel_scene_menu_run_tests(void);
 bool input_policy_run_tests(void);
 bool pane_host_run_tests(void);
+bool host_menu_run_tests(void);
+bool recent_contexts_run_tests(void);
+bool scene_catalog_run_tests(void);
+bool catalog_preview_run_tests(void);
+bool root_browser_run_tests(void);
 bool workspace_authoring_host_run_tests(void);
 
 int main(void) {
@@ -20,6 +25,11 @@ int main(void) {
     ok &= ui_panel_scene_menu_run_tests();
     ok &= input_policy_run_tests();
     ok &= pane_host_run_tests();
+    ok &= host_menu_run_tests();
+    ok &= recent_contexts_run_tests();
+    ok &= scene_catalog_run_tests();
+    ok &= catalog_preview_run_tests();
+    ok &= root_browser_run_tests();
     ok &= workspace_authoring_host_run_tests();
 
     if (ok) {

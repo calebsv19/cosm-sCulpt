@@ -1,6 +1,6 @@
 # sCulpt Docs Index
 
-Last updated: 2026-04-29
+Last updated: 2026-05-22
 
 Start here for public repository documentation.
 
@@ -36,6 +36,14 @@ Current verification contract:
 - `line_drawing` remains the canonical upstream authoring/export source for the current primitive scope.
 - public product-facing docs should treat `sCulpt` as the primary app name and
   use `line_drawing` where repo/runtime identifiers need to stay exact
+- default launch now enters a top-level host menu before the editor session:
+  - host menu owns high-level entry and reopen actions
+  - editor remains the existing interactive authoring session behind that host seam
+- the host menu is no longer one flat action list:
+  - left navigation switches between quick actions, recents, layouts, scenes, and browse
+  - center content lists recent contexts plus entries from the current input root
+  - right detail space now shows selected-item context, cached metadata, and lightweight previews
+  - `Esc` returns from the editor to the host menu instead of directly quitting the app
 - the current worktree also exposes a concrete scene-directory export path:
   - `Export Scene` writes a named directory under the configured output root
   - each scene directory contains `scene_authoring.json` and compiled `scene_runtime.json`

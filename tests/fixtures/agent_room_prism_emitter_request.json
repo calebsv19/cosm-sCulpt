@@ -1,0 +1,108 @@
+{
+  "schema": "line_drawing_agent_scene_request_v1",
+  "scene_id": "agent_room_prism_emitter",
+  "scene_name": "Agent Room Prism Emitter",
+  "grid_size": 0.5,
+  "bounds": {
+    "enabled": true,
+    "clamp_on_edit": true,
+    "min": { "x": -5.5, "y": -4.5, "z": -0.25 },
+    "max": { "x": 5.5, "y": 4.5, "z": 3.5 }
+  },
+  "construction_plane": {
+    "axis": "xy",
+    "offset": 0.0
+  },
+  "scene_options": {
+    "material_id": "mat_room_emitter_default",
+    "material_type": "flat_color",
+    "light_id": "light_room_emitter_key",
+    "light_type": "directional",
+    "camera_id": "cam_room_emitter_default",
+    "camera_type": "perspective"
+  },
+  "physics_sim": {
+    "scene_domain": {
+      "active": true,
+      "shape": "box",
+      "min": { "x": -5.5, "y": -4.5, "z": -0.25 },
+      "max": { "x": 5.5, "y": 4.5, "z": 3.5 }
+    }
+  },
+  "objects": [
+    {
+      "id": "floor",
+      "kind": "plane",
+      "axis": "xy",
+      "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "width": 10.0,
+      "height": 8.0,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": {
+        "motion_mode": "Static"
+      }
+    },
+    {
+      "id": "back_wall",
+      "kind": "plane",
+      "axis": "xz",
+      "position": { "x": 0.0, "y": 4.0, "z": 1.5 },
+      "width": 10.0,
+      "height": 3.0,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": {
+        "motion_mode": "Static"
+      }
+    },
+    {
+      "id": "left_wall",
+      "kind": "plane",
+      "axis": "yz",
+      "position": { "x": -5.0, "y": 0.0, "z": 1.5 },
+      "width": 8.0,
+      "height": 3.0,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": {
+        "motion_mode": "Static"
+      }
+    },
+    {
+      "id": "contrast_block",
+      "kind": "rect_prism",
+      "axis": "xy",
+      "position": { "x": 2.3, "y": 1.5, "z": 0.75 },
+      "width": 1.4,
+      "height": 1.0,
+      "depth": 1.5,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": {
+        "motion_mode": "Static"
+      }
+    },
+    {
+      "id": "emitter_prism",
+      "kind": "rect_prism",
+      "axis": "xy",
+      "position": { "x": -0.75, "y": -0.6, "z": 0.3 },
+      "width": 1.0,
+      "height": 1.0,
+      "depth": 0.6,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": {
+        "motion_mode": "Dynamic",
+        "emitter": {
+          "active": true,
+          "type": "Density",
+          "radius": 0.65,
+          "strength": 95.0,
+          "direction": { "x": 0.0, "y": 0.0, "z": 1.0 }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,199 @@
+{
+  "schema": "line_drawing_agent_scene_request_v1",
+  "scene_id": "detached_lab_emitter_paths",
+  "scene_name": "Detached Lab Emitter Paths",
+  "grid_size": 0.5,
+  "bounds": {
+    "enabled": true,
+    "clamp_on_edit": true,
+    "min": { "x": -6.0, "y": -5.5, "z": -0.25 },
+    "max": { "x": 6.0, "y": 5.5, "z": 4.5 }
+  },
+  "construction_plane": {
+    "axis": "xy",
+    "offset": 0.0
+  },
+  "scene_options": {
+    "material_id": "mat_lab_default",
+    "material_type": "flat_color",
+    "light_id": "light_lab_key",
+    "light_type": "directional",
+    "camera_id": "cam_lab_default",
+    "camera_type": "perspective"
+  },
+  "physics_sim": {
+    "scene_domain": {
+      "active": true,
+      "shape": "box",
+      "min": { "x": -6.0, "y": -5.5, "z": -0.25 },
+      "max": { "x": 6.0, "y": 5.5, "z": 4.5 }
+    }
+  },
+  "extensions": {
+    "ray_tracing": {
+      "authoring": {
+        "object_materials": [
+          { "object_id": "floor", "material_id": 0, "object_color": 14540253, "roughness": 0.94, "reflectivity": 0.05 },
+          { "object_id": "back_wall", "material_id": 0, "object_color": 15394299, "roughness": 0.90, "reflectivity": 0.04 },
+          { "object_id": "left_screen", "material_id": 0, "object_color": 8421504, "roughness": 0.22, "reflectivity": 0.55, "texture_id": 2, "texture_strength": 0.34, "texture_scale": 1.8, "texture_offset_u": 0.12, "texture_offset_v": 0.08, "texture_pattern_mode": 3, "texture_coverage": 0.58, "texture_grain": 0.44, "texture_contrast": 0.71, "texture_surface_damage": 0.29, "texture_seed": 77 },
+          { "object_id": "right_baffle", "material_id": 0, "object_color": 4473924, "roughness": 0.48, "reflectivity": 0.28 },
+          { "object_id": "center_bench", "material_id": 0, "object_color": 11119017, "roughness": 0.68, "reflectivity": 0.12 },
+          { "object_id": "bench_tower", "material_id": 0, "object_color": 6513507, "roughness": 0.40, "reflectivity": 0.26 },
+          { "object_id": "emitter_column", "material_id": 4, "object_color": 3381759, "alpha": 0.95, "roughness": 0.20, "reflectivity": 0.44, "emissive_strength": 0.62 }
+        ],
+        "light_path": {
+          "mode": "BEZIER_CUBIC",
+          "points": [
+            {
+              "x": -2.5,
+              "y": -1.2,
+              "rotation": 0.10,
+              "handleLink": false,
+              "velocity1": { "vx": 1.1, "vy": 0.2 }
+            },
+            {
+              "x": 1.8,
+              "y": -0.2,
+              "rotation": 0.18,
+              "handleLink": false,
+              "velocity2": { "vx": -0.7, "vy": 0.9 }
+            },
+            {
+              "x": 2.9,
+              "y": 2.8,
+              "rotation": 0.32,
+              "handleLink": false,
+              "velocity2": { "vx": -1.0, "vy": -0.4 }
+            }
+          ]
+        },
+        "light_path_depth": {
+          "points": [
+            { "z": 2.5, "velocity1": { "vz": 0.6 } },
+            { "z": 3.2, "velocity2": { "vz": -0.3 } },
+            { "z": 2.1, "velocity2": { "vz": -0.5 } }
+          ]
+        },
+        "camera_path": {
+          "mode": "BEZIER_CUBIC",
+          "points": [
+            {
+              "x": -5.0,
+              "y": -6.8,
+              "rotation": 0.92,
+              "handleLink": false,
+              "velocity1": { "vx": 1.1, "vy": 0.3 }
+            },
+            {
+              "x": -3.3,
+              "y": -5.9,
+              "rotation": 1.05,
+              "handleLink": false,
+              "velocity2": { "vx": -0.7, "vy": -0.3 }
+            }
+          ]
+        },
+        "camera_path_depth": {
+          "points": [
+            { "z": 2.4, "lookPitch": 0.14, "velocity1": { "vz": 0.3 } },
+            { "z": 2.0, "lookPitch": 0.24, "velocity2": { "vz": -0.2 } }
+          ]
+        }
+      }
+    }
+  },
+  "objects": [
+    {
+      "id": "floor",
+      "kind": "plane",
+      "axis": "xy",
+      "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "width": 11.0,
+      "height": 9.5,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": { "motion_mode": "Static" }
+    },
+    {
+      "id": "back_wall",
+      "kind": "rect_prism",
+      "axis": "xz",
+      "position": { "x": 0.0, "y": 5.0, "z": 1.8 },
+      "width": 11.0,
+      "height": 3.6,
+      "depth": 0.14,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": { "motion_mode": "Static" }
+    },
+    {
+      "id": "left_screen",
+      "kind": "rect_prism",
+      "axis": "yz",
+      "position": { "x": -5.2, "y": -0.6, "z": 1.6 },
+      "width": 7.2,
+      "height": 3.2,
+      "depth": 0.18,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": { "motion_mode": "Static" }
+    },
+    {
+      "id": "right_baffle",
+      "kind": "rect_prism",
+      "axis": "yz",
+      "position": { "x": 4.6, "y": 1.0, "z": 1.4 },
+      "width": 4.0,
+      "height": 2.8,
+      "depth": 0.22,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": { "motion_mode": "Static" }
+    },
+    {
+      "id": "center_bench",
+      "kind": "rect_prism",
+      "axis": "xy",
+      "position": { "x": 0.9, "y": 0.7, "z": 0.45 },
+      "width": 2.6,
+      "height": 1.4,
+      "depth": 0.9,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": { "motion_mode": "Static" }
+    },
+    {
+      "id": "bench_tower",
+      "kind": "rect_prism",
+      "axis": "xy",
+      "position": { "x": 2.8, "y": -1.2, "z": 1.0 },
+      "width": 1.1,
+      "height": 1.1,
+      "depth": 2.0,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": { "motion_mode": "Static" }
+    },
+    {
+      "id": "emitter_column",
+      "kind": "rect_prism",
+      "axis": "xy",
+      "position": { "x": -1.8, "y": -0.8, "z": 1.1 },
+      "width": 0.8,
+      "height": 0.8,
+      "depth": 2.2,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": {
+        "motion_mode": "Dynamic",
+        "emitter": {
+          "active": true,
+          "type": "Density",
+          "radius": 0.5,
+          "strength": 92.0,
+          "direction": { "x": 0.1, "y": 0.0, "z": 1.0 }
+        }
+      }
+    }
+  ]
+}

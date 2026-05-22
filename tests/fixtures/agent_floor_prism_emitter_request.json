@@ -1,0 +1,68 @@
+{
+  "schema": "line_drawing_agent_scene_request_v1",
+  "scene_id": "agent_floor_prism_emitter",
+  "scene_name": "Agent Floor Prism Emitter",
+  "grid_size": 0.5,
+  "bounds": {
+    "enabled": true,
+    "clamp_on_edit": true,
+    "min": { "x": -3.0, "y": -3.0, "z": -0.25 },
+    "max": { "x": 3.0, "y": 3.0, "z": 2.5 }
+  },
+  "construction_plane": {
+    "axis": "xy",
+    "offset": 0.0
+  },
+  "scene_options": {
+    "material_id": "mat_emitter_default",
+    "material_type": "flat_color",
+    "light_id": "light_emitter_key",
+    "light_type": "directional",
+    "camera_id": "cam_emitter_default",
+    "camera_type": "perspective"
+  },
+  "physics_sim": {
+    "scene_domain": {
+      "active": true,
+      "shape": "box",
+      "min": { "x": -3.0, "y": -3.0, "z": -0.25 },
+      "max": { "x": 3.0, "y": 3.0, "z": 2.5 }
+    }
+  },
+  "objects": [
+    {
+      "id": "floor",
+      "kind": "plane",
+      "axis": "xy",
+      "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "width": 5.0,
+      "height": 5.0,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": {
+        "motion_mode": "Static"
+      }
+    },
+    {
+      "id": "emitter_prism",
+      "kind": "rect_prism",
+      "axis": "xy",
+      "position": { "x": 0.0, "y": 0.0, "z": 0.2 },
+      "width": 0.7,
+      "height": 0.7,
+      "depth": 0.4,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true,
+      "physics_sim": {
+        "motion_mode": "Dynamic",
+        "emitter": {
+          "active": true,
+          "type": "Density",
+          "radius": 0.45,
+          "strength": 80.0,
+          "direction": { "x": 0.0, "y": 0.0, "z": 1.0 }
+        }
+      }
+    }
+  ]
+}

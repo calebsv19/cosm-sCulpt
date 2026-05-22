@@ -1,6 +1,7 @@
 // src/main.c
 #include "line_drawing/line_drawing_app_main.h"
 #include "Core/SDLApp/sdl_app_framework.h"
+#include "Menu/line_drawing_host_menu.h"
 #include "Layout/Grid/grid.h"
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
@@ -74,6 +75,14 @@ static LineDrawingInputDiagTotals g_line_drawing_input_diag_totals = {0};
 static LineDrawingUpdateFrame g_line_drawing_update_frame = {0};
 static uint32_t g_line_drawing_pending_invalidation_bits = 0u;
 static LineDrawingRs1DiagTotals g_line_drawing_rs1_diag_totals = {0};
+static LineDrawingHostMenuState g_line_drawing_host_menu = {0};
+
+typedef enum LineDrawingHostMode {
+    LINE_DRAWING_HOST_MODE_MENU = 0,
+    LINE_DRAWING_HOST_MODE_EDITOR
+} LineDrawingHostMode;
+
+static LineDrawingHostMode g_line_drawing_host_mode = LINE_DRAWING_HOST_MODE_MENU;
 
 static bool LineDrawingInputDiagEnabled(void) {
     const char* value = getenv("LINE_DRAWING_INPUT_DIAG");
@@ -255,13 +264,68 @@ static void LineDrawingRunInputRoutingFrame(AppContext* ctx, const SDL_Event* ev
     g_line_drawing_pending_invalidation_bits |= route.invalidation_reason_bits;
 }
 
+static void LineDrawingHostEnterMenu(void) {
+    GlobalState* state = Global_Get();
+    if (state && LineDrawingWorkspaceAuthoringHost_Active(state)) {
+        (void)LineDrawingWorkspaceAuthoringHost_Cancel(state);
+    }
+    UIPanel_ResetTransientUiState();
+    g_line_drawing_host_mode = LINE_DRAWING_HOST_MODE_MENU;
+    g_line_drawing_pending_invalidation_bits |= LINE_DRAWING_INPUT_INVALIDATION_REASON_ACTION;
+}
+
+static void LineDrawingHostEnterEditor(void) {
+    UIPanel_ResetTransientUiState();
+    g_line_drawing_host_mode = LINE_DRAWING_HOST_MODE_EDITOR;
+    g_line_drawing_pending_invalidation_bits |= LINE_DRAWING_INPUT_INVALIDATION_REASON_ACTION;
+}
+
+static bool LineDrawingHostMenuShortcutRequested(const SDL_Event* event) {
+    const SDL_Keymod mods = SDL_GetModState();
+    if (!event || event->type != SDL_KEYDOWN) return false;
+    if (event->key.repeat != 0) return false;
+    if (event->key.keysym.sym != SDLK_m) return false;
+    return ((mods & KMOD_CTRL) != 0) || ((mods & KMOD_GUI) != 0);
+}
+
+static bool LineDrawingHostReturnToMenuRequested(const SDL_Event* event) {
+    if (!event || event->type != SDL_KEYDOWN) return false;
+    if (event->key.repeat != 0) return false;
+    if (event->key.keysym.sym == SDLK_ESCAPE) return true;
+    return LineDrawingHostMenuShortcutRequested(event);
+}
 
 static void handleInput(AppContext *ctx, SDL_Event* event) {
+    if (g_line_drawing_host_mode == LINE_DRAWING_HOST_MODE_MENU) {
+        LineDrawingHostMenuCommand command = {0};
+        if (LineDrawingHostMenu_HandleEvent(&g_line_drawing_host_menu, ctx, event, &command)) {
+            if (command.type == LINE_DRAWING_HOST_MENU_COMMAND_OPEN_EDITOR) {
+                LineDrawingHostEnterEditor();
+            } else if (command.type == LINE_DRAWING_HOST_MENU_COMMAND_QUIT) {
+                ctx->quit = true;
+            }
+        }
+        return;
+    }
+
+    if (!UIPanel_IsCapturingKeyboard() &&
+        !LineDrawingWorkspaceAuthoringHost_Active(Global_Get()) &&
+        LineDrawingHostReturnToMenuRequested(event)) {
+        LineDrawingHostEnterMenu();
+        return;
+    }
+
     LineDrawingRunInputRoutingFrame(ctx, event);
 }
 
 
 static void handleUpdate(AppContext *ctx) {
+    if (g_line_drawing_host_mode == LINE_DRAWING_HOST_MODE_MENU) {
+        (void)ctx;
+        memset(&g_line_drawing_update_frame, 0, sizeof(g_line_drawing_update_frame));
+        return;
+    }
+
     Global_TickSystems(ctx);
     g_line_drawing_update_frame.state = Global_Get();
     g_line_drawing_update_frame.state_ready = (g_line_drawing_update_frame.state != NULL);
@@ -270,6 +334,12 @@ static void handleUpdate(AppContext *ctx) {
 
 
 static void handleRender(AppContext *ctx) {
+    if (g_line_drawing_host_mode == LINE_DRAWING_HOST_MODE_MENU) {
+        LineDrawingHostMenu_Render(&g_line_drawing_host_menu, ctx);
+        g_line_drawing_pending_invalidation_bits = 0u;
+        return;
+    }
+
     LineDrawingRenderDeriveFrame derive_frame = {0};
     uint32_t frame_invalidation_bits = g_line_drawing_pending_invalidation_bits;
     uint64_t derive_begin = SDL_GetPerformanceCounter();
@@ -324,6 +394,8 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
 
     // Initialize global program state (grid, layout, editor, etc.)
     Global_Init(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
+    LineDrawingHostMenu_Init(&g_line_drawing_host_menu);
+    LineDrawingHostEnterMenu();
 
     AppCallbacks cbs = {
         .handleInput  = handleInput,

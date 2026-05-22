@@ -1,6 +1,6 @@
 # Core Module
 
-The core layer owns application-wide state and the SDL boilerplate so other systems can stay focused on layout editing.
+The core layer owns application-wide state and the SDL boilerplate so other systems can stay focused on the top-level host and layout-editing runtime.
 
 ## Files
 - `global_state.h` / `global_state.c` — allocate and expose the singleton `GlobalState`, initialise the grid, layout, editor, and UI panel, and provide helpers such as `Global_GetScreenWidth`. Dirty flags (`layoutDirty`, `layoutDirtySinceSave`, `hitboxDirty`) plus the helpers `Global_FlagLayoutChanged`, `Global_FlagGridChanged`, and `Global_RebuildHitboxesIfDirty` keep hitboxes in sync while avoiding unnecessary rebuilds. Persistence helpers (`Global_OnLayoutSaved`, `Global_OnLayoutLoaded`, `Global_GetCurrentConfigPath`, `Global_IsLayoutDirty`) track the active layout file and whether the in-memory state has diverged from disk. `SpaceMode` state (`2D`/`3D`) is now owned here, including startup persistence via `config/space_mode.txt` and mode-constraint enforcement.
@@ -16,3 +16,4 @@ The core layer owns application-wide state and the SDL boilerplate so other syst
 - Window-size updates now also rebuild the pane-host solve so pane leaf rectangles stay synchronized with runtime bounds.
 - Save/load UI paths call `Global_OnLayoutSaved` / `Global_OnLayoutLoaded` so the info overlay and undo history know which config file is in play and whether a rename prompt should appear.
 - `Global_Shutdown` releases layout resources on exit, while the SDLApp layer tears down the SDL renderer/window.
+- `src/main.c` now composes this shared runtime state behind a host-level `MENU` vs `EDITOR` mode split rather than treating the editor as the only boot surface.

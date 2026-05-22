@@ -7,3 +7,5 @@ INPUT_POLICY_TEST_BIN := $(BUILD_DIR)/tests/input_policy_test
 
 SHAPE_TOOL_OBJS := $(patsubst $(TOOLS_DIR)/%.c,$(BUILD_DIR)/tools/%.o,$(SHAPE_TOOL_SRCS))
 SHAPE_TOOL_SHARED_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SHAPE_TOOL_SUPPORT_SRCS))
+AGENT_SCENE_TOOL_OBJS := $(patsubst $(TOOLS_DIR)/%.c,$(BUILD_DIR)/tools/%.o,$(AGENT_SCENE_TOOL_SRCS))
+AGENT_SCENE_TOOL_SHARED_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(AGENT_SCENE_TOOL_SUPPORT_SRCS))

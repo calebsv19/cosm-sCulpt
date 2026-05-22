@@ -1,6 +1,6 @@
 # UI Module
 
-The UI layer provides a lightweight button panel and shared font management.
+The UI layer provides the editor-local button panel, quick file/scene pickers, and shared font management. The new top-level startup menu lives separately under `src/Menu/` so host routing does not get folded back into panel code.
 
 - `ui_panel.h` / `panel/ui_panel.c` — define `UIButton` and `UIPanelState`, own pane-aware control metadata, construct the left/right grouped control surface, keep shared JSON/scene picker state, and coordinate panel relayout against the current pane-host solve.
 - `render_ui_panel.h` / `panel/render_ui_panel.c` — draw pane-scoped buttons/section chrome using SDL2 renderer primitives and SDL_ttf fonts. `DrawButton` handles background, border, and centred text, while root-summary text is clipped/ellipsized to avoid overflow.

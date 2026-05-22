@@ -31,3 +31,4 @@ SHAPE_SANITY_BIN := $(BIN_DIR)/shape_sanity_tool
 SHAPE_PACK_TOOL_BIN := $(BIN_DIR)/shape_pack_tool
 SHAPE_TRACE_TOOL_BIN := $(BIN_DIR)/shape_trace_tool
 SHAPE_TOOL_BIN := $(BIN_DIR)/shape_tool
+AGENT_SCENE_TOOL_BIN := $(BIN_DIR)/agent_scene_tool

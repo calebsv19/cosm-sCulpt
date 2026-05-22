@@ -904,6 +904,25 @@ bool UIPanel_IsCapturingKeyboard(void) {
            UIPanel_IsObjectTransformDialogActive();
 }
 
+void UIPanel_ResetTransientUiState(void) {
+    UIPanelState* ui = UIPanel_Get();
+    if (!ui) return;
+    ui->loadMenu.open = false;
+    ui->loadMenu.hoverIndex = -1;
+    ui->loadMenu.activeIndex = -1;
+    ui->loadMenu.scrollOffsetPx = 0.0f;
+    ui->loadMenu.scrollbarDragging = false;
+    UIPanel_CloseSaveDialog(ui);
+    UIPanel_CloseRootDialog(ui);
+    UIPanel_ClosePrismDimensionDialog(ui);
+    UIPanel_CloseSceneBoundsDialog(ui);
+    UIPanel_CloseConstructionPlaneDialog(ui);
+    UIPanel_CloseObjectTransformDialog(ui);
+    if (SDL_IsTextInputActive()) {
+        SDL_StopTextInput();
+    }
+}
+
 void UIPanel_RenderOverlays(SDL_Renderer* renderer) {
     UIPanel_RenderOverlayDialogs(renderer, &g_uiPanel);
 }

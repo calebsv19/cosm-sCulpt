@@ -238,6 +238,7 @@ bool UIPanel_HandleLoadMenuClick(int mouseX, int mouseY);
 bool UIPanel_HandleLoadMenuWheel(int mouseX, int mouseY, float wheel_delta);
 void UIPanel_ToggleLoadMenu(void);
 bool UIPanel_IsLoadMenuOpen(void);
+void UIPanel_ResetTransientUiState(void);
 void UIPanel_HandleMouseMotion(int mouseX, int mouseY);
 void UIPanel_BeginInputRootDialog(void);
 void UIPanel_BeginOutputRootDialog(void);
