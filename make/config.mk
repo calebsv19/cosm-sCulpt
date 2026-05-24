@@ -1,4 +1,13 @@
-CC := gcc
+CLANG_CC ?= cc
+FISICS_BIN ?= ../fisiCs/fisics
+FISICS_OVERLAY ?= physics-units
+FISICS_ENV ?= FISICS_MAX_PROCS=0
+BUILD_TOOLCHAIN ?= clang
+PACKAGE_TOOLCHAIN ?= $(BUILD_TOOLCHAIN)
+CC := $(CLANG_CC)
+ifeq ($(BUILD_TOOLCHAIN),fisics)
+CC := $(FISICS_ENV) $(FISICS_BIN) --overlay=$(FISICS_OVERLAY)
+endif
 PKG_CONFIG ?= pkg-config
 DEBUG ?= 0
 
@@ -22,5 +31,13 @@ APPLE_NOTARY_PROFILE ?=
 APPLE_TEAM_ID ?=
 STAPLE_MAX_ATTEMPTS ?= 6
 STAPLE_RETRY_DELAY_SEC ?= 15
+
+ifneq ($(filter $(PACKAGE_TOOLCHAIN),clang fisics),$(PACKAGE_TOOLCHAIN))
+$(error Unsupported PACKAGE_TOOLCHAIN '$(PACKAGE_TOOLCHAIN)'; expected clang or fisics)
+endif
+
+define program_bin_for
+$(BUILD_DIR)/toolchains/$(1)/bin/LineDrawing
+endef
 
 .DEFAULT_GOAL := all

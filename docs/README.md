@@ -15,6 +15,12 @@ Public identity:
 
 Current verification contract:
 - `make -C line_drawing clean && make -C line_drawing`
+- `make -C line_drawing toolchain-contract`
+- `make -C line_drawing dump-sema-canonical-scene-export`
+- `make -C line_drawing dump-sema-canonical-scene-export-primitives`
+- `make -C line_drawing dump-sema-scene-import`
+- `make -C line_drawing clang-build`
+- `make -C line_drawing fisics-build`
 - `make -C line_drawing test-stable`
 - `make -C line_drawing run-headless-smoke`
   - currently routes through `test-stable` rather than a separate runtime-only lane
@@ -25,6 +31,8 @@ Current verification contract:
 - `make -C line_drawing package-desktop`
 - `make -C line_drawing package-desktop-self-test`
 - `make -C line_drawing package-desktop-refresh`
+  - package output now rebuilds from explicit `PACKAGE_TOOLCHAIN` source
+    binaries under `build/toolchains/<toolchain>/`
 
 ## Public Runtime Docs
 - `README.md` (repo root): product/runtime overview and build/run flow.
@@ -48,6 +56,24 @@ Current verification contract:
   - `Export Scene` writes a named directory under the configured output root
   - each scene directory contains `scene_authoring.json` and compiled `scene_runtime.json`
   - runtime compilation flows through shared `core_scene_compile`
+- the compiler-units rollout now starts in the authoring/export seam:
+  - first sema customer: `src/Tools/canonical_scene_export.c`
+  - second sema customer: `src/Tools/canonical_scene_export_primitives.c`
+  - third sema customer: `src/Tools/scene_import.c`
+  - first explicit root authoring metadata options:
+    - `world_scale`
+    - `unit_system`
+    - `conversion_policy`
+  - the first primitive/export seam now carries explicit scene-space lengths for:
+    - primitive width / height / depth payloads
+    - framing-bounds fallback half-extents
+    - framing-bounds padding
+  - the import seam now validates round-trip authoring metadata for:
+    - `world_scale`
+    - `unit_system`
+    - `conversion_policy`
+  - the app/package build contract is now split so Clang and `fisiCs` app
+    outputs no longer share one package source binary path
 
 ## Private Planning Docs
 - Private scaffold plans and internal execution docs are in the workspace private docs bucket:

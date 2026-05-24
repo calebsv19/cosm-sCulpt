@@ -245,6 +245,10 @@ void Layout_ConstructionPlane3D_SetFromViewPlane(ConstructionPlane3D* plane, Vie
     if (!plane) return;
     plane->mode = CONSTRUCTION_PLANE_MODE_AXIS_ALIGNED;
     plane->axisAligned = viewPlane;
+    plane->customFrame = PlaneFrame3_FromPlane(Plane3_FromViewPlane(viewPlane),
+                                               Vec3_FromPlaneCoords((Vec2){ 0.0f, 0.0f },
+                                                                    viewPlane.axis,
+                                                                    viewPlane.offset));
 }
 
 bool Layout_ConstructionPlane3D_IsValid(const ConstructionPlane3D* plane) {
@@ -275,11 +279,13 @@ bool Layout_ConstructionPlane3D_IsValid(const ConstructionPlane3D* plane) {
 }
 
 ViewPlane Layout_ConstructionPlane3D_ToViewPlane(const ConstructionPlane3D* plane) {
-    ViewPlane fallback = { .axis = VIEW_PLANE_XY, .offset = 0.0f };
-    if (!Layout_ConstructionPlane3D_IsValid(plane)) return fallback;
+    ViewPlane result = { .axis = VIEW_PLANE_XY, .offset = 0.0f };
+    if (!Layout_ConstructionPlane3D_IsValid(plane)) return result;
 
     if (plane->mode == CONSTRUCTION_PLANE_MODE_AXIS_ALIGNED) {
-        return plane->axisAligned;
+        result.axis = plane->axisAligned.axis;
+        result.offset = plane->axisAligned.offset;
+        return result;
     }
 
     const Vec3 n = Vec3_Normalize(plane->customFrame.normal);
@@ -288,10 +294,16 @@ ViewPlane Layout_ConstructionPlane3D_ToViewPlane(const ConstructionPlane3D* plan
     const float ay = fabsf(n.y);
     const float az = fabsf(n.z);
     if (ax >= ay && ax >= az) {
-        return (ViewPlane){ .axis = VIEW_PLANE_YZ, .offset = o.x };
+        result.axis = VIEW_PLANE_YZ;
+        result.offset = o.x;
+        return result;
     }
     if (ay >= ax && ay >= az) {
-        return (ViewPlane){ .axis = VIEW_PLANE_XZ, .offset = o.y };
+        result.axis = VIEW_PLANE_XZ;
+        result.offset = o.y;
+        return result;
     }
-    return (ViewPlane){ .axis = VIEW_PLANE_XY, .offset = o.z };
+    result.axis = VIEW_PLANE_XY;
+    result.offset = o.z;
+    return result;
 }

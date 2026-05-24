@@ -20,14 +20,17 @@ bool SpaceAdapter_Is3DMode(const GlobalState* state) {
 
 SpaceViewContext SpaceAdapter_BuildViewContext(const GlobalState* state) {
     SpaceViewContext ctx = SpaceAdapter_DefaultContext();
+    ViewPlane resolvedPlane = ctx.plane;
     if (!state) return ctx;
 
-    if (Layout_ConstructionPlane3D_IsValid(&state->layout.scene3d.constructionPlane)) {
-        ctx.plane = Layout_ConstructionPlane3D_ToViewPlane(&state->layout.scene3d.constructionPlane);
-    } else {
-        ctx.plane = state->activePlane;
-    }
     ctx.camera = state->freeViewCamera;
+    if (Layout_ConstructionPlane3D_IsValid(&state->layout.scene3d.constructionPlane)) {
+        resolvedPlane = Layout_ConstructionPlane3D_ToViewPlane(&state->layout.scene3d.constructionPlane);
+    } else {
+        resolvedPlane = state->activePlane;
+    }
+    ctx.plane.axis = resolvedPlane.axis;
+    ctx.plane.offset = resolvedPlane.offset;
 
     if (!SpaceAdapter_Is3DMode(state)) {
         ctx.plane.axis = VIEW_PLANE_XY;

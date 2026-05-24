@@ -14,7 +14,21 @@ typedef enum {
 } UIPanelSide;
 
 typedef enum {
+    UI_PANEL_LEFT_TAB_SCENE = 0,
+    UI_PANEL_LEFT_TAB_FILE = 1,
+    UI_PANEL_LEFT_TAB_COUNT
+} UIPanelLeftTab;
+
+typedef enum {
+    UI_PANEL_RIGHT_TAB_VIEW = 0,
+    UI_PANEL_RIGHT_TAB_CREATE = 1,
+    UI_PANEL_RIGHT_TAB_OBJECT = 2,
+    UI_PANEL_RIGHT_TAB_COUNT
+} UIPanelRightTab;
+
+typedef enum {
     UI_PANEL_GROUP_NONE = 0,
+    UI_PANEL_GROUP_LEFT_SCENE_BOUNDS,
     UI_PANEL_GROUP_LEFT_FILE_IO,
     UI_PANEL_GROUP_LEFT_ROOT_PATHS,
     UI_PANEL_GROUP_RIGHT_VIEW,
@@ -23,8 +37,7 @@ typedef enum {
     UI_PANEL_GROUP_RIGHT_CONSTRUCTION,
     UI_PANEL_GROUP_RIGHT_PRISM,
     UI_PANEL_GROUP_RIGHT_GIZMO,
-    UI_PANEL_GROUP_RIGHT_TRANSFORM,
-    UI_PANEL_GROUP_RIGHT_BOUNDS
+    UI_PANEL_GROUP_RIGHT_TRANSFORM
 } UIPanelGroup;
 
 typedef struct {
@@ -36,6 +49,12 @@ typedef struct {
     bool hovered;
     bool pressed;
 } UIButton;
+
+typedef struct {
+    SDL_Rect bounds;
+    char label[24];
+    bool active;
+} UIPanelTabButton;
 
 #define UI_BTN_SAVE_JSON 0
 #define UI_BTN_LOAD_JSON 1
@@ -121,6 +140,18 @@ typedef enum {
 typedef struct {
     UIButton buttons[MAX_UI_BUTTONS];
     int count;
+    UIPanelLeftTab activeLeftTab;
+    UIPanelRightTab activeRightTab;
+    UIPanelTabButton leftTabs[UI_PANEL_LEFT_TAB_COUNT];
+    UIPanelTabButton rightTabs[UI_PANEL_RIGHT_TAB_COUNT];
+    SDL_Rect leftPaneRect;
+    SDL_Rect rightPaneRect;
+    SDL_Rect leftBodyRect;
+    SDL_Rect rightBodyRect;
+    struct {
+        float scrollOffsetPx;
+        int hoverIndex;
+    } sceneList;
 
     struct {
         bool active;
@@ -205,6 +236,7 @@ typedef struct {
     int group_header_height_px;
     int group_gap_px;
     int compact_row_gap_px;
+    int tab_height_px;
     int left_button_width_px;
     int right_button_width_px;
     int desired_top_pane_height_px;

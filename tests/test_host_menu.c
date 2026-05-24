@@ -4,6 +4,28 @@
 #include "test_layout_internal.h"
 
 #include <SDL2/SDL.h>
+#include <limits.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static bool make_dir(const char* path) {
+    if (!path || !path[0]) return false;
+    return mkdir(path, 0700) == 0;
+}
+
+static bool write_file(const char* path, const char* contents) {
+    FILE* file = NULL;
+    if (!path) return false;
+    file = fopen(path, "wb");
+    if (!file) return false;
+    if (contents && contents[0]) {
+        (void)fputs(contents, file);
+    }
+    fclose(file);
+    return true;
+}
 
 static bool test_first_selectable_prefers_resume(void) {
     LineDrawingHostMenuModel model = {0};
@@ -112,6 +134,56 @@ static bool test_mouse_click_commits_nav_selection(void) {
     return true;
 }
 
+static bool test_browse_click_switches_to_catalog_section(void) {
+    char temp_template[] = "/tmp/ld_host_menu_browse_click_XXXXXX";
+    char* root = NULL;
+    char family_dir[PATH_MAX];
+    char current_dir[PATH_MAX];
+    char sibling_dir[PATH_MAX];
+    char sibling_scene_file[PATH_MAX];
+    char sibling_runtime_file[PATH_MAX];
+    LineDrawingHostMenuState state;
+    LineDrawingHostMenuCommand command = {0};
+    AppContext ctx = {0};
+    SDL_Event event;
+
+    root = mkdtemp(temp_template);
+    TEST_ASSERT(root != NULL);
+    snprintf(family_dir, sizeof(family_dir), "%s/family", root);
+    snprintf(current_dir, sizeof(current_dir), "%s/family/current_room", root);
+    snprintf(sibling_dir, sizeof(sibling_dir), "%s/family/gallery_room", root);
+    snprintf(sibling_scene_file, sizeof(sibling_scene_file), "%s/scene_authoring.json", sibling_dir);
+    snprintf(sibling_runtime_file, sizeof(sibling_runtime_file), "%s/scene_runtime.json", sibling_dir);
+
+    TEST_ASSERT(make_dir(family_dir));
+    TEST_ASSERT(make_dir(current_dir));
+    TEST_ASSERT(make_dir(sibling_dir));
+    TEST_ASSERT(write_file(sibling_scene_file, "{}"));
+    TEST_ASSERT(write_file(sibling_runtime_file, "{}"));
+
+    ld_test_init_runtime();
+    TEST_ASSERT(Global_SetInputRoot(current_dir, true));
+
+    LineDrawingHostMenu_Init(&state);
+    state.selected_section = LINE_DRAWING_HOST_MENU_SECTION_BROWSE;
+    state.selected_browser_index = 0;
+
+    memset(&event, 0, sizeof(event));
+    event.type = SDL_MOUSEBUTTONDOWN;
+    event.button.button = SDL_BUTTON_LEFT;
+    event.button.x = 260;
+    event.button.y = 248;
+
+    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(strcmp(Global_GetInputRoot(), sibling_dir) == 0);
+    TEST_ASSERT(state.selected_section == LINE_DRAWING_HOST_MENU_SECTION_SCENES ||
+                state.selected_section == LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS);
+    TEST_ASSERT(state.focus_region == LINE_DRAWING_HOST_MENU_FOCUS_CONTENT);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_last_layout_and_scene_paths_remain_independent(void) {
     const char* layout_path = "/private/tmp/line_drawing_last_layout.json";
     const char* scene_path = "/private/tmp/line_drawing_last_scene/scene_authoring.json";
@@ -143,6 +215,7 @@ bool host_menu_run_tests(void) {
         {"MouseHoverDoesNotCommitNavSelection", test_mouse_hover_does_not_commit_nav_selection},
         {"MouseHoverDoesNotCommitContentSelection", test_mouse_hover_does_not_commit_content_selection},
         {"MouseClickCommitsNavSelection", test_mouse_click_commits_nav_selection},
+        {"BrowseClickSwitchesToCatalogSection", test_browse_click_switches_to_catalog_section},
         {"LastLayoutAndScenePathsRemainIndependent",
          test_last_layout_and_scene_paths_remain_independent},
     };

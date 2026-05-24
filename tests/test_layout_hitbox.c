@@ -1,5 +1,6 @@
 #include "test_layout_internal.h"
 #include "Editor/object_handle_gizmo.h"
+#include "Editor/object3d_origin_pick.h"
 
 static bool test_hitbox_plane_object_is_selectable(void) {
     ld_test_init_runtime();
@@ -910,6 +911,145 @@ static bool test_hitbox_prefers_nearer_plane_depth_for_overlapping_points(void) 
     return true;
 }
 
+static bool test_object3d_origin_pick_prefers_nearest_center_in_overlap(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    RectPrismPrimitiveCreateParams prismParams;
+    Layout_RectPrismPrimitiveCreateParams_SetDefaults(&prismParams);
+    prismParams.width = 5.0f;
+    prismParams.height = 5.0f;
+    prismParams.depth = 1.0f;
+    prismParams.lockToBounds = false;
+
+    uint32_t prismId = 0u;
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(layout, &prismParams, &prismId, NULL));
+    Object3D* prism = Layout_ObjectStore_Find(&layout->objectStore, prismId);
+    TEST_ASSERT(prism != NULL);
+    prism->transform.position = (Vec3){ 0.0f, 0.0f, 0.0f };
+    prism->rectPrism.frame.origin = prism->transform.position;
+
+    PlanePrimitiveCreateParams planeParams;
+    Layout_PlanePrimitiveCreateParams_SetDefaults(&planeParams);
+    planeParams.width = 6.0f;
+    planeParams.height = 6.0f;
+    planeParams.lockToBounds = false;
+
+    uint32_t planeId = 0u;
+    TEST_ASSERT(Layout_CreatePlanePrimitive(layout, &planeParams, &planeId, NULL));
+    Object3D* plane = Layout_ObjectStore_Find(&layout->objectStore, planeId);
+    TEST_ASSERT(plane != NULL);
+    plane->transform.position = (Vec3){ 0.6f, 0.0f, 0.0f };
+    plane->plane.frame.origin = plane->transform.position;
+
+    Global_FlagHitboxesDirty();
+    Global_RebuildHitboxesIfDirty();
+
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    Vec2 prismCenter = WorldToScreen(SpaceAdapter_ProjectToView(prism->transform.position, &viewCtx),
+                                     &state->grid);
+    Hitbox baseHit = HitboxSystem_GetHitAt((int)prismCenter.x, (int)prismCenter.y);
+    Hitbox resolved = Editor_ResolveObject3DBodyPick(layout,
+                                                     &state->grid,
+                                                     &viewCtx,
+                                                     (int)prismCenter.x,
+                                                     (int)prismCenter.y,
+                                                     baseHit,
+                                                     28.0f);
+
+    TEST_ASSERT(resolved.type == HITBOX_OBJECT3D);
+    TEST_ASSERT(resolved.index == (int)prismId);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_object3d_origin_pick_requires_mouse_near_center(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    PlanePrimitiveCreateParams params;
+    Layout_PlanePrimitiveCreateParams_SetDefaults(&params);
+    params.width = 10.0f;
+    params.height = 10.0f;
+    params.lockToBounds = false;
+
+    uint32_t objectId = 0u;
+    TEST_ASSERT(Layout_CreatePlanePrimitive(layout, &params, &objectId, NULL));
+    const Object3D* object = Layout_ObjectStore_FindConst(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+
+    Global_FlagHitboxesDirty();
+    Global_RebuildHitboxesIfDirty();
+
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    Vec2 centerScreen = WorldToScreen(SpaceAdapter_ProjectToView(object->transform.position, &viewCtx),
+                                      &state->grid);
+    const int farX = (int)centerScreen.x + 60;
+    const int farY = (int)centerScreen.y;
+    Hitbox baseHit = HitboxSystem_GetHitAt(farX, farY);
+    Hitbox resolved = Editor_ResolveObject3DBodyPick(layout,
+                                                     &state->grid,
+                                                     &viewCtx,
+                                                     farX,
+                                                     farY,
+                                                     baseHit,
+                                                     28.0f);
+
+    TEST_ASSERT(baseHit.type == HITBOX_OBJECT3D);
+    TEST_ASSERT(resolved.type == HITBOX_NONE);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_object3d_origin_pick_preserves_handle_priority(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    SpaceViewContext viewCtx = {0};
+
+    PlanePrimitiveCreateParams params;
+    Layout_PlanePrimitiveCreateParams_SetDefaults(&params);
+    params.width = 4.0f;
+    params.height = 4.0f;
+    params.lockToBounds = false;
+
+    uint32_t objectId = 0u;
+    TEST_ASSERT(Layout_CreatePlanePrimitive(layout, &params, &objectId, NULL));
+    const Object3D* object = Layout_ObjectStore_FindConst(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+
+    state->editor.selectedObject3DId = objectId;
+    state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    Global_FlagHitboxesDirty();
+    Global_RebuildHitboxesIfDirty();
+    viewCtx = SpaceAdapter_BuildViewContext(state);
+
+    Vec3 corners[4] = {0};
+    TEST_ASSERT(Layout_Object3D_ComputePlaneCorners(object, corners));
+    Vec2 cornerScreen = WorldToScreen(SpaceAdapter_ProjectToView(corners[2], &viewCtx),
+                                      &state->grid);
+    Hitbox baseHit = HitboxSystem_GetHitAt((int)cornerScreen.x, (int)cornerScreen.y);
+    Hitbox resolved = Editor_ResolveObject3DBodyPick(layout,
+                                                     &state->grid,
+                                                     &viewCtx,
+                                                     (int)cornerScreen.x,
+                                                     (int)cornerScreen.y,
+                                                     baseHit,
+                                                     28.0f);
+
+    TEST_ASSERT(baseHit.type == HITBOX_OBJECT3D_PLANE_CORNER);
+    TEST_ASSERT(resolved.type == HITBOX_OBJECT3D_PLANE_CORNER);
+    TEST_ASSERT(resolved.index == (int)objectId);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_hitbox_gizmo_axis_emits_for_selected_anchor_in_free_view(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
@@ -1003,6 +1143,12 @@ bool test_layout_hitbox_run_tests(void) {
           test_rect_prism_3d_handle_resize_allows_zero_depth_and_reexpand },
         { "HitboxPrefersNearerPlaneDepthForOverlappingPoints",
           test_hitbox_prefers_nearer_plane_depth_for_overlapping_points },
+        { "Object3DOriginPickPrefersNearestCenterInOverlap",
+          test_object3d_origin_pick_prefers_nearest_center_in_overlap },
+        { "Object3DOriginPickRequiresMouseNearCenter",
+          test_object3d_origin_pick_requires_mouse_near_center },
+        { "Object3DOriginPickPreservesHandlePriority",
+          test_object3d_origin_pick_preserves_handle_priority },
         { "HitboxGizmoAxisEmitsForSelectedAnchorInFreeView",
           test_hitbox_gizmo_axis_emits_for_selected_anchor_in_free_view },
         { "HitboxGizmoAxisDisabledWhenFreeViewOff",

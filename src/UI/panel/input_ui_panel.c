@@ -1,5 +1,7 @@
 #include "UI/input_ui_panel.h"
 #include "UI/ui_panel.h"
+#include "UI/ui_panel_scene_list.h"
+#include "UI/ui_panel_shell.h"
 
 #include "Core/global_state.h"
 #include "Core/viewport_zoom.h"
@@ -30,9 +32,23 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
         return true;
     }
 
+    if (UIPanel_HandleTabClick(ui, mouseX, mouseY)) {
+        ui->loadMenu.open = false;
+        UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+        return true;
+    }
+
+    if (UIPanel_HandleSceneListClick(mouseX, mouseY)) {
+        ui->loadMenu.open = false;
+        return true;
+    }
+
     for (int i = 0; i < ui->count; ++i) {
         UIButton* btn = &ui->buttons[i];
         SDL_Rect r = btn->bounds;
+
+        if (r.w <= 0 || r.h <= 0) continue;
+        if (!UIPanel_ShouldShowGroup(ui, btn->group)) continue;
 
         if (mouseX >= r.x && mouseX <= r.x + r.w &&
             mouseY >= r.y && mouseY <= r.y + r.h) {

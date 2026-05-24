@@ -640,6 +640,9 @@ static bool test_canonical_scene_export_applies_scene_authoring_options(void) {
         .light_type = "point",
         .camera_id = "cam_custom",
         .camera_type = "perspective",
+        .world_scale = 1.25,
+        .unit_system = "meters",
+        .conversion_policy = "explicit_only",
     };
 
     Layout_AddWall3(layout, (Vec3){ 0.0f, 0.0f, 0.0f }, (Vec3){ 0.0f, 2.0f, 2.0f });
@@ -657,13 +660,22 @@ static bool test_canonical_scene_export_applies_scene_authoring_options(void) {
         cJSON* lights = cJSON_GetObjectItem(root, "lights");
         cJSON* cameras = cJSON_GetObjectItem(root, "cameras");
         cJSON* objects = cJSON_GetObjectItem(root, "objects");
+        cJSON* unit_system = cJSON_GetObjectItem(root, "unit_system");
+        cJSON* conversion_policy = cJSON_GetObjectItem(root, "conversion_policy");
+        cJSON* world_scale = cJSON_GetObjectItem(root, "world_scale");
         TEST_ASSERT(cJSON_IsArray(materials));
         TEST_ASSERT(cJSON_IsArray(lights));
         TEST_ASSERT(cJSON_IsArray(cameras));
         TEST_ASSERT(cJSON_IsArray(objects));
+        TEST_ASSERT(cJSON_IsString(unit_system));
+        TEST_ASSERT(cJSON_IsString(conversion_policy));
+        TEST_ASSERT(cJSON_IsNumber(world_scale));
         TEST_ASSERT(cJSON_GetArraySize(materials) == 1);
         TEST_ASSERT(cJSON_GetArraySize(lights) == 1);
         TEST_ASSERT(cJSON_GetArraySize(cameras) == 1);
+        TEST_ASSERT(strcmp(unit_system->valuestring, "meters") == 0);
+        TEST_ASSERT(strcmp(conversion_policy->valuestring, "explicit_only") == 0);
+        TEST_ASSERT(world_scale->valuedouble == 1.25);
 
         cJSON* material = cJSON_GetArrayItem(materials, 0);
         cJSON* light = cJSON_GetArrayItem(lights, 0);
@@ -702,6 +714,9 @@ static bool test_canonical_scene_export_rejects_invalid_scene_authoring_options(
         .light_type = "point",
         .camera_id = "cam_custom",
         .camera_type = "perspective",
+        .world_scale = 1.0,
+        .unit_system = "meters",
+        .conversion_policy = "explicit_only",
     };
 
     Layout_AddWall(layout, (Vec2){ 0.0f, 0.0f }, (Vec2){ 1.0f, 1.0f });

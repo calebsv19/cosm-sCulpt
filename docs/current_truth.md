@@ -1,6 +1,6 @@
 # sCulpt Current Truth
 
-Last updated: 2026-05-22
+Last updated: 2026-05-24
 
 ## Program Identity
 - Repository directory: `line_drawing/`
@@ -26,6 +26,67 @@ Last updated: 2026-05-22
 - 2D/3D parity lane is complete (`LD-U0` through `LD-U6.6`).
 - Trio scene-authoring and deep 3D behavior foundation lanes are complete through `LD3D-F8`.
 - Primitive authoring contract is active for planes and rectangular prisms with typed object payloads.
+- Dense-scene object selection baseline is now improved:
+  - plain object-body hover/click resolves to the nearest projected object
+    origin instead of whichever overlapping object bounds happen to win the
+    generic body hitbox ranking
+  - direct object handles/gizmos, anchor lanes, and scene-bounds lanes still
+    keep higher targeting priority than generic object-body picks
+  - selected and hovered authored objects now show an explicit origin marker in
+    the viewport
+- The editor shell modernization lane is now complete through Phase 6:
+  - the old always-open grouped-control sidebars are now routed through a
+    tabbed shell
+  - left editor tabs are:
+    - `Scene`
+    - `File`
+  - right editor tabs are:
+    - `View`
+    - `Create`
+    - `Object`
+  - pane targets are now rebalanced:
+    - the left side remains wider for the scene list and file controls
+    - the right side is reduced more aggressively through the pane-host target
+      path so the viewport keeps more room without collapsing the object tab
+  - existing actions are still the same underneath, but they now sit behind
+    stable dedicated shell surfaces instead of one flat always-open stack
+  - the left `Scene` tab is now a real scrollable scene object list:
+    - authored plane/prism objects render in stable row order
+    - rows show object id, primitive kind, and a compact position summary
+    - row hover and row-click selection stay in sync with editor object
+      selection state
+    - scene-bounds controls now live at the bottom of the same left `Scene`
+      lane instead of in a separate right-side scene tab
+  - the right `Object` tab now has a dedicated selected-object inspector:
+    - a reserved object-context card renders at the top of the tab
+    - selected object id, kind, dimensions, position, rotation, and lock state
+      are visible without reading a footer summary
+    - object-local edit controls remain directly underneath that inspector
+  - the right `View` tab now has a dedicated live state card:
+    - space mode, zoom/grid state, construction-plane context, delete mode,
+      and current selection state are visible above the view controls
+  - the right `Create` tab now has a dedicated live state card:
+    - active plane, grid step, display-unit-aware primitive preview sizing, and
+      primitive readiness are visible above the create controls
+  - the left `File` tab now has a dedicated `File / Session` summary card:
+    - layout, scene, input root, output root, and dirty/clean session state are
+      visible above the file/root buttons
+    - the file lane is beginning to read like a real session surface instead of
+      a pure button stack
+  - the editor-local JSON/scene picker now opens against the left `File` lane
+    geometry, so scene-lane controls no longer push the picker into unstable
+    placement
+  - the final shell polish pass is now in:
+    - pane surfaces have stronger framing instead of reading like flat
+      edge-attached debug columns
+    - active tabs and hovered buttons now carry clearer accent treatment
+    - group sections now use clearer title chips
+    - the left scene list now renders inside a framed owned surface with
+      stronger selected/hover row accents
+    - file, view, create, and object summary cards now use top accent bands
+      plus internal divider lines
+  - future editor UI work can now return to smaller usage-driven follow-ups
+    instead of continuing this structural shell migration
 - Agent-authored room-review scenes now have an optional deterministic
   refinement lane through `line_drawing/tools/agent_scene_refine.py` for:
   - opposite-corner default camera placement in open corner rooms
@@ -43,6 +104,38 @@ Last updated: 2026-05-22
   - write `scene_authoring.json`
   - compile `scene_runtime.json` immediately through shared `core_scene_compile`
   - preserve the resulting authoring/runtime paths for UI diagnostics/logging
+- The compiler-units rollout now has an initial authoring/export seam:
+  - explicit toolchain commands:
+    - `make -C line_drawing toolchain-contract`
+    - `make -C line_drawing dump-sema-canonical-scene-export`
+    - `make -C line_drawing dump-sema-canonical-scene-export-primitives`
+    - `make -C line_drawing dump-sema-scene-import`
+    - `make -C line_drawing clang-build`
+    - `make -C line_drawing fisics-build`
+  - app/toolchain packaging contract now matches the stronger scaffold shape:
+    - Clang program outputs build under `build/toolchains/clang/`
+    - `fisiCs` program outputs build under `build/toolchains/fisics/`
+    - host test artifacts build under `build/host/`
+    - desktop packaging rebuilds and copies an explicit
+      `PACKAGE_TOOLCHAIN` source binary instead of whatever app binary most
+      recently touched the shared `build/` tree
+    - default desktop packaging still stays on the Clang lane
+  - current sema customers:
+    - `src/Tools/canonical_scene_export.c`
+    - `src/Tools/canonical_scene_export_primitives.c`
+    - `src/Tools/scene_import.c`
+  - explicit scene authoring options now include:
+    - `world_scale`
+    - `unit_system`
+    - `conversion_policy`
+  - explicit primitive/export seam lengths now include:
+    - primitive width / height / depth payloads
+    - framing-bounds fallback half-extents
+    - framing-bounds padding and bounds expansion
+  - the import seam now validates:
+    - supported `unit_system`
+    - supported `conversion_policy`
+    - numeric finite positive `world_scale`
 
 ## Recommended Agent Workflow
 - For new room/object scene creation, treat `line_drawing` as the upstream
@@ -88,6 +181,7 @@ Last updated: 2026-05-22
     - explicit native picker buttons for input root and output root in the browse header
     - ranked nearby child/sibling/cousin directory suggestions that switch the input root toward likely scene-storage locations
     - nearby browse rows now resolve representative scene/layout preview targets so the list can show the same lightweight wireframe thumbnails used elsewhere in the host shell
+    - activating a nearby browse suggestion now pivots directly into the corresponding `Scenes` or `Layouts` catalog for that root instead of leaving the user in a reordered browse suggestion list
   - mouse hover is now visual-only; committed section and row selection changes only on explicit click or keyboard movement
   - the list scrollbar now supports wheel scroll, track click, and thumb drag instead of relying on wheel-only movement
   - `Esc` now returns from the editor to the host menu when transient text-entry and authoring overlays are inactive
@@ -107,6 +201,8 @@ Last updated: 2026-05-22
 - Stable tests:
   - `make -C line_drawing test-stable`
   - includes `tests/test_scene_export.c` in the current worktree
+  - includes `tests/test_layout_scene_export.c` option coverage for explicit
+      authoring metadata
 - Headless wording note:
   - `make -C line_drawing run-headless-smoke`
   - currently routes through `test-stable` rather than a separate runtime-only lane
@@ -133,6 +229,11 @@ Last updated: 2026-05-22
 - The next bounded local expansion is Phase 2 of the host lane:
   - deeper catalog ergonomics on top of the current browse/filter/preview shell
   - any remaining menu visual work should now be a smaller follow-up polish lane rather than another structural host-shell slice
+- The structural editor shell lane is now complete:
+  - preserve the left `Scene` + `File` context lanes and right-side state-card
+    tabs as the default editor shell
+  - future editor-facing work should enter as smaller usage-driven polish or
+    capability slices on top of that shell
 - Next major downstream boundary remains consumer-side integration (first in `physics_sim`, then broader trio consumers).
 
 ## History and Deep Lane References

@@ -30,6 +30,7 @@ static const char* kDefaultMaterialType = "flat_color";
 static const char* kDefaultLightType = "directional";
 static const char* kDefaultUnitSystem = "meters";
 static const char* kConversionPolicy = "explicit_only";
+static const double kDefaultWorldScale = 1.0;
 
 static const char* string_or_default(const char* value, const char* fallback) {
     if (!value || !value[0]) return fallback;
@@ -64,6 +65,19 @@ static bool is_allowed_camera_type(const char* value) {
            strcmp(value, "orthographic") == 0;
 }
 
+static bool is_allowed_unit_system(const char* value) {
+    return strcmp(value, kDefaultUnitSystem) == 0;
+}
+
+static bool is_allowed_conversion_policy(const char* value) {
+    return strcmp(value, kConversionPolicy) == 0;
+}
+
+static double scene_authoring_world_scale_or_default(const LineDrawingSceneAuthoringOptions* options) {
+    if (!options || !(options->world_scale > 0.0)) return kDefaultWorldScale;
+    return options->world_scale;
+}
+
 static bool validate_options(const LineDrawingSceneAuthoringOptions* options) {
     if (!options) return true;
 
@@ -74,6 +88,14 @@ static bool validate_options(const LineDrawingSceneAuthoringOptions* options) {
     if (options->material_type && !is_allowed_material_type(options->material_type)) return false;
     if (options->light_type && !is_allowed_light_type(options->light_type)) return false;
     if (options->camera_type && !is_allowed_camera_type(options->camera_type)) return false;
+    if (options->unit_system && !is_allowed_unit_system(options->unit_system)) return false;
+    if (options->conversion_policy &&
+        !is_allowed_conversion_policy(options->conversion_policy)) {
+        return false;
+    }
+    if (core_units_validate_world_scale(scene_authoring_world_scale_or_default(options)).code != CORE_OK) {
+        return false;
+    }
     return true;
 }
 
@@ -385,14 +407,14 @@ static const cJSON* find_existing_object_extensions_by_id(const cJSON* existing_
     return NULL;
 }
 
-static bool validate_root_contract(const char* scene_id, bool is_3d) {
+static bool validate_root_contract(const char* scene_id, bool is_3d, double world_scale) {
     CoreSceneRootContract contract;
     core_scene_root_contract_init(&contract);
     if (core_scene_root_contract_set_scene_id(&contract, scene_id).code != CORE_OK) return false;
     contract.space_mode_intent = is_3d ? CORE_SCENE_SPACE_MODE_3D : CORE_SCENE_SPACE_MODE_2D;
     contract.space_mode_default = contract.space_mode_intent;
     contract.unit_kind = CORE_UNIT_METER;
-    contract.world_scale = 1.0;
+    contract.world_scale = world_scale;
     return core_scene_root_contract_validate(&contract).code == CORE_OK;
 }
 
@@ -496,11 +518,12 @@ static cJSON* build_scene_json(const Layout* layout,
     const char* resolved_light_type = NULL;
     const char* resolved_camera_id = NULL;
     const char* resolved_camera_type = NULL;
+    const char* resolved_unit_system = NULL;
+    const char* resolved_conversion_policy = NULL;
+    double resolved_world_scale = kDefaultWorldScale;
     SceneBounds3D framing_bounds = {0};
 
     if (!layout) return NULL;
-
-    if (core_units_validate_world_scale(1.0).code != CORE_OK) return NULL;
 
     is_3d = layout_uses_3d(layout);
     active_anchors = count_active_anchors(layout);
@@ -536,8 +559,15 @@ static cJSON* build_scene_json(const Layout* layout,
     resolved_camera_id = string_or_default(options ? options->camera_id : NULL, kDefaultCameraId);
     resolved_camera_type = string_or_default(options ? options->camera_type : NULL,
                                              is_3d ? "perspective" : "orthographic");
+    resolved_unit_system =
+        string_or_default(options ? options->unit_system : NULL, kDefaultUnitSystem);
+    resolved_conversion_policy =
+        string_or_default(options ? options->conversion_policy : NULL, kConversionPolicy);
+    resolved_world_scale = scene_authoring_world_scale_or_default(options);
 
-    if (!validate_root_contract(resolved_scene_id, is_3d)) return NULL;
+    if (core_units_validate_world_scale(resolved_world_scale).code != CORE_OK) return NULL;
+
+    if (!validate_root_contract(resolved_scene_id, is_3d, resolved_world_scale)) return NULL;
 
     cJSON_AddStringToObject(root, "schema_family", kSchemaFamily);
     cJSON_AddStringToObject(root, "schema_variant", kSchemaVariant);
@@ -545,9 +575,9 @@ static cJSON* build_scene_json(const Layout* layout,
     cJSON_AddStringToObject(root, "scene_id", resolved_scene_id);
     cJSON_AddStringToObject(root, "space_mode_intent", is_3d ? "3d" : "2d");
     cJSON_AddStringToObject(root, "space_mode_default", is_3d ? "3d" : "2d");
-    cJSON_AddStringToObject(root, "conversion_policy", kConversionPolicy);
-    cJSON_AddStringToObject(root, "unit_system", kDefaultUnitSystem);
-    cJSON_AddNumberToObject(root, "world_scale", 1.0);
+    cJSON_AddStringToObject(root, "conversion_policy", resolved_conversion_policy);
+    cJSON_AddStringToObject(root, "unit_system", resolved_unit_system);
+    cJSON_AddNumberToObject(root, "world_scale", resolved_world_scale);
 
     objects = cJSON_CreateArray();
     hierarchy = cJSON_CreateArray();
@@ -705,6 +735,18 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON* light = cJSON_CreateObject();
         cJSON* light_transform = cJSON_CreateObject();
         cJSON* light_position = cJSON_CreateObject();
+        float scene_focus_x [[fisics::dim(length)]]
+                           [[fisics::unit(meter)]] = scene_focus.x;
+        float scene_focus_y [[fisics::dim(length)]]
+                           [[fisics::unit(meter)]] = scene_focus.y;
+        float scene_focus_z [[fisics::dim(length)]]
+                           [[fisics::unit(meter)]] = scene_focus.z;
+        float light_offset_x [[fisics::dim(length)]]
+                            [[fisics::unit(meter)]] = 3.0f;
+        float light_offset_y [[fisics::dim(length)]]
+                            [[fisics::unit(meter)]] = 4.0f;
+        float light_offset_z [[fisics::dim(length)]]
+                            [[fisics::unit(meter)]] = is_3d ? 5.0f : 2.0f;
         if (!light || !light_transform || !light_position) {
             cJSON_Delete(root);
             return NULL;
@@ -714,15 +756,23 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_AddStringToObject(light, "light_type", resolved_light_type);
         cJSON_AddItemToObject(light, "transform", light_transform);
         cJSON_AddItemToObject(light_transform, "position", light_position);
-        cJSON_AddNumberToObject(light_position, "x", scene_focus.x + 3.0f);
-        cJSON_AddNumberToObject(light_position, "y", scene_focus.y + 4.0f);
-        cJSON_AddNumberToObject(light_position, "z", scene_focus.z + (is_3d ? 5.0f : 2.0f));
+        cJSON_AddNumberToObject(light_position, "x", scene_focus_x + light_offset_x);
+        cJSON_AddNumberToObject(light_position, "y", scene_focus_y + light_offset_y);
+        cJSON_AddNumberToObject(light_position, "z", scene_focus_z + light_offset_z);
     }
 
     {
         cJSON* camera = cJSON_CreateObject();
         cJSON* camera_transform = cJSON_CreateObject();
         cJSON* camera_position = cJSON_CreateObject();
+        float scene_focus_x [[fisics::dim(length)]]
+                           [[fisics::unit(meter)]] = scene_focus.x;
+        float scene_focus_y [[fisics::dim(length)]]
+                           [[fisics::unit(meter)]] = scene_focus.y;
+        float scene_focus_z [[fisics::dim(length)]]
+                           [[fisics::unit(meter)]] = scene_focus.z;
+        float camera_offset_z [[fisics::dim(length)]]
+                             [[fisics::unit(meter)]] = is_3d ? 8.0f : 3.0f;
         if (!camera || !camera_transform || !camera_position) {
             cJSON_Delete(root);
             return NULL;
@@ -732,9 +782,9 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_AddStringToObject(camera, "camera_type", resolved_camera_type);
         cJSON_AddItemToObject(camera, "transform", camera_transform);
         cJSON_AddItemToObject(camera_transform, "position", camera_position);
-        cJSON_AddNumberToObject(camera_position, "x", scene_focus.x);
-        cJSON_AddNumberToObject(camera_position, "y", scene_focus.y);
-        cJSON_AddNumberToObject(camera_position, "z", scene_focus.z + (is_3d ? 8.0f : 3.0f));
+        cJSON_AddNumberToObject(camera_position, "x", scene_focus_x);
+        cJSON_AddNumberToObject(camera_position, "y", scene_focus_y);
+        cJSON_AddNumberToObject(camera_position, "z", scene_focus_z + camera_offset_z);
     }
 
     {

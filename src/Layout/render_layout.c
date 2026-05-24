@@ -59,6 +59,26 @@ static void DrawFilledSquare(SDL_Renderer* renderer, int cx, int cy, int r) {
     SDL_RenderFillRect(renderer, &rect);
 }
 
+static void DrawObjectOriginMarker(SDL_Renderer* renderer, Vec2 screen, bool selected, bool hovered) {
+    const int cx = (int)screen.x;
+    const int cy = (int)screen.y;
+    const int radius = selected ? 4 : 3;
+    const int cross = selected ? 7 : 5;
+
+    if (!renderer || (!selected && !hovered)) return;
+
+    if (selected) {
+        SDL_SetRenderDrawColor(renderer, 255, 220, 60, 255);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
+    }
+    DrawFilledCircle(renderer, cx, cy, radius);
+
+    SDL_SetRenderDrawColor(renderer, 24, 24, 24, 255);
+    DrawLineWithThickness(renderer, cx - cross, cy, cx + cross, cy, 1);
+    DrawLineWithThickness(renderer, cx, cy - cross, cx, cy + cross, 1);
+}
+
 static bool Anchor_GetHandleForWall(const Layout* layout,
                                     int anchorIndex,
                                     const Anchor* anchor,
@@ -289,6 +309,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
 
         if (object->kind == OBJECT3D_KIND_PLANE) {
             Vec3 corners3[4];
+            Vec2 originScreen = WorldToScreen(SpaceAdapter_ProjectToView(object->transform.position, &viewCtx), grid);
             if (!Layout_Object3D_ComputePlaneCorners(object, corners3)) continue;
 
             Vec2 corners2[4];
@@ -383,8 +404,11 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                     DrawFilledSquare(renderer, (int)mid.x, (int)mid.y, highlight ? 4 : 3);
                 }
             }
+
+            DrawObjectOriginMarker(renderer, originScreen, isSelected, isHovered);
         } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
             Vec3 corners3[8];
+            Vec2 originScreen = WorldToScreen(SpaceAdapter_ProjectToView(object->transform.position, &viewCtx), grid);
             if (!Layout_Object3D_ComputeRectPrismCorners(object, corners3)) continue;
             Vec2 corners2[8];
             for (int c = 0; c < 8; ++c) {
@@ -516,7 +540,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                         PLANE_RESIZE_HANDLE_EDGE_POS_V,
                         PLANE_RESIZE_HANDLE_EDGE_NEG_U
                     };
-                    for (int e = 0; e < 4; ++e) {
+                for (int e = 0; e < 4; ++e) {
                         const Vec2 mid = {
                             .x = 0.5f * (face2[kEdgeCornerA[e]].x + face2[kEdgeCornerB[e]].x),
                             .y = 0.5f * (face2[kEdgeCornerA[e]].y + face2[kEdgeCornerB[e]].y)
@@ -531,6 +555,8 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                     }
                 }
             }
+
+            DrawObjectOriginMarker(renderer, originScreen, isSelected, isHovered);
         }
     }
 }

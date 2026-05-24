@@ -6,9 +6,11 @@
 #include "Core/space_mode_adapter.h"
 #include "Core/viewport_zoom.h"
 #include "Editor/editor.h"
+#include "Editor/object3d_origin_pick.h"
 
 #include "UI/input_ui_panel.h"
 #include "UI/ui_panel.h"
+#include "UI/ui_panel_scene_list.h"
 
 #include "Layout/Grid/grid.h"
 #include "Layout/hitbox_system.h"  // ← if using hitboxes
@@ -26,6 +28,8 @@ typedef enum {
     POINTER_PANE_CENTER = 3,
     POINTER_PANE_OUTSIDE = 4
 } PointerPaneLane;
+
+static const float kObject3DOriginPickCaptureRadiusPx = 28.0f;
 
 static SDL_Rect PaneRectToSDLRect(CorePaneRect rect) {
     SDL_Rect out = {0, 0, 0, 0};
@@ -107,6 +111,20 @@ static void ClearHoverState(EditorState* editor) {
     editor->hoveredSceneBoundsGizmoAxis = -1;
 }
 
+static Hitbox ResolveViewportObjectBodyHit(const GlobalState* state, int mx, int my, Hitbox baseHit) {
+    SpaceViewContext viewCtx = {0};
+
+    if (!state) return baseHit;
+    viewCtx = SpaceAdapter_BuildViewContext(state);
+    return Editor_ResolveObject3DBodyPick(&state->layout,
+                                          &state->grid,
+                                          &viewCtx,
+                                          mx,
+                                          my,
+                                          baseHit,
+                                          kObject3DOriginPickCaptureRadiusPx);
+}
+
 static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
     if (!motion) return false;
     if (draggingAnchor || draggingHandle || draggingSelectionBox || draggingGizmo ||
@@ -153,6 +171,7 @@ static void UpdateHover(int mx, int my) {
     }
 
     Hitbox hit = HitboxSystem_GetHitAt(mx, my);
+    hit = ResolveViewportObjectBodyHit(state, mx, my, hit);
     editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
     editor->hoveredSceneBoundsGizmoAxis = -1;
     if (hit.type == HITBOX_POINT) {
@@ -283,6 +302,7 @@ static void HandleMouseWheel(AppContext* ctx, SDL_MouseWheelEvent* wheel) {
     }
     if (fabsf(delta) <= 0.0001f) return;
     if (UIPanel_HandleLoadMenuWheel(mx, my, delta)) return;
+    if (UIPanel_HandleSceneListWheel(mx, my, delta)) return;
     if (ResolvePointerPaneLane(mx, my) != POINTER_PANE_CENTER) return;
 
     // Exponential zoom for smoother high-precision wheel/trackpad input.
@@ -356,6 +376,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
 
     Global_RebuildHitboxesIfDirty();
     Hitbox hit = HitboxSystem_GetHitAt(btn->x, btn->y);
+    hit = ResolveViewportObjectBodyHit(state, btn->x, btn->y, hit);
 
     bool clickedHandle = (hit.type == HITBOX_HANDLE);
     bool clickedGizmo = (hit.type == HITBOX_GIZMO_AXIS);

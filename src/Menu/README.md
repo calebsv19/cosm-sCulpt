@@ -16,5 +16,5 @@ The Menu layer owns the top-level host screen that sits above the editor runtime
   - `Esc` returns from editor runtime to the menu
   - `Ctrl/Cmd + M` also returns from editor runtime to the menu
 - It does not own editor behavior, preview generation, or shared semantic contracts.
-- It now owns the first top-level browsing lane for layouts/scenes, including inline filtering for names/paths, richer metadata rows, cached lightweight previews, a dedicated recents section, and a dedicated browse/root-context section with header-level root picking plus preview-backed nearby root suggestions.
+- It now owns the first top-level browsing lane for layouts/scenes, including inline filtering for names/paths, richer metadata rows, cached lightweight previews, a dedicated recents section, and a dedicated browse/root-context section with header-level root picking plus preview-backed nearby root suggestions that pivot into the active catalog lane on activation.
 - Quick-action reopen targets now use independent remembered layout and scene paths instead of one shared current-session path, so reopening a scene does not overwrite the last JSON/layout quick action target.

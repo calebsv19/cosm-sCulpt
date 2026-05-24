@@ -277,7 +277,7 @@ bool LineDrawingPaneHost_Rebuild(LineDrawingPaneHost* host, float width, float h
 
     /* Keep pane sizing near fixed authoring chrome targets while preserving min constraints. */
     {
-        const float fallback_side = 184.0f;
+        const float fallback_side = 170.0f;
         const float min_center = 320.0f;
         float target_top = (host->target_top_height > 0.0f) ? host->target_top_height : 64.0f;
         float target_left = (host->target_left_width > 0.0f) ? host->target_left_width : fallback_side;

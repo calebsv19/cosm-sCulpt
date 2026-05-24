@@ -1,6 +1,7 @@
 #include "test_framework.h"
 
 #include "Layout/layout.h"
+#include "Tools/canonical_scene_export.h"
 #include "Tools/scene_import.h"
 #include "Tools/scene_export.h"
 
@@ -20,6 +21,21 @@ static bool file_contains(const char* path, const char* needle) {
     fclose(fp);
     buffer[count] = '\0';
     return strstr(buffer, needle) != NULL;
+}
+
+static bool write_text_file(const char* path, const char* text) {
+    FILE* fp = NULL;
+    size_t len = 0u;
+    if (!path || !text) return false;
+    fp = fopen(path, "wb");
+    if (!fp) return false;
+    len = strlen(text);
+    if (fwrite(text, 1u, len, fp) != len) {
+        fclose(fp);
+        return false;
+    }
+    fclose(fp);
+    return true;
 }
 
 static bool test_scene_export_emits_authoring_and_runtime_files(void) {
@@ -110,11 +126,87 @@ static bool test_scene_export_embeds_layout_snapshot_and_round_trips_import(void
     return true;
 }
 
+static bool test_scene_import_accepts_supported_authoring_unit_metadata(void) {
+    Layout layout;
+    Layout imported;
+    LineDrawingSceneAuthoringOptions options = {
+        .world_scale = 1.25,
+        .unit_system = "meters",
+        .conversion_policy = "explicit_only",
+    };
+    const char* path = "/tmp/line_drawing_scene_import_supported_units.json";
+    char diagnostics[256];
+
+    Layout_Init(&layout, 1.0f);
+    Layout_Init(&imported, 1.0f);
+    TEST_ASSERT(Layout_AddAnchor3(&layout, (Vec3){0.0f, 0.0f, 0.0f}) >= 0);
+    TEST_ASSERT(Layout_AddAnchor3(&layout, (Vec3){1.5f, 2.0f, 0.5f}) >= 0);
+    Layout_AddWall3(&layout, (Vec3){0.0f, 0.0f, 0.0f}, (Vec3){1.5f, 2.0f, 0.5f});
+
+    TEST_ASSERT(LineDrawingCanonicalScene_ExportLayoutToFileWithOptions(&layout,
+                                                                        "scene_import_supported_units",
+                                                                        path,
+                                                                        &options));
+    TEST_ASSERT(LineDrawingSceneImport_LoadLayoutFromAuthoringFile(&imported,
+                                                                  path,
+                                                                  diagnostics,
+                                                                  sizeof(diagnostics)));
+    TEST_ASSERT(imported.anchorCount == layout.anchorCount);
+    TEST_ASSERT(imported.wallCount == layout.wallCount);
+    TEST_ASSERT(imported.anchors[1].pos.y == layout.anchors[1].pos.y);
+
+    remove(path);
+    Layout_Free(&layout);
+    Layout_Free(&imported);
+    return true;
+}
+
+static bool test_scene_import_rejects_unsupported_authoring_unit_metadata(void) {
+    Layout imported;
+    char diagnostics[256];
+    const char* path = "/tmp/line_drawing_scene_import_bad_units.json";
+    const char* json =
+        "{"
+        "\"schema_variant\":\"scene_authoring_v1\","
+        "\"scene_id\":\"scene_bad_units\","
+        "\"unit_system\":\"feet\","
+        "\"conversion_policy\":\"explicit_only\","
+        "\"world_scale\":1.0,"
+        "\"extensions\":{\"line_drawing\":{\"layout_snapshot\":{"
+        "\"version\":8,"
+        "\"gridSize\":1,"
+        "\"anchors\":[],"
+        "\"walls\":[],"
+        "\"objects3d\":[],"
+        "\"scene3d\":{"
+        "\"bounds\":{\"enabled\":false,\"clampOnEdit\":false,\"min\":{\"x\":-1,\"y\":-1,\"z\":-1},\"max\":{\"x\":1,\"y\":1,\"z\":1}},"
+        "\"constructionPlane\":{\"mode\":\"axis_aligned\",\"axis\":\"xy\",\"offset\":0}"
+        "}"
+        "}}}"
+        "}";
+
+    Layout_Init(&imported, 1.0f);
+    TEST_ASSERT(write_text_file(path, json));
+    TEST_ASSERT(!LineDrawingSceneImport_LoadLayoutFromAuthoringFile(&imported,
+                                                                   path,
+                                                                   diagnostics,
+                                                                   sizeof(diagnostics)));
+    TEST_ASSERT(strstr(diagnostics, "unit_system=\"meters\"") != NULL);
+
+    remove(path);
+    Layout_Free(&imported);
+    return true;
+}
+
 bool scene_export_run_tests(void) {
     const TestCase cases[] = {
         { "scene_export_emits_authoring_and_runtime_files", test_scene_export_emits_authoring_and_runtime_files },
         { "scene_export_embeds_layout_snapshot_and_round_trips_import",
           test_scene_export_embeds_layout_snapshot_and_round_trips_import },
+        { "scene_import_accepts_supported_authoring_unit_metadata",
+          test_scene_import_accepts_supported_authoring_unit_metadata },
+        { "scene_import_rejects_unsupported_authoring_unit_metadata",
+          test_scene_import_rejects_unsupported_authoring_unit_metadata },
     };
     return run_test_cases("SceneExport", cases, sizeof(cases) / sizeof(cases[0]));
 }

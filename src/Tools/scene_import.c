@@ -3,6 +3,7 @@
 #include "Layout/layout_json.h"
 #include "core_io.h"
 #include "core_object.h"
+#include "core_units.h"
 #include "cjson/cJSON.h"
 
 #include <ctype.h>
@@ -12,6 +13,8 @@
 
 static const char* k_authoring_schema_variant = "scene_authoring_v1";
 static const char* k_runtime_schema_variant = "scene_runtime_v1";
+static const char* k_supported_unit_system = "meters";
+static const char* k_supported_conversion_policy = "explicit_only";
 
 static void write_diagnostics(char* diagnostics, size_t diagnostics_size, const char* message) {
     if (!diagnostics || diagnostics_size == 0u) return;
@@ -70,6 +73,60 @@ static cJSON* find_line_drawing_extension(cJSON* root) {
     extensions = cJSON_GetObjectItemCaseSensitive(root, "extensions");
     if (!cJSON_IsObject(extensions)) return NULL;
     return cJSON_GetObjectItemCaseSensitive(extensions, "line_drawing");
+}
+
+static bool matches_supported_text(const cJSON* node, const char* expected) {
+    return cJSON_IsString(node) && node->valuestring && expected &&
+           strcmp(node->valuestring, expected) == 0;
+}
+
+static bool validate_authoring_units_metadata(const cJSON* root,
+                                              char* diagnostics,
+                                              size_t diagnostics_size) {
+    const cJSON* unit_system = NULL;
+    const cJSON* conversion_policy = NULL;
+    const cJSON* world_scale = NULL;
+    double world_scale_value = 1.0;
+    CoreResult world_scale_result = {0};
+
+    if (!cJSON_IsObject(root)) return false;
+
+    unit_system = cJSON_GetObjectItemCaseSensitive(root, "unit_system");
+    if (unit_system && !matches_supported_text(unit_system, k_supported_unit_system)) {
+        write_diagnostics(diagnostics,
+                          diagnostics_size,
+                          "line_drawing import currently supports only unit_system=\"meters\"");
+        return false;
+    }
+
+    conversion_policy = cJSON_GetObjectItemCaseSensitive(root, "conversion_policy");
+    if (conversion_policy &&
+        !matches_supported_text(conversion_policy, k_supported_conversion_policy)) {
+        write_diagnostics(diagnostics,
+                          diagnostics_size,
+                          "line_drawing import currently supports only conversion_policy=\"explicit_only\"");
+        return false;
+    }
+
+    world_scale = cJSON_GetObjectItemCaseSensitive(root, "world_scale");
+    if (!world_scale) {
+        return true;
+    }
+    if (!cJSON_IsNumber(world_scale)) {
+        write_diagnostics(diagnostics,
+                          diagnostics_size,
+                          "line_drawing import requires world_scale to be numeric when present");
+        return false;
+    }
+    world_scale_value = world_scale->valuedouble;
+    world_scale_result = core_units_validate_world_scale(world_scale_value);
+    if (world_scale_result.code != CORE_OK) {
+        write_diagnostics(diagnostics,
+                          diagnostics_size,
+                          "line_drawing import requires world_scale to be finite and > 0");
+        return false;
+    }
+    return true;
 }
 
 static bool vec3_from_json_object(const cJSON* node, Vec3* out) {
@@ -181,6 +238,16 @@ static bool scene_bounds_from_json(const cJSON* node, SceneBounds3D* out) {
     if (cJSON_IsBool(clamp_on_edit)) out->clampOnEdit = cJSON_IsTrue(clamp_on_edit);
     if (!vec3_from_json_object(cJSON_GetObjectItemCaseSensitive(node, "min"), &out->min)) return false;
     if (!vec3_from_json_object(cJSON_GetObjectItemCaseSensitive(node, "max"), &out->max)) return false;
+    {
+        float min_x [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->min.x;
+        float min_y [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->min.y;
+        float min_z [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->min.z;
+        float max_x [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->max.x;
+        float max_y [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->max.y;
+        float max_z [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->max.z;
+        out->min = (Vec3){ min_x, min_y, min_z };
+        out->max = (Vec3){ max_x, max_y, max_z };
+    }
     return Layout_SceneBounds3D_IsValid(out);
 }
 
@@ -314,16 +381,36 @@ static bool import_legacy_scene_object(Layout* layout,
     frame = cJSON_GetObjectItemCaseSensitive(payload, "frame");
 
     if (kind == OBJECT3D_KIND_PLANE) {
-        if (cJSON_IsNumber(width) && width->valuedouble > 0.0) object->plane.width = (float)width->valuedouble;
-        if (cJSON_IsNumber(height) && height->valuedouble > 0.0) object->plane.height = (float)height->valuedouble;
+        if (cJSON_IsNumber(width) && width->valuedouble > 0.0) {
+            float scene_width [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+                (float)width->valuedouble;
+            object->plane.width = scene_width;
+        }
+        if (cJSON_IsNumber(height) && height->valuedouble > 0.0) {
+            float scene_height [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+                (float)height->valuedouble;
+            object->plane.height = scene_height;
+        }
         if (cJSON_IsBool(lock_to_construction_plane)) object->plane.lockToConstructionPlane = cJSON_IsTrue(lock_to_construction_plane);
         if (cJSON_IsBool(lock_to_bounds)) object->plane.lockToBounds = cJSON_IsTrue(lock_to_bounds);
         if (cJSON_IsObject(frame)) (void)plane_frame_from_json_object(frame, &object->plane.frame);
         object->plane.frame.origin = object->transform.position;
     } else if (kind == OBJECT3D_KIND_RECT_PRISM) {
-        if (cJSON_IsNumber(width) && width->valuedouble > 0.0) object->rectPrism.width = (float)width->valuedouble;
-        if (cJSON_IsNumber(height) && height->valuedouble > 0.0) object->rectPrism.height = (float)height->valuedouble;
-        if (cJSON_IsNumber(depth) && depth->valuedouble >= 0.0) object->rectPrism.depth = (float)depth->valuedouble;
+        if (cJSON_IsNumber(width) && width->valuedouble > 0.0) {
+            float scene_width [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+                (float)width->valuedouble;
+            object->rectPrism.width = scene_width;
+        }
+        if (cJSON_IsNumber(height) && height->valuedouble > 0.0) {
+            float scene_height [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+                (float)height->valuedouble;
+            object->rectPrism.height = scene_height;
+        }
+        if (cJSON_IsNumber(depth) && depth->valuedouble >= 0.0) {
+            float scene_depth [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+                (float)depth->valuedouble;
+            object->rectPrism.depth = scene_depth;
+        }
         if (cJSON_IsBool(lock_to_construction_plane)) object->rectPrism.lockToConstructionPlane = cJSON_IsTrue(lock_to_construction_plane);
         if (cJSON_IsBool(lock_to_bounds)) object->rectPrism.lockToBounds = cJSON_IsTrue(lock_to_bounds);
         if (cJSON_IsObject(frame)) (void)plane_frame_from_json_object(frame, &object->rectPrism.frame);
@@ -408,6 +495,9 @@ bool LineDrawingSceneImport_LoadLayoutFromAuthoringFile(Layout* layout,
     }
     if (strcmp(schema_variant->valuestring, k_authoring_schema_variant) != 0) {
         write_diagnostics(diagnostics, diagnostics_size, "unsupported scene schema for line_drawing import");
+        goto cleanup;
+    }
+    if (!validate_authoring_units_metadata(root, diagnostics, diagnostics_size)) {
         goto cleanup;
     }
 

@@ -4,7 +4,7 @@ $(SHAPE_SANITY_BIN): src/Tools/shape_sanity_tool.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -I$(SHAPE_DIR) $< -o $@ $(LDFLAGS)
 
-$(BUILD_DIR)/tools/%.o: $(TOOLS_DIR)/%.c
+$(PROGRAM_BUILD_DIR)/tools/%.o: $(TOOLS_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -Isrc -Isrc/Tools -MMD -MP -c $< -o $@
 
@@ -23,7 +23,7 @@ agent_scene_tool: $(AGENT_SCENE_TOOL_BIN)
 	@echo "Built agent_scene_tool successfully."
 
 shape_pack_tool:
-	@mkdir -p $(BIN_DIR)
+	@mkdir -p $(PROGRAM_BIN_DIR)
 	$(CC) $(CFLAGS) -o $(SHAPE_PACK_TOOL_BIN) $(SHAPE_PACK_TOOL_SRCS) $(LDFLAGS)
 
 shape_to_pack: shape_pack_tool
@@ -36,7 +36,7 @@ shape_to_pack: shape_pack_tool
 	$(SHAPE_PACK_TOOL_BIN) "$(LAYOUT)" "$(PACK)" --axis "$$axis"
 
 shape_trace_tool:
-	@mkdir -p $(BIN_DIR)
+	@mkdir -p $(PROGRAM_BIN_DIR)
 	$(CC) -std=c11 -Wall -Wextra -Wpedantic -g $(SHAPE_TRACE_TOOL_INCS) -o $(SHAPE_TRACE_TOOL_BIN) $(SHAPE_TRACE_TOOL_SRCS) -lm
 
 shape_to_trace: shape_trace_tool

@@ -13,7 +13,7 @@ make -C line_drawing agent_scene_tool
 ## Run
 
 ```bash
-line_drawing/build/bin/agent_scene_tool \
+./line_drawing/build/bin/agent_scene_tool \
   --request line_drawing/tests/fixtures/agent_room_prisms_request.json \
   --out line_drawing/tmp/agent_room_prisms \
   --determinism-check

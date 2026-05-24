@@ -1,4 +1,6 @@
 #include "UI/ui_panel_internal.h"
+#include "UI/ui_panel_file_summary.h"
+#include "UI/ui_panel_scene_list.h"
 
 #include "Core/global_state.h"
 #include "Editor/editor.h"
@@ -193,21 +195,7 @@ static bool UIPanel_QueryLeftPaneRect(SDL_Rect* out_rect) {
     return out_rect->w > 0 && out_rect->h > 0;
 }
 
-static int UIPanel_LoadMenuFontHeightPx(TTF_Font* font) {
-    int height = 14;
-    if (font && TTF_FontHeight(font) > 0) {
-        height = TTF_FontHeight(font);
-    }
-    return height;
-}
-
-static int UIPanel_LoadMenuLineGapPx(TTF_Font* font) {
-    int gap = UIPanel_LoadMenuFontHeightPx(font) / 3;
-    if (gap < 4) gap = 4;
-    return gap;
-}
-
-static bool UIPanel_GetLeftButtonLaneBounds(const UIPanelState* ui, SDL_Rect* out_rect) {
+static bool UIPanel_GetLeftFileButtonLaneBounds(const UIPanelState* ui, SDL_Rect* out_rect) {
     int min_x = INT_MAX;
     int min_y = INT_MAX;
     int max_x = 0;
@@ -218,6 +206,11 @@ static bool UIPanel_GetLeftButtonLaneBounds(const UIPanelState* ui, SDL_Rect* ou
     for (int i = 0; i < ui->count; ++i) {
         const UIButton* btn = &ui->buttons[i];
         if (btn->side != UI_PANEL_LEFT) continue;
+        if (btn->group != UI_PANEL_GROUP_LEFT_FILE_IO &&
+            btn->group != UI_PANEL_GROUP_LEFT_ROOT_PATHS) {
+            continue;
+        }
+        if (btn->bounds.w <= 0 || btn->bounds.h <= 0) continue;
         if (btn->bounds.x < min_x) min_x = btn->bounds.x;
         if (btn->bounds.y < min_y) min_y = btn->bounds.y;
         if (btn->bounds.x + btn->bounds.w > max_x) max_x = btn->bounds.x + btn->bounds.w;
@@ -229,30 +222,18 @@ static bool UIPanel_GetLeftButtonLaneBounds(const UIPanelState* ui, SDL_Rect* ou
     return true;
 }
 
-static bool UIPanel_GetLeftRootSummaryRect(const UIPanelState* ui, SDL_Rect* out_rect) {
-    SDL_Rect lane = {0, 0, 0, 0};
-    TTF_Font* font = FontManager_Get(FONT_DEFAULT);
-    int font_h = 14;
-    int line_gap = 4;
-    int panel_pad = 8;
+static bool UIPanel_GetLeftFileSummaryRect(const UIPanelState* ui, SDL_Rect* out_rect) {
     int panel_h = 0;
     if (!out_rect) return false;
     *out_rect = (SDL_Rect){0, 0, 0, 0};
-    if (!UIPanel_GetLeftButtonLaneBounds(ui, &lane)) return false;
+    if (!ui || ui->activeLeftTab != UI_PANEL_LEFT_TAB_FILE) return false;
+    if (ui->leftBodyRect.w <= 0 || ui->leftBodyRect.h <= 0) return false;
+    panel_h = UIPanel_FileSummaryReservedHeight(ui);
+    if (panel_h <= 0) return false;
 
-    font_h = UIPanel_LoadMenuFontHeightPx(font);
-    line_gap = UIPanel_LoadMenuLineGapPx(font);
-    panel_pad = font_h / 2;
-    if (panel_pad < 8) panel_pad = 8;
-    panel_h = (panel_pad * 2) + (font_h * 4) + (line_gap * 3);
-
-    *out_rect = (SDL_Rect){
-        lane.x,
-        lane.y + lane.h + UI_LOAD_MENU_SECTION_GAP_PX,
-        lane.w,
-        panel_h
-    };
-    return true;
+    *out_rect = ui->leftBodyRect;
+    out_rect->h = panel_h;
+    return out_rect->w > 0 && out_rect->h > 0;
 }
 
 static float UIPanel_LoadMenuContentHeight(const UIPanelState* ui) {
@@ -489,6 +470,8 @@ static bool UIPanel_OpenLoadMenuForRoot(UILoadMenuMode mode,
     ui->loadMenu.mode = mode;
     ui->loadMenu.anchorButtonId = anchor_button_id;
     snprintf(ui->loadMenu.rootPath, sizeof(ui->loadMenu.rootPath), "%s", selected_folder);
+    ui->activeLeftTab = UI_PANEL_LEFT_TAB_FILE;
+    UIPanel_OnWindowResized(Global_GetScreenWidth(), Global_GetScreenHeight());
     UIPanel_RefreshConfigList();
     if (ui->loadMenu.count <= 0) {
         if (previous_root[0]) {
@@ -595,7 +578,8 @@ bool UIPanel_IsLoadMenuOpen(void) {
 SDL_Rect UIPanel_GetLoadMenuRect(const UIPanelState* ui) {
     SDL_Rect button_rect = {12, InfoOverlay_HeightPx() + 44, 168, 26};
     SDL_Rect pane_rect = {0, 0, 0, 0};
-    SDL_Rect root_summary_rect = {0, 0, 0, 0};
+    SDL_Rect file_summary_rect = {0, 0, 0, 0};
+    SDL_Rect file_button_lane = {0, 0, 0, 0};
     UIPanelLayoutMetrics metrics = {0};
     int x = 12;
     int y = InfoOverlay_HeightPx() + 44;
@@ -612,13 +596,21 @@ SDL_Rect UIPanel_GetLoadMenuRect(const UIPanelState* ui) {
     if (pane_inset < 6) pane_inset = 6;
 
     if (ui && UIPanel_QueryLeftPaneRect(&pane_rect)) {
+        int content_bottom = 0;
         x = pane_rect.x + pane_inset;
         y = pane_rect.y + pane_inset;
         w = pane_rect.w - (pane_inset * 2);
         available_h = pane_rect.h - (pane_inset * 2);
 
-        if (UIPanel_GetLeftRootSummaryRect(ui, &root_summary_rect)) {
-            y = root_summary_rect.y + root_summary_rect.h + UI_LOAD_MENU_SECTION_GAP_PX;
+        if (UIPanel_GetLeftFileSummaryRect(ui, &file_summary_rect)) {
+            content_bottom = file_summary_rect.y + file_summary_rect.h;
+        }
+        if (UIPanel_GetLeftFileButtonLaneBounds(ui, &file_button_lane)) {
+            int lane_bottom = file_button_lane.y + file_button_lane.h;
+            if (lane_bottom > content_bottom) content_bottom = lane_bottom;
+        }
+        if (content_bottom > 0) {
+            y = content_bottom + UI_LOAD_MENU_SECTION_GAP_PX;
             available_h = (pane_rect.y + pane_rect.h - pane_inset) - y;
         }
 
@@ -790,6 +782,8 @@ void UIPanel_HandleMouseMotion(int mouseX, int mouseY) {
         state->editor.primitivePlacementPreview = preview;
         Global_FlagGridChanged();
     }
+
+    UIPanel_HandleSceneListMouseMotion(mouseX, mouseY);
 
     if (!ui || !ui->loadMenu.open) {
         if (ui) ui->loadMenu.hoverIndex = -1;

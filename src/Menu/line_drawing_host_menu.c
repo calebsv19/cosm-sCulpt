@@ -1185,16 +1185,65 @@ static bool line_drawing_host_menu_activate_browse_action(LineDrawingHostMenuSta
     }
 }
 
+static void line_drawing_host_menu_enter_catalog_for_current_root(
+    LineDrawingHostMenuState* state,
+    LineDrawingCatalogPreviewSourceKind preferred_kind) {
+    if (!state) return;
+    if (preferred_kind == LINE_DRAWING_CATALOG_PREVIEW_SOURCE_SCENE &&
+        state->catalog.scene_count > 0) {
+        state->selected_section = LINE_DRAWING_HOST_MENU_SECTION_SCENES;
+        state->focus_region = LINE_DRAWING_HOST_MENU_FOCUS_CONTENT;
+        if (state->selected_scene_index < 0) {
+            state->selected_scene_index = 0;
+        }
+        return;
+    }
+    if (preferred_kind == LINE_DRAWING_CATALOG_PREVIEW_SOURCE_LAYOUT &&
+        state->catalog.layout_count > 0) {
+        state->selected_section = LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS;
+        state->focus_region = LINE_DRAWING_HOST_MENU_FOCUS_CONTENT;
+        if (state->selected_layout_index < 0) {
+            state->selected_layout_index = 0;
+        }
+        return;
+    }
+    if (state->catalog.scene_count > 0) {
+        state->selected_section = LINE_DRAWING_HOST_MENU_SECTION_SCENES;
+        state->focus_region = LINE_DRAWING_HOST_MENU_FOCUS_CONTENT;
+        if (state->selected_scene_index < 0) {
+            state->selected_scene_index = 0;
+        }
+        return;
+    }
+    if (state->catalog.layout_count > 0) {
+        state->selected_section = LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS;
+        state->focus_region = LINE_DRAWING_HOST_MENU_FOCUS_CONTENT;
+        if (state->selected_layout_index < 0) {
+            state->selected_layout_index = 0;
+        }
+        return;
+    }
+    if (state->browser.entry_count > 0 && state->selected_browser_index < 0) {
+        state->selected_browser_index = 0;
+    }
+}
+
 static bool line_drawing_host_menu_activate_browser_entry(LineDrawingHostMenuState* state) {
     const LineDrawingRootBrowserEntry* entry = line_drawing_host_menu_selected_browser_entry(state);
+    LineDrawingCatalogPreviewSourceKind preferred_kind =
+        LINE_DRAWING_CATALOG_PREVIEW_SOURCE_LAYOUT;
     if (!state || !entry || !entry->enabled) return false;
+    preferred_kind = entry->preview_kind;
 
     switch (entry->kind) {
         case LINE_DRAWING_ROOT_BROWSER_ENTRY_NEARBY_INPUT_ROOT:
             if (Global_SetInputRoot(entry->path, true)) {
                 snprintf(state->browser.current_path, sizeof(state->browser.current_path), "%s", entry->path);
                 line_drawing_host_menu_refresh_catalog(state);
-                line_drawing_host_menu_set_status(state, "Input root switched to nearby scene-like directory.", false);
+                line_drawing_host_menu_enter_catalog_for_current_root(state, preferred_kind);
+                line_drawing_host_menu_set_status(state,
+                                                  "Input root switched and opened the catalog for the nearby directory.",
+                                                  false);
             } else {
                 line_drawing_host_menu_set_status(state, "Failed to update input root.", true);
             }
