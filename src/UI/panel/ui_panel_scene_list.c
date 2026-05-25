@@ -14,6 +14,8 @@
 #include <string.h>
 
 enum {
+    UI_SCENE_LIST_DOUBLE_CLICK_MS = 350,
+    UI_SCENE_LIST_CONTENT_INSET = 3,
     UI_SCENE_LIST_SCROLLBAR_W = 6,
     UI_SCENE_LIST_SCROLLBAR_GUTTER = 5,
     UI_SCENE_LIST_SCROLLBAR_MIN_THUMB_H = 12
@@ -71,6 +73,7 @@ static size_t UIPanelSceneList_LiveObjectCount(const LayoutObjectStore* store) {
 
 static void UIPanelSceneList_ClampScroll(UIPanelState* ui, const LayoutObjectStore* store);
 static bool UIPanelSceneList_HasScrollbar(const UIPanelState* ui, const LayoutObjectStore* store);
+static SDL_Rect UIPanelSceneList_ScrollTrackRect(const UIPanelState* ui);
 
 static const Object3D* UIPanelSceneList_ObjectAtVisibleIndex(const LayoutObjectStore* store, int visibleIndex) {
     int current = 0;
@@ -94,14 +97,14 @@ static SDL_Rect UIPanelSceneList_ListRect(const UIPanelState* ui) {
 static SDL_Rect UIPanelSceneList_ContentClipRect(const UIPanelState* ui,
                                                  const LayoutObjectStore* store) {
     SDL_Rect clip = UIPanelSceneList_ListRect(ui);
-    const int contentInset = 3;
     if (clip.w <= 0 || clip.h <= 0) return clip;
-    clip.x += contentInset;
-    clip.y += contentInset;
-    clip.w -= contentInset * 2;
-    clip.h -= contentInset * 2;
+    clip.x += UI_SCENE_LIST_CONTENT_INSET;
+    clip.y += UI_SCENE_LIST_CONTENT_INSET;
+    clip.w -= UI_SCENE_LIST_CONTENT_INSET * 2;
+    clip.h -= UI_SCENE_LIST_CONTENT_INSET * 2;
     if (UIPanelSceneList_HasScrollbar(ui, store)) {
-        clip.w -= UI_SCENE_LIST_SCROLLBAR_W + UI_SCENE_LIST_SCROLLBAR_GUTTER;
+        SDL_Rect track = UIPanelSceneList_ScrollTrackRect(ui);
+        clip.w = (track.x - UI_SCENE_LIST_SCROLLBAR_GUTTER) - clip.x;
     }
     if (clip.w < 0) clip.w = 0;
     if (clip.h < 0) clip.h = 0;
@@ -134,10 +137,10 @@ static bool UIPanelSceneList_HasScrollbar(const UIPanelState* ui, const LayoutOb
 static SDL_Rect UIPanelSceneList_ScrollTrackRect(const UIPanelState* ui) {
     SDL_Rect listRect = UIPanelSceneList_ListRect(ui);
     SDL_Rect track = {
-        listRect.x + listRect.w - UI_SCENE_LIST_SCROLLBAR_W,
-        listRect.y + 2,
+        listRect.x + listRect.w - UI_SCENE_LIST_CONTENT_INSET - UI_SCENE_LIST_SCROLLBAR_W,
+        listRect.y + UI_SCENE_LIST_CONTENT_INSET,
         UI_SCENE_LIST_SCROLLBAR_W,
-        listRect.h - 4
+        listRect.h - (UI_SCENE_LIST_CONTENT_INSET * 2)
     };
     if (track.h < 0) track.h = 0;
     return track;
@@ -250,13 +253,13 @@ static int UIPanelSceneList_RowIndexAtPoint(const UIPanelState* ui,
                                             const LayoutObjectStore* store,
                                             int mouseX,
                                             int mouseY) {
-    SDL_Rect listRect = UIPanelSceneList_ListRect(ui);
+    SDL_Rect contentClip = UIPanelSceneList_ContentClipRect(ui, store);
     const int rowGap = UIPanelSceneList_RowGap();
     float contentY = 0.0f;
     float cursorY = 0.0f;
     if (!ui || !store) return -1;
-    if (!UIPanelSceneList_PointInRect(mouseX, mouseY, listRect)) return -1;
-    contentY = (float)(mouseY - listRect.y) + ui->sceneList.scrollOffsetPx;
+    if (!UIPanelSceneList_PointInRect(mouseX, mouseY, contentClip)) return -1;
+    contentY = (float)(mouseY - contentClip.y) + ui->sceneList.scrollOffsetPx;
     for (int rowIndex = 0;; ++rowIndex) {
         const Object3D* object = UIPanelSceneList_ObjectAtVisibleIndex(store, rowIndex);
         float rowH = 0.0f;
@@ -287,6 +290,25 @@ static void UIPanelSceneList_SelectObject(uint32_t objectId) {
     Global_FlagHitboxesDirty();
 }
 
+static bool UIPanelSceneList_IsDoubleClick(UIPanelState* ui, uint32_t objectId, Uint32 now_ticks) {
+    if (!ui || objectId == 0u) return false;
+    return ui->sceneList.lastClickedObjectId == objectId &&
+           now_ticks >= ui->sceneList.lastClickTicks &&
+           (now_ticks - ui->sceneList.lastClickTicks) <= UI_SCENE_LIST_DOUBLE_CLICK_MS;
+}
+
+static void UIPanelSceneList_RememberClick(UIPanelState* ui, uint32_t objectId, Uint32 now_ticks) {
+    if (!ui) return;
+    ui->sceneList.lastClickedObjectId = objectId;
+    ui->sceneList.lastClickTicks = now_ticks;
+}
+
+static void UIPanelSceneList_ClearClickMemory(UIPanelState* ui) {
+    if (!ui) return;
+    ui->sceneList.lastClickedObjectId = 0u;
+    ui->sceneList.lastClickTicks = 0u;
+}
+
 void UIPanel_SceneListClearSelection(void) {
     GlobalState* state = Global_Get();
     UIPanelState* ui = UIPanel_Get();
@@ -308,6 +330,7 @@ void UIPanel_SceneListClearSelection(void) {
     editor->isResizingSceneBounds = false;
     if (ui) {
         ui->sceneList.expandedObjectId = 0u;
+        UIPanelSceneList_ClearClickMemory(ui);
     }
     Global_FlagHitboxesDirty();
 }
@@ -332,8 +355,10 @@ bool UIPanel_HandleSceneListClick(int mouseX, int mouseY) {
     SDL_Rect listRect = {0};
     int rowIndex = -1;
     const Object3D* object = NULL;
+    Uint32 now_ticks = 0u;
     if (!ui || !state) return false;
     if (ui->activeLeftTab != UI_PANEL_LEFT_TAB_SCENE) return false;
+    now_ticks = SDL_GetTicks();
     listRect = UIPanelSceneList_ListRect(ui);
     if (!UIPanelSceneList_PointInRect(mouseX, mouseY, listRect)) return false;
 
@@ -356,13 +381,22 @@ bool UIPanel_HandleSceneListClick(int mouseX, int mouseY) {
     if (rowIndex >= 0) {
         object = UIPanelSceneList_ObjectAtVisibleIndex(&state->layout.objectStore, rowIndex);
         if (object) {
-            if (ui->sceneList.expandedObjectId == object->objectId) {
-                ui->sceneList.expandedObjectId = 0u;
-            } else {
-                ui->sceneList.expandedObjectId = object->objectId;
-            }
+            const bool is_double_click =
+                UIPanelSceneList_IsDoubleClick(ui, object->objectId, now_ticks);
             UIPanelSceneList_SelectObject(object->objectId);
+            if (is_double_click) {
+                if (ui->sceneList.expandedObjectId == object->objectId) {
+                    ui->sceneList.expandedObjectId = 0u;
+                } else {
+                    ui->sceneList.expandedObjectId = object->objectId;
+                }
+                UIPanelSceneList_ClearClickMemory(ui);
+            } else {
+                UIPanelSceneList_RememberClick(ui, object->objectId, now_ticks);
+            }
         }
+    } else {
+        UIPanelSceneList_ClearClickMemory(ui);
     }
     return true;
 }
@@ -401,7 +435,7 @@ void UIPanel_HandleSceneListMouseMotion(int mouseX, int mouseY) {
 
 void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
     GlobalState* state = Global_Get();
-    LineDrawing3dThemePalette palette = {0};
+    UIPanelVisualPalette palette = {0};
     SDL_Color labelColor = {200, 200, 210, 255};
     SDL_Color valueColor = {230, 230, 235, 255};
     SDL_Color accentColor = {140, 170, 210, 255};
@@ -425,17 +459,17 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
     if (ui->activeLeftTab != UI_PANEL_LEFT_TAB_SCENE) return;
     if (ui->leftBodyRect.w <= 0 || ui->leftBodyRect.h <= 0) return;
 
-    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
+    if (UIPanelVisual_ResolvePalette(&palette)) {
         labelColor = palette.text_muted;
         valueColor = palette.text_primary;
-        accentColor = palette.button_border;
-        rowFill = palette.panel_fill;
-        rowBorder = palette.panel_border;
+        accentColor = palette.accent;
+        rowFill = palette.workspace_fill;
+        rowBorder = palette.pane_border;
         selectedFill = palette.button_fill;
         selectedBorder = palette.button_border;
         hoverFill = palette.button_fill;
         hoverFill.a = 180;
-        scrollbarTrackColor = palette.panel_fill;
+        scrollbarTrackColor = palette.workspace_fill;
         scrollbarTrackColor.a = 180;
         scrollbarThumbColor = palette.button_border;
     }
@@ -452,7 +486,7 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
                                 rowFill,
                                 rowBorder,
                                 accentColor,
-                                4);
+                                0);
         listInner.x += 1;
         listInner.y += 1;
         listInner.w -= 2;
@@ -467,9 +501,9 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
         UIPanelSummary_DrawTextClipped(renderer,
                                        font,
                                        "No authored plane/prism objects yet.",
-                                       listRect.x + metrics.pad_x,
-                                       listRect.y + metrics.pad_y,
-                                       listRect.w - (metrics.pad_x * 2),
+                                       contentClip.x + metrics.pad_x,
+                                       contentClip.y + metrics.pad_y,
+                                       contentClip.w - (metrics.pad_x * 2),
                                        fontH + 4,
                                        labelColor);
         return;

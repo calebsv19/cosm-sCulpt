@@ -1,24 +1,11 @@
 #include "UI/ui_panel_object_layout.h"
 
+#include "UI/ui_panel_right_controls.h"
 #include "UI/ui_panel_object_inspector.h"
 
 enum {
-    UI_OBJECT_PANE_SECTION_GAP = 6,
-    UI_OBJECT_PANE_ACTION_ROW_COUNT = 1,
-    UI_OBJECT_PANE_PRISM_ROW_COUNT = 1,
-    UI_OBJECT_PANE_GIZMO_ROW_COUNT = 1,
-    UI_OBJECT_PANE_TRANSFORM_ROW_COUNT = 2
+    UI_OBJECT_PANE_SECTION_GAP = 6
 };
-
-static int UIPanelObjectPane_GroupHeightForRows(int header_height,
-                                                int button_height,
-                                                int button_spacing,
-                                                int row_count) {
-    if (row_count <= 0) return 0;
-    return header_height +
-           (button_height * row_count) +
-           (button_spacing * (row_count - 1));
-}
 
 void UIPanel_UpdateObjectPaneLayout(UIPanelState* ui) {
     UIPanelLayoutMetrics metrics = {0};
@@ -53,22 +40,10 @@ void UIPanel_UpdateObjectPaneLayout(UIPanelState* ui) {
     UIPanel_GetLayoutMetrics(&metrics);
     summary_height = UIPanel_ObjectInspectorReservedHeight(ui);
     details_height = UIPanel_ObjectInspectorDetailsHeight(ui);
-    actions_height = UIPanelObjectPane_GroupHeightForRows(metrics.group_header_height_px,
-                                                          metrics.button_height_px,
-                                                          metrics.button_spacing_px,
-                                                          UI_OBJECT_PANE_ACTION_ROW_COUNT);
-    prism_height = UIPanelObjectPane_GroupHeightForRows(metrics.group_header_height_px,
-                                                        metrics.button_height_px,
-                                                        metrics.button_spacing_px,
-                                                        UI_OBJECT_PANE_PRISM_ROW_COUNT);
-    gizmo_height = UIPanelObjectPane_GroupHeightForRows(metrics.group_header_height_px,
-                                                        metrics.button_height_px,
-                                                        metrics.button_spacing_px,
-                                                        UI_OBJECT_PANE_GIZMO_ROW_COUNT);
-    transform_height = UIPanelObjectPane_GroupHeightForRows(metrics.group_header_height_px,
-                                                            metrics.button_height_px,
-                                                            metrics.button_spacing_px,
-                                                            UI_OBJECT_PANE_TRANSFORM_ROW_COUNT);
+    actions_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS);
+    prism_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_PRISM);
+    gizmo_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_GIZMO);
+    transform_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_TRANSFORM);
 
     summary_top = ui->rightBodyRect.y;
     details_top = summary_top + summary_height + UI_OBJECT_PANE_SECTION_GAP;

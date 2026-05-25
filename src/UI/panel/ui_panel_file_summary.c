@@ -98,40 +98,40 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     panel_pad = metrics.pad_y;
     y = panel.y + panel_pad;
 
-    UIPanelSummary_DrawText(renderer, font, "File / Session", panel.x + metrics.pad_x, y, label_color);
+    UIPanelSummary_DrawText(renderer, font, "File", panel.x + metrics.pad_x, y, label_color);
     y += font_h + line_gap;
 
     snprintf(line_layout_scene,
              sizeof(line_layout_scene),
-             "Layout %s | Scene %s",
+             "Layout %s   Scene %s",
              UIPanelFileSummary_BaseName(Global_GetCurrentConfigPath()),
              UIPanelFileSummary_BaseName(Global_GetCurrentSceneAuthoringPath()));
     snprintf(line_input,
              sizeof(line_input),
-             "Session In %s",
+             "Input  %s",
              Global_GetInputRoot() ? Global_GetInputRoot() : "(unset)");
     snprintf(line_output,
              sizeof(line_output),
-             "Output %s",
+             "Output  %s",
              Global_GetOutputRoot() ? Global_GetOutputRoot() : "(unset)");
     if (UIPanel_GetFileBrowserSelectionInfo(ui, &browser_state, &browser_path)) {
         snprintf(line_status_browser,
                  sizeof(line_status_browser),
-                 "Status %s  Browser %s %s",
+                 "Status  %s   Browser %s %s",
                  state->layoutDirtySinceSave ? "Modified" : "Clean",
                  browser_state == UI_LOAD_MENU_SELECTION_ACTIVE_SESSION ? "Active" : "Remembered",
                  UIPanelFileSummary_BaseName(browser_path));
     } else {
         snprintf(line_status_browser,
                  sizeof(line_status_browser),
-                 "Status %s  Browser %s %s",
+                 "Status  %s   Browser %s %s",
                  state->layoutDirtySinceSave ? "Modified" : "Clean",
                  UIPanelFileSummary_ModeLabel(ui->loadMenu.mode),
                  ui->loadMenu.count > 0 ? "No row selected" : "No entries");
     }
     snprintf(line_browser_root,
              sizeof(line_browser_root),
-             "Browse In %s",
+             "Browser  %s",
              ui->loadMenu.rootPath[0] ? ui->loadMenu.rootPath : "(mode root unset)");
 
     UIPanelSummary_DrawTextClipped(renderer, font, line_layout_scene, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), font_h + 4, accent_color);

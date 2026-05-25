@@ -296,6 +296,48 @@ static const char* UIPanel_GroupTitle(UIPanelGroup group, UIPanelSide side) {
     }
 }
 
+static SDL_Rect UIPanel_GroupSectionRect(const UIPanelState* ui,
+                                         UIPanelSide side,
+                                         UIPanelGroup group) {
+    SDL_Rect zero = {0, 0, 0, 0};
+    if (!ui) return zero;
+    if (side == UI_PANEL_LEFT) {
+        switch (group) {
+            case UI_PANEL_GROUP_LEFT_SCENE_SELECTION:
+                return (ui->activeLeftTab == UI_PANEL_LEFT_TAB_SCENE) ? ui->scenePane.selectionRect : zero;
+            case UI_PANEL_GROUP_LEFT_SCENE_BOUNDS:
+                return (ui->activeLeftTab == UI_PANEL_LEFT_TAB_SCENE) ? ui->scenePane.boundsRect : zero;
+            case UI_PANEL_GROUP_LEFT_FILE_IO:
+                return (ui->activeLeftTab == UI_PANEL_LEFT_TAB_FILE) ? ui->filePane.fileActionsRect : zero;
+            case UI_PANEL_GROUP_LEFT_ROOT_PATHS:
+                return (ui->activeLeftTab == UI_PANEL_LEFT_TAB_FILE) ? ui->filePane.rootPathsRect : zero;
+            default:
+                return zero;
+        }
+    }
+
+    switch (group) {
+        case UI_PANEL_GROUP_RIGHT_VIEW:
+            return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) ? ui->viewPane.viewRect : zero;
+        case UI_PANEL_GROUP_RIGHT_MODES:
+            return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) ? ui->viewPane.modesRect : zero;
+        case UI_PANEL_GROUP_RIGHT_PRIMITIVES:
+            return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) ? ui->createPane.primitivesRect : zero;
+        case UI_PANEL_GROUP_RIGHT_CONSTRUCTION:
+            return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) ? ui->createPane.constructionRect : zero;
+        case UI_PANEL_GROUP_RIGHT_PRISM:
+            return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) ? ui->objectPane.prismRect : zero;
+        case UI_PANEL_GROUP_RIGHT_GIZMO:
+            return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) ? ui->objectPane.gizmoRect : zero;
+        case UI_PANEL_GROUP_RIGHT_TRANSFORM:
+            return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) ? ui->objectPane.transformRect : zero;
+        case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS:
+            return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) ? ui->objectPane.actionsRect : zero;
+        default:
+            return zero;
+    }
+}
+
 static void DrawGroupSection(SDL_Renderer* renderer,
                              const UIPanelState* ui,
                              UIPanelSide side,
@@ -317,18 +359,28 @@ static void DrawGroupSection(SDL_Renderer* renderer,
     int title_band_h = 16;
     int title_w = 0;
     SDL_Rect title_chip = { bounds.x + 6, bounds.y + 3, 0, 0 };
+    SDL_Rect explicit_rect = {0, 0, 0, 0};
 
     if (!renderer || !ui || first_index < 0 || last_index < first_index) return;
 
-    for (int i = first_index; i <= last_index && i < ui->count; ++i) {
-        const UIButton* btn = &ui->buttons[i];
-        if (btn->side != side || btn->group != group) continue;
-        if (btn->bounds.x < min_x) min_x = btn->bounds.x;
-        if (btn->bounds.y < min_y) min_y = btn->bounds.y;
-        if (btn->bounds.x + btn->bounds.w > max_x) max_x = btn->bounds.x + btn->bounds.w;
-        if (btn->bounds.y + btn->bounds.h > max_y) max_y = btn->bounds.y + btn->bounds.h;
+    explicit_rect = UIPanel_GroupSectionRect(ui, side, group);
+    if (explicit_rect.w > 0 && explicit_rect.h > 0) {
+        bounds = explicit_rect;
+    } else {
+        for (int i = first_index; i <= last_index && i < ui->count; ++i) {
+            const UIButton* btn = &ui->buttons[i];
+            if (btn->side != side || btn->group != group) continue;
+            if (btn->bounds.x < min_x) min_x = btn->bounds.x;
+            if (btn->bounds.y < min_y) min_y = btn->bounds.y;
+            if (btn->bounds.x + btn->bounds.w > max_x) max_x = btn->bounds.x + btn->bounds.w;
+            if (btn->bounds.y + btn->bounds.h > max_y) max_y = btn->bounds.y + btn->bounds.h;
+        }
+        if (min_x == INT_MAX || max_x <= min_x || max_y <= min_y) return;
+        bounds.x = min_x - 4;
+        bounds.y = min_y - title_band_h;
+        bounds.w = (max_x - min_x) + 8;
+        bounds.h = (max_y - min_y) + title_band_h + 4;
     }
-    if (min_x == INT_MAX || max_x <= min_x || max_y <= min_y) return;
 
     (void)UIPanelVisual_ResolvePalette(&palette);
     title_color = palette.text_muted;
@@ -340,10 +392,6 @@ static void DrawGroupSection(SDL_Renderer* renderer,
     font = FontManager_GetUIPanelFont();
     metrics = UIPanelVisual_MakeMetrics(font);
     title_band_h = metrics.chip_h + 2;
-    bounds.x = min_x - 4;
-    bounds.y = min_y - title_band_h;
-    bounds.w = (max_x - min_x) + 8;
-    bounds.h = (max_y - min_y) + title_band_h + 4;
     title_chip.x = bounds.x + metrics.pad_x - 2;
     title_chip.y = bounds.y + 3;
 

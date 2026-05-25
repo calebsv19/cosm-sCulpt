@@ -20,6 +20,7 @@ typedef struct UIPanelVisualMetrics {
 
 typedef struct UIPanelVisualPalette {
     SDL_Color pane_fill;
+    SDL_Color workspace_fill;
     SDL_Color pane_border;
     SDL_Color pane_divider;
     SDL_Color button_fill;

@@ -1,22 +1,11 @@
 #include "UI/ui_panel_create_layout.h"
 
+#include "UI/ui_panel_right_controls.h"
 #include "UI/ui_panel_create_summary.h"
 
 enum {
-    UI_CREATE_PANE_SECTION_GAP = 8,
-    UI_CREATE_PANE_PRIMITIVE_ROW_COUNT = 1,
-    UI_CREATE_PANE_CONSTRUCTION_ROW_COUNT = 2
+    UI_CREATE_PANE_SECTION_GAP = 8
 };
-
-static int UIPanelCreatePane_GroupHeightForRows(int header_height,
-                                                int button_height,
-                                                int button_spacing,
-                                                int row_count) {
-    if (row_count <= 0) return 0;
-    return header_height +
-           (button_height * row_count) +
-           (button_spacing * (row_count - 1));
-}
 
 void UIPanel_UpdateCreatePaneLayout(UIPanelState* ui) {
     UIPanelLayoutMetrics metrics = {0};
@@ -39,14 +28,8 @@ void UIPanel_UpdateCreatePaneLayout(UIPanelState* ui) {
 
     UIPanel_GetLayoutMetrics(&metrics);
     summary_height = UIPanel_CreateSummaryReservedHeight(ui);
-    primitives_height = UIPanelCreatePane_GroupHeightForRows(metrics.group_header_height_px,
-                                                             metrics.button_height_px,
-                                                             metrics.button_spacing_px,
-                                                             UI_CREATE_PANE_PRIMITIVE_ROW_COUNT);
-    construction_height = UIPanelCreatePane_GroupHeightForRows(metrics.group_header_height_px,
-                                                               metrics.button_height_px,
-                                                               metrics.button_spacing_px,
-                                                               UI_CREATE_PANE_CONSTRUCTION_ROW_COUNT);
+    primitives_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_PRIMITIVES);
+    construction_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_CONSTRUCTION);
 
     ui->createPane.summaryRect = (SDL_Rect){
         ui->rightBodyRect.x,

@@ -96,7 +96,8 @@ static bool test_scene_list_click_selects_first_object(void) {
 
     TEST_ASSERT(UIPanel_HandleClick(click_x, click_y));
     TEST_ASSERT(state->editor.selectedObject3DId == plane_id);
-    TEST_ASSERT(ui->sceneList.expandedObjectId == plane_id);
+    TEST_ASSERT(ui->sceneList.expandedObjectId == 0u);
+    TEST_ASSERT(ui->sceneList.lastClickedObjectId == plane_id);
     TEST_ASSERT(state->editor.selectedWallIndex == -1);
     TEST_ASSERT(state->editor.selectedAnchorIndex == -1);
 
@@ -160,7 +161,7 @@ static bool test_scene_list_scrollbar_drag_updates_scroll_offset(void) {
         SDL_Rect list_rect = {0};
         TEST_ASSERT(UIPanel_GetScenePaneRects(ui, NULL, &list_rect, NULL, NULL));
         list_y = list_rect.y;
-        track_x = list_rect.x + list_rect.w - 2;
+        track_x = list_rect.x + list_rect.w - 5;
     }
     track_y = list_y + 8;
     drag_y = ui->scenePane.listRect.y + ui->scenePane.listRect.h - 24;
@@ -255,7 +256,7 @@ static bool test_scene_list_selection_buttons_clear_and_delete(void) {
     return true;
 }
 
-static bool test_scene_list_row_second_click_collapses_expanded_object(void) {
+static bool test_scene_list_double_click_toggles_expanded_object(void) {
     GlobalState* state = NULL;
     UIPanelState* ui = NULL;
     PlanePrimitiveCreateParams plane = {0};
@@ -291,6 +292,10 @@ static bool test_scene_list_row_second_click_collapses_expanded_object(void) {
     ld_test_scene_list_first_row_point(ui, &click_x, &click_y);
 
     TEST_ASSERT(UIPanel_HandleClick(click_x, click_y));
+    TEST_ASSERT(ui->sceneList.expandedObjectId == 0u);
+    TEST_ASSERT(UIPanel_HandleClick(click_x, click_y));
+    TEST_ASSERT(ui->sceneList.expandedObjectId == object_id);
+    TEST_ASSERT(UIPanel_HandleClick(click_x, click_y));
     TEST_ASSERT(ui->sceneList.expandedObjectId == object_id);
     TEST_ASSERT(UIPanel_HandleClick(click_x, click_y));
     TEST_ASSERT(ui->sceneList.expandedObjectId == 0u);
@@ -308,8 +313,8 @@ bool ui_panel_scene_list_run_tests(void) {
           test_scene_list_scrollbar_drag_updates_scroll_offset },
         { "scene_list_selection_buttons_clear_and_delete",
           test_scene_list_selection_buttons_clear_and_delete },
-        { "scene_list_row_second_click_collapses_expanded_object",
-          test_scene_list_row_second_click_collapses_expanded_object },
+        { "scene_list_double_click_toggles_expanded_object",
+          test_scene_list_double_click_toggles_expanded_object },
         { "scene_pane_sections_reserve_visible_list_space",
           test_scene_pane_sections_reserve_visible_list_space },
     };

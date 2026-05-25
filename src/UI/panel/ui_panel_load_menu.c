@@ -819,7 +819,7 @@ bool UIPanel_RestorePersistedFileSession(void) {
 }
 
 void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
-    LineDrawing3dThemePalette palette = {0};
+    UIPanelVisualPalette palette = {0};
     SDL_Color label_color = {200, 200, 210, 255};
     SDL_Color value_color = {230, 230, 235, 255};
     SDL_Color accent_color = {140, 170, 210, 255};
@@ -855,16 +855,16 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
                       ? "No JSON files found in the current input root."
                       : "No scene entries found in the current input root.";
 
-    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
+    if (UIPanelVisual_ResolvePalette(&palette)) {
         label_color = palette.text_muted;
         value_color = palette.text_primary;
-        accent_color = palette.button_border;
-        panel_fill = palette.panel_fill;
-        panel_fill.a = 165;
-        panel_border = palette.panel_border;
-        active_fill = UIPanelVisual_BlendColor(palette.panel_fill, palette.button_border, 102);
+        accent_color = palette.accent;
+        panel_fill = palette.workspace_fill;
+        panel_fill.a = palette.workspace_fill.a;
+        panel_border = palette.pane_border;
+        active_fill = UIPanelVisual_BlendColor(palette.workspace_fill, palette.button_border, 102);
         active_fill.a = 188;
-        hover_fill = UIPanelVisual_BlendColor(palette.panel_fill, palette.button_border, 48);
+        hover_fill = UIPanelVisual_BlendColor(palette.workspace_fill, palette.button_border, 48);
         hover_fill.a = 150;
         if ((((int)active_fill.r * 299) + ((int)active_fill.g * 587) + ((int)active_fill.b * 114)) / 1000 > 180) {
             active_fill.r = (Uint8)(((int)active_fill.r > 48) ? ((int)active_fill.r - 48) : 0);

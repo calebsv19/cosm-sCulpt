@@ -19,6 +19,21 @@ void UIPanelSummary_DrawTextClipped(SDL_Renderer* renderer,
                                     int clip_height,
                                     SDL_Color color);
 
+int UIPanelSummary_CountWrappedLines(TTF_Font* font,
+                                     const char* text,
+                                     int max_width);
+
+int UIPanelSummary_DrawWrappedText(SDL_Renderer* renderer,
+                                   TTF_Font* font,
+                                   const char* text,
+                                   int x,
+                                   int y,
+                                   int max_width,
+                                   int line_height,
+                                   int line_gap,
+                                   int max_lines,
+                                   SDL_Color color);
+
 void UIPanelSummary_DrawCard(SDL_Renderer* renderer,
                              SDL_Rect rect,
                              SDL_Color fill_color,

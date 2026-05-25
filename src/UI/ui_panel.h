@@ -196,6 +196,8 @@ typedef struct {
         float scrollOffsetPx;
         int hoverIndex;
         uint32_t expandedObjectId;
+        uint32_t lastClickedObjectId;
+        Uint32 lastClickTicks;
         bool scrollbarDragging;
         int scrollbarDragStartY;
         float scrollbarDragStartOffsetPx;

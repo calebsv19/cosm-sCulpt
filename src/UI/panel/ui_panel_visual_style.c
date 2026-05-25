@@ -39,6 +39,7 @@ bool UIPanelVisual_ResolvePalette(UIPanelVisualPalette* out_palette) {
     LineDrawing3dThemePalette palette = {0};
     UIPanelVisualPalette resolved = {
         .pane_fill = {18, 20, 25, 215},
+        .workspace_fill = {14, 16, 20, 222},
         .pane_border = {78, 90, 108, 220},
         .pane_divider = {62, 72, 88, 210},
         .button_fill = {70, 70, 70, 200},
@@ -53,6 +54,10 @@ bool UIPanelVisual_ResolvePalette(UIPanelVisualPalette* out_palette) {
     if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
         resolved.pane_fill = palette.panel_fill;
         resolved.pane_fill.a = 215;
+        resolved.workspace_fill = UIPanelVisual_BlendColor(palette.panel_fill,
+                                                           (SDL_Color){0, 0, 0, 255},
+                                                           72);
+        resolved.workspace_fill.a = 222;
         resolved.pane_border = palette.panel_border;
         resolved.pane_divider = UIPanelVisual_AdjustColor(palette.panel_border, -10, -20);
         resolved.button_fill = palette.button_fill;
@@ -62,6 +67,10 @@ bool UIPanelVisual_ResolvePalette(UIPanelVisualPalette* out_palette) {
         resolved.text_primary = palette.button_text;
         resolved.text_muted = palette.text_muted;
         resolved.accent = palette.button_border;
+    }
+
+    if (UIPanelVisual_ColorLuma(resolved.workspace_fill) >= UIPanelVisual_ColorLuma(resolved.pane_fill)) {
+        resolved.workspace_fill = UIPanelVisual_AdjustColor(resolved.pane_fill, -6, 8);
     }
 
     if (out_palette) *out_palette = resolved;

@@ -29,7 +29,7 @@ static int UIPanelObjectInspector_PanelPad(void) {
 
 enum {
     UI_OBJECT_INSPECTOR_SUMMARY_LINE_COUNT = 4,
-    UI_OBJECT_INSPECTOR_DETAILS_LINE_COUNT = 7
+    UI_OBJECT_INSPECTOR_DETAILS_LINE_COUNT = 12
 };
 
 static void UIPanelObjectInspector_DrawTextClipped(SDL_Renderer* renderer,
@@ -47,6 +47,31 @@ static void UIPanelObjectInspector_DrawTextClipped(SDL_Renderer* renderer,
                                    max_width,
                                    UIPanelVisual_MakeMetrics(font).line_h,
                                    color);
+}
+
+static int UIPanelObjectInspector_DrawWrappedLine(SDL_Renderer* renderer,
+                                                  TTF_Font* font,
+                                                  const char* text,
+                                                  SDL_Rect panel,
+                                                  int y,
+                                                  int font_h,
+                                                  int line_gap,
+                                                  SDL_Color color) {
+    int max_lines = 0;
+    int content_bottom = panel.y + panel.h - UIPanelVisual_MakeMetrics(font).pad_y;
+    if (!renderer || !font || !text || !text[0]) return 0;
+    max_lines = (content_bottom - y + line_gap) / (font_h + line_gap);
+    if (max_lines <= 0) return 0;
+    return UIPanelSummary_DrawWrappedText(renderer,
+                                          font,
+                                          text,
+                                          panel.x + UIPanelVisual_MakeMetrics(font).pad_x,
+                                          y,
+                                          panel.w - (UIPanelVisual_MakeMetrics(font).pad_x * 2),
+                                          font_h,
+                                          line_gap,
+                                          max_lines,
+                                          color);
 }
 
 static const char* UIPanelObjectInspector_KindLabel(Object3DKind kind) {
@@ -138,7 +163,7 @@ static void UIPanelObjectInspector_DrawSummaryCard(const UIPanelState* ui,
     UIPanelSummary_DrawCard(renderer, panel, fill_color, border_color, accent_color, metrics.accent_h);
     y = panel.y + metrics.pad_y;
 
-    UIPanelSummary_DrawText(renderer, font, "Selected Object", panel.x + metrics.pad_x, y, label_color);
+    UIPanelSummary_DrawText(renderer, font, "Object", panel.x + metrics.pad_x, y, label_color);
     y += font_h + line_gap;
 
     if (!object) {
@@ -152,7 +177,7 @@ static void UIPanelObjectInspector_DrawSummaryCard(const UIPanelState* ui,
         y += font_h + line_gap;
         UIPanelObjectInspector_DrawTextClipped(renderer,
                                                font,
-                                               "Pick from the Scene list or click an object origin in the viewport.",
+                                               "Select in Scene or click in the viewport.",
                                                panel.x + metrics.pad_x,
                                                y,
                                                panel.w - (metrics.pad_x * 2),
@@ -160,7 +185,7 @@ static void UIPanelObjectInspector_DrawSummaryCard(const UIPanelState* ui,
         y += font_h + line_gap;
         UIPanelObjectInspector_DrawTextClipped(renderer,
                                                font,
-                                               "Use Create for new geometry, then return here for object-local edits.",
+                                               "Use Create for new geometry.",
                                                panel.x + metrics.pad_x,
                                                y,
                                                panel.w - (metrics.pad_x * 2),
@@ -170,18 +195,18 @@ static void UIPanelObjectInspector_DrawSummaryCard(const UIPanelState* ui,
 
     snprintf(line_identity,
              sizeof(line_identity),
-             "#%u  %s   %s",
+             "#%u  %s",
              object->objectId,
-             UIPanelObjectInspector_KindLabel(object->kind),
-             object->coreMeta.object_id);
+             UIPanelObjectInspector_KindLabel(object->kind));
     snprintf(line_context,
              sizeof(line_context),
-             "%s   Locked plane %s",
+             "%s   Plane %s",
              UIPanelObjectInspector_DimensionalModeLabel(object->coreMeta.dimensional_mode),
              UIPanelObjectInspector_CorePlaneLabel(object->coreMeta.locked_plane));
     snprintf(line_selection,
              sizeof(line_selection),
-             "Use the sections below for typed edits, units, gizmo mode, and object actions.");
+             "%s",
+             object->coreMeta.object_id);
 
     UIPanelObjectInspector_DrawTextClipped(renderer, font, line_identity, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), accent_color);
     y += font_h + line_gap;
@@ -216,29 +241,30 @@ static void UIPanelObjectInspector_DrawDetailsCard(const UIPanelState* ui,
     y += font_h + line_gap;
 
     if (!object) {
-        UIPanelObjectInspector_DrawTextClipped(renderer,
-                                               font,
-                                               "Nothing to inspect yet.",
-                                               panel.x + metrics.pad_x,
-                                               y,
-                                               panel.w - (metrics.pad_x * 2),
-                                               value_color);
-        y += font_h + line_gap;
-        UIPanelObjectInspector_DrawTextClipped(renderer,
-                                               font,
-                                               "The Scene tab owns the object list.",
-                                               panel.x + metrics.pad_x,
-                                               y,
-                                               panel.w - (metrics.pad_x * 2),
-                                               label_color);
-        y += font_h + line_gap;
-        UIPanelObjectInspector_DrawTextClipped(renderer,
-                                               font,
-                                               "Select from Scene or use Create, then this pane becomes the object editor.",
-                                               panel.x + metrics.pad_x,
-                                               y,
-                                               panel.w - (metrics.pad_x * 2),
-                                               label_color);
+        y += UIPanelObjectInspector_DrawWrappedLine(renderer,
+                                                    font,
+                                                    "Nothing to inspect yet.",
+                                                    panel,
+                                                    y,
+                                                    font_h,
+                                                    line_gap,
+                                                    value_color) * (font_h + line_gap);
+        y += UIPanelObjectInspector_DrawWrappedLine(renderer,
+                                                    font,
+                                                    "The Scene tab owns the object list.",
+                                                    panel,
+                                                    y,
+                                                    font_h,
+                                                    line_gap,
+                                                    label_color) * (font_h + line_gap);
+        y += UIPanelObjectInspector_DrawWrappedLine(renderer,
+                                                    font,
+                                                    "Select from Scene or use Create, then this pane becomes the object editor.",
+                                                    panel,
+                                                    y,
+                                                    font_h,
+                                                    line_gap,
+                                                    label_color) * (font_h + line_gap);
         return;
     }
 
@@ -308,19 +334,12 @@ static void UIPanelObjectInspector_DrawDetailsCard(const UIPanelState* ui,
                  Global_Get()->editor.object3DRotateMode ? "Rotate" : "Move",
                  UIPanel_GetDisplayUnitSymbol());
 
-        UIPanelObjectInspector_DrawTextClipped(renderer, font, "Inspector", panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), accent_color);
-        y += font_h + line_gap;
-        UIPanelObjectInspector_DrawTextClipped(renderer, font, line_identity, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), value_color);
-        y += font_h + line_gap;
-        UIPanelObjectInspector_DrawTextClipped(renderer, font, line_pos, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), value_color);
-        y += font_h + line_gap;
-        UIPanelObjectInspector_DrawTextClipped(renderer, font, line_rot, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), value_color);
-        y += font_h + line_gap;
-        UIPanelObjectInspector_DrawTextClipped(renderer, font, line_dims, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), value_color);
-        y += font_h + line_gap;
-        UIPanelObjectInspector_DrawTextClipped(renderer, font, line_state, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), label_color);
-        y += font_h + line_gap;
-        UIPanelObjectInspector_DrawTextClipped(renderer, font, line_editing, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), label_color);
+        y += UIPanelObjectInspector_DrawWrappedLine(renderer, font, line_identity, panel, y, font_h, line_gap, value_color) * (font_h + line_gap);
+        y += UIPanelObjectInspector_DrawWrappedLine(renderer, font, line_pos, panel, y, font_h, line_gap, value_color) * (font_h + line_gap);
+        y += UIPanelObjectInspector_DrawWrappedLine(renderer, font, line_rot, panel, y, font_h, line_gap, value_color) * (font_h + line_gap);
+        y += UIPanelObjectInspector_DrawWrappedLine(renderer, font, line_dims, panel, y, font_h, line_gap, value_color) * (font_h + line_gap);
+        y += UIPanelObjectInspector_DrawWrappedLine(renderer, font, line_state, panel, y, font_h, line_gap, label_color) * (font_h + line_gap);
+        y += UIPanelObjectInspector_DrawWrappedLine(renderer, font, line_editing, panel, y, font_h, line_gap, label_color) * (font_h + line_gap);
     }
 }
 
@@ -361,6 +380,8 @@ void Render_UIPanelObjectInspector(const UIPanelState* ui, SDL_Renderer* rendere
                                            accent_color,
                                            fill_color,
                                            border_color);
+    fill_color = palette.workspace_fill;
+    fill_color.a = palette.workspace_fill.a;
     UIPanelObjectInspector_DrawDetailsCard(ui,
                                            renderer,
                                            font,

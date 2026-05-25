@@ -1,5 +1,7 @@
 #include "test_layout_internal.h"
 
+#include "UI/font_manager.h"
+#include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_view_layout.h"
 #include "UI/ui_panel_view_summary.h"
 
@@ -158,6 +160,65 @@ static bool test_view_sections_fit_inside_pane_and_anchor_bottom(void) {
     return true;
 }
 
+static bool test_view_buttons_use_uniform_grid_rows(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    const UIButton* reset_button = NULL;
+    const UIButton* zoom_in_button = NULL;
+    const UIButton* zoom_out_button = NULL;
+    const UIButton* delete_button = NULL;
+    const UIButton* pin_button = NULL;
+    const UIButton* link_button = NULL;
+    const UIButton* mode_button = NULL;
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    ui->activeRightTab = UI_PANEL_RIGHT_TAB_VIEW;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+
+    for (int i = 0; i < ui->count; ++i) {
+        const UIButton* btn = &ui->buttons[i];
+        if (btn->id == UI_BTN_RESET_ORIGIN) reset_button = btn;
+        else if (btn->id == UI_BTN_ZOOM_IN) zoom_in_button = btn;
+        else if (btn->id == UI_BTN_ZOOM_OUT) zoom_out_button = btn;
+        else if (btn->id == UI_BTN_TOGGLE_DELETE) delete_button = btn;
+        else if (btn->id == UI_BTN_PIN_ANCHOR) pin_button = btn;
+        else if (btn->id == UI_BTN_LINK_HANDLES) link_button = btn;
+        else if (btn->id == UI_BTN_TOGGLE_SPACE_MODE) mode_button = btn;
+    }
+
+    TEST_ASSERT(reset_button && zoom_in_button && zoom_out_button);
+    TEST_ASSERT(delete_button && pin_button && link_button && mode_button);
+    TEST_ASSERT(reset_button->bounds.w == zoom_in_button->bounds.w);
+    TEST_ASSERT(zoom_in_button->bounds.w == zoom_out_button->bounds.w);
+    TEST_ASSERT(delete_button->bounds.w == pin_button->bounds.w);
+    TEST_ASSERT(pin_button->bounds.w == link_button->bounds.w);
+    TEST_ASSERT(mode_button->bounds.x == ui->viewPane.modesRect.x);
+    TEST_ASSERT(mode_button->bounds.w == ui->viewPane.modesRect.w);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_shared_summary_wrap_counts_multiple_lines_when_narrow(void) {
+    TTF_Font* font = NULL;
+    int wrapped_lines = 0;
+
+    ld_test_init_runtime();
+    font = FontManager_GetUIPanelFont();
+    wrapped_lines = UIPanelSummary_CountWrappedLines(font,
+                                                     "This middle workspace sentence should wrap when the available pane width is narrow enough.",
+                                                     120);
+    TEST_ASSERT(wrapped_lines >= 2);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 bool ui_panel_view_summary_run_tests(void) {
     const TestCase cases[] = {
         { "view_summary_reserves_space_for_view_controls",
@@ -166,6 +227,10 @@ bool ui_panel_view_summary_run_tests(void) {
           test_view_layout_stays_stable_when_selection_changes },
         { "view_sections_fit_inside_pane_and_anchor_bottom",
           test_view_sections_fit_inside_pane_and_anchor_bottom },
+        { "view_buttons_use_uniform_grid_rows",
+          test_view_buttons_use_uniform_grid_rows },
+        { "shared_summary_wrap_counts_multiple_lines_when_narrow",
+          test_shared_summary_wrap_counts_multiple_lines_when_narrow },
     };
     return run_test_cases("UIPanelViewSummary", cases, sizeof(cases) / sizeof(cases[0]));
 }

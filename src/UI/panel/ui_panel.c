@@ -7,6 +7,7 @@
 #include "UI/ui_panel_internal.h"
 #include "UI/ui_panel_object_inspector.h"
 #include "UI/ui_panel_object_layout.h"
+#include "UI/ui_panel_right_controls.h"
 #include "UI/ui_panel_scene_layout.h"
 #include "UI/ui_panel_scene_summary.h"
 #include "UI/ui_panel_overlay_render.h"
@@ -136,51 +137,6 @@ static void UIPanel_ResolveButtonLaneLayout(int screenW,
     if (out_w) *out_w = w;
 }
 
-typedef struct UIPanelCompactRowSpec {
-    int row_key;
-    int columns;
-    int column_index;
-} UIPanelCompactRowSpec;
-
-static bool UIPanel_GetCompactRowSpec(int button_id, UIPanelCompactRowSpec* out_spec) {
-    UIPanelCompactRowSpec spec = {0, 0, 0};
-    switch (button_id) {
-        case UI_BTN_RESET_ORIGIN: spec = (UIPanelCompactRowSpec){ 1, 3, 0 }; break;
-        case UI_BTN_ZOOM_IN: spec = (UIPanelCompactRowSpec){ 1, 3, 1 }; break;
-        case UI_BTN_ZOOM_OUT: spec = (UIPanelCompactRowSpec){ 1, 3, 2 }; break;
-
-        case UI_BTN_CREATE_PLANE: spec = (UIPanelCompactRowSpec){ 2, 2, 0 }; break;
-        case UI_BTN_CREATE_RECT_PRISM: spec = (UIPanelCompactRowSpec){ 2, 2, 1 }; break;
-
-        case UI_BTN_EDIT_PRISM_WIDTH: spec = (UIPanelCompactRowSpec){ 3, 4, 0 }; break;
-        case UI_BTN_EDIT_PRISM_HEIGHT: spec = (UIPanelCompactRowSpec){ 3, 4, 1 }; break;
-        case UI_BTN_EDIT_PRISM_DEPTH: spec = (UIPanelCompactRowSpec){ 3, 4, 2 }; break;
-        case UI_BTN_CYCLE_DISPLAY_UNITS: spec = (UIPanelCompactRowSpec){ 3, 4, 3 }; break;
-
-        case UI_BTN_SET_CONSTRUCTION_PLANE_XY: spec = (UIPanelCompactRowSpec){ 4, 3, 0 }; break;
-        case UI_BTN_SET_CONSTRUCTION_PLANE_YZ: spec = (UIPanelCompactRowSpec){ 4, 3, 1 }; break;
-        case UI_BTN_SET_CONSTRUCTION_PLANE_XZ: spec = (UIPanelCompactRowSpec){ 4, 3, 2 }; break;
-
-        case UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_NEG: spec = (UIPanelCompactRowSpec){ 5, 3, 0 }; break;
-        case UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_POS: spec = (UIPanelCompactRowSpec){ 5, 3, 1 }; break;
-        case UI_BTN_EDIT_CONSTRUCTION_PLANE_OFFSET: spec = (UIPanelCompactRowSpec){ 5, 3, 2 }; break;
-
-        case UI_BTN_EDIT_OBJECT_ROTATION_X: spec = (UIPanelCompactRowSpec){ 6, 3, 0 }; break;
-        case UI_BTN_EDIT_OBJECT_ROTATION_Y: spec = (UIPanelCompactRowSpec){ 6, 3, 1 }; break;
-        case UI_BTN_EDIT_OBJECT_ROTATION_Z: spec = (UIPanelCompactRowSpec){ 6, 3, 2 }; break;
-
-        case UI_BTN_OBJECT_CLEAR_SELECTION: spec = (UIPanelCompactRowSpec){ 7, 2, 0 }; break;
-        case UI_BTN_OBJECT_DELETE_SELECTED: spec = (UIPanelCompactRowSpec){ 7, 2, 1 }; break;
-        case UI_BTN_TOGGLE_DELETE: spec = (UIPanelCompactRowSpec){ 8, 3, 0 }; break;
-        case UI_BTN_PIN_ANCHOR: spec = (UIPanelCompactRowSpec){ 8, 3, 1 }; break;
-        case UI_BTN_LINK_HANDLES: spec = (UIPanelCompactRowSpec){ 8, 3, 2 }; break;
-        case UI_BTN_TOGGLE_SPACE_MODE: spec = (UIPanelCompactRowSpec){ 9, 1, 0 }; break;
-        default: return false;
-    }
-    if (out_spec) *out_spec = spec;
-    return true;
-}
-
 static TTF_Font* UIPanel_GetLayoutFont(void) {
     return FontManager_GetUIPanelFont();
 }
@@ -231,81 +187,6 @@ ViewPlane UIPanel_CurrentConstructionViewPlane(const GlobalState* state) {
         return state->activePlane;
     }
     return (ViewPlane){ .axis = VIEW_PLANE_XY, .offset = 0.0f };
-}
-
-static const char* UIPanel_ButtonLayoutLabel(const UIButton* btn, char* dynamic_label, size_t dynamic_label_size) {
-    GlobalState* state = Global_Get();
-    if (!btn) return "";
-    if (!dynamic_label || dynamic_label_size == 0) return btn->label;
-
-    switch (btn->id) {
-        case UI_BTN_TOGGLE_SPACE_MODE: {
-            const char* modeLabel = state ? Global_GetSpaceModeLabel(state->spaceMode) : "3D";
-            snprintf(dynamic_label, dynamic_label_size, "%s (M)", modeLabel);
-            return dynamic_label;
-        }
-        case UI_BTN_TOGGLE_OBJECT_GIZMO_MODE: {
-            const bool rotateMode = state ? state->editor.object3DRotateMode : false;
-            snprintf(dynamic_label, dynamic_label_size, "%s (X)", rotateMode ? "Rotate" : "Move");
-            return dynamic_label;
-        }
-        case UI_BTN_TOGGLE_SCENE_BOUNDS: {
-            const bool enabled = state ? state->layout.scene3d.bounds.enabled : false;
-            snprintf(dynamic_label, dynamic_label_size, "Bounds: %s", enabled ? "On" : "Off");
-            return dynamic_label;
-        }
-        case UI_BTN_TOGGLE_SCENE_BOUNDS_CLAMP: {
-            const bool clampOnEdit = state ? state->layout.scene3d.bounds.clampOnEdit : false;
-            snprintf(dynamic_label, dynamic_label_size, "Clamp: %s", clampOnEdit ? "On" : "Off");
-            return dynamic_label;
-        }
-        case UI_BTN_CYCLE_DISPLAY_UNITS:
-            snprintf(dynamic_label, dynamic_label_size, "%s", UIPanel_GetDisplayUnitSymbol());
-            return dynamic_label;
-        case UI_BTN_EDIT_PRISM_WIDTH:
-            snprintf(dynamic_label, dynamic_label_size, "W");
-            return dynamic_label;
-        case UI_BTN_EDIT_PRISM_HEIGHT:
-            snprintf(dynamic_label, dynamic_label_size, "H");
-            return dynamic_label;
-        case UI_BTN_EDIT_PRISM_DEPTH:
-            snprintf(dynamic_label, dynamic_label_size, "D");
-            return dynamic_label;
-        case UI_BTN_SET_CONSTRUCTION_PLANE_XY:
-        case UI_BTN_SET_CONSTRUCTION_PLANE_YZ:
-        case UI_BTN_SET_CONSTRUCTION_PLANE_XZ: {
-            const ViewPlane plane = UIPanel_CurrentConstructionViewPlane(state);
-            const ViewPlaneAxis button_axis =
-                (btn->id == UI_BTN_SET_CONSTRUCTION_PLANE_YZ) ? VIEW_PLANE_YZ :
-                (btn->id == UI_BTN_SET_CONSTRUCTION_PLANE_XZ) ? VIEW_PLANE_XZ :
-                VIEW_PLANE_XY;
-            snprintf(dynamic_label,
-                     dynamic_label_size,
-                     "%s%s%s",
-                     (plane.axis == button_axis) ? "[" : "",
-                     UIPanel_ViewPlaneAxisLabel(button_axis),
-                     (plane.axis == button_axis) ? "]" : "");
-            return dynamic_label;
-        }
-        case UI_BTN_EDIT_CONSTRUCTION_PLANE_OFFSET: {
-            const ViewPlane plane = UIPanel_CurrentConstructionViewPlane(state);
-            snprintf(dynamic_label,
-                     dynamic_label_size,
-                     "Edit %s",
-                     UIPanel_ViewPlaneCoordinateLabel(plane.axis));
-            return dynamic_label;
-        }
-        default:
-            return btn->label;
-    }
-}
-
-static int UIPanel_CompactButtonWidthPx(const UIButton* btn, int text_pad_x) {
-    char dynamic_label[64];
-    int width = UIPanel_MeasureTextWidthPx(UIPanel_ButtonLayoutLabel(btn, dynamic_label, sizeof(dynamic_label)));
-    width += text_pad_x * 2;
-    if (width < 22) width = 22;
-    return width;
 }
 
 static int UIPanel_MaxWidthForLabels(const char* const* labels, size_t count) {
@@ -639,10 +520,8 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
     int rightBtnW = 168;
     int btnH = 26;
     int spacing = 5;
-    int compactRowGap = 4;
     int groupHeaderHeight = 14;
     int groupGap = 10;
-    int textPadX = 9;
     int topOffset = 74;
     int leftX = padding;
     int leftY = topOffset;
@@ -655,7 +534,6 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
     bool hasLeftPane = false;
     bool hasRightPane = false;
     UIPanelGroup leftGroup = UI_PANEL_GROUP_NONE;
-    UIPanelGroup rightGroup = UI_PANEL_GROUP_NONE;
 
     UIPanel_GetLayoutMetrics(&metrics);
     padding = metrics.pane_padding_px;
@@ -663,10 +541,8 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
     rightBtnW = metrics.right_button_width_px;
     btnH = metrics.button_height_px;
     spacing = metrics.button_spacing_px;
-    compactRowGap = metrics.compact_row_gap_px;
     groupHeaderHeight = metrics.group_header_height_px;
     groupGap = metrics.group_gap_px;
-    textPadX = metrics.button_text_pad_px;
     topOffset = metrics.top_offset_px;
     leftX = padding;
     leftY = topOffset;
@@ -718,14 +594,6 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
     int leftSceneBoundsY = leftY;
     int leftFileActionsY = leftY;
     int leftRootPathsY = leftY;
-    int objectActionsY = rightY;
-    int objectPrismY = rightY;
-    int objectGizmoY = rightY;
-    int objectTransformY = rightY;
-    int createPrimitivesY = rightY;
-    int createConstructionY = rightY;
-    int viewViewY = rightY;
-    int viewModesY = rightY;
     {
         if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_SCENE) {
             leftSceneSelectionY = g_uiPanel.scenePane.selectionRect.y;
@@ -735,45 +603,17 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
             leftFileActionsY = g_uiPanel.filePane.fileActionsRect.y;
             leftRootPathsY = g_uiPanel.filePane.rootPathsRect.y;
         }
-        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) {
-            objectActionsY = g_uiPanel.objectPane.actionsRect.y;
-            objectPrismY = g_uiPanel.objectPane.prismRect.y;
-            objectGizmoY = g_uiPanel.objectPane.gizmoRect.y;
-            objectTransformY = g_uiPanel.objectPane.transformRect.y;
-        }
-        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) {
-            viewViewY = g_uiPanel.viewPane.viewRect.y;
-            viewModesY = g_uiPanel.viewPane.modesRect.y;
-        }
-        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) {
-            createPrimitivesY = g_uiPanel.createPane.primitivesRect.y;
-            createConstructionY = g_uiPanel.createPane.constructionRect.y;
-        }
         if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
             int fileSummaryHeight = UIPanel_FileSummaryReservedHeight(&g_uiPanel);
             if (fileSummaryHeight > 0) {
                 leftY += fileSummaryHeight + groupGap;
             }
         }
-    if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) {
-        int summaryHeight = UIPanel_ViewSummaryReservedHeight(&g_uiPanel);
-        if (summaryHeight > 0) {
-            rightY += summaryHeight + groupGap;
-        }
-    } else if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) {
-        int summaryHeight = UIPanel_CreateSummaryReservedHeight(&g_uiPanel);
-        if (summaryHeight > 0) {
-            rightY += summaryHeight + groupGap;
-        }
-    } else if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) {
-        int inspectorHeight = UIPanel_ObjectInspectorReservedHeight(&g_uiPanel);
-        if (inspectorHeight > 0) {
-            rightY += inspectorHeight + groupGap;
-        }
     }
 
     for (int i = 0; i < g_uiPanel.count; ++i) {
         UIButton* btn = &g_uiPanel.buttons[i];
+        if (btn->side == UI_PANEL_RIGHT) continue;
         if (btn->side == UI_PANEL_LEFT) {
             if (!UIPanel_ShouldShowGroup(&g_uiPanel, btn->group)) {
                 btn->bounds = (SDL_Rect){0, 0, 0, 0};
@@ -808,182 +648,11 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
             leftY += btnH + spacing;
         }
     }
-    }
 
     if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
-        UIPanel_LayoutFilePaneButtons(&g_uiPanel, &metrics, textPadX);
+        UIPanel_LayoutFilePaneButtons(&g_uiPanel, &metrics, metrics.button_text_pad_px);
     }
-
-    for (int i = 0; i < g_uiPanel.count; ++i) {
-        UIButton* btn = &g_uiPanel.buttons[i];
-        UIPanelCompactRowSpec rowSpec = {0, 0, 0};
-        if (btn->side != UI_PANEL_RIGHT) continue;
-        if (!UIPanel_ShouldShowGroup(&g_uiPanel, btn->group)) {
-            btn->bounds = (SDL_Rect){0, 0, 0, 0};
-            continue;
-        }
-        if (btn->group != rightGroup) {
-            if (rightGroup != UI_PANEL_GROUP_NONE) rightY += groupGap;
-            rightY += groupHeaderHeight;
-            rightGroup = btn->group;
-        }
-
-        if (UIPanel_GetCompactRowSpec(btn->id, &rowSpec)) {
-            int rowStart = i;
-            int rowEnd = i;
-            int rowWidths[4] = {0, 0, 0, 0};
-            int rowTotalWidth = 0;
-            int rowStartX = rightX;
-            int rowY = rightY;
-            int* objectGroupY = NULL;
-            int* createGroupY = NULL;
-            int* viewGroupY = NULL;
-
-            if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) {
-                if (btn->group == UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS) {
-                    objectGroupY = &objectActionsY;
-                } else if (btn->group == UI_PANEL_GROUP_RIGHT_PRISM) {
-                    objectGroupY = &objectPrismY;
-                } else if (btn->group == UI_PANEL_GROUP_RIGHT_TRANSFORM) {
-                    objectGroupY = &objectTransformY;
-                }
-                if (objectGroupY) {
-                    rowY = *objectGroupY + groupHeaderHeight;
-                }
-            }
-            if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) {
-                if (btn->group == UI_PANEL_GROUP_RIGHT_PRIMITIVES) {
-                    createGroupY = &createPrimitivesY;
-                } else if (btn->group == UI_PANEL_GROUP_RIGHT_CONSTRUCTION) {
-                    createGroupY = &createConstructionY;
-                }
-                if (createGroupY) {
-                    rowY = *createGroupY + groupHeaderHeight;
-                }
-            }
-            if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) {
-                if (btn->group == UI_PANEL_GROUP_RIGHT_VIEW) {
-                    viewGroupY = &viewViewY;
-                } else if (btn->group == UI_PANEL_GROUP_RIGHT_MODES) {
-                    viewGroupY = &viewModesY;
-                }
-                if (viewGroupY) {
-                    rowY = *viewGroupY + groupHeaderHeight;
-                }
-            }
-
-            while ((rowEnd + 1) < g_uiPanel.count) {
-                UIPanelCompactRowSpec nextSpec = {0, 0, 0};
-                UIButton* next = &g_uiPanel.buttons[rowEnd + 1];
-                if (next->side != UI_PANEL_RIGHT || next->group != btn->group) break;
-                if (!UIPanel_GetCompactRowSpec(next->id, &nextSpec)) break;
-                if (nextSpec.row_key != rowSpec.row_key) break;
-                rowEnd++;
-            }
-
-            for (int j = rowStart; j <= rowEnd; ++j) {
-                UIButton* place = &g_uiPanel.buttons[j];
-                UIPanelCompactRowSpec placeSpec = {0, 0, 0};
-                int col = 0;
-                int cellWidth = 22;
-                if (UIPanel_GetCompactRowSpec(place->id, &placeSpec)) {
-                    col = placeSpec.column_index;
-                    if (col < 0) col = 0;
-                    if (col >= 4) col = 3;
-                }
-                cellWidth = UIPanel_CompactButtonWidthPx(place, textPadX);
-                if (cellWidth > rightW) cellWidth = rightW;
-                rowWidths[col] = cellWidth;
-            }
-
-            for (int col = 0; col < rowSpec.columns && col < 4; ++col) {
-                if (col > 0) rowTotalWidth += compactRowGap;
-                rowTotalWidth += rowWidths[col];
-            }
-            if (rowTotalWidth < rightW) {
-                rowStartX = rightX + (rightW - rowTotalWidth) / 2;
-            }
-
-            for (int j = rowStart; j <= rowEnd; ++j) {
-                UIPanelCompactRowSpec placeSpec = {0, 0, 0};
-                UIButton* place = &g_uiPanel.buttons[j];
-                int col = 0;
-                int x = rowStartX;
-                if (UIPanel_GetCompactRowSpec(place->id, &placeSpec)) {
-                    col = placeSpec.column_index;
-                    if (col < 0) col = 0;
-                    if (col >= rowSpec.columns) col = rowSpec.columns - 1;
-                }
-                for (int prior = 0; prior < col; ++prior) {
-                    x += rowWidths[prior] + compactRowGap;
-                }
-                place->bounds = (SDL_Rect){
-                    x,
-                    rowY,
-                    rowWidths[col],
-                    btnH
-                };
-            }
-            if (objectGroupY) {
-                *objectGroupY += btnH + spacing;
-            } else if (viewGroupY) {
-                *viewGroupY += btnH + spacing;
-            } else if (createGroupY) {
-                *createGroupY += btnH + spacing;
-            } else {
-                rightY += btnH + spacing;
-            }
-            i = rowEnd;
-            continue;
-        }
-
-        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) {
-            int* groupY = NULL;
-            if (btn->group == UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS) {
-                groupY = &objectActionsY;
-            } else if (btn->group == UI_PANEL_GROUP_RIGHT_GIZMO) {
-                groupY = &objectGizmoY;
-            } else if (btn->group == UI_PANEL_GROUP_RIGHT_PRISM) {
-                groupY = &objectPrismY;
-            } else if (btn->group == UI_PANEL_GROUP_RIGHT_TRANSFORM) {
-                groupY = &objectTransformY;
-            }
-            if (groupY) {
-                btn->bounds = (SDL_Rect){ rightX, *groupY + groupHeaderHeight, rightW, btnH };
-                *groupY += btnH + spacing;
-                continue;
-            }
-        }
-        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) {
-            int* groupY = NULL;
-            if (btn->group == UI_PANEL_GROUP_RIGHT_VIEW) {
-                groupY = &viewViewY;
-            } else if (btn->group == UI_PANEL_GROUP_RIGHT_MODES) {
-                groupY = &viewModesY;
-            }
-            if (groupY) {
-                btn->bounds = (SDL_Rect){ rightX, *groupY + groupHeaderHeight, rightW, btnH };
-                *groupY += btnH + spacing;
-                continue;
-            }
-        }
-        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) {
-            int* groupY = NULL;
-            if (btn->group == UI_PANEL_GROUP_RIGHT_PRIMITIVES) {
-                groupY = &createPrimitivesY;
-            } else if (btn->group == UI_PANEL_GROUP_RIGHT_CONSTRUCTION) {
-                groupY = &createConstructionY;
-            }
-            if (groupY) {
-                btn->bounds = (SDL_Rect){ rightX, *groupY + groupHeaderHeight, rightW, btnH };
-                *groupY += btnH + spacing;
-                continue;
-            }
-        }
-
-        btn->bounds = (SDL_Rect){ rightX, rightY, rightW, btnH };
-        rightY += btnH + spacing;
-    }
+    UIPanel_LayoutRightPaneButtons(&g_uiPanel, &metrics);
 }
 
 void UIPanel_Init(int screenW, int screenH) {

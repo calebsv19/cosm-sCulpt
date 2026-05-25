@@ -56,6 +56,7 @@ static int UIPanelCreateSummary_DrawLines(SDL_Renderer* renderer,
                                           const char* const* lines,
                                           const SDL_Color* line_colors,
                                           int line_count,
+                                          bool wrap_lines,
                                           SDL_Color title_color,
                                           SDL_Color divider_color) {
     int font_h = UIPanelCreateSummary_FontHeight();
@@ -63,6 +64,7 @@ static int UIPanelCreateSummary_DrawLines(SDL_Renderer* renderer,
     int line_gap = metrics.section_gap;
     int panel_pad = metrics.pad_y;
     int max_width = rect.w - (metrics.pad_x * 2);
+    int content_bottom = rect.y + rect.h - panel_pad;
     int y = 0;
 
     if (!renderer || !font || rect.w <= 0 || rect.h <= 0) return 0;
@@ -74,17 +76,36 @@ static int UIPanelCreateSummary_DrawLines(SDL_Renderer* renderer,
     }
 
     for (int i = 0; i < line_count; ++i) {
+        int lines_drawn = 0;
+        int max_lines = 0;
         if (!lines[i] || !lines[i][0]) continue;
         if (y + font_h > rect.y + rect.h - panel_pad) break;
-        UIPanelSummary_DrawTextClipped(renderer,
-                                       font,
-                                       lines[i],
-                                       rect.x + metrics.pad_x,
-                                       y,
-                                       max_width,
-                                       font_h + 4,
-                                       line_colors ? line_colors[i] : title_color);
-        y += font_h + line_gap;
+        if (wrap_lines) {
+            max_lines = (content_bottom - y + line_gap) / (font_h + line_gap);
+            if (max_lines <= 0) break;
+            lines_drawn = UIPanelSummary_DrawWrappedText(renderer,
+                                                         font,
+                                                         lines[i],
+                                                         rect.x + metrics.pad_x,
+                                                         y,
+                                                         max_width,
+                                                         font_h,
+                                                         line_gap,
+                                                         max_lines,
+                                                         line_colors ? line_colors[i] : title_color);
+            y += lines_drawn * (font_h + line_gap);
+        } else {
+            UIPanelSummary_DrawTextClipped(renderer,
+                                           font,
+                                           lines[i],
+                                           rect.x + metrics.pad_x,
+                                           y,
+                                           max_width,
+                                           font_h + 4,
+                                           line_colors ? line_colors[i] : title_color);
+            y += font_h + line_gap;
+            lines_drawn = 1;
+        }
         if (i == 0 && y < rect.y + rect.h - panel_pad) {
             UIPanelSummary_DrawDivider(renderer,
                                        rect,
@@ -172,28 +193,28 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
 
     snprintf(summary_space,
              sizeof(summary_space),
-             "Space  %s",
+             "Mode  %s",
              Global_GetSpaceModeLabel(state->spaceMode));
     snprintf(summary_plane,
              sizeof(summary_plane),
-             "Plane  %s (%s=%.2f)",
+             "Plane  %s   %s=%.2f",
              UIPanel_ViewPlaneAxisLabel(plane.axis),
              UIPanel_ViewPlaneCoordinateLabel(plane.axis),
              plane.offset);
     {
         char grid_text[32];
         UIPanelCreateSummary_FormatDimension(state->grid.gridSize, grid_text, sizeof(grid_text));
-        snprintf(summary_grid, sizeof(summary_grid), "Grid  %s per step", grid_text);
+        snprintf(summary_grid, sizeof(summary_grid), "Grid  %s step", grid_text);
     }
     snprintf(summary_mode,
              sizeof(summary_mode),
-             "Mode  %s",
+             "Tool  %s",
              (active_preview == PRIMITIVE_PLACEMENT_PREVIEW_PLANE) ? "Plane staging" :
              (active_preview == PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM) ? "Prism staging" :
              "Ready to stage");
     snprintf(summary_stage,
              sizeof(summary_stage),
-             "Bottom lane keeps commit controls stable");
+             "Bottom controls stay anchored");
 
     summary_lines[0] = summary_space;
     summary_lines[1] = summary_plane;
@@ -210,10 +231,11 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
     UIPanelCreateSummary_DrawLines(renderer,
                                    font,
                                    summary_rect,
-                                   "Create Context",
+                                   "Create",
                                    summary_lines,
                                    summary_colors,
                                    5,
+                                   false,
                                    label_color,
                                    accent_color);
 
@@ -286,6 +308,8 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
     work_colors[4] = label_color;
     work_colors[5] = label_color;
 
+    fill_color = palette.workspace_fill;
+    fill_color.a = palette.workspace_fill.a;
     UIPanelSummary_DrawCard(renderer, workspace_rect, fill_color, border_color, accent_color, metrics.accent_h);
     UIPanelCreateSummary_DrawLines(renderer,
                                    font,
@@ -294,6 +318,7 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
                                    work_lines,
                                    work_colors,
                                    6,
+                                   true,
                                    label_color,
                                    accent_color);
 }

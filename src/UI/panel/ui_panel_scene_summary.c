@@ -148,7 +148,7 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
     panel_pad = metrics.pad_y;
     y = panel.y + panel_pad;
 
-    UIPanelSummary_DrawText(renderer, font, "Scene / Selection", panel.x + metrics.pad_x, y, label_color);
+    UIPanelSummary_DrawText(renderer, font, "Scene", panel.x + metrics.pad_x, y, label_color);
     y += font_h + line_gap;
 
     snprintf(line_counts,
@@ -163,22 +163,22 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
     UIPanelSummary_DrawDivider(renderer, panel, y - (line_gap / 2), metrics.pad_x, accent_color, 90);
 
     if (!object) {
-        snprintf(line_selected, sizeof(line_selected), "Selected  none");
+        snprintf(line_selected, sizeof(line_selected), "Selection  none");
         snprintf(line_context,
                  sizeof(line_context),
-                 "Scene graph  %zu anchors   %zu walls",
+                 "Graph  %zu anchors   %zu walls",
                  anchors,
                  walls);
         snprintf(line_locks,
                  sizeof(line_locks),
-                 "Pick from the list or click an object origin in the viewport.");
+                 "Pick from the list or click an object origin.");
     } else {
         char w_text[32] = {0};
         char h_text[32] = {0};
         char d_text[32] = {0};
         snprintf(line_selected,
                  sizeof(line_selected),
-                 "Selected  #%u  %s",
+                 "Selection  #%u  %s",
                  object->objectId,
                  UIPanelSceneSummary_KindLabel(object->kind));
         if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
@@ -192,7 +192,7 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
         }
         snprintf(line_context,
                  sizeof(line_context),
-                 "Scene graph  %zu anchors   %zu walls",
+                 "Graph  %zu anchors   %zu walls",
                  anchors,
                  walls);
         snprintf(line_locks,
@@ -223,7 +223,7 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
         }
         snprintf(line_lock_state,
                  sizeof(line_lock_state),
-                 "Locks  Plane:%s  Bounds:%s   Bounds fit stays in this pane below.",
+                 "Locks  Plane:%s  Bounds:%s   Details stay below.",
                  lock_plane ? "On" : "Off",
                  lock_bounds ? "On" : "Off");
         UIPanelSummary_DrawTextClipped(renderer, font, line_locks, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), font_h + 4, value_color);

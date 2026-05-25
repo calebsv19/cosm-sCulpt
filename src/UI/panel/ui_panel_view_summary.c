@@ -40,6 +40,7 @@ static int UIPanelViewSummary_DrawLines(SDL_Renderer* renderer,
                                         const char* const* lines,
                                         const SDL_Color* line_colors,
                                         int line_count,
+                                        bool wrap_lines,
                                         SDL_Color title_color,
                                         SDL_Color divider_color) {
     int font_h = UIPanelViewSummary_FontHeight();
@@ -47,6 +48,7 @@ static int UIPanelViewSummary_DrawLines(SDL_Renderer* renderer,
     int line_gap = metrics.section_gap;
     int panel_pad = metrics.pad_y;
     int max_width = rect.w - (metrics.pad_x * 2);
+    int content_bottom = rect.y + rect.h - panel_pad;
     int y = rect.y + panel_pad;
 
     if (!renderer || !font || rect.w <= 0 || rect.h <= 0) return 0;
@@ -57,17 +59,36 @@ static int UIPanelViewSummary_DrawLines(SDL_Renderer* renderer,
     }
 
     for (int i = 0; i < line_count; ++i) {
+        int lines_drawn = 0;
+        int max_lines = 0;
         if (!lines[i] || !lines[i][0]) continue;
         if (y + font_h > rect.y + rect.h - panel_pad) break;
-        UIPanelSummary_DrawTextClipped(renderer,
-                                       font,
-                                       lines[i],
-                                       rect.x + metrics.pad_x,
-                                       y,
-                                       max_width,
-                                       font_h + 4,
-                                       line_colors ? line_colors[i] : title_color);
-        y += font_h + line_gap;
+        if (wrap_lines) {
+            max_lines = (content_bottom - y + line_gap) / (font_h + line_gap);
+            if (max_lines <= 0) break;
+            lines_drawn = UIPanelSummary_DrawWrappedText(renderer,
+                                                         font,
+                                                         lines[i],
+                                                         rect.x + metrics.pad_x,
+                                                         y,
+                                                         max_width,
+                                                         font_h,
+                                                         line_gap,
+                                                         max_lines,
+                                                         line_colors ? line_colors[i] : title_color);
+            y += lines_drawn * (font_h + line_gap);
+        } else {
+            UIPanelSummary_DrawTextClipped(renderer,
+                                           font,
+                                           lines[i],
+                                           rect.x + metrics.pad_x,
+                                           y,
+                                           max_width,
+                                           font_h + 4,
+                                           line_colors ? line_colors[i] : title_color);
+            y += font_h + line_gap;
+            lines_drawn = 1;
+        }
         if (i == 0 && y < rect.y + rect.h - panel_pad) {
             UIPanelSummary_DrawDivider(renderer,
                                        rect,
@@ -95,15 +116,15 @@ static void UIPanelViewSummary_BuildSelectionLine(const GlobalState* state,
         return;
     }
     if (state->editor.selectedObject3DId != 0u) {
-        snprintf(out, out_size, "Selection  Object #%u", state->editor.selectedObject3DId);
+        snprintf(out, out_size, "Selection  object #%u", state->editor.selectedObject3DId);
         return;
     }
     if (state->editor.selectedAnchorIndex >= 0) {
-        snprintf(out, out_size, "Selection  Anchor #%d", state->editor.selectedAnchorIndex);
+        snprintf(out, out_size, "Selection  anchor #%d", state->editor.selectedAnchorIndex);
         return;
     }
     if (state->editor.selectedWallIndex >= 0) {
-        snprintf(out, out_size, "Selection  Wall #%d", state->editor.selectedWallIndex);
+        snprintf(out, out_size, "Selection  wall #%d", state->editor.selectedWallIndex);
         return;
     }
     snprintf(out, out_size, "Selection  none");
@@ -171,21 +192,22 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
 
     snprintf(line_mode,
              sizeof(line_mode),
-             "Space  %s",
+             "Mode  %s",
              Global_GetSpaceModeLabel(state->spaceMode));
     snprintf(line_zoom,
              sizeof(line_zoom),
-             "Zoom  %.2fx",
-             state->grid.scale);
+             "Zoom  %.2fx   Grid %.2f",
+             state->grid.scale,
+             state->grid.gridSize);
     snprintf(line_plane,
              sizeof(line_plane),
-             "Plane  %s (%s=%.2f)",
+             "Plane  %s   %s=%.2f",
              UIPanel_ViewPlaneAxisLabel(plane.axis),
              UIPanel_ViewPlaneCoordinateLabel(plane.axis),
              plane.offset);
     snprintf(line_delete,
              sizeof(line_delete),
-             "Delete  %s",
+             "Delete  %s mode",
              UIPanelViewSummary_DeleteModeLabel(state->editor.deleteMode));
     UIPanelViewSummary_BuildSelectionLine(state, line_selection, sizeof(line_selection));
 
@@ -204,10 +226,11 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     UIPanelViewSummary_DrawLines(renderer,
                                  font,
                                  summary_rect,
-                                 "View Context",
+                                 "View",
                                  summary_lines,
                                  summary_colors,
                                  5,
+                                 false,
                                  label_color,
                                  accent_color);
 
@@ -255,6 +278,8 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     work_colors[4] = label_color;
     work_colors[5] = label_color;
 
+    fill_color = palette.workspace_fill;
+    fill_color.a = palette.workspace_fill.a;
     UIPanelSummary_DrawCard(renderer, workspace_rect, fill_color, border_color, accent_color, metrics.accent_h);
     UIPanelViewSummary_DrawLines(renderer,
                                  font,
@@ -263,6 +288,7 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
                                  work_lines,
                                  work_colors,
                                  6,
+                                 true,
                                  label_color,
                                  accent_color);
 }

@@ -1,22 +1,11 @@
 #include "UI/ui_panel_view_layout.h"
 
+#include "UI/ui_panel_right_controls.h"
 #include "UI/ui_panel_view_summary.h"
 
 enum {
-    UI_VIEW_PANE_SECTION_GAP = 8,
-    UI_VIEW_PANE_VIEW_ROW_COUNT = 1,
-    UI_VIEW_PANE_MODES_ROW_COUNT = 4
+    UI_VIEW_PANE_SECTION_GAP = 8
 };
-
-static int UIPanelViewPane_GroupHeightForRows(int header_height,
-                                              int button_height,
-                                              int button_spacing,
-                                              int row_count) {
-    if (row_count <= 0) return 0;
-    return header_height +
-           (button_height * row_count) +
-           (button_spacing * (row_count - 1));
-}
 
 void UIPanel_UpdateViewPaneLayout(UIPanelState* ui) {
     UIPanelLayoutMetrics metrics = {0};
@@ -39,14 +28,8 @@ void UIPanel_UpdateViewPaneLayout(UIPanelState* ui) {
 
     UIPanel_GetLayoutMetrics(&metrics);
     summary_height = UIPanel_ViewSummaryReservedHeight(ui);
-    view_height = UIPanelViewPane_GroupHeightForRows(metrics.group_header_height_px,
-                                                     metrics.button_height_px,
-                                                     metrics.button_spacing_px,
-                                                     UI_VIEW_PANE_VIEW_ROW_COUNT);
-    modes_height = UIPanelViewPane_GroupHeightForRows(metrics.group_header_height_px,
-                                                      metrics.button_height_px,
-                                                      metrics.button_spacing_px,
-                                                      UI_VIEW_PANE_MODES_ROW_COUNT);
+    view_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_VIEW);
+    modes_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_MODES);
 
     ui->viewPane.summaryRect = (SDL_Rect){
         ui->rightBodyRect.x,

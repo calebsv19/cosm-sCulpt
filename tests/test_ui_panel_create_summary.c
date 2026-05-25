@@ -142,6 +142,52 @@ static bool test_create_sections_fit_inside_pane_and_anchor_bottom(void) {
     return true;
 }
 
+static bool test_create_buttons_use_uniform_grid_rows(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    const UIButton* plane_button = NULL;
+    const UIButton* prism_button = NULL;
+    const UIButton* xy_button = NULL;
+    const UIButton* yz_button = NULL;
+    const UIButton* xz_button = NULL;
+    const UIButton* neg_button = NULL;
+    const UIButton* pos_button = NULL;
+    const UIButton* edit_button = NULL;
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    ui->activeRightTab = UI_PANEL_RIGHT_TAB_CREATE;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+
+    for (int i = 0; i < ui->count; ++i) {
+        const UIButton* btn = &ui->buttons[i];
+        if (btn->id == UI_BTN_CREATE_PLANE) plane_button = btn;
+        else if (btn->id == UI_BTN_CREATE_RECT_PRISM) prism_button = btn;
+        else if (btn->id == UI_BTN_SET_CONSTRUCTION_PLANE_XY) xy_button = btn;
+        else if (btn->id == UI_BTN_SET_CONSTRUCTION_PLANE_YZ) yz_button = btn;
+        else if (btn->id == UI_BTN_SET_CONSTRUCTION_PLANE_XZ) xz_button = btn;
+        else if (btn->id == UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_NEG) neg_button = btn;
+        else if (btn->id == UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_POS) pos_button = btn;
+        else if (btn->id == UI_BTN_EDIT_CONSTRUCTION_PLANE_OFFSET) edit_button = btn;
+    }
+
+    TEST_ASSERT(plane_button && prism_button);
+    TEST_ASSERT(xy_button && yz_button && xz_button);
+    TEST_ASSERT(neg_button && pos_button && edit_button);
+    TEST_ASSERT(plane_button->bounds.w == prism_button->bounds.w);
+    TEST_ASSERT(xy_button->bounds.w == yz_button->bounds.w);
+    TEST_ASSERT(yz_button->bounds.w == xz_button->bounds.w);
+    TEST_ASSERT(neg_button->bounds.w == pos_button->bounds.w);
+    TEST_ASSERT(pos_button->bounds.w == edit_button->bounds.w);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 bool ui_panel_create_summary_run_tests(void) {
     const TestCase cases[] = {
         { "create_summary_reserves_space_for_create_controls",
@@ -150,6 +196,8 @@ bool ui_panel_create_summary_run_tests(void) {
           test_create_layout_stays_stable_when_stage_changes },
         { "create_sections_fit_inside_pane_and_anchor_bottom",
           test_create_sections_fit_inside_pane_and_anchor_bottom },
+        { "create_buttons_use_uniform_grid_rows",
+          test_create_buttons_use_uniform_grid_rows },
     };
     return run_test_cases("UIPanelCreateSummary", cases, sizeof(cases) / sizeof(cases[0]));
 }

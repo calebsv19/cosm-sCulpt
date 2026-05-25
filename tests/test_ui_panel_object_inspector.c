@@ -257,6 +257,59 @@ static bool test_object_inspector_lower_sections_anchor_to_bottom(void) {
     return true;
 }
 
+static bool test_object_buttons_use_uniform_grid_rows(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    const UIButton* clear_button = NULL;
+    const UIButton* delete_button = NULL;
+    const UIButton* width_button = NULL;
+    const UIButton* height_button = NULL;
+    const UIButton* depth_button = NULL;
+    const UIButton* unit_button = NULL;
+    const UIButton* position_button = NULL;
+    const UIButton* rot_x_button = NULL;
+    const UIButton* rot_y_button = NULL;
+    const UIButton* rot_z_button = NULL;
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    ui->activeRightTab = UI_PANEL_RIGHT_TAB_OBJECT;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+
+    for (int i = 0; i < ui->count; ++i) {
+        const UIButton* btn = &ui->buttons[i];
+        if (btn->id == UI_BTN_OBJECT_CLEAR_SELECTION) clear_button = btn;
+        else if (btn->id == UI_BTN_OBJECT_DELETE_SELECTED) delete_button = btn;
+        else if (btn->id == UI_BTN_EDIT_PRISM_WIDTH) width_button = btn;
+        else if (btn->id == UI_BTN_EDIT_PRISM_HEIGHT) height_button = btn;
+        else if (btn->id == UI_BTN_EDIT_PRISM_DEPTH) depth_button = btn;
+        else if (btn->id == UI_BTN_CYCLE_DISPLAY_UNITS) unit_button = btn;
+        else if (btn->id == UI_BTN_EDIT_OBJECT_POSITION) position_button = btn;
+        else if (btn->id == UI_BTN_EDIT_OBJECT_ROTATION_X) rot_x_button = btn;
+        else if (btn->id == UI_BTN_EDIT_OBJECT_ROTATION_Y) rot_y_button = btn;
+        else if (btn->id == UI_BTN_EDIT_OBJECT_ROTATION_Z) rot_z_button = btn;
+    }
+
+    TEST_ASSERT(clear_button && delete_button);
+    TEST_ASSERT(width_button && height_button && depth_button && unit_button);
+    TEST_ASSERT(position_button && rot_x_button && rot_y_button && rot_z_button);
+    TEST_ASSERT(clear_button->bounds.w == delete_button->bounds.w);
+    TEST_ASSERT(width_button->bounds.w == height_button->bounds.w);
+    TEST_ASSERT(height_button->bounds.w == depth_button->bounds.w);
+    TEST_ASSERT(depth_button->bounds.w == unit_button->bounds.w);
+    TEST_ASSERT(rot_x_button->bounds.w == rot_y_button->bounds.w);
+    TEST_ASSERT(rot_y_button->bounds.w == rot_z_button->bounds.w);
+    TEST_ASSERT(position_button->bounds.x == ui->objectPane.transformRect.x);
+    TEST_ASSERT(position_button->bounds.w == ui->objectPane.transformRect.w);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 bool ui_panel_object_inspector_run_tests(void) {
     const TestCase cases[] = {
         { "object_inspector_reserves_space_for_selected_object",
@@ -267,6 +320,8 @@ bool ui_panel_object_inspector_run_tests(void) {
           test_object_inspector_sections_fit_inside_pane },
         { "object_inspector_lower_sections_anchor_to_bottom",
           test_object_inspector_lower_sections_anchor_to_bottom },
+        { "object_buttons_use_uniform_grid_rows",
+          test_object_buttons_use_uniform_grid_rows },
     };
     return run_test_cases("UIPanelObjectInspector", cases, sizeof(cases) / sizeof(cases[0]));
 }
