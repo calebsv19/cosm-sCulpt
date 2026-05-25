@@ -1,6 +1,6 @@
 # sCulpt Docs Index
 
-Last updated: 2026-05-22
+Last updated: 2026-05-25
 
 Start here for public repository documentation.
 
@@ -44,6 +44,18 @@ Current verification contract:
 - `line_drawing` remains the canonical upstream authoring/export source for the current primitive scope.
 - public product-facing docs should treat `sCulpt` as the primary app name and
   use `line_drawing` where repo/runtime identifiers need to stay exact
+- the editor pane system is now structurally unified into five durable tabs:
+  - left:
+    - `Scene`
+    - `File`
+  - right:
+    - `View`
+    - `Create`
+    - `Object`
+  - each pane now follows the same ownership model:
+    - compact top summary
+    - primary middle working surface
+    - anchored lower actions/controls where needed
 - default launch now enters a top-level host menu before the editor session:
   - host menu owns high-level entry and reopen actions
   - editor remains the existing interactive authoring session behind that host seam

@@ -1,6 +1,6 @@
 # Line Drawing Future Intent
 
-Last updated: 2026-05-22
+Last updated: 2026-05-25
 
 ## Scaffold Alignment Intent
 1. Keep existing 2D/3D parity behavior unchanged while normalizing scaffold contracts.
@@ -141,6 +141,15 @@ Last updated: 2026-05-22
   - output-root ergonomics
   - small validation or test-coverage improvements around `scene_authoring.json` -> `scene_runtime.json`
 - Broader feature expansion should only reopen a new private plan if it materially changes the authoring/export contract instead of polishing the existing one.
+- The editor pane shell is now also in a maintain/polish state rather than a
+  structural refactor state:
+  - the five-pane tab model is established
+  - follow-up UI work should stay usage-driven inside specific panes
+  - future pane work should prefer smaller workflow slices such as:
+    - scene row filtering/grouping
+    - file-pane quick actions
+    - richer create presets / staged dimensions
+    - deeper object-inspector editing
 
 ## Host Split Intent
 - `LD-HS1` complete:

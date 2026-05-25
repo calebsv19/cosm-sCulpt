@@ -59,9 +59,9 @@ Last updated: 2026-05-25
     - authored plane/prism objects render in stable row order
     - rows now show object id, primitive kind, position, size, and lock
       metadata in a denser three-line presentation
-    - the scene list now behaves like a single-expanded-object browser:
-      - clicking a row selects and expands it inline
-      - clicking the same row again collapses it while preserving selection
+    - the scene list now behaves like a selection-first object browser:
+      - single-click selects a row without changing the expanded layout state
+      - double-click on the same row toggles it open or closed
       - expanded rows surface rotation, scale, and frame-origin context
     - row hover and row-click selection stay in sync with editor object
       selection state
@@ -206,6 +206,15 @@ Last updated: 2026-05-25
       stronger selected/hover row accents
     - file, view, create, and object summary cards now use top accent bands
       plus internal divider lines
+  - the pane language is now more internally consistent:
+    - top summary cards use denser stable copy instead of taller debug-style
+      phrasing
+    - middle workspace/inspector surfaces use a slightly darker shared fill so
+      they read as intentional working layers instead of the same flat pane
+      background
+    - summary cards, list rows, browser rows, and right-pane lower controls
+      now route through shared clipping/layout/visual helpers instead of
+      ad hoc per-pane overflow rules
   - future editor UI work can now return to smaller usage-driven follow-ups
     instead of continuing this structural shell migration
 - Agent-authored room-review scenes now have an optional deterministic

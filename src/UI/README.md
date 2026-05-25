@@ -5,9 +5,8 @@ The UI layer provides the editor-local button panel, quick file/scene pickers, a
 - `ui_panel.h` / `panel/ui_panel.c` — define `UIButton` and `UIPanelState`, own pane-aware control metadata, construct the left/right grouped control surface, keep shared JSON/scene picker state plus scene-list scroll/hover state, and coordinate panel relayout against the current pane-host solve. The shell now keeps the left side wider for scene/file work while trimming the right side further through the pane-host target path so the viewport keeps more horizontal room.
 - `ui_panel_shell.h` / `panel/ui_panel_shell.c` — own the Phase 1 editor shell state for the sidebars: left/right tab ids, tab button geometry, body-rect layout, and group visibility routing. Current shell tabs are `Scene` / `File` on the left and `View` / `Create` / `Object` on the right.
 - `ui_panel_scene_layout.h` / `panel/ui_panel_scene_layout.c` — own explicit left-scene section layout. They reserve stable rects for the top summary card, scrollable scene browser, lower selection actions, and bottom bounds controls so the scene pane no longer infers list space by clipping around button bounds after the fact.
-- `ui_panel_scene_summary.h` / `panel/ui_panel_scene_summary.c` — own the first scene-pane audit summary surface. It reserves a dedicated `Scene / Selection` card at the top of the left `Scene` tab and renders object counts, primitive-kind split, selected-object context, size, and lock-state summary above the list.
 - `ui_panel_scene_summary.h` / `panel/ui_panel_scene_summary.c` — own the first scene-pane audit summary surface. It reserves a dedicated `Scene / Selection` card at the top of the left `Scene` tab and renders object counts, primitive-kind split, broader scene-graph counts, selected-object context, size, and lock-state summary above the list.
-- `ui_panel_scene_list.h` / `panel/ui_panel_scene_list.c` — own the left-scene list and scene-local selection actions. It renders a scrollable stable row list of live plane/prism objects, tracks hover, handles wheel scrolling plus a visible draggable scrollbar, converts row clicks into editor object selection, exposes `Clear Select` / `Delete Obj` helpers for the scene pane, and now computes variable row heights so one object at a time can expand inline with richer management/detail context. The list now uses the explicit scene-pane section rect instead of deriving its height from lower button bounds.
+- `ui_panel_scene_list.h` / `panel/ui_panel_scene_list.c` — own the left-scene list and scene-local selection actions. It renders a scrollable stable row list of live plane/prism objects, tracks hover, handles wheel scrolling plus a visible draggable scrollbar, converts single row clicks into editor object selection, and uses same-row double-click to toggle one inline expanded detail lane at a time. It exposes `Clear Select` / `Delete Obj` helpers for the scene pane and now computes variable row heights so optional inline detail stays inside the owned list surface. The list now uses the explicit scene-pane section rect instead of deriving its height from lower button bounds.
 - `ui_panel_file_summary.h` / `panel/ui_panel_file_summary.c` — own the first Phase 4 file/session cleanup slice. It reserves a dedicated summary card at the top of the left `File` tab and renders current layout, current scene, session input root, output root, dirty/clean state, browser status, and current mode-specific browser root above the file/root action buttons. Its text now clips through the card viewport instead of replacing overflow with `...`.
 - `ui_panel_summary_surface.h` / `panel/ui_panel_summary_surface.c` — own shared pane-surface primitives for cards and list/browser headers: unclipped text, clip-rect text rendering, wrapped paragraph rendering for the elastic middle cards, accent-band cards, and divider drawing. The scene/file/view/create/object pane info surfaces plus the scene list and file browser now share one clipping/card-chrome path, and the right-pane middle work surfaces can reflow longer text instead of treating every sentence as a single clipped row.
 - `ui_panel_visual_style.h` / `panel/ui_panel_visual_style.c` — own the top-level pane visual system: shared panel metrics, palette resolution, frame drawing, accent bands, label chips, divider helpers, interactive row rendering, shared scrollbar chrome, and the distinct workspace/list surface tone used by pane middle sections. This is the new line-drawing equivalent of the drawing program’s common panel render lane, so pane chrome, tabs, button framing, section containers, list rows, and browser rows can converge on one style contract instead of each renderer carrying its own constants.
@@ -53,14 +52,18 @@ The UI layer provides the editor-local button panel, quick file/scene pickers, a
   - the scene pane now has explicit stable section ownership for summary, list,
     selection actions, and bounds controls, which removes the earlier fragile
     “list clipped above buttons” layout path
-  - one scene object at a time can now expand inline inside the list so
-    top-level object management stays inside the scene pane rather than pushing
-    everything into separate summary surfaces
+  - scene rows now use selection-first interaction:
+    - single-click selects only
+    - double-click toggles the inline detail state
+  - one scene object at a time can now expand inline inside the list when
+    requested, so top-level object management stays inside the scene pane
+    rather than pushing everything into separate summary surfaces
   - longer scene-object lists now expose a visible draggable scrollbar instead
     of wheel-only navigation
   - the scene-list scroll lane now renders through an explicit viewport clip
     rect, so expanded rows cannot bleed into the summary, selection, or bounds
-    sections and the scrollbar can stay slimmer without content overlap
+    sections, nested text respects the same bottom-edge mask as row fills, and
+    the scrollbar can stay slimmer without content overlap
   - the file pane now uses the same owned-section approach instead of the old
     transient picker overlay:
     - `Load JSON` and `Load Scene` switch the lower file-pane browser between
