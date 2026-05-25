@@ -48,6 +48,17 @@ static bool ResolvePaneClipRect(const GlobalState* state,
     return out_clip->w > 0 && out_clip->h > 0;
 }
 
+static bool ResolveViewportClipRect(const GlobalState* state, SDL_Rect* out_clip) {
+    const LineDrawingPaneHost* pane_host = NULL;
+    CorePaneRect pane_rect = {0};
+    if (!state || !out_clip) return false;
+    pane_host = &state->paneHost;
+    if (!pane_host->initialized) return false;
+    if (!LineDrawingPaneHost_GetViewportRect(pane_host, &pane_rect)) return false;
+    *out_clip = PaneRectToClipRect(pane_rect);
+    return out_clip->w > 0 && out_clip->h > 0;
+}
+
 static void ResolvePaneChromeColors(SDL_Color* out_top_fill,
                                     SDL_Color* out_side_fill,
                                     SDL_Color* out_center_fill,
@@ -237,10 +248,16 @@ static void Render_FreeViewAxisGizmo(SDL_Renderer* renderer, const GlobalState* 
 }
 
 static void Render_ViewCenterCrosshair(SDL_Renderer* renderer, const GlobalState* state) {
+    float center_x = 0.0f;
+    float center_y = 0.0f;
     if (!renderer || !state || !state->centerCrosshairEnabled) return;
 
-    const int cx = state->screenWidth / 2;
-    const int cy = state->screenHeight / 2;
+    center_x = (float)state->screenWidth * 0.5f;
+    center_y = (float)state->screenHeight * 0.5f;
+    (void)LineDrawingPaneHost_GetViewportCenter(&state->paneHost, &center_x, &center_y);
+
+    const int cx = (int)lroundf(center_x);
+    const int cy = (int)lroundf(center_y);
     const int half = 6;
     const int gap = 2;
 
@@ -328,7 +345,7 @@ void Render_SubmitFrame(AppContext* ctx,
     vk = (VkRenderer*)ctx->renderer;
     before_draws = derive_frame->vk_draw_calls_before;
     should_log = (logged_counts == 0);
-    has_center_clip = ResolvePaneClipRect(derive_frame->state, LINE_DRAWING_PANE_ROLE_CENTER_CANVAS, &center_clip);
+    has_center_clip = ResolveViewportClipRect(derive_frame->state, &center_clip);
     has_top_clip = ResolvePaneClipRect(derive_frame->state, LINE_DRAWING_PANE_ROLE_TOP_BAR, &top_clip);
     has_left_clip = ResolvePaneClipRect(derive_frame->state, LINE_DRAWING_PANE_ROLE_LEFT_CONTROLS, &left_clip);
     has_right_clip = ResolvePaneClipRect(derive_frame->state, LINE_DRAWING_PANE_ROLE_RIGHT_CONTROLS, &right_clip);
@@ -391,23 +408,7 @@ void Render_SubmitFrame(AppContext* ctx,
     LogDrawCallDelta("Info overlay", should_log, vk, &before_draws);
 
     panel = UIPanel_Get();
-    if (has_left_clip) {
-        (void)SDL_RenderSetClipRect(ctx->renderer, &left_clip);
-    }
-    Render_UIPanelSide(panel, ctx->renderer, UI_PANEL_LEFT);
-    Render_UIPanelRootSummary(panel, ctx->renderer);
-    if (has_left_clip) {
-        (void)SDL_RenderSetClipRect(ctx->renderer, NULL);
-    }
-
-    if (has_right_clip) {
-        (void)SDL_RenderSetClipRect(ctx->renderer, &right_clip);
-    }
-    Render_UIPanelSide(panel, ctx->renderer, UI_PANEL_RIGHT);
-    Render_UIPanelObjectSummary(panel, ctx->renderer);
-    if (has_right_clip) {
-        (void)SDL_RenderSetClipRect(ctx->renderer, NULL);
-    }
+    Render_UIPanel(panel, ctx->renderer);
 
     RenderPaneChromeBorders(ctx->renderer,
                             &top_clip,

@@ -62,6 +62,24 @@ static void Global_SetDefaultLayoutPath(GlobalState* state) {
              state->currentConfigPath);
 }
 
+static void Global_SeedLastSessionPathsFromRecents(GlobalState* state) {
+    if (!state) return;
+    if (state->recentContexts.layouts.count > 0 &&
+        state->recentContexts.layouts.paths[0][0] != '\0') {
+        snprintf(state->lastLayoutPath,
+                 sizeof(state->lastLayoutPath),
+                 "%s",
+                 state->recentContexts.layouts.paths[0]);
+    }
+    if (state->recentContexts.scenes.count > 0 &&
+        state->recentContexts.scenes.paths[0][0] != '\0') {
+        snprintf(state->lastSceneAuthoringPath,
+                 sizeof(state->lastSceneAuthoringPath),
+                 "%s",
+                 state->recentContexts.scenes.paths[0]);
+    }
+}
+
 static bool Global_ApplyStartupRootFallbacks(GlobalState* state) {
     bool changed = false;
     if (!state) return false;
@@ -346,6 +364,7 @@ void Global_Init(int screenWidth, int screenHeight) {
     Global_RecordRecentInputRoot(global, global->dataPaths.input_root, true);
     Global_RecordRecentOutputRoot(global, global->dataPaths.output_root, true);
     Global_SetDefaultLayoutPath(global);
+    Global_SeedLastSessionPathsFromRecents(global);
 
     Grid_init(&global->grid, 1.0f, screenWidth, screenHeight);
 

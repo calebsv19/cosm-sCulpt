@@ -12,6 +12,7 @@ bool ui_panel_view_summary_run_tests(void);
 bool ui_panel_create_summary_run_tests(void);
 bool ui_panel_object_inspector_run_tests(void);
 bool ui_panel_file_summary_run_tests(void);
+bool ui_panel_file_browser_run_tests(void);
 bool input_policy_run_tests(void);
 bool pane_host_run_tests(void);
 bool host_menu_run_tests(void);
@@ -33,6 +34,7 @@ int main(void) {
     ok &= ui_panel_create_summary_run_tests();
     ok &= ui_panel_object_inspector_run_tests();
     ok &= ui_panel_file_summary_run_tests();
+    ok &= ui_panel_file_browser_run_tests();
     ok &= input_policy_run_tests();
     ok &= pane_host_run_tests();
     ok &= host_menu_run_tests();

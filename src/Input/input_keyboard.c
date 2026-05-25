@@ -22,10 +22,14 @@ static void HandleHeldKeys(AppContext* ctx) {
     const bool primaryModifierHeld = (mods & (KMOD_CTRL | KMOD_GUI)) != 0;
     float panSpeed = 300.0f * ctx->deltaTime;
 
-    int w = Global_GetScreenWidth();
-    int h = Global_GetScreenHeight();
+    float anchorX = (float)Global_GetScreenWidth() * 0.5f;
+    float anchorY = (float)Global_GetScreenHeight() * 0.5f;
 
     bool gridChanged = false;
+
+    if (LineDrawingPaneHost_GetViewportCenter(&state->paneHost, &anchorX, &anchorY)) {
+        // Use the active viewport center rather than the window center.
+    }
 
     if (keys[SDL_SCANCODE_LEFT])   { Grid_pan(grid,  panSpeed,  0); gridChanged = true; }
     if (keys[SDL_SCANCODE_RIGHT])  { Grid_pan(grid, -panSpeed,  0); gridChanged = true; }
@@ -34,10 +38,10 @@ static void HandleHeldKeys(AppContext* ctx) {
 
     if (!primaryModifierHeld) {
         if (keys[SDL_SCANCODE_EQUALS]) {
-            gridChanged = LineDrawingViewportZoom_Apply(state, 1.05f, w / 2.0f, h / 2.0f) || gridChanged;
+            gridChanged = LineDrawingViewportZoom_Apply(state, 1.05f, anchorX, anchorY) || gridChanged;
         }
         if (keys[SDL_SCANCODE_MINUS]) {
-            gridChanged = LineDrawingViewportZoom_Apply(state, 0.95f, w / 2.0f, h / 2.0f) || gridChanged;
+            gridChanged = LineDrawingViewportZoom_Apply(state, 0.95f, anchorX, anchorY) || gridChanged;
         }
     }
 
@@ -317,13 +321,16 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
 	if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_o) {
 	    int i = state->editor.selectedAnchorIndex;
 	    if (i >= 0 && i < (int)state->layout.anchorCount) {
+            float centerX = (float)state->screenWidth * 0.5f;
+            float centerY = (float)state->screenHeight * 0.5f;
+            (void)LineDrawingPaneHost_GetViewportCenter(&state->paneHost, &centerX, &centerY);
             Editor_HistoryCapture(&state->editor, &state->layout);
 	        Layout_ShiftOriginToAnchor(
 	            &state->layout,
 	            &state->grid,
 	            i,
-	            state->screenWidth,
-	            state->screenHeight
+	            centerX,
+	            centerY
 	        );
 	        printf("[Editor] Origin shifted to anchor %d\n", i);
 	    } else {

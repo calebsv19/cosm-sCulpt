@@ -33,6 +33,10 @@ void UIPanel_InitShellState(UIPanelState* ui) {
     ui->rightPaneRect = (SDL_Rect){0, 0, 0, 0};
     ui->leftBodyRect = (SDL_Rect){0, 0, 0, 0};
     ui->rightBodyRect = (SDL_Rect){0, 0, 0, 0};
+    ui->scenePane.summaryRect = (SDL_Rect){0, 0, 0, 0};
+    ui->scenePane.listRect = (SDL_Rect){0, 0, 0, 0};
+    ui->scenePane.selectionRect = (SDL_Rect){0, 0, 0, 0};
+    ui->scenePane.boundsRect = (SDL_Rect){0, 0, 0, 0};
 
     for (int i = 0; i < UI_PANEL_LEFT_TAB_COUNT; ++i) {
         snprintf(ui->leftTabs[i].label,
@@ -142,6 +146,7 @@ bool UIPanel_HandleTabClick(UIPanelState* ui, int mouseX, int mouseY) {
 bool UIPanel_ShouldShowGroup(const UIPanelState* ui, UIPanelGroup group) {
     if (!ui) return true;
     switch (group) {
+        case UI_PANEL_GROUP_LEFT_SCENE_SELECTION:
         case UI_PANEL_GROUP_LEFT_SCENE_BOUNDS:
             return ui->activeLeftTab == UI_PANEL_LEFT_TAB_SCENE;
         case UI_PANEL_GROUP_LEFT_FILE_IO:
@@ -159,6 +164,7 @@ bool UIPanel_ShouldShowGroup(const UIPanelState* ui, UIPanelGroup group) {
         case UI_PANEL_GROUP_RIGHT_PRISM:
         case UI_PANEL_GROUP_RIGHT_GIZMO:
         case UI_PANEL_GROUP_RIGHT_TRANSFORM:
+        case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS:
             return ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT;
 
         case UI_PANEL_GROUP_NONE:

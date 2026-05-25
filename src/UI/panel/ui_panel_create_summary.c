@@ -4,12 +4,19 @@
 #include "Editor/primitive_placement_preview.h"
 #include "UI/font_manager.h"
 #include "UI/ui_panel_internal.h"
+#include "UI/ui_panel_summary_surface.h"
+#include "UI/ui_panel_visual_style.h"
 #include "UI/shared_theme_font_adapter.h"
-#include "UI/text_draw.h"
 
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <string.h>
+
+enum {
+    UI_CREATE_SUMMARY_HEADER_LINES = 5,
+    UI_CREATE_WORKSPACE_PAD_MIN = 8,
+    UI_CREATE_CARD_ACCENT_HEIGHT = 4
+};
 
 static int UIPanelCreateSummary_FontHeight(void) {
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
@@ -20,55 +27,13 @@ static int UIPanelCreateSummary_FontHeight(void) {
 }
 
 static int UIPanelCreateSummary_LineGap(void) {
-    int gap = UIPanelCreateSummary_FontHeight() / 3;
-    if (gap < 4) gap = 4;
-    return gap;
+    return UIPanelVisual_MakeMetrics(FontManager_Get(FONT_DEFAULT)).section_gap;
 }
 
 static int UIPanelCreateSummary_PanelPad(void) {
-    int pad = UIPanelCreateSummary_FontHeight() / 2;
-    if (pad < 8) pad = 8;
+    int pad = UIPanelVisual_MakeMetrics(FontManager_Get(FONT_DEFAULT)).pad_y;
+    if (pad < UI_CREATE_WORKSPACE_PAD_MIN) pad = UI_CREATE_WORKSPACE_PAD_MIN;
     return pad;
-}
-
-static void UIPanelCreateSummary_DrawText(SDL_Renderer* renderer,
-                                          TTF_Font* font,
-                                          const char* text,
-                                          int x,
-                                          int y,
-                                          SDL_Color color) {
-    if (!renderer || !font || !text || !text[0]) return;
-    (void)line_drawing_text_draw_utf8_at(renderer, font, text, x, y, color);
-}
-
-static void UIPanelCreateSummary_DrawTextClipped(SDL_Renderer* renderer,
-                                                 TTF_Font* font,
-                                                 const char* text,
-                                                 int x,
-                                                 int y,
-                                                 int maxWidth,
-                                                 SDL_Color color) {
-    char clipped[256];
-    int width = 0;
-    if (!renderer || !font || !text || maxWidth <= 0) return;
-    if (line_drawing_text_measure_utf8(renderer, font, text, &width, NULL) &&
-        width <= maxWidth) {
-        UIPanelCreateSummary_DrawText(renderer, font, text, x, y, color);
-        return;
-    }
-    snprintf(clipped, sizeof(clipped), "%s", text);
-    while (strlen(clipped) > 4) {
-        size_t len = strlen(clipped);
-        clipped[len - 1] = '\0';
-        clipped[len - 2] = '.';
-        clipped[len - 3] = '.';
-        clipped[len - 4] = '.';
-        if (line_drawing_text_measure_utf8(renderer, font, clipped, &width, NULL) &&
-            width <= maxWidth) {
-            UIPanelCreateSummary_DrawText(renderer, font, clipped, x, y, color);
-            return;
-        }
-    }
 }
 
 static void UIPanelCreateSummary_FormatDimension(float world_value,
@@ -84,16 +49,65 @@ static void UIPanelCreateSummary_FormatDimension(float world_value,
     }
 }
 
+static int UIPanelCreateSummary_DrawLines(SDL_Renderer* renderer,
+                                          TTF_Font* font,
+                                          SDL_Rect rect,
+                                          const char* title,
+                                          const char* const* lines,
+                                          const SDL_Color* line_colors,
+                                          int line_count,
+                                          SDL_Color title_color,
+                                          SDL_Color divider_color) {
+    int font_h = UIPanelCreateSummary_FontHeight();
+    UIPanelVisualMetrics metrics = UIPanelVisual_MakeMetrics(font);
+    int line_gap = metrics.section_gap;
+    int panel_pad = metrics.pad_y;
+    int max_width = rect.w - (metrics.pad_x * 2);
+    int y = 0;
+
+    if (!renderer || !font || rect.w <= 0 || rect.h <= 0) return 0;
+
+    y = rect.y + panel_pad;
+    if (title && title[0]) {
+        UIPanelSummary_DrawText(renderer, font, title, rect.x + metrics.pad_x, y, title_color);
+        y += font_h + line_gap;
+    }
+
+    for (int i = 0; i < line_count; ++i) {
+        if (!lines[i] || !lines[i][0]) continue;
+        if (y + font_h > rect.y + rect.h - panel_pad) break;
+        UIPanelSummary_DrawTextClipped(renderer,
+                                       font,
+                                       lines[i],
+                                       rect.x + metrics.pad_x,
+                                       y,
+                                       max_width,
+                                       font_h + 4,
+                                       line_colors ? line_colors[i] : title_color);
+        y += font_h + line_gap;
+        if (i == 0 && y < rect.y + rect.h - panel_pad) {
+            UIPanelSummary_DrawDivider(renderer,
+                                       rect,
+                                       y - (line_gap / 2),
+                                       metrics.pad_x,
+                                       divider_color,
+                                       90);
+        }
+    }
+
+    return y;
+}
+
 int UIPanel_CreateSummaryReservedHeight(const UIPanelState* ui) {
     int font_h = 0;
     int line_gap = 0;
     int pad = 0;
-    const int lines = 6;
     if (!ui || ui->activeRightTab != UI_PANEL_RIGHT_TAB_CREATE) return 0;
     font_h = UIPanelCreateSummary_FontHeight();
     line_gap = UIPanelCreateSummary_LineGap();
     pad = UIPanelCreateSummary_PanelPad();
-    return (pad * 2) + (font_h * lines) + (line_gap * (lines - 1));
+    return (pad * 2) + (font_h * UI_CREATE_SUMMARY_HEADER_LINES) +
+           (line_gap * (UI_CREATE_SUMMARY_HEADER_LINES - 1));
 }
 
 void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
@@ -109,100 +123,117 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
                                                PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM,
                                                &prism_preview);
     ViewPlane plane = { .axis = VIEW_PLANE_XY, .offset = 0.0f };
-    LineDrawing3dThemePalette palette = {0};
+    PrimitivePlacementPreviewKind active_preview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
     SDL_Color label_color = {200, 200, 210, 255};
     SDL_Color value_color = {230, 230, 235, 255};
     SDL_Color accent_color = {140, 170, 210, 255};
+    SDL_Color fill_color = {20, 20, 24, 170};
+    SDL_Color border_color = {90, 100, 115, 200};
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
-    SDL_Rect panel = {0, 0, 0, 0};
-    char line_space[128];
-    char line_plane[128];
-    char line_grid[128];
-    char line_plane_preview[128];
-    char line_prism_preview[128];
-    int font_h = 0;
-    int line_gap = 0;
-    int panel_pad = 0;
-    int y = 0;
+    UIPanelVisualPalette palette = {0};
+    UIPanelVisualMetrics metrics = UIPanelVisual_MakeMetrics(font);
+    SDL_Rect summary_rect = {0, 0, 0, 0};
+    SDL_Rect workspace_rect = {0, 0, 0, 0};
+    char summary_space[128];
+    char summary_plane[128];
+    char summary_mode[128];
+    char summary_grid[128];
+    char summary_stage[128];
+    const char* summary_lines[5];
+    SDL_Color summary_colors[5];
+    char work_tool[128];
+    char work_ready[128];
+    char work_plane[128];
+    char work_prism[128];
+    char work_next[128];
+    char work_future[128];
+    const char* work_lines[6];
+    SDL_Color work_colors[6];
 
     if (!ui || !renderer || !font || !state) return;
     if (ui->activeRightTab != UI_PANEL_RIGHT_TAB_CREATE) return;
     if (ui->rightBodyRect.w <= 0 || ui->rightBodyRect.h <= 0) return;
 
-    panel = ui->rightBodyRect;
-    panel.h = UIPanel_CreateSummaryReservedHeight(ui);
-    if (panel.h <= 0) return;
+    summary_rect = ui->createPane.summaryRect;
+    workspace_rect = ui->createPane.workspaceRect;
+    if (summary_rect.w <= 0 || summary_rect.h <= 0) return;
 
-    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
-        label_color = palette.text_muted;
-        value_color = palette.text_primary;
-        accent_color = palette.button_border;
-    }
+    (void)UIPanelVisual_ResolvePalette(&palette);
+    label_color = palette.text_muted;
+    value_color = palette.text_primary;
+    accent_color = palette.accent;
+    fill_color = palette.pane_fill;
+    fill_color.a = 170;
+    border_color = palette.pane_border;
+    border_color.a = 210;
 
-#if !USE_VULKAN
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-#endif
-    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
-        SDL_SetRenderDrawColor(renderer,
-                               palette.panel_fill.r, palette.panel_fill.g,
-                               palette.panel_fill.b, 170);
-        SDL_RenderFillRect(renderer, &panel);
-        SDL_SetRenderDrawColor(renderer,
-                               palette.panel_border.r, palette.panel_border.g,
-                               palette.panel_border.b, 210);
-        SDL_RenderDrawRect(renderer, &panel);
-    } else {
-        SDL_SetRenderDrawColor(renderer, 20, 20, 24, 170);
-        SDL_RenderFillRect(renderer, &panel);
-        SDL_SetRenderDrawColor(renderer, 90, 100, 115, 200);
-        SDL_RenderDrawRect(renderer, &panel);
-    }
-    {
-        SDL_Rect accent_band = { panel.x + 1, panel.y + 1, panel.w - 2, 4 };
-        SDL_SetRenderDrawColor(renderer, accent_color.r, accent_color.g, accent_color.b, 220);
-        SDL_RenderFillRect(renderer, &accent_band);
-    }
-
-    font_h = UIPanelCreateSummary_FontHeight();
-    line_gap = UIPanelCreateSummary_LineGap();
-    panel_pad = UIPanelCreateSummary_PanelPad();
-    y = panel.y + panel_pad;
     plane = UIPanel_CurrentConstructionViewPlane(state);
+    active_preview = state->editor.primitivePlacementPreview;
 
-    UIPanelCreateSummary_DrawText(renderer, font, "Create / Construction", panel.x + 8, y, label_color);
-    y += font_h + line_gap;
-
-    snprintf(line_space,
-             sizeof(line_space),
+    snprintf(summary_space,
+             sizeof(summary_space),
              "Space  %s",
              Global_GetSpaceModeLabel(state->spaceMode));
-    snprintf(line_plane,
-             sizeof(line_plane),
+    snprintf(summary_plane,
+             sizeof(summary_plane),
              "Plane  %s (%s=%.2f)",
              UIPanel_ViewPlaneAxisLabel(plane.axis),
              UIPanel_ViewPlaneCoordinateLabel(plane.axis),
              plane.offset);
-
     {
         char grid_text[32];
         UIPanelCreateSummary_FormatDimension(state->grid.gridSize, grid_text, sizeof(grid_text));
-        snprintf(line_grid, sizeof(line_grid), "Grid  %s per step", grid_text);
+        snprintf(summary_grid, sizeof(summary_grid), "Grid  %s per step", grid_text);
     }
+    snprintf(summary_mode,
+             sizeof(summary_mode),
+             "Mode  %s",
+             (active_preview == PRIMITIVE_PLACEMENT_PREVIEW_PLANE) ? "Plane staging" :
+             (active_preview == PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM) ? "Prism staging" :
+             "Ready to stage");
+    snprintf(summary_stage,
+             sizeof(summary_stage),
+             "Bottom lane keeps commit controls stable");
+
+    summary_lines[0] = summary_space;
+    summary_lines[1] = summary_plane;
+    summary_lines[2] = summary_mode;
+    summary_lines[3] = summary_grid;
+    summary_lines[4] = summary_stage;
+    summary_colors[0] = accent_color;
+    summary_colors[1] = value_color;
+    summary_colors[2] = value_color;
+    summary_colors[3] = value_color;
+    summary_colors[4] = label_color;
+
+    UIPanelSummary_DrawCard(renderer, summary_rect, fill_color, border_color, accent_color, metrics.accent_h);
+    UIPanelCreateSummary_DrawLines(renderer,
+                                   font,
+                                   summary_rect,
+                                   "Create Context",
+                                   summary_lines,
+                                   summary_colors,
+                                   5,
+                                   label_color,
+                                   accent_color);
+
+    if (workspace_rect.w <= 0 || workspace_rect.h <= 0) return;
 
     if (plane_ready) {
         char w_text[32];
         char h_text[32];
         UIPanelCreateSummary_FormatDimension(plane_preview.width, w_text, sizeof(w_text));
         UIPanelCreateSummary_FormatDimension(plane_preview.height, h_text, sizeof(h_text));
-        snprintf(line_plane_preview,
-                 sizeof(line_plane_preview),
-                 "Plane  %s x %s ready",
+        snprintf(work_plane,
+                 sizeof(work_plane),
+                 "Plane staging  %s x %s on %s",
                  w_text,
-                 h_text);
+                 h_text,
+                 UIPanel_ViewPlaneAxisLabel(plane.axis));
     } else {
-        snprintf(line_plane_preview,
-                 sizeof(line_plane_preview),
-                 "Plane  unavailable in current mode");
+        snprintf(work_plane,
+                 sizeof(work_plane),
+                 "Plane staging unavailable in the current space mode");
     }
 
     if (prism_ready) {
@@ -212,27 +243,57 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
         UIPanelCreateSummary_FormatDimension(prism_preview.width, w_text, sizeof(w_text));
         UIPanelCreateSummary_FormatDimension(prism_preview.height, h_text, sizeof(h_text));
         UIPanelCreateSummary_FormatDimension(prism_preview.depth, d_text, sizeof(d_text));
-        snprintf(line_prism_preview,
-                 sizeof(line_prism_preview),
-                 "Prism  %s x %s x %s ready",
+        snprintf(work_prism,
+                 sizeof(work_prism),
+                 "Prism staging  %s x %s x %s",
                  w_text,
                  h_text,
                  d_text);
     } else {
-        snprintf(line_prism_preview,
-                 sizeof(line_prism_preview),
-                 "Prism  switch to 3D to author primitives");
+        snprintf(work_prism,
+                 sizeof(work_prism),
+                 "Prism staging appears once 3D placement is valid");
     }
 
-    UIPanelCreateSummary_DrawTextClipped(renderer, font, line_space, panel.x + 8, y, panel.w - 16, accent_color);
-    y += font_h + line_gap;
-    SDL_SetRenderDrawColor(renderer, accent_color.r, accent_color.g, accent_color.b, 90);
-    SDL_RenderDrawLine(renderer, panel.x + 8, y - (line_gap / 2), panel.x + panel.w - 8, y - (line_gap / 2));
-    UIPanelCreateSummary_DrawTextClipped(renderer, font, line_plane, panel.x + 8, y, panel.w - 16, value_color);
-    y += font_h + line_gap;
-    UIPanelCreateSummary_DrawTextClipped(renderer, font, line_grid, panel.x + 8, y, panel.w - 16, value_color);
-    y += font_h + line_gap;
-    UIPanelCreateSummary_DrawTextClipped(renderer, font, line_plane_preview, panel.x + 8, y, panel.w - 16, value_color);
-    y += font_h + line_gap;
-    UIPanelCreateSummary_DrawTextClipped(renderer, font, line_prism_preview, panel.x + 8, y, panel.w - 16, label_color);
+    snprintf(work_tool,
+             sizeof(work_tool),
+             "Primary tool  %s",
+             (active_preview == PRIMITIVE_PLACEMENT_PREVIEW_PLANE) ? "Plane" :
+             (active_preview == PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM) ? "Prism" :
+             "Choose from the bottom create row");
+    snprintf(work_ready,
+             sizeof(work_ready),
+             "Ready now  %s",
+             (plane_ready || prism_ready) ? "Author on the active construction plane" :
+             "Switch mode/plane until staging becomes valid");
+    snprintf(work_next,
+             sizeof(work_next),
+             "Next lane  presets, reusable dimensions, and richer modeling tools");
+    snprintf(work_future,
+             sizeof(work_future),
+             "This middle surface is reserved for future per-tool authoring widgets");
+
+    work_lines[0] = work_tool;
+    work_lines[1] = work_ready;
+    work_lines[2] = work_plane;
+    work_lines[3] = work_prism;
+    work_lines[4] = work_next;
+    work_lines[5] = work_future;
+    work_colors[0] = value_color;
+    work_colors[1] = value_color;
+    work_colors[2] = value_color;
+    work_colors[3] = value_color;
+    work_colors[4] = label_color;
+    work_colors[5] = label_color;
+
+    UIPanelSummary_DrawCard(renderer, workspace_rect, fill_color, border_color, accent_color, metrics.accent_h);
+    UIPanelCreateSummary_DrawLines(renderer,
+                                   font,
+                                   workspace_rect,
+                                   "Authoring Workspace",
+                                   work_lines,
+                                   work_colors,
+                                   6,
+                                   label_color,
+                                   accent_color);
 }

@@ -2,7 +2,11 @@
 #include "layout_origin.h"
 #include "Core/global_state.h"
 
-void Layout_ShiftOriginToAnchor(Layout* layout, Grid* grid, int anchorIndex, int screenW, int screenH) {
+void Layout_ShiftOriginToAnchor(Layout* layout,
+                                Grid* grid,
+                                int anchorIndex,
+                                float viewportCenterX,
+                                float viewportCenterY) {
     if (anchorIndex < 0 || anchorIndex >= (int)layout->anchorCount) return;
     Anchor* target = &layout->anchors[anchorIndex];
     Vec3 originShift = target->pos;
@@ -16,8 +20,8 @@ void Layout_ShiftOriginToAnchor(Layout* layout, Grid* grid, int anchorIndex, int
 
     // Center origin visually on screen
     float pixelsPerUnit = grid->scale * grid->gridSize;
-    grid->offsetX = -((float)screenW / 2.0f) / pixelsPerUnit;
-    grid->offsetY = -((float)screenH / 2.0f) / pixelsPerUnit;
+    grid->offsetX = -viewportCenterX / pixelsPerUnit;
+    grid->offsetY = -viewportCenterY / pixelsPerUnit;
 
     Global_FlagLayoutChanged();
     Global_FlagGridChanged();

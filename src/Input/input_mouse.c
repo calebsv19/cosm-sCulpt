@@ -60,6 +60,20 @@ static bool ResolvePaneRect(LineDrawingPaneRole role, SDL_Rect* out_rect) {
     return out_rect->w > 0 && out_rect->h > 0;
 }
 
+static bool ResolveViewportRect(SDL_Rect* out_rect) {
+    const LineDrawingPaneHost* pane_host = NULL;
+    CorePaneRect pane_rect = {0};
+    if (!out_rect) return false;
+    *out_rect = (SDL_Rect){0, 0, 0, 0};
+
+    pane_host = Global_GetPaneHostConst();
+    if (!pane_host || !pane_host->initialized) return false;
+    if (!LineDrawingPaneHost_GetViewportRect(pane_host, &pane_rect)) return false;
+
+    *out_rect = PaneRectToSDLRect(pane_rect);
+    return out_rect->w > 0 && out_rect->h > 0;
+}
+
 static LineDrawingPaneHost* ResolvePaneHostMutable(void) {
     return Global_GetPaneHost();
 }
@@ -69,9 +83,13 @@ static PointerPaneLane ResolvePointerPaneLane(int x, int y) {
     SDL_Rect top = {0, 0, 0, 0};
     SDL_Rect left = {0, 0, 0, 0};
     SDL_Rect right = {0, 0, 0, 0};
-    SDL_Rect center = {0, 0, 0, 0};
+    SDL_Rect viewport = {0, 0, 0, 0};
     bool any_resolved = false;
 
+    if (ResolveViewportRect(&viewport)) {
+        any_resolved = true;
+        if (SDL_PointInRect(&point, &viewport)) return POINTER_PANE_CENTER;
+    }
     if (ResolvePaneRect(LINE_DRAWING_PANE_ROLE_TOP_BAR, &top)) {
         any_resolved = true;
         if (SDL_PointInRect(&point, &top)) return POINTER_PANE_TOP;
@@ -83,10 +101,6 @@ static PointerPaneLane ResolvePointerPaneLane(int x, int y) {
     if (ResolvePaneRect(LINE_DRAWING_PANE_ROLE_RIGHT_CONTROLS, &right)) {
         any_resolved = true;
         if (SDL_PointInRect(&point, &right)) return POINTER_PANE_RIGHT;
-    }
-    if (ResolvePaneRect(LINE_DRAWING_PANE_ROLE_CENTER_CANVAS, &center)) {
-        any_resolved = true;
-        if (SDL_PointInRect(&point, &center)) return POINTER_PANE_CENTER;
     }
 
     if (!any_resolved) {
@@ -134,7 +148,7 @@ static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
     GlobalState* state = Global_Get();
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (!state || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
-    if (UIPanel_IsCapturingKeyboard() || UIPanel_IsLoadMenuOpen()) return false;
+    if (UIPanel_IsCapturingKeyboard()) return false;
     if (ResolvePointerPaneLane(motion->x, motion->y) != POINTER_PANE_CENTER) return false;
 
     SDL_Keymod mods = SDL_GetModState();
@@ -161,7 +175,7 @@ static void UpdateHover(int mx, int my) {
     if (!state) return;
     EditorState* editor = &state->editor;
 
-    if (UIPanel_IsCapturingKeyboard() || UIPanel_IsLoadMenuOpen()) {
+    if (UIPanel_IsCapturingKeyboard()) {
         ClearHoverState(editor);
         return;
     }
@@ -318,16 +332,19 @@ static void HandleMouseWheel(AppContext* ctx, SDL_MouseWheelEvent* wheel) {
 static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     PointerPaneLane pane_lane = POINTER_PANE_OUTSIDE;
     LineDrawingPaneHost* pane_host = ResolvePaneHostMutable();
+    if (pane_host &&
+        !UIPanel_IsSaveDialogActive() &&
+        !UIPanel_IsRootDialogActive() &&
+        !UIPanel_IsPrismDimensionDialogActive() &&
+        !UIPanel_IsSceneBoundsDialogActive() &&
+        LineDrawingPaneHost_BeginSplitterDrag(pane_host, (float)btn->x, (float)btn->y)) {
+        return;
+    }
     if (UIPanel_IsSaveDialogActive() ||
         UIPanel_IsRootDialogActive() ||
         UIPanel_IsPrismDimensionDialogActive() ||
-        UIPanel_IsSceneBoundsDialogActive() ||
-        UIPanel_IsLoadMenuOpen()) {
+        UIPanel_IsSceneBoundsDialogActive()) {
         (void)UIPanel_HandleClick(btn->x, btn->y);
-        return;
-    }
-    if (pane_host &&
-        LineDrawingPaneHost_BeginSplitterDrag(pane_host, (float)btn->x, (float)btn->y)) {
         return;
     }
 
@@ -621,7 +638,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
 // 		Right click: place wall (snap to grid)
 // ============================================================
 static void HandleRightMouseDown(SDL_MouseButtonEvent* btn) {
-    if (UIPanel_IsCapturingKeyboard() || UIPanel_IsLoadMenuOpen()) {
+    if (UIPanel_IsCapturingKeyboard()) {
         return;
     }
     if (ResolvePointerPaneLane(btn->x, btn->y) != POINTER_PANE_CENTER) {
@@ -655,6 +672,7 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
 
         case SDL_MOUSEBUTTONUP:
             if (event->button.button == SDL_BUTTON_LEFT) {
+                UIPanel_HandleSceneListMouseUp();
                 if (pane_host && LineDrawingPaneHost_IsSplitterDragActive(pane_host)) {
                     LineDrawingPaneHost_EndSplitterDrag(pane_host);
                     LineDrawingPaneHost_UpdatePointer(pane_host,

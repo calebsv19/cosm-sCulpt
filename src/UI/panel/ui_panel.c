@@ -1,10 +1,17 @@
 #include "UI/ui_panel_create_summary.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_file_summary.h"
+#include "UI/ui_panel_file_controls.h"
+#include "UI/ui_panel_file_layout.h"
+#include "UI/ui_panel_create_layout.h"
 #include "UI/ui_panel_internal.h"
 #include "UI/ui_panel_object_inspector.h"
+#include "UI/ui_panel_object_layout.h"
+#include "UI/ui_panel_scene_layout.h"
+#include "UI/ui_panel_scene_summary.h"
 #include "UI/ui_panel_overlay_render.h"
 #include "UI/ui_panel_shell.h"
+#include "UI/ui_panel_view_layout.h"
 #include "UI/ui_panel_view_summary.h"
 #include "UI/info_overlay.h"
 #include "UI/font_manager.h"
@@ -161,6 +168,13 @@ static bool UIPanel_GetCompactRowSpec(int button_id, UIPanelCompactRowSpec* out_
         case UI_BTN_EDIT_OBJECT_ROTATION_X: spec = (UIPanelCompactRowSpec){ 6, 3, 0 }; break;
         case UI_BTN_EDIT_OBJECT_ROTATION_Y: spec = (UIPanelCompactRowSpec){ 6, 3, 1 }; break;
         case UI_BTN_EDIT_OBJECT_ROTATION_Z: spec = (UIPanelCompactRowSpec){ 6, 3, 2 }; break;
+
+        case UI_BTN_OBJECT_CLEAR_SELECTION: spec = (UIPanelCompactRowSpec){ 7, 2, 0 }; break;
+        case UI_BTN_OBJECT_DELETE_SELECTED: spec = (UIPanelCompactRowSpec){ 7, 2, 1 }; break;
+        case UI_BTN_TOGGLE_DELETE: spec = (UIPanelCompactRowSpec){ 8, 3, 0 }; break;
+        case UI_BTN_PIN_ANCHOR: spec = (UIPanelCompactRowSpec){ 8, 3, 1 }; break;
+        case UI_BTN_LINK_HANDLES: spec = (UIPanelCompactRowSpec){ 8, 3, 2 }; break;
+        case UI_BTN_TOGGLE_SPACE_MODE: spec = (UIPanelCompactRowSpec){ 9, 1, 0 }; break;
         default: return false;
     }
     if (out_spec) *out_spec = spec;
@@ -305,20 +319,23 @@ static int UIPanel_MaxWidthForLabels(const char* const* labels, size_t count) {
 
 void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
     static const char* k_left_button_labels[] = {
+        "Clear Select",
+        "Delete Obj",
         "Save JSON",
         "Load JSON",
         "Load Scene",
         "Export Shape",
         "Export Scene",
-        "Input Edit",
-        "Input Folder",
+        "Session In Edit",
+        "Session In Pick",
         "Output Edit",
-        "Output Folder"
+        "Output Pick"
     };
     static const char* k_left_group_titles[] = {
+        "Selection",
         "Scene Bounds",
         "File / IO",
-        "Root Paths"
+        "Session Paths"
     };
     static const char* k_left_tab_labels[] = {
         "Scene",
@@ -330,6 +347,8 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         "Link Handles (L)",
         "Mode: 3D (M)",
         "Gizmo: Rotate (X)",
+        "Clear Select",
+        "Delete Object",
         "Bounds: Off",
         "Clamp: Off",
         "Edit BMin",
@@ -341,7 +360,9 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         "Primitives",
         "Construction",
         "Prism",
-        "Gizmo"
+        "Gizmo",
+        "Transform",
+        "Object Actions"
     };
     static const char* k_right_tab_labels[] = {
         "View",
@@ -682,32 +703,58 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
         rightPaneRect = (SDL_Rect){ rightX - padding, topOffset - padding, rightW + (padding * 2), screenH - topOffset };
     }
     UIPanel_UpdateTabLayout(&g_uiPanel, &leftPaneRect, &rightPaneRect, &metrics);
+    UIPanel_UpdateScenePaneLayout(&g_uiPanel);
+    UIPanel_UpdateFilePaneLayout(&g_uiPanel);
+    UIPanel_UpdateViewPaneLayout(&g_uiPanel);
+    UIPanel_UpdateCreatePaneLayout(&g_uiPanel);
+    UIPanel_UpdateObjectPaneLayout(&g_uiPanel);
     leftX = g_uiPanel.leftBodyRect.x;
     leftY = g_uiPanel.leftBodyRect.y;
     leftW = g_uiPanel.leftBodyRect.w;
     rightX = g_uiPanel.rightBodyRect.x;
     rightY = g_uiPanel.rightBodyRect.y;
     rightW = g_uiPanel.rightBodyRect.w;
+    int leftSceneSelectionY = leftY;
+    int leftSceneBoundsY = leftY;
+    int leftFileActionsY = leftY;
+    int leftRootPathsY = leftY;
+    int objectActionsY = rightY;
+    int objectPrismY = rightY;
+    int objectGizmoY = rightY;
+    int objectTransformY = rightY;
+    int createPrimitivesY = rightY;
+    int createConstructionY = rightY;
+    int viewViewY = rightY;
+    int viewModesY = rightY;
     {
-        int leftSceneButtonsY = leftY;
         if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_SCENE) {
-            int sceneButtonCount = 5;
-            int sceneControlsHeight = groupHeaderHeight +
-                                      (sceneButtonCount * btnH) +
-                                      ((sceneButtonCount - 1) * spacing);
-            leftSceneButtonsY = g_uiPanel.leftBodyRect.y +
-                                g_uiPanel.leftBodyRect.h -
-                                sceneControlsHeight;
-            if (leftSceneButtonsY < g_uiPanel.leftBodyRect.y) {
-                leftSceneButtonsY = g_uiPanel.leftBodyRect.y;
+            leftSceneSelectionY = g_uiPanel.scenePane.selectionRect.y;
+            leftSceneBoundsY = g_uiPanel.scenePane.boundsRect.y;
+        }
+        if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
+            leftFileActionsY = g_uiPanel.filePane.fileActionsRect.y;
+            leftRootPathsY = g_uiPanel.filePane.rootPathsRect.y;
+        }
+        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) {
+            objectActionsY = g_uiPanel.objectPane.actionsRect.y;
+            objectPrismY = g_uiPanel.objectPane.prismRect.y;
+            objectGizmoY = g_uiPanel.objectPane.gizmoRect.y;
+            objectTransformY = g_uiPanel.objectPane.transformRect.y;
+        }
+        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) {
+            viewViewY = g_uiPanel.viewPane.viewRect.y;
+            viewModesY = g_uiPanel.viewPane.modesRect.y;
+        }
+        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) {
+            createPrimitivesY = g_uiPanel.createPane.primitivesRect.y;
+            createConstructionY = g_uiPanel.createPane.constructionRect.y;
+        }
+        if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
+            int fileSummaryHeight = UIPanel_FileSummaryReservedHeight(&g_uiPanel);
+            if (fileSummaryHeight > 0) {
+                leftY += fileSummaryHeight + groupGap;
             }
         }
-    if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
-        int fileSummaryHeight = UIPanel_FileSummaryReservedHeight(&g_uiPanel);
-        if (fileSummaryHeight > 0) {
-            leftY += fileSummaryHeight + groupGap;
-        }
-    }
     if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) {
         int summaryHeight = UIPanel_ViewSummaryReservedHeight(&g_uiPanel);
         if (summaryHeight > 0) {
@@ -732,10 +779,24 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
                 btn->bounds = (SDL_Rect){0, 0, 0, 0};
                 continue;
             }
-            if (btn->group == UI_PANEL_GROUP_LEFT_SCENE_BOUNDS &&
+            if ((btn->group == UI_PANEL_GROUP_LEFT_SCENE_SELECTION ||
+                 btn->group == UI_PANEL_GROUP_LEFT_SCENE_BOUNDS) &&
                 g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_SCENE) {
-                btn->bounds = (SDL_Rect){ leftX, leftSceneButtonsY + groupHeaderHeight, leftW, btnH };
-                leftSceneButtonsY += btnH + spacing;
+                int* groupY = (btn->group == UI_PANEL_GROUP_LEFT_SCENE_SELECTION)
+                                  ? &leftSceneSelectionY
+                                  : &leftSceneBoundsY;
+                btn->bounds = (SDL_Rect){ leftX, *groupY + groupHeaderHeight, leftW, btnH };
+                *groupY += btnH + spacing;
+                continue;
+            }
+            if ((btn->group == UI_PANEL_GROUP_LEFT_FILE_IO ||
+                 btn->group == UI_PANEL_GROUP_LEFT_ROOT_PATHS) &&
+                g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
+                int* groupY = (btn->group == UI_PANEL_GROUP_LEFT_FILE_IO)
+                                  ? &leftFileActionsY
+                                  : &leftRootPathsY;
+                btn->bounds = (SDL_Rect){ leftX, *groupY + groupHeaderHeight, leftW, btnH };
+                *groupY += btnH + spacing;
                 continue;
             }
             if (btn->group != leftGroup) {
@@ -747,6 +808,10 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
             leftY += btnH + spacing;
         }
     }
+    }
+
+    if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
+        UIPanel_LayoutFilePaneButtons(&g_uiPanel, &metrics, textPadX);
     }
 
     for (int i = 0; i < g_uiPanel.count; ++i) {
@@ -769,6 +834,43 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
             int rowWidths[4] = {0, 0, 0, 0};
             int rowTotalWidth = 0;
             int rowStartX = rightX;
+            int rowY = rightY;
+            int* objectGroupY = NULL;
+            int* createGroupY = NULL;
+            int* viewGroupY = NULL;
+
+            if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) {
+                if (btn->group == UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS) {
+                    objectGroupY = &objectActionsY;
+                } else if (btn->group == UI_PANEL_GROUP_RIGHT_PRISM) {
+                    objectGroupY = &objectPrismY;
+                } else if (btn->group == UI_PANEL_GROUP_RIGHT_TRANSFORM) {
+                    objectGroupY = &objectTransformY;
+                }
+                if (objectGroupY) {
+                    rowY = *objectGroupY + groupHeaderHeight;
+                }
+            }
+            if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) {
+                if (btn->group == UI_PANEL_GROUP_RIGHT_PRIMITIVES) {
+                    createGroupY = &createPrimitivesY;
+                } else if (btn->group == UI_PANEL_GROUP_RIGHT_CONSTRUCTION) {
+                    createGroupY = &createConstructionY;
+                }
+                if (createGroupY) {
+                    rowY = *createGroupY + groupHeaderHeight;
+                }
+            }
+            if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) {
+                if (btn->group == UI_PANEL_GROUP_RIGHT_VIEW) {
+                    viewGroupY = &viewViewY;
+                } else if (btn->group == UI_PANEL_GROUP_RIGHT_MODES) {
+                    viewGroupY = &viewModesY;
+                }
+                if (viewGroupY) {
+                    rowY = *viewGroupY + groupHeaderHeight;
+                }
+            }
 
             while ((rowEnd + 1) < g_uiPanel.count) {
                 UIPanelCompactRowSpec nextSpec = {0, 0, 0};
@@ -817,14 +919,66 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
                 }
                 place->bounds = (SDL_Rect){
                     x,
-                    rightY,
+                    rowY,
                     rowWidths[col],
                     btnH
                 };
             }
-            rightY += btnH + spacing;
+            if (objectGroupY) {
+                *objectGroupY += btnH + spacing;
+            } else if (viewGroupY) {
+                *viewGroupY += btnH + spacing;
+            } else if (createGroupY) {
+                *createGroupY += btnH + spacing;
+            } else {
+                rightY += btnH + spacing;
+            }
             i = rowEnd;
             continue;
+        }
+
+        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) {
+            int* groupY = NULL;
+            if (btn->group == UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS) {
+                groupY = &objectActionsY;
+            } else if (btn->group == UI_PANEL_GROUP_RIGHT_GIZMO) {
+                groupY = &objectGizmoY;
+            } else if (btn->group == UI_PANEL_GROUP_RIGHT_PRISM) {
+                groupY = &objectPrismY;
+            } else if (btn->group == UI_PANEL_GROUP_RIGHT_TRANSFORM) {
+                groupY = &objectTransformY;
+            }
+            if (groupY) {
+                btn->bounds = (SDL_Rect){ rightX, *groupY + groupHeaderHeight, rightW, btnH };
+                *groupY += btnH + spacing;
+                continue;
+            }
+        }
+        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) {
+            int* groupY = NULL;
+            if (btn->group == UI_PANEL_GROUP_RIGHT_VIEW) {
+                groupY = &viewViewY;
+            } else if (btn->group == UI_PANEL_GROUP_RIGHT_MODES) {
+                groupY = &viewModesY;
+            }
+            if (groupY) {
+                btn->bounds = (SDL_Rect){ rightX, *groupY + groupHeaderHeight, rightW, btnH };
+                *groupY += btnH + spacing;
+                continue;
+            }
+        }
+        if (g_uiPanel.activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) {
+            int* groupY = NULL;
+            if (btn->group == UI_PANEL_GROUP_RIGHT_PRIMITIVES) {
+                groupY = &createPrimitivesY;
+            } else if (btn->group == UI_PANEL_GROUP_RIGHT_CONSTRUCTION) {
+                groupY = &createConstructionY;
+            }
+            if (groupY) {
+                btn->bounds = (SDL_Rect){ rightX, *groupY + groupHeaderHeight, rightW, btnH };
+                *groupY += btnH + spacing;
+                continue;
+            }
         }
 
         btn->bounds = (SDL_Rect){ rightX, rightY, rightW, btnH };
@@ -837,11 +991,16 @@ void UIPanel_Init(int screenW, int screenH) {
     UIPanel_InitShellState(&g_uiPanel);
     g_uiPanel.sceneList.scrollOffsetPx = 0.0f;
     g_uiPanel.sceneList.hoverIndex = -1;
+    g_uiPanel.sceneList.expandedObjectId = 0u;
+    g_uiPanel.sceneList.scrollbarDragging = false;
+    g_uiPanel.sceneList.scrollbarDragStartY = 0;
+    g_uiPanel.sceneList.scrollbarDragStartOffsetPx = 0.0f;
     g_uiPanel.saveDialog.active = false;
     g_uiPanel.saveDialog.buffer[0] = '\0';
     g_uiPanel.saveDialog.length = 0;
     g_uiPanel.saveDialog.cursor = 0;
     g_uiPanel.loadMenu.open = false;
+    g_uiPanel.loadMenu.visible = false;
     g_uiPanel.loadMenu.mode = UI_LOAD_MENU_MODE_NONE;
     g_uiPanel.loadMenu.anchorButtonId = UI_BTN_LOAD_JSON;
     g_uiPanel.loadMenu.rootPath[0] = '\0';
@@ -909,13 +1068,13 @@ void UIPanel_Init(int screenW, int screenH) {
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Export Scene", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_EXPORT_SCENE);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Input Edit", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_INPUT_ROOT_EDIT);
+    AddButton(&g_uiPanel, "Session In Edit", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_INPUT_ROOT_EDIT);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Input Folder", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_INPUT_ROOT_FOLDER);
+    AddButton(&g_uiPanel, "Session In Pick", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_INPUT_ROOT_FOLDER);
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Output Edit", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_OUTPUT_ROOT_EDIT);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Output Folder", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_OUTPUT_ROOT_FOLDER);
+    AddButton(&g_uiPanel, "Output Pick", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_OUTPUT_ROOT_FOLDER);
 
     int xR = screenW - rightBtnW - padding;
     int yR = topOffset;
@@ -957,6 +1116,10 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "ft", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_CYCLE_DISPLAY_UNITS);
     yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Clear Select", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_OBJECT_CLEAR_SELECTION);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Delete Object", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_OBJECT_DELETE_SELECTED);
+    yR += btnH + spacing;
     AddButton(&g_uiPanel, "Gizmo: Move (X)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_GIZMO, UI_BTN_TOGGLE_OBJECT_GIZMO_MODE);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Edit Pos", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_EDIT_OBJECT_POSITION);
@@ -967,6 +1130,8 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Rot Z", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_EDIT_OBJECT_ROTATION_Z);
     yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Clear Select", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_SELECTION, UI_BTN_SCENE_CLEAR_SELECTION);
+    AddButton(&g_uiPanel, "Delete Obj", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_SELECTION, UI_BTN_SCENE_DELETE_SELECTED);
     AddButton(&g_uiPanel, "Bounds: Off", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_BOUNDS, UI_BTN_TOGGLE_SCENE_BOUNDS);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Clamp: Off", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_BOUNDS, UI_BTN_TOGGLE_SCENE_BOUNDS_CLAMP);
@@ -978,6 +1143,7 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "Fit B->Obj", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_BOUNDS, UI_BTN_FIT_SCENE_BOUNDS_TO_OBJECT);
 
     UIPanel_OnWindowResized(screenW, screenH);
+    UIPanel_LoadFileBrowserMode(&g_uiPanel);
     UIPanel_RefreshConfigList();
 }
 
@@ -1027,6 +1193,7 @@ void UIPanel_ResetTransientUiState(void) {
     ui->loadMenu.activeIndex = -1;
     ui->loadMenu.scrollOffsetPx = 0.0f;
     ui->loadMenu.scrollbarDragging = false;
+    ui->sceneList.scrollbarDragging = false;
     UIPanel_CloseSaveDialog(ui);
     UIPanel_CloseRootDialog(ui);
     UIPanel_ClosePrismDimensionDialog(ui);

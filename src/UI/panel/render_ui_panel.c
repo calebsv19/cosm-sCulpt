@@ -1,14 +1,16 @@
 #include "UI/ui_panel_create_summary.h"
 #include "UI/render_ui_panel.h"
 #include "UI/ui_panel_file_summary.h"
+#include "UI/ui_panel_file_layout.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_object_inspector.h"
+#include "UI/ui_panel_scene_summary.h"
 #include "UI/ui_panel_scene_list.h"
 #include "UI/ui_panel_shell.h"
+#include "UI/ui_panel_visual_style.h"
 #include "UI/ui_panel_view_summary.h"
 #include "UI/font_manager.h"
 #include "UI/text_draw.h"
-#include "UI/shared_theme_font_adapter.h"
 #include "Core/global_state.h"
 
 #include <SDL2/SDL.h>
@@ -21,64 +23,26 @@ static void DrawTextBasic(SDL_Renderer* renderer, TTF_Font* font, const char* te
     (void)line_drawing_text_draw_utf8_at(renderer, font, text, x, y, color);
 }
 
-static Uint8 UIPanel_ClampColorChannel(int value) {
-    if (value < 0) return 0;
-    if (value > 255) return 255;
-    return (Uint8)value;
-}
-
-static SDL_Color UIPanel_AdjustColor(SDL_Color color, int delta_rgb, int delta_alpha) {
-    color.r = UIPanel_ClampColorChannel((int)color.r + delta_rgb);
-    color.g = UIPanel_ClampColorChannel((int)color.g + delta_rgb);
-    color.b = UIPanel_ClampColorChannel((int)color.b + delta_rgb);
-    color.a = UIPanel_ClampColorChannel((int)color.a + delta_alpha);
-    return color;
-}
-
-static void BuildEllipsizedText(SDL_Renderer* renderer,
-                                TTF_Font* font,
-                                const char* text,
-                                int maxWidth,
-                                char* out,
-                                size_t outSize) {
-    static const char* k_ellipsis = "...";
-    int width = 0;
-    int ellipsisWidth = 0;
-    size_t len = 0;
-    if (!font || !text || !out || outSize == 0 || maxWidth <= 0) {
-        if (out && outSize > 0) out[0] = '\0';
-        return;
-    }
-    if (line_drawing_text_measure_utf8(renderer, font, text, &width, NULL) && width <= maxWidth) {
-        snprintf(out, outSize, "%s", text);
-        return;
-    }
-    if (!line_drawing_text_measure_utf8(renderer, font, k_ellipsis, &ellipsisWidth, NULL) ||
-        ellipsisWidth >= maxWidth) {
-        out[0] = '\0';
-        return;
-    }
-    len = strlen(text);
-    while (len > 0) {
-        --len;
-        if (len + strlen(k_ellipsis) + 1 >= outSize) continue;
-        memcpy(out, text, len);
-        out[len] = '\0';
-        strcat(out, k_ellipsis);
-        if (line_drawing_text_measure_utf8(renderer, font, out, &width, NULL) && width <= maxWidth) {
-            return;
+static void UIPanel_DrawTextWithOptionalClip(SDL_Renderer* renderer,
+                                             TTF_Font* font,
+                                             const char* text,
+                                             SDL_Rect clip_rect,
+                                             int x,
+                                             int y,
+                                             SDL_Color color) {
+    if (!renderer || !font || !text || !text[0]) return;
+    if (clip_rect.w > 0 && clip_rect.h > 0) {
+        SDL_Rect previous_clip = {0, 0, 0, 0};
+        SDL_bool had_clip = SDL_RenderIsClipEnabled(renderer);
+        if (had_clip) {
+            (void)SDL_RenderGetClipRect(renderer, &previous_clip);
         }
+        SDL_RenderSetClipRect(renderer, &clip_rect);
+        DrawTextBasic(renderer, font, text, x, y, color);
+        SDL_RenderSetClipRect(renderer, had_clip ? &previous_clip : NULL);
+        return;
     }
-    out[0] = '\0';
-}
-
-static int UIPanel_FontHeightPx(TTF_Font* font) {
-    int h = 14;
-    if (font) {
-        h = TTF_FontHeight(font);
-    }
-    if (h < 12) h = 12;
-    return h;
+    DrawTextBasic(renderer, font, text, x, y, color);
 }
 
 static ViewPlane UIPanel_RenderCurrentConstructionViewPlane(const GlobalState* state) {
@@ -110,35 +74,28 @@ static const char* UIPanel_RenderPlaneCoordinateLabel(ViewPlaneAxis axis) {
 }
 
 static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
-    LineDrawing3dThemePalette palette = {0};
+    UIPanelVisualPalette palette = {0};
     SDL_Color button_fill = {70, 70, 70, 200};
     SDL_Color button_border = {180, 180, 180, 255};
     SDL_Color textColor = {255, 255, 255, 255};
-    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
-        button_fill = palette.button_fill;
-        button_border = palette.button_border;
-        textColor = palette.button_text;
-    }
+    TTF_Font* font = FontManager_GetUIPanelFont();
+    UIPanelVisualMetrics metrics = UIPanelVisual_MakeMetrics(font);
+
+    (void)UIPanelVisual_ResolvePalette(&palette);
+    button_fill = palette.button_fill;
+    button_border = palette.button_border;
+    textColor = palette.text_primary;
     if (btn->hovered) {
-        button_fill = UIPanel_AdjustColor(button_fill, 12, 20);
-        button_border = UIPanel_AdjustColor(button_border, 26, 0);
+        button_fill = palette.button_fill_hover;
+        button_border = UIPanelVisual_AdjustColor(button_border, 18, 0);
     }
 
-    // ─── Button Background ─────────────────────
-    SDL_SetRenderDrawColor(r, button_fill.r, button_fill.g, button_fill.b, button_fill.a);
-    SDL_RenderFillRect(r, &btn->bounds);
-
-    // ─── Button Border ─────────────────────────
-    SDL_SetRenderDrawColor(r, button_border.r, button_border.g, button_border.b, button_border.a);
-    SDL_RenderDrawRect(r, &btn->bounds);
+    UIPanelVisual_DrawFrame(r, btn->bounds, button_fill, button_border, 80);
     if (btn->hovered) {
         SDL_Rect accent = { btn->bounds.x, btn->bounds.y, 3, btn->bounds.h };
-        SDL_SetRenderDrawColor(r, button_border.r, button_border.g, button_border.b, 220);
-        SDL_RenderFillRect(r, &accent);
+        UIPanelVisual_DrawAccentBand(r, accent, palette.accent, 0, accent.h, 220);
     }
 
-    // ─── Button Label Text ─────────────────────
-    TTF_Font* font = FontManager_GetUIPanelFont();
     if (!font) return;
 
     char dynamicLabel[64];
@@ -211,58 +168,54 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     }
 
     {
-        char clippedLabel[128];
         int textW = 0;
         int textH = 0;
-        const int maxTextW = btn->bounds.w - 8;
+        const int maxTextW = btn->bounds.w - ((metrics.pad_x - 2) * 2);
         SDL_Rect dst = {0, 0, 0, 0};
+        SDL_Rect textClip = {
+            btn->bounds.x + metrics.pad_x - 2,
+            btn->bounds.y + 1,
+            btn->bounds.w - ((metrics.pad_x - 2) * 2),
+            btn->bounds.h - 2
+        };
         if (!line_drawing_text_measure_utf8(r, font, label, &textW, &textH)) {
             return;
         }
         dst.w = textW;
         dst.h = textH;
         if (maxTextW > 0 && textW > maxTextW) {
-            BuildEllipsizedText(r, font, label, maxTextW, clippedLabel, sizeof(clippedLabel));
-            label = clippedLabel;
-            if (!line_drawing_text_measure_utf8(r, font, label, &textW, &textH)) {
-                return;
-            }
-            dst.w = textW;
-            dst.h = textH;
+            dst.x = btn->bounds.x + metrics.pad_x - 2;
+        } else {
+            dst.x = btn->bounds.x + (btn->bounds.w - dst.w) / 2;
         }
-        dst.x = btn->bounds.x + (btn->bounds.w - dst.w) / 2;
         dst.y = btn->bounds.y + (btn->bounds.h - dst.h) / 2;
-        DrawTextBasic(r, font, label, dst.x, dst.y, textColor);
+        UIPanel_DrawTextWithOptionalClip(r, font, label, textClip, dst.x, dst.y, textColor);
     }
 }
 
 static void DrawTabButton(SDL_Renderer* renderer, TTF_Font* font, const UIPanelTabButton* tab) {
-    LineDrawing3dThemePalette palette = {0};
+    UIPanelVisualPalette palette = {0};
+    UIPanelVisualMetrics metrics = UIPanelVisual_MakeMetrics(font);
     SDL_Color fill = {42, 45, 52, 225};
     SDL_Color border = {110, 120, 138, 255};
     SDL_Color text = {220, 224, 232, 255};
 
     if (!renderer || !font || !tab || tab->bounds.w <= 0 || tab->bounds.h <= 0) return;
 
-    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
-        fill = tab->active ? palette.button_fill : palette.panel_fill;
-        border = tab->active ? palette.button_border : palette.panel_border;
-        text = tab->active ? palette.button_text : palette.text_muted;
+    (void)UIPanelVisual_ResolvePalette(&palette);
+    fill = tab->active
+               ? UIPanelVisual_BlendColor(palette.pane_fill, palette.button_fill_active, 96)
+               : palette.pane_fill;
+    border = tab->active ? palette.button_border : palette.pane_border;
+    text = tab->active ? palette.text_primary : palette.text_muted;
+    if (UIPanelVisual_ColorLuma(fill) > 210) {
+        fill = UIPanelVisual_AdjustColor(fill, -36, 0);
     }
 
-    SDL_SetRenderDrawColor(renderer, fill.r, fill.g, fill.b, fill.a);
-    SDL_RenderFillRect(renderer, &tab->bounds);
-    SDL_SetRenderDrawColor(renderer, border.r, border.g, border.b, border.a);
-    SDL_RenderDrawRect(renderer, &tab->bounds);
+    UIPanelVisual_DrawFrame(renderer, tab->bounds, fill, border, 70);
     if (tab->active) {
-        SDL_Rect accent = {
-            tab->bounds.x + 2,
-            tab->bounds.y + tab->bounds.h - 4,
-            tab->bounds.w - 4,
-            3
-        };
-        SDL_SetRenderDrawColor(renderer, border.r, border.g, border.b, 255);
-        SDL_RenderFillRect(renderer, &accent);
+        SDL_Rect accent = { tab->bounds.x + 2, tab->bounds.y + tab->bounds.h - metrics.accent_h, tab->bounds.w - 4, metrics.accent_h - 1 };
+        UIPanelVisual_DrawAccentBand(renderer, accent, palette.accent, 0, accent.h, 255);
     }
 
     {
@@ -299,52 +252,37 @@ static void DrawPanelTabs(SDL_Renderer* renderer, const UIPanelState* ui, UIPane
 static void DrawPaneSurface(SDL_Renderer* renderer,
                             const SDL_Rect* pane_rect,
                             const SDL_Rect* body_rect) {
-    LineDrawing3dThemePalette palette = {0};
+    UIPanelVisualPalette palette = {0};
+    UIPanelVisualMetrics metrics = UIPanelVisual_MakeMetrics(FontManager_GetUIPanelFont());
     SDL_Color fill = {18, 20, 25, 215};
     SDL_Color border = {78, 90, 108, 220};
     SDL_Color divider = {62, 72, 88, 210};
-    SDL_Rect inner = {0, 0, 0, 0};
 
     if (!renderer || !pane_rect || pane_rect->w <= 0 || pane_rect->h <= 0) return;
-    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
-        fill = palette.panel_fill;
-        fill.a = 215;
-        border = palette.panel_border;
-        divider = UIPanel_AdjustColor(palette.panel_border, -10, -20);
-    }
-
-    SDL_SetRenderDrawColor(renderer, fill.r, fill.g, fill.b, fill.a);
-    SDL_RenderFillRect(renderer, pane_rect);
-    SDL_SetRenderDrawColor(renderer, border.r, border.g, border.b, border.a);
-    SDL_RenderDrawRect(renderer, pane_rect);
-
-    inner = *pane_rect;
-    inner.x += 1;
-    inner.y += 1;
-    inner.w -= 2;
-    inner.h -= 2;
-    if (inner.w > 0 && inner.h > 0) {
-        SDL_SetRenderDrawColor(renderer, divider.r, divider.g, divider.b, 70);
-        SDL_RenderDrawRect(renderer, &inner);
-    }
+    (void)UIPanelVisual_ResolvePalette(&palette);
+    fill = palette.pane_fill;
+    border = palette.pane_border;
+    divider = palette.pane_divider;
+    UIPanelVisual_DrawFrame(renderer, *pane_rect, fill, border, 70);
 
     if (body_rect && body_rect->w > 0 && body_rect->h > 0) {
-        const int divider_y = body_rect->y - 6;
-        SDL_SetRenderDrawColor(renderer, divider.r, divider.g, divider.b, divider.a);
-        SDL_RenderDrawLine(renderer,
-                           pane_rect->x + 8,
-                           divider_y,
-                           pane_rect->x + pane_rect->w - 8,
-                           divider_y);
+        const int divider_y = body_rect->y - metrics.section_gap;
+        UIPanelVisual_DrawDividerLine(renderer,
+                                      pane_rect->x + metrics.pad_x,
+                                      pane_rect->x + pane_rect->w - metrics.pad_x,
+                                      divider_y,
+                                      divider,
+                                      divider.a);
     }
 }
 
 static const char* UIPanel_GroupTitle(UIPanelGroup group, UIPanelSide side) {
     (void)side;
     switch (group) {
+        case UI_PANEL_GROUP_LEFT_SCENE_SELECTION: return "Selection";
         case UI_PANEL_GROUP_LEFT_SCENE_BOUNDS: return "Scene Bounds";
         case UI_PANEL_GROUP_LEFT_FILE_IO: return "File / IO";
-        case UI_PANEL_GROUP_LEFT_ROOT_PATHS: return "Root Paths";
+        case UI_PANEL_GROUP_LEFT_ROOT_PATHS: return "Session Paths";
         case UI_PANEL_GROUP_RIGHT_VIEW: return "View";
         case UI_PANEL_GROUP_RIGHT_MODES: return "Modes";
         case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return "Primitives";
@@ -352,6 +290,7 @@ static const char* UIPanel_GroupTitle(UIPanelGroup group, UIPanelSide side) {
         case UI_PANEL_GROUP_RIGHT_PRISM: return "Prism";
         case UI_PANEL_GROUP_RIGHT_GIZMO: return "Gizmo";
         case UI_PANEL_GROUP_RIGHT_TRANSFORM: return "Transform";
+        case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS: return "Object Actions";
         case UI_PANEL_GROUP_NONE:
         default: return "Controls";
     }
@@ -363,7 +302,7 @@ static void DrawGroupSection(SDL_Renderer* renderer,
                              UIPanelGroup group,
                              int first_index,
                              int last_index) {
-    LineDrawing3dThemePalette palette = {0};
+    UIPanelVisualPalette palette = {0};
     SDL_Color title_color = {200, 200, 210, 255};
     SDL_Color panel_fill = {25, 28, 34, 145};
     SDL_Color panel_border = {80, 95, 115, 210};
@@ -374,10 +313,10 @@ static void DrawGroupSection(SDL_Renderer* renderer,
     int max_y = 0;
     TTF_Font* font = NULL;
     const char* title = UIPanel_GroupTitle(group, side);
-    int font_h = 14;
+    UIPanelVisualMetrics metrics = {0};
     int title_band_h = 16;
     int title_w = 0;
-    SDL_Rect title_chip = {0, 0, 0, 0};
+    SDL_Rect title_chip = { bounds.x + 6, bounds.y + 3, 0, 0 };
 
     if (!renderer || !ui || first_index < 0 || last_index < first_index) return;
 
@@ -391,37 +330,36 @@ static void DrawGroupSection(SDL_Renderer* renderer,
     }
     if (min_x == INT_MAX || max_x <= min_x || max_y <= min_y) return;
 
-    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
-        title_color = palette.text_muted;
-        panel_fill = palette.panel_fill;
-        panel_border = palette.panel_border;
-        panel_fill.a = 145;
-        panel_border.a = 210;
-    }
+    (void)UIPanelVisual_ResolvePalette(&palette);
+    title_color = palette.text_muted;
+    panel_fill = palette.pane_fill;
+    panel_border = palette.pane_border;
+    panel_fill.a = 145;
+    panel_border.a = 210;
 
     font = FontManager_GetUIPanelFont();
-    font_h = UIPanel_FontHeightPx(font);
-    title_band_h = font_h + 4;
+    metrics = UIPanelVisual_MakeMetrics(font);
+    title_band_h = metrics.chip_h + 2;
     bounds.x = min_x - 4;
     bounds.y = min_y - title_band_h;
     bounds.w = (max_x - min_x) + 8;
     bounds.h = (max_y - min_y) + title_band_h + 4;
+    title_chip.x = bounds.x + metrics.pad_x - 2;
+    title_chip.y = bounds.y + 3;
 
-#if !USE_VULKAN
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-#endif
-    SDL_SetRenderDrawColor(renderer, panel_fill.r, panel_fill.g, panel_fill.b, panel_fill.a);
-    SDL_RenderFillRect(renderer, &bounds);
-    SDL_SetRenderDrawColor(renderer, panel_border.r, panel_border.g, panel_border.b, panel_border.a);
-    SDL_RenderDrawRect(renderer, &bounds);
+    UIPanelVisual_DrawFrame(renderer, bounds, panel_fill, panel_border, 60);
 
     if (font) {
         if (line_drawing_text_measure_utf8(renderer, font, title, &title_w, NULL)) {
-            title_chip = (SDL_Rect){ bounds.x + 6, bounds.y + 3, title_w + 10, font_h + 2 };
-            SDL_SetRenderDrawColor(renderer, panel_border.r, panel_border.g, panel_border.b, 100);
-            SDL_RenderFillRect(renderer, &title_chip);
+            title_chip = (SDL_Rect){ bounds.x + metrics.pad_x - 2, bounds.y + 3, title_w + 12, metrics.chip_h };
+            UIPanelVisual_DrawLabelChip(renderer,
+                                        title_chip,
+                                        UIPanelVisual_BlendColor(panel_fill, panel_border, 38),
+                                        panel_border,
+                                        110,
+                                        130);
         }
-        DrawTextBasic(renderer, font, title, bounds.x + 8, bounds.y + 4, title_color);
+        DrawTextBasic(renderer, font, title, title_chip.x + 4, bounds.y + 4, title_color);
     }
 }
 
@@ -488,7 +426,9 @@ void Render_UIPanel(const UIPanelState* ui, SDL_Renderer* renderer) {
     if (!ui || !renderer) return;
     Render_UIPanelSide(ui, renderer, UI_PANEL_LEFT);
     Render_UIPanelSide(ui, renderer, UI_PANEL_RIGHT);
+    Render_UIPanelSceneSummary(ui, renderer);
     Render_UIPanelSceneList(ui, renderer);
     Render_UIPanelRootSummary(ui, renderer);
+    Render_UIPanelFileBrowser(ui, renderer);
     Render_UIPanelRightTabSummary(ui, renderer);
 }

@@ -167,6 +167,13 @@ static bool UIPanel_SetRootValue(UIRootDialogTarget target, const char* value) {
     }
 }
 
+static bool UIPanel_ShouldRefreshBrowserForSessionInputRoot(const UIPanelState* ui) {
+    if (!ui) return false;
+    if (!ui->loadMenu.visible || ui->loadMenu.mode == UI_LOAD_MENU_MODE_NONE) return true;
+    if (!ui->loadMenu.rootPath[0]) return true;
+    return strcmp(ui->loadMenu.rootPath, Global_GetInputRoot()) == 0;
+}
+
 static bool UIPanel_SelectFolderWithPrompt(const char* prompt, char* out_path, size_t out_path_size) {
 #if defined(__APPLE__)
     FILE* pipe = NULL;
@@ -271,7 +278,8 @@ bool UIPanel_ApplyRootDialog(UIPanelState* ui) {
         SDL_Log("[UI] Root update failed for path '%s'", ui->rootDialog.buffer);
         return false;
     }
-    if (ui->rootDialog.target == UI_ROOT_TARGET_INPUT) {
+    if (ui->rootDialog.target == UI_ROOT_TARGET_INPUT &&
+        UIPanel_ShouldRefreshBrowserForSessionInputRoot(ui)) {
         UIPanel_RefreshConfigList();
     }
     SDL_Log("[UI] Root updated: %s", ui->rootDialog.buffer);
@@ -377,6 +385,8 @@ bool UIPanel_LoadSceneFromPath(const char* path) {
 
     SDL_Log("[UI] Imported scene %s", path);
     Global_OnSceneLoaded(path, layout_hint);
+    UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_SCENE, path);
+    UIPanel_RefreshConfigList();
     state->editor.selectedAnchorIndex = -1;
     state->editor.selectedWallIndex = -1;
     state->editor.selectedObject3DId = 0u;
@@ -481,16 +491,19 @@ void UIPanel_BeginOutputRootDialog(void) {
 
 bool UIPanel_OpenInputRootFolderDialog(void) {
     char path[256];
-    if (!UIPanel_SelectFolderWithPrompt("Choose sCulpt Input Root", path, sizeof(path))) {
-        SDL_Log("[UI] Input root selection canceled.");
+    UIPanelState* ui = UIPanel_Get();
+    if (!UIPanel_SelectFolderWithPrompt("Choose sCulpt Session Input Root", path, sizeof(path))) {
+        SDL_Log("[UI] Session input root selection canceled.");
         return false;
     }
     if (!Global_SetInputRoot(path, true)) {
-        SDL_Log("[UI] Failed to set input root to %s", path);
+        SDL_Log("[UI] Failed to set session input root to %s", path);
         return false;
     }
-    UIPanel_RefreshConfigList();
-    SDL_Log("[UI] Input root updated: %s", path);
+    if (UIPanel_ShouldRefreshBrowserForSessionInputRoot(ui)) {
+        UIPanel_RefreshConfigList();
+    }
+    SDL_Log("[UI] Session input root updated: %s", path);
     return true;
 }
 

@@ -58,6 +58,11 @@ bool LineDrawingPaneHost_GetVisibleSplitter(const LineDrawingPaneHost* host,
                                             CorePaneRect* out_rect,
                                             bool* out_hovered,
                                             bool* out_active);
+bool LineDrawingPaneHost_GetViewportRect(const LineDrawingPaneHost* host,
+                                         CorePaneRect* out_rect);
+bool LineDrawingPaneHost_GetViewportCenter(const LineDrawingPaneHost* host,
+                                           float* out_center_x,
+                                           float* out_center_y);
 bool LineDrawingPaneHost_GetRectForRole(const LineDrawingPaneHost* host,
                                         LineDrawingPaneRole role,
                                         CorePaneRect* out_rect);

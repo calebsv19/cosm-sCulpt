@@ -32,6 +32,7 @@ bool UIPanel_ApplyObjectTransformDialog(UIPanelState* ui);
 void UIPanel_BeginRootDialog(UIRootDialogTarget target);
 bool UIPanel_ApplyRootDialog(UIPanelState* ui);
 bool UIPanel_PerformSave(UIPanelState* ui);
+void UIPanel_RememberLoadedEntry(UILoadMenuMode mode, const char* path);
 bool UIPanel_LoadLayoutFromPath(const char* path);
 bool UIPanel_LoadSceneFromPath(const char* path);
 bool UIPanel_LoadJsonFromFolderSelection(const char* selected_folder, bool persist_root);

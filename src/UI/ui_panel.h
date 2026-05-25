@@ -6,7 +6,7 @@
 #include "Math/math_util.h"
 #include "core_units.h"
 
-#define MAX_UI_BUTTONS 40
+#define MAX_UI_BUTTONS 48
 
 typedef enum {
     UI_PANEL_LEFT,
@@ -28,6 +28,7 @@ typedef enum {
 
 typedef enum {
     UI_PANEL_GROUP_NONE = 0,
+    UI_PANEL_GROUP_LEFT_SCENE_SELECTION,
     UI_PANEL_GROUP_LEFT_SCENE_BOUNDS,
     UI_PANEL_GROUP_LEFT_FILE_IO,
     UI_PANEL_GROUP_LEFT_ROOT_PATHS,
@@ -37,7 +38,8 @@ typedef enum {
     UI_PANEL_GROUP_RIGHT_CONSTRUCTION,
     UI_PANEL_GROUP_RIGHT_PRISM,
     UI_PANEL_GROUP_RIGHT_GIZMO,
-    UI_PANEL_GROUP_RIGHT_TRANSFORM
+    UI_PANEL_GROUP_RIGHT_TRANSFORM,
+    UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS
 } UIPanelGroup;
 
 typedef struct {
@@ -95,6 +97,10 @@ typedef struct {
 #define UI_BTN_EDIT_OBJECT_ROTATION_Y 36
 #define UI_BTN_EDIT_OBJECT_ROTATION_Z 37
 #define UI_BTN_FIT_SCENE_BOUNDS_TO_OBJECT 38
+#define UI_BTN_SCENE_CLEAR_SELECTION 39
+#define UI_BTN_SCENE_DELETE_SELECTED 40
+#define UI_BTN_OBJECT_CLEAR_SELECTION 41
+#define UI_BTN_OBJECT_DELETE_SELECTED 42
 
 #define MAX_CONFIG_FILES 128
 #define MAX_CONFIG_PATH 512
@@ -104,6 +110,12 @@ typedef enum {
     UI_LOAD_MENU_MODE_JSON = 1,
     UI_LOAD_MENU_MODE_SCENE = 2
 } UILoadMenuMode;
+
+typedef enum {
+    UI_LOAD_MENU_SELECTION_NONE = 0,
+    UI_LOAD_MENU_SELECTION_ACTIVE_SESSION = 1,
+    UI_LOAD_MENU_SELECTION_REMEMBERED_ENTRY = 2
+} UILoadMenuSelectionState;
 
 typedef enum {
     UI_ROOT_TARGET_NONE = 0,
@@ -149,8 +161,44 @@ typedef struct {
     SDL_Rect leftBodyRect;
     SDL_Rect rightBodyRect;
     struct {
+        SDL_Rect summaryRect;
+        SDL_Rect fileActionsRect;
+        SDL_Rect rootPathsRect;
+        SDL_Rect browserRect;
+    } filePane;
+    struct {
+        SDL_Rect summaryRect;
+        SDL_Rect listRect;
+        SDL_Rect selectionRect;
+        SDL_Rect boundsRect;
+    } scenePane;
+    struct {
+        SDL_Rect summaryRect;
+        SDL_Rect detailsRect;
+        SDL_Rect actionsRect;
+        SDL_Rect prismRect;
+        SDL_Rect gizmoRect;
+        SDL_Rect transformRect;
+    } objectPane;
+    struct {
+        SDL_Rect summaryRect;
+        SDL_Rect workspaceRect;
+        SDL_Rect primitivesRect;
+        SDL_Rect constructionRect;
+    } createPane;
+    struct {
+        SDL_Rect summaryRect;
+        SDL_Rect workspaceRect;
+        SDL_Rect viewRect;
+        SDL_Rect modesRect;
+    } viewPane;
+    struct {
         float scrollOffsetPx;
         int hoverIndex;
+        uint32_t expandedObjectId;
+        bool scrollbarDragging;
+        int scrollbarDragStartY;
+        float scrollbarDragStartOffsetPx;
     } sceneList;
 
     struct {
@@ -162,8 +210,11 @@ typedef struct {
 
     struct {
         bool open;
+        bool visible;
         UILoadMenuMode mode;
         int anchorButtonId;
+        Uint32 lastModeButtonClickTicks;
+        int lastModeButtonId;
         char rootPath[MAX_CONFIG_PATH];
         char entries[MAX_CONFIG_FILES][128];
         char entryPaths[MAX_CONFIG_FILES][MAX_CONFIG_PATH];
@@ -270,6 +321,14 @@ bool UIPanel_HandleLoadMenuClick(int mouseX, int mouseY);
 bool UIPanel_HandleLoadMenuWheel(int mouseX, int mouseY, float wheel_delta);
 void UIPanel_ToggleLoadMenu(void);
 bool UIPanel_IsLoadMenuOpen(void);
+void UIPanel_LoadFileBrowserMode(UIPanelState* ui);
+void UIPanel_ActivateJsonBrowser(void);
+void UIPanel_ActivateSceneBrowser(void);
+bool UIPanel_RestorePersistedFileSession(void);
+bool UIPanel_GetFileBrowserSelectionInfo(const UIPanelState* ui,
+                                         UILoadMenuSelectionState* out_state,
+                                         const char** out_path);
+void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer);
 void UIPanel_ResetTransientUiState(void);
 void UIPanel_HandleMouseMotion(int mouseX, int mouseY);
 void UIPanel_BeginInputRootDialog(void);

@@ -1,6 +1,6 @@
 # sCulpt Current Truth
 
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 ## Program Identity
 - Repository directory: `line_drawing/`
@@ -51,10 +51,37 @@ Last updated: 2026-05-24
   - existing actions are still the same underneath, but they now sit behind
     stable dedicated shell surfaces instead of one flat always-open stack
   - the left `Scene` tab is now a real scrollable scene object list:
+    - the pane now starts with a dedicated `Scene / Selection` summary card
+    - the summary shows total object count, plane/prism split, and current
+      selected-object context including size and lock state
+    - the summary also exposes anchor/wall counts so the pane reflects the
+      broader scene graph
     - authored plane/prism objects render in stable row order
-    - rows show object id, primitive kind, and a compact position summary
+    - rows now show object id, primitive kind, position, size, and lock
+      metadata in a denser three-line presentation
+    - the scene list now behaves like a single-expanded-object browser:
+      - clicking a row selects and expands it inline
+      - clicking the same row again collapses it while preserving selection
+      - expanded rows surface rotation, scale, and frame-origin context
     - row hover and row-click selection stay in sync with editor object
       selection state
+    - the scene list now exposes a visible draggable scrollbar instead of
+      relying on wheel-only scrolling for longer object sets
+    - the scene browser now renders through an explicit clipped viewport:
+      - expanded rows stay inside the list surface instead of bleeding into
+        selection or bounds controls
+      - the scrollbar is slimmer and separated from row content by a dedicated
+        gutter instead of reading like part of the row lane
+    - the pane now includes scene-local `Clear Select` and `Delete Obj`
+      actions below the list
+    - scene-list hit routing is clipped to the real list surface so the lower
+      scene controls are not swallowed by generic list clicks
+    - scene-pane layout now uses explicit owned section rects for:
+      - summary
+      - scene browser
+      - selection actions
+      - bounds controls
+      instead of deriving the browser height from later button bounds
     - scene-bounds controls now live at the bottom of the same left `Scene`
       lane instead of in a separate right-side scene tab
   - the right `Object` tab now has a dedicated selected-object inspector:
@@ -71,11 +98,105 @@ Last updated: 2026-05-24
   - the left `File` tab now has a dedicated `File / Session` summary card:
     - layout, scene, input root, output root, and dirty/clean session state are
       visible above the file/root buttons
-    - the file lane is beginning to read like a real session surface instead of
-      a pure button stack
-  - the editor-local JSON/scene picker now opens against the left `File` lane
-    geometry, so scene-lane controls no longer push the picker into unstable
-    placement
+    - the file lane now also has an explicit owned browser section below the
+      file/session-path controls instead of relying on a transient popup overlay
+    - `Load JSON` and `Load Scene` now switch that browser section into
+      persistent JSON/scene modes
+    - the browser now stays active across normal file-pane actions instead of
+      disappearing as soon as another panel action runs
+    - browser content now renders with:
+      - mode title
+      - current input-root path
+      - clipped entry list
+      - active-row highlight
+      - slimmer scrollbar lane
+      - helper footer copy
+    - clicking a JSON/scene row now loads that entry while keeping the browser
+      active
+    - file-browser mode now persists in ignored runtime state so the pane can
+      restore whether it was last in JSON mode or scene mode
+    - startup now follows that persisted file-browser mode:
+      - JSON mode reopens the last loaded layout when available
+      - Scene mode reopens the last loaded scene when available
+    - recent-context history now seeds the last-known layout/scene startup
+      paths before the restore pass runs
+    - after startup restore, the file browser rebuilds from the real active
+      session state so the active row highlight comes from the loaded file
+      rather than a UI-only remembered selection
+    - the file browser now also persists a remembered last JSON entry and last
+      scene entry for cases where no active loaded session currently matches
+      the browser root
+    - the file browser now also persists separate JSON and scene browser roots
+      instead of relying on one shared browsing root for both modes
+    - browser rebuilds resolve the active row by preferring:
+      - the real active loaded layout/scene path for the current mode
+      - otherwise the remembered last JSON/scene entry for that mode
+    - remembered-entry persistence now runs through the shared layout/scene
+      load path instead of only browser-row clicks, so direct loads and startup
+      restore keep the browser highlight coherent
+    - direct layout/scene loads now refresh the browser immediately, so row
+      highlighting updates as soon as session state changes instead of waiting
+      for the next browser-only interaction
+    - `Load JSON` and `Load Scene` now split behavior by click depth:
+      - single-click switches the lower browser mode and uses the persisted
+        root for that mode
+      - double-click opens the corresponding mode-specific folder picker and
+        updates that mode’s saved browser root
+    - plain browser-mode switching no longer rewrites the live session root
+      just to repopulate the lower browser
+    - actual loads from the lower browser still re-establish the live input
+      root from the active browser root before loading
+    - if the input root changes and neither the active loaded session nor the
+      remembered entry exists under that root, the browser now degrades to no
+      highlighted row rather than implying stale selection state
+    - the `File / Session` summary now includes an explicit browser-status line
+      so the pane tells the user whether the current browser state reflects an
+      active session row, a remembered row, a mode with no matching row, or a
+      mode with no entries
+    - the generic root controls are now explicitly labeled as `Session Paths`
+      so they no longer imply that they edit the same root as the lower
+      JSON/scene browser
+    - `Session In Edit` / `Session In Pick` now target only the live session
+      input root; mode-specific JSON/scene roots remain owned by the
+      corresponding `Load JSON` / `Load Scene` double-click picker flow
+    - the file summary now shows `Browse In` separately from `Session In` so
+      the current mode-specific browser root is visible independently from the
+      live session input root
+    - session input-root edits now skip unnecessary browser rebuilds when the
+      active JSON/scene browser is pinned to a different saved mode root, which
+      keeps the two control lanes from fighting for ownership
+    - the file pane now has a stronger structural layout:
+      - the top `File / Session` card is denser and shorter
+      - the persistent JSON/scene browser now owns the elastic middle section
+      - `File / IO` and `Session Paths` are anchored at the bottom instead of
+        consuming the browser’s height first
+      - those bottom file-pane control groups now use compact 2-column button
+        rows where appropriate instead of always using full-width stacked
+        buttons
+    - the file-tab browser no longer blocks left-pane resizing:
+      - splitter drag now gets first chance before the persistent file browser
+        captures a click, so the left pane can still be resized while the
+        `File` tab is active
+    - browser refresh now scrolls the active/remembered row into view instead
+      of always resetting long lists to the top
+    - the browser header now shows mode plus entry count instead of repeating
+      the current browse root above the list; the root remains visible in the
+      summary card instead
+    - file summary lines, browser rows/footer, and compact file-pane button
+      labels now clip to their pane/view bounds instead of forcing `...`
+      substitution, so pane resizing behaves more like narrowing a viewport
+    - active file-browser rows and active file/scene tab fills now use subtler
+      blended fills so bright presets keep readable contrast
+    - invalid or empty candidate roots are rejected before mutating the
+      current input root, so a failed folder pick does not clobber the prior
+      working root
+  - the editor-local JSON/scene browser is now owned by the left `File` lane
+    geometry instead of floating as a transient lower overlay that disappears
+    after unrelated actions
+  - the live runtime frame renderer now routes through the unified
+    `Render_UIPanel(...)` pass, so scene/view/create/object summary surfaces
+    are actually drawn in the packaged app instead of only existing in the
+    panel modules
   - the final shell polish pass is now in:
     - pane surfaces have stronger framing instead of reading like flat
       edge-attached debug columns

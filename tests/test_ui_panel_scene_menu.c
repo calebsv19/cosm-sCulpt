@@ -75,8 +75,8 @@ static int ld_test_find_load_menu_index(const UIPanelState* ui, const char* labe
 
 static void ld_test_load_menu_click_point(const UIPanelState* ui, int index, int* out_x, int* out_y) {
     SDL_Rect rect = UIPanel_GetLoadMenuRect(ui);
-    const int header_h = 32;
-    const int row_h = 26;
+    const int header_h = 28;
+    const int row_h = 24;
     if (out_x) *out_x = rect.x + 16;
     if (out_y) *out_y = rect.y + header_h + (index * row_h) + (row_h / 2);
 }
@@ -439,8 +439,6 @@ static bool test_load_menu_rect_stays_within_left_pane_and_below_button_groups(v
     CorePaneRect pane_rect = {0};
     SDL_Rect pane = {0, 0, 0, 0};
     SDL_Rect menu = {0, 0, 0, 0};
-    int max_button_bottom = 0;
-
     root = mkdtemp(root_template);
     TEST_ASSERT(root != NULL);
     TEST_ASSERT(snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", root) < (int)sizeof(alpha_path));
@@ -456,18 +454,11 @@ static bool test_load_menu_rect_stays_within_left_pane_and_below_button_groups(v
     pane = ld_test_pane_rect_to_sdl(pane_rect);
     menu = UIPanel_GetLoadMenuRect(ui);
 
-    for (int i = 0; i < ui->count; ++i) {
-        const UIButton* btn = &ui->buttons[i];
-        if (btn->side != UI_PANEL_LEFT) continue;
-        if (btn->bounds.y + btn->bounds.h > max_button_bottom) {
-            max_button_bottom = btn->bounds.y + btn->bounds.h;
-        }
-    }
-
     TEST_ASSERT(menu.x >= pane.x);
     TEST_ASSERT(menu.x + menu.w <= pane.x + pane.w);
-    TEST_ASSERT(menu.y > max_button_bottom);
+    TEST_ASSERT(menu.y >= ui->filePane.summaryRect.y + ui->filePane.summaryRect.h);
     TEST_ASSERT(menu.y + menu.h <= pane.y + pane.h);
+    TEST_ASSERT(menu.y + menu.h <= ui->filePane.fileActionsRect.y + 1);
 
     UIPanel_ToggleLoadMenu();
     ld_test_shutdown_runtime();

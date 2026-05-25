@@ -12,6 +12,38 @@
 
 #include "Editor/editor.h"
 
+enum {
+    UI_FILE_BROWSER_BUTTON_DOUBLE_CLICK_MS = 350
+};
+
+static bool UIPanel_IsFileBrowserModeButton(int button_id) {
+    return button_id == UI_BTN_LOAD_JSON || button_id == UI_BTN_LOAD_SCENE;
+}
+
+static bool UIPanel_HandleFileBrowserModeButtonClick(UIPanelState* ui, int button_id) {
+    Uint32 now = SDL_GetTicks();
+    bool is_double_click = false;
+    if (!ui || !UIPanel_IsFileBrowserModeButton(button_id)) return false;
+
+    is_double_click = (ui->loadMenu.lastModeButtonId == button_id) &&
+                      (now - ui->loadMenu.lastModeButtonClickTicks <= UI_FILE_BROWSER_BUTTON_DOUBLE_CLICK_MS);
+    ui->loadMenu.lastModeButtonId = button_id;
+    ui->loadMenu.lastModeButtonClickTicks = now;
+
+    if (button_id == UI_BTN_LOAD_JSON) {
+        if (is_double_click) {
+            return UIPanel_OpenJsonFolderDialog();
+        }
+        UIPanel_ActivateJsonBrowser();
+        return true;
+    }
+
+    if (is_double_click) {
+        return UIPanel_OpenSceneFolderDialog();
+    }
+    UIPanel_ActivateSceneBrowser();
+    return true;
+}
 
 bool UIPanel_HandleClick(int mouseX, int mouseY) {
     UIPanelState* ui = UIPanel_Get();
@@ -54,6 +86,10 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
             mouseY >= r.y && mouseY <= r.y + r.h) {
 
             btn->pressed = true;
+            if (!UIPanel_IsFileBrowserModeButton(btn->id)) {
+                ui->loadMenu.lastModeButtonId = -1;
+                ui->loadMenu.lastModeButtonClickTicks = 0u;
+            }
 
             switch (btn->id) {
 		    // ─── LEFT PANEL ACTIONS ─────────────────────
@@ -64,14 +100,12 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 	}
 
 	case UI_BTN_LOAD_JSON: { // Load JSON
-                ui->loadMenu.open = false;
-                UIPanel_OpenJsonFolderDialog();
+                (void)UIPanel_HandleFileBrowserModeButtonClick(ui, btn->id);
 			break;
 		}
 
             case UI_BTN_LOAD_SCENE: { // Load Scene
-                ui->loadMenu.open = false;
-                UIPanel_OpenSceneFolderDialog();
+                (void)UIPanel_HandleFileBrowserModeButtonClick(ui, btn->id);
                 break;
             }
 
@@ -83,6 +117,16 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 case UI_BTN_EXPORT_SCENE: { // Export Scene
                     ui->loadMenu.open = false;
                     UIPanel_ExportScene();
+                    break;
+                }
+                case UI_BTN_SCENE_CLEAR_SELECTION: {
+                    ui->loadMenu.open = false;
+                    UIPanel_SceneListClearSelection();
+                    break;
+                }
+                case UI_BTN_SCENE_DELETE_SELECTED: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_SceneListDeleteSelectedObject();
                     break;
                 }
 
@@ -113,25 +157,30 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     ui->loadMenu.open = false;
                     int sel = editor->selectedAnchorIndex;
                     if (sel >= 0) {
+                        float centerX = (float)state->screenWidth * 0.5f;
+                        float centerY = (float)state->screenHeight * 0.5f;
+                        (void)LineDrawingPaneHost_GetViewportCenter(&state->paneHost, &centerX, &centerY);
                         Editor_HistoryCapture(editor, &state->layout);
-                        Layout_ShiftOriginToAnchor(&state->layout, grid, sel, state->screenWidth, state->screenHeight);
+                        Layout_ShiftOriginToAnchor(&state->layout, grid, sel, centerX, centerY);
                     }
                     break;
                 }
                 case UI_BTN_ZOOM_IN: { // Zoom In
                     ui->loadMenu.open = false;
-                    int w = state->screenWidth;
-                    int h = state->screenHeight;
-                    if (LineDrawingViewportZoom_Apply(state, 1.1f, w / 2.0f, h / 2.0f)) {
+                    float centerX = (float)state->screenWidth * 0.5f;
+                    float centerY = (float)state->screenHeight * 0.5f;
+                    (void)LineDrawingPaneHost_GetViewportCenter(&state->paneHost, &centerX, &centerY);
+                    if (LineDrawingViewportZoom_Apply(state, 1.1f, centerX, centerY)) {
                         Global_FlagGridChanged();
                     }
                     break;
                 }
                 case UI_BTN_ZOOM_OUT: { // Zoom Out
                     ui->loadMenu.open = false;
-                    int w = state->screenWidth;
-                    int h = state->screenHeight;
-                    if (LineDrawingViewportZoom_Apply(state, 0.9f, w / 2.0f, h / 2.0f)) {
+                    float centerX = (float)state->screenWidth * 0.5f;
+                    float centerY = (float)state->screenHeight * 0.5f;
+                    (void)LineDrawingPaneHost_GetViewportCenter(&state->paneHost, &centerX, &centerY);
+                    if (LineDrawingViewportZoom_Apply(state, 0.9f, centerX, centerY)) {
                         Global_FlagGridChanged();
                     }
                     break;
@@ -196,6 +245,16 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 case UI_BTN_CYCLE_DISPLAY_UNITS: { // Cycle display units
                     ui->loadMenu.open = false;
                     UIPanel_CycleDisplayUnit();
+                    break;
+                }
+                case UI_BTN_OBJECT_CLEAR_SELECTION: {
+                    ui->loadMenu.open = false;
+                    UIPanel_SceneListClearSelection();
+                    break;
+                }
+                case UI_BTN_OBJECT_DELETE_SELECTED: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_SceneListDeleteSelectedObject();
                     break;
                 }
                 case UI_BTN_TOGGLE_OBJECT_GIZMO_MODE: { // Toggle object gizmo move/rotate mode

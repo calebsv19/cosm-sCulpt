@@ -1,4 +1,5 @@
 #include "UI/ui_panel_internal.h"
+#include "UI/ui_panel_file_layout.h"
 #include "UI/ui_panel_file_summary.h"
 #include "UI/ui_panel_scene_list.h"
 
@@ -7,8 +8,12 @@
 #include "Layout/layout_json.h"
 #include "UI/info_overlay.h"
 #include "UI/font_manager.h"
+#include "UI/shared_theme_font_adapter.h"
+#include "UI/ui_panel_summary_surface.h"
+#include "UI/ui_panel_visual_style.h"
 
 #include <dirent.h>
+#include <errno.h>
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>
@@ -18,19 +23,198 @@
 
 enum {
     UI_LOAD_MENU_PADDING_PX = 8,
-    UI_LOAD_MENU_HEADER_H = 32,
-    UI_LOAD_MENU_FOOTER_H = 24,
-    UI_LOAD_MENU_ROW_H = 26,
+    UI_LOAD_MENU_HEADER_H = 28,
+    UI_LOAD_MENU_FOOTER_H = 20,
+    UI_LOAD_MENU_ROW_H = 24,
     UI_LOAD_MENU_SCROLLBAR_W = 10,
-    UI_LOAD_MENU_GUTTER_PX = 8,
-    UI_LOAD_MENU_SECTION_GAP_PX = 8,
-    UI_LOAD_MENU_MAX_H = 360,
-    UI_LOAD_MENU_MIN_W = 320,
-    UI_LOAD_MENU_DEFAULT_W = 360
+    UI_LOAD_MENU_GUTTER_PX = 8
 };
 
 static const char* k_scene_authoring_filename = "scene_authoring.json";
 static const char* k_scene_runtime_filename = "scene_runtime.json";
+static const char* k_runtime_file_browser_mode_path = "data/runtime/file_browser_mode.txt";
+static const char* k_runtime_json_root_path = "data/runtime/file_browser_json_root.txt";
+static const char* k_runtime_scene_root_path = "data/runtime/file_browser_scene_root.txt";
+static const char* k_runtime_last_json_entry_path = "data/runtime/file_browser_last_json_entry.txt";
+static const char* k_runtime_last_scene_entry_path = "data/runtime/file_browser_last_scene_entry.txt";
+
+static bool UIPanel_PathIsDirectory(const char* path);
+
+static bool UIPanel_FileBrowserEnsureRuntimeDir(void) {
+    if (mkdir("data", 0755) != 0 && errno != EEXIST) {
+        return false;
+    }
+    if (mkdir("data/runtime", 0755) != 0 && errno != EEXIST) {
+        return false;
+    }
+    return true;
+}
+
+static const char* UIPanel_FileBrowserModeToken(UILoadMenuMode mode) {
+    switch (mode) {
+        case UI_LOAD_MENU_MODE_JSON: return "json";
+        case UI_LOAD_MENU_MODE_SCENE: return "scene";
+        case UI_LOAD_MENU_MODE_NONE:
+        default: return "none";
+    }
+}
+
+static UILoadMenuMode UIPanel_FileBrowserModeFromToken(const char* token) {
+    if (!token || !token[0]) return UI_LOAD_MENU_MODE_NONE;
+    if (strcasecmp(token, "json") == 0) return UI_LOAD_MENU_MODE_JSON;
+    if (strcasecmp(token, "scene") == 0) return UI_LOAD_MENU_MODE_SCENE;
+    return UI_LOAD_MENU_MODE_NONE;
+}
+
+static bool UIPanel_SaveFileBrowserMode(const UIPanelState* ui) {
+    FILE* file = NULL;
+    const char* token = NULL;
+    if (!ui) return false;
+    if (!UIPanel_FileBrowserEnsureRuntimeDir()) return false;
+    token = UIPanel_FileBrowserModeToken(ui->loadMenu.mode);
+    file = fopen(k_runtime_file_browser_mode_path, "wb");
+    if (!file) return false;
+    if (fputs(token, file) == EOF || fputc('\n', file) == EOF) {
+        fclose(file);
+        return false;
+    }
+    fclose(file);
+    return true;
+}
+
+static const char* UIPanel_FileBrowserEntryStatePath(UILoadMenuMode mode) {
+    switch (mode) {
+        case UI_LOAD_MENU_MODE_JSON: return k_runtime_last_json_entry_path;
+        case UI_LOAD_MENU_MODE_SCENE: return k_runtime_last_scene_entry_path;
+        case UI_LOAD_MENU_MODE_NONE:
+        default: return NULL;
+    }
+}
+
+static const char* UIPanel_FileBrowserRootStatePath(UILoadMenuMode mode) {
+    switch (mode) {
+        case UI_LOAD_MENU_MODE_JSON: return k_runtime_json_root_path;
+        case UI_LOAD_MENU_MODE_SCENE: return k_runtime_scene_root_path;
+        case UI_LOAD_MENU_MODE_NONE:
+        default: return NULL;
+    }
+}
+
+static bool UIPanel_SaveRememberedEntryPath(UILoadMenuMode mode, const char* path) {
+    FILE* file = NULL;
+    const char* state_path = UIPanel_FileBrowserEntryStatePath(mode);
+    if (!state_path || !path || !path[0]) return false;
+    if (!UIPanel_FileBrowserEnsureRuntimeDir()) return false;
+    file = fopen(state_path, "wb");
+    if (!file) return false;
+    if (fputs(path, file) == EOF || fputc('\n', file) == EOF) {
+        fclose(file);
+        return false;
+    }
+    fclose(file);
+    return true;
+}
+
+static bool UIPanel_LoadRememberedEntryPath(UILoadMenuMode mode, char* out_path, size_t out_path_size) {
+    FILE* file = NULL;
+    const char* state_path = UIPanel_FileBrowserEntryStatePath(mode);
+    if (!state_path || !out_path || out_path_size == 0u) return false;
+    out_path[0] = '\0';
+    file = fopen(state_path, "rb");
+    if (!file) return false;
+    if (!fgets(out_path, (int)out_path_size, file)) {
+        fclose(file);
+        out_path[0] = '\0';
+        return false;
+    }
+    fclose(file);
+    out_path[strcspn(out_path, "\r\n")] = '\0';
+    return out_path[0] != '\0';
+}
+
+static bool UIPanel_SaveBrowserRootPath(UILoadMenuMode mode, const char* path) {
+    FILE* file = NULL;
+    const char* state_path = UIPanel_FileBrowserRootStatePath(mode);
+    if (!state_path || !path || !path[0]) return false;
+    if (!UIPanel_FileBrowserEnsureRuntimeDir()) return false;
+    file = fopen(state_path, "wb");
+    if (!file) return false;
+    if (fputs(path, file) == EOF || fputc('\n', file) == EOF) {
+        fclose(file);
+        return false;
+    }
+    fclose(file);
+    return true;
+}
+
+static bool UIPanel_LoadBrowserRootPath(UILoadMenuMode mode, char* out_path, size_t out_path_size) {
+    FILE* file = NULL;
+    const char* state_path = UIPanel_FileBrowserRootStatePath(mode);
+    if (!state_path || !out_path || out_path_size == 0u) return false;
+    out_path[0] = '\0';
+    file = fopen(state_path, "rb");
+    if (!file) return false;
+    if (!fgets(out_path, (int)out_path_size, file)) {
+        fclose(file);
+        out_path[0] = '\0';
+        return false;
+    }
+    fclose(file);
+    out_path[strcspn(out_path, "\r\n")] = '\0';
+    return out_path[0] != '\0';
+}
+
+static bool UIPanel_ResolveBrowserRootForMode(UILoadMenuMode mode,
+                                              char* out_path,
+                                              size_t out_path_size) {
+    const char* current_root = Global_GetInputRoot();
+    if (!out_path || out_path_size == 0u) return false;
+    out_path[0] = '\0';
+    if (UIPanel_LoadBrowserRootPath(mode, out_path, out_path_size) &&
+        UIPanel_PathIsDirectory(out_path)) {
+        return true;
+    }
+    out_path[0] = '\0';
+    if (current_root && current_root[0] &&
+        snprintf(out_path, out_path_size, "%s", current_root) < (int)out_path_size) {
+        return UIPanel_PathIsDirectory(out_path);
+    }
+    return false;
+}
+
+static bool UIPanel_ApplyBrowserRootForMode(UILoadMenuMode mode,
+                                            const char* path,
+                                            bool persist_global_root) {
+    (void)persist_global_root;
+    if (!path || !path[0] || !UIPanel_PathIsDirectory(path)) return false;
+    return UIPanel_SaveBrowserRootPath(mode, path);
+}
+
+void UIPanel_RememberLoadedEntry(UILoadMenuMode mode, const char* path) {
+    (void)UIPanel_SaveRememberedEntryPath(mode, path);
+}
+
+static void UIPanel_SetFileBrowserVisibleState(UIPanelState* ui, bool visible) {
+    if (!ui) return;
+    ui->loadMenu.visible = visible;
+    ui->loadMenu.open = visible;
+}
+
+void UIPanel_LoadFileBrowserMode(UIPanelState* ui) {
+    FILE* file = NULL;
+    char line[32];
+    if (!ui) return;
+    file = fopen(k_runtime_file_browser_mode_path, "rb");
+    if (!file) return;
+    if (!fgets(line, sizeof(line), file)) {
+        fclose(file);
+        return;
+    }
+    fclose(file);
+    line[strcspn(line, "\r\n")] = '\0';
+    ui->loadMenu.mode = UIPanel_FileBrowserModeFromToken(line);
+    UIPanel_SetFileBrowserVisibleState(ui, ui->loadMenu.mode != UI_LOAD_MENU_MODE_NONE);
+}
 
 static bool UIPanel_AddLoadEntry(UIPanelState* ui, const char* label, const char* full_path) {
     if (!ui || !label || !label[0] || !full_path || !full_path[0]) return false;
@@ -150,92 +334,6 @@ static void UIPanel_SwapLoadEntries(UIPanelState* ui, int a, int b) {
     snprintf(ui->loadMenu.entryPaths[b], sizeof(ui->loadMenu.entryPaths[b]), "%s", path_tmp);
 }
 
-static bool UIPanel_FindButtonRect(const UIPanelState* ui, int button_id, SDL_Rect* out_rect) {
-    if (!ui || !out_rect) return false;
-    for (int i = 0; i < ui->count; ++i) {
-        if (ui->buttons[i].id == button_id) {
-            *out_rect = ui->buttons[i].bounds;
-            return true;
-        }
-    }
-    *out_rect = (SDL_Rect){0, 0, 0, 0};
-    return false;
-}
-
-static SDL_Rect UIPanel_CoreRectToSDLRect(CorePaneRect rect) {
-    SDL_Rect out = {0, 0, 0, 0};
-    int x0 = (int)floorf(rect.x);
-    int y0 = (int)floorf(rect.y);
-    int x1 = (int)ceilf(rect.x + rect.width);
-    int y1 = (int)ceilf(rect.y + rect.height);
-    if (x1 < x0) x1 = x0;
-    if (y1 < y0) y1 = y0;
-    out.x = x0;
-    out.y = y0;
-    out.w = x1 - x0;
-    out.h = y1 - y0;
-    return out;
-}
-
-static bool UIPanel_QueryLeftPaneRect(SDL_Rect* out_rect) {
-    const LineDrawingPaneHost* pane_host = NULL;
-    CorePaneRect pane_rect = {0};
-    if (!out_rect) return false;
-    *out_rect = (SDL_Rect){0, 0, 0, 0};
-
-    pane_host = Global_GetPaneHostConst();
-    if (!pane_host || !pane_host->initialized) return false;
-    if (!LineDrawingPaneHost_GetRectForRole(pane_host,
-                                            LINE_DRAWING_PANE_ROLE_LEFT_CONTROLS,
-                                            &pane_rect)) {
-        return false;
-    }
-
-    *out_rect = UIPanel_CoreRectToSDLRect(pane_rect);
-    return out_rect->w > 0 && out_rect->h > 0;
-}
-
-static bool UIPanel_GetLeftFileButtonLaneBounds(const UIPanelState* ui, SDL_Rect* out_rect) {
-    int min_x = INT_MAX;
-    int min_y = INT_MAX;
-    int max_x = 0;
-    int max_y = 0;
-    if (!ui || !out_rect) return false;
-    *out_rect = (SDL_Rect){0, 0, 0, 0};
-
-    for (int i = 0; i < ui->count; ++i) {
-        const UIButton* btn = &ui->buttons[i];
-        if (btn->side != UI_PANEL_LEFT) continue;
-        if (btn->group != UI_PANEL_GROUP_LEFT_FILE_IO &&
-            btn->group != UI_PANEL_GROUP_LEFT_ROOT_PATHS) {
-            continue;
-        }
-        if (btn->bounds.w <= 0 || btn->bounds.h <= 0) continue;
-        if (btn->bounds.x < min_x) min_x = btn->bounds.x;
-        if (btn->bounds.y < min_y) min_y = btn->bounds.y;
-        if (btn->bounds.x + btn->bounds.w > max_x) max_x = btn->bounds.x + btn->bounds.w;
-        if (btn->bounds.y + btn->bounds.h > max_y) max_y = btn->bounds.y + btn->bounds.h;
-    }
-
-    if (min_x == INT_MAX || min_y == INT_MAX || max_x <= min_x || max_y <= min_y) return false;
-    *out_rect = (SDL_Rect){ min_x, min_y, max_x - min_x, max_y - min_y };
-    return true;
-}
-
-static bool UIPanel_GetLeftFileSummaryRect(const UIPanelState* ui, SDL_Rect* out_rect) {
-    int panel_h = 0;
-    if (!out_rect) return false;
-    *out_rect = (SDL_Rect){0, 0, 0, 0};
-    if (!ui || ui->activeLeftTab != UI_PANEL_LEFT_TAB_FILE) return false;
-    if (ui->leftBodyRect.w <= 0 || ui->leftBodyRect.h <= 0) return false;
-    panel_h = UIPanel_FileSummaryReservedHeight(ui);
-    if (panel_h <= 0) return false;
-
-    *out_rect = ui->leftBodyRect;
-    out_rect->h = panel_h;
-    return out_rect->w > 0 && out_rect->h > 0;
-}
-
 static float UIPanel_LoadMenuContentHeight(const UIPanelState* ui) {
     if (!ui) return 0.0f;
     return (float)ui->loadMenu.count * (float)UI_LOAD_MENU_ROW_H;
@@ -282,6 +380,23 @@ static void UIPanel_LoadMenuClampScroll(UIPanelState* ui) {
     if (!ui) return;
     if (ui->loadMenu.scrollOffsetPx < 0.0f) ui->loadMenu.scrollOffsetPx = 0.0f;
     if (ui->loadMenu.scrollOffsetPx > max_offset) ui->loadMenu.scrollOffsetPx = max_offset;
+}
+
+static void UIPanel_LoadMenuScrollIndexIntoView(UIPanelState* ui, int index) {
+    SDL_Rect clip = {0, 0, 0, 0};
+    float row_top = 0.0f;
+    float row_bottom = 0.0f;
+    if (!ui || index < 0 || index >= ui->loadMenu.count) return;
+    clip = UIPanel_GetLoadMenuListClipRect(ui);
+    if (clip.h <= 0) return;
+    row_top = (float)index * (float)UI_LOAD_MENU_ROW_H;
+    row_bottom = row_top + (float)UI_LOAD_MENU_ROW_H;
+    if (row_top < ui->loadMenu.scrollOffsetPx) {
+        ui->loadMenu.scrollOffsetPx = row_top;
+    } else if (row_bottom > ui->loadMenu.scrollOffsetPx + (float)clip.h) {
+        ui->loadMenu.scrollOffsetPx = row_bottom - (float)clip.h;
+    }
+    UIPanel_LoadMenuClampScroll(ui);
 }
 
 static SDL_Rect UIPanel_GetLoadMenuScrollThumbRect(const UIPanelState* ui) {
@@ -437,59 +552,107 @@ static int UIPanel_FindActiveLoadMenuIndex(const UIPanelState* ui) {
     return -1;
 }
 
-static void UIPanel_LoadMenuClose(UIPanelState* ui) {
-    if (!ui) return;
-    ui->loadMenu.open = false;
-    ui->loadMenu.hoverIndex = -1;
-    ui->loadMenu.scrollbarDragging = false;
+static const char* UIPanel_GetActiveSessionPathForMode(const UIPanelState* ui) {
+    if (!ui) return NULL;
+    if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON) {
+        return Global_GetCurrentConfigPath();
+    }
+    if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE) {
+        return Global_GetCurrentSceneAuthoringPath();
+    }
+    return NULL;
 }
 
-static bool UIPanel_OpenLoadMenuForRoot(UILoadMenuMode mode,
-                                        int anchor_button_id,
-                                        const char* selected_folder,
-                                        bool persist_root) {
+static int UIPanel_FindRememberedLoadMenuIndex(const UIPanelState* ui) {
+    char remembered_path[MAX_CONFIG_PATH];
+    if (!ui) return -1;
+    if (!UIPanel_LoadRememberedEntryPath(ui->loadMenu.mode,
+                                         remembered_path,
+                                         sizeof(remembered_path))) {
+        return -1;
+    }
+    for (int i = 0; i < ui->loadMenu.count; ++i) {
+        if (strcmp(ui->loadMenu.entryPaths[i], remembered_path) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+bool UIPanel_GetFileBrowserSelectionInfo(const UIPanelState* ui,
+                                         UILoadMenuSelectionState* out_state,
+                                         const char** out_path) {
+    const char* active_path = NULL;
+    char remembered_path[MAX_CONFIG_PATH];
+    int remembered_index = -1;
+
+    if (out_state) *out_state = UI_LOAD_MENU_SELECTION_NONE;
+    if (out_path) *out_path = NULL;
+    if (!ui || ui->loadMenu.mode == UI_LOAD_MENU_MODE_NONE) return false;
+
+    active_path = UIPanel_GetActiveSessionPathForMode(ui);
+    if (active_path && active_path[0] && ui->loadMenu.activeIndex >= 0 &&
+        ui->loadMenu.activeIndex < ui->loadMenu.count &&
+        strcmp(ui->loadMenu.entryPaths[ui->loadMenu.activeIndex], active_path) == 0) {
+        if (out_state) *out_state = UI_LOAD_MENU_SELECTION_ACTIVE_SESSION;
+        if (out_path) *out_path = ui->loadMenu.entryPaths[ui->loadMenu.activeIndex];
+        return true;
+    }
+
+    remembered_index = UIPanel_FindRememberedLoadMenuIndex(ui);
+    if (remembered_index >= 0 &&
+        UIPanel_LoadRememberedEntryPath(ui->loadMenu.mode,
+                                        remembered_path,
+                                        sizeof(remembered_path))) {
+        if (out_state) *out_state = UI_LOAD_MENU_SELECTION_REMEMBERED_ENTRY;
+        if (out_path) *out_path = ui->loadMenu.entryPaths[remembered_index];
+        return true;
+    }
+
+    return false;
+}
+
+static void UIPanel_LoadMenuClose(UIPanelState* ui) {
+    if (!ui) return;
+    UIPanel_SetFileBrowserVisibleState(ui, false);
+    ui->loadMenu.hoverIndex = -1;
+    ui->loadMenu.scrollbarDragging = false;
+    ui->loadMenu.mode = UI_LOAD_MENU_MODE_NONE;
+    (void)UIPanel_SaveFileBrowserMode(ui);
+}
+
+static int UIPanel_CountEntriesForRoot(const char* root_path, UILoadMenuMode mode) {
+    UIPanelState probe;
+    if (!root_path || !root_path[0]) return 0;
+    memset(&probe, 0, sizeof(probe));
+    if (mode == UI_LOAD_MENU_MODE_JSON) {
+        UIPanel_ScanJsonDirectory(&probe, root_path);
+    } else if (mode == UI_LOAD_MENU_MODE_SCENE) {
+        UIPanel_ScanSceneRoot(&probe, root_path);
+    }
+    return probe.loadMenu.count;
+}
+
+static bool UIPanel_ShowFileBrowserForCurrentRoot(UILoadMenuMode mode,
+                                                  int anchor_button_id) {
     UIPanelState* ui = UIPanel_Get();
-    char previous_root[MAX_CONFIG_PATH];
-    const char* current_root = Global_GetInputRoot();
-    UILoadMenuMode previous_mode = UI_LOAD_MENU_MODE_NONE;
-    int previous_anchor = UI_BTN_LOAD_JSON;
-
-    if (!ui || !selected_folder || !selected_folder[0]) return false;
-
-    previous_root[0] = '\0';
-    if (current_root && current_root[0]) {
-        snprintf(previous_root, sizeof(previous_root), "%s", current_root);
-    }
-    previous_mode = ui->loadMenu.mode;
-    previous_anchor = ui->loadMenu.anchorButtonId;
-
-    if (!Global_SetInputRoot(selected_folder, persist_root)) {
-        return false;
-    }
+    char resolved_root[MAX_CONFIG_PATH];
+    if (!ui) return false;
 
     ui->loadMenu.mode = mode;
     ui->loadMenu.anchorButtonId = anchor_button_id;
-    snprintf(ui->loadMenu.rootPath, sizeof(ui->loadMenu.rootPath), "%s", selected_folder);
+    if (UIPanel_ResolveBrowserRootForMode(mode, resolved_root, sizeof(resolved_root))) {
+        snprintf(ui->loadMenu.rootPath, sizeof(ui->loadMenu.rootPath), "%s", resolved_root);
+    } else if (Global_GetInputRoot() && Global_GetInputRoot()[0]) {
+        snprintf(ui->loadMenu.rootPath, sizeof(ui->loadMenu.rootPath), "%s", Global_GetInputRoot());
+        (void)UIPanel_SaveBrowserRootPath(mode, ui->loadMenu.rootPath);
+    } else {
+        ui->loadMenu.rootPath[0] = '\0';
+    }
     ui->activeLeftTab = UI_PANEL_LEFT_TAB_FILE;
     UIPanel_OnWindowResized(Global_GetScreenWidth(), Global_GetScreenHeight());
     UIPanel_RefreshConfigList();
-    if (ui->loadMenu.count <= 0) {
-        if (previous_root[0]) {
-            (void)Global_SetInputRoot(previous_root, persist_root);
-        }
-        ui->loadMenu.mode = previous_mode;
-        ui->loadMenu.anchorButtonId = previous_anchor;
-        if (previous_root[0]) {
-            snprintf(ui->loadMenu.rootPath, sizeof(ui->loadMenu.rootPath), "%s", previous_root);
-        } else {
-            ui->loadMenu.rootPath[0] = '\0';
-        }
-        UIPanel_RefreshConfigList();
-        UIPanel_LoadMenuClose(ui);
-        return false;
-    }
-
-    ui->loadMenu.open = true;
+    UIPanel_SetFileBrowserVisibleState(ui, true);
     ui->loadMenu.hoverIndex = -1;
     ui->loadMenu.scrollOffsetPx = 0.0f;
     ui->loadMenu.scrollbarDragging = false;
@@ -500,26 +663,66 @@ static bool UIPanel_OpenLoadMenuForRoot(UILoadMenuMode mode,
     UIPanel_CloseSceneBoundsDialog(ui);
     UIPanel_CloseConstructionPlaneDialog(ui);
     UIPanel_CloseObjectTransformDialog(ui);
+    (void)UIPanel_SaveFileBrowserMode(ui);
     return true;
 }
 
+static bool UIPanel_RestorePersistedEntryForMode(UILoadMenuMode mode) {
+    const char* path = NULL;
+    if (mode == UI_LOAD_MENU_MODE_JSON) {
+        path = Global_GetLastLayoutPath();
+        if (!path || !path[0]) return false;
+        return UIPanel_LoadLayoutFromPath(path);
+    }
+    if (mode == UI_LOAD_MENU_MODE_SCENE) {
+        path = Global_GetLastSceneAuthoringPath();
+        if (!path || !path[0]) return false;
+        return UIPanel_LoadSceneFromPath(path);
+    }
+    return false;
+}
+
 bool UIPanel_LoadJsonFromFolderSelection(const char* selected_folder, bool persist_root) {
-    return UIPanel_OpenLoadMenuForRoot(UI_LOAD_MENU_MODE_JSON,
-                                       UI_BTN_LOAD_JSON,
-                                       selected_folder,
-                                       persist_root);
+    if (!selected_folder || !selected_folder[0]) return false;
+    if (UIPanel_CountEntriesForRoot(selected_folder, UI_LOAD_MENU_MODE_JSON) <= 0) {
+        UIPanelState* ui = UIPanel_Get();
+        if (ui) {
+            UIPanel_SetFileBrowserVisibleState(ui, false);
+        }
+        return false;
+    }
+    if (!UIPanel_ApplyBrowserRootForMode(UI_LOAD_MENU_MODE_JSON, selected_folder, persist_root)) {
+        return false;
+    }
+    if (!Global_SetInputRoot(selected_folder, persist_root)) {
+        return false;
+    }
+    return UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_JSON,
+                                                 UI_BTN_LOAD_JSON);
 }
 
 bool UIPanel_LoadSceneFromFolderSelection(const char* selected_folder, bool persist_root) {
-    return UIPanel_OpenLoadMenuForRoot(UI_LOAD_MENU_MODE_SCENE,
-                                       UI_BTN_LOAD_SCENE,
-                                       selected_folder,
-                                       persist_root);
+    if (!selected_folder || !selected_folder[0]) return false;
+    if (UIPanel_CountEntriesForRoot(selected_folder, UI_LOAD_MENU_MODE_SCENE) <= 0) {
+        UIPanelState* ui = UIPanel_Get();
+        if (ui) {
+            UIPanel_SetFileBrowserVisibleState(ui, false);
+        }
+        return false;
+    }
+    if (!UIPanel_ApplyBrowserRootForMode(UI_LOAD_MENU_MODE_SCENE, selected_folder, persist_root)) {
+        return false;
+    }
+    if (!Global_SetInputRoot(selected_folder, persist_root)) {
+        return false;
+    }
+    return UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_SCENE,
+                                                 UI_BTN_LOAD_SCENE);
 }
 
 void UIPanel_RefreshConfigList(void) {
     UIPanelState* ui = UIPanel_Get();
-    const char* input_root = Global_GetInputRoot();
+    const char* input_root = NULL;
     if (!ui) return;
 
     ui->loadMenu.count = 0;
@@ -527,7 +730,8 @@ void UIPanel_RefreshConfigList(void) {
     ui->loadMenu.activeIndex = -1;
     memset(ui->loadMenu.entries, 0, sizeof(ui->loadMenu.entries));
     memset(ui->loadMenu.entryPaths, 0, sizeof(ui->loadMenu.entryPaths));
-    if (ui->loadMenu.rootPath[0] == '\0' && input_root && input_root[0]) {
+    input_root = ui->loadMenu.rootPath[0] ? ui->loadMenu.rootPath : Global_GetInputRoot();
+    if (!ui->loadMenu.rootPath[0] && input_root && input_root[0]) {
         snprintf(ui->loadMenu.rootPath, sizeof(ui->loadMenu.rootPath), "%s", input_root);
     }
 
@@ -546,14 +750,22 @@ void UIPanel_RefreshConfigList(void) {
     }
 
     ui->loadMenu.activeIndex = UIPanel_FindActiveLoadMenuIndex(ui);
-    ui->loadMenu.scrollOffsetPx = 0.0f;
+    if (ui->loadMenu.activeIndex < 0) {
+        ui->loadMenu.activeIndex = UIPanel_FindRememberedLoadMenuIndex(ui);
+    }
+    if (ui->loadMenu.activeIndex >= 0) {
+        UIPanel_LoadMenuScrollIndexIntoView(ui, ui->loadMenu.activeIndex);
+    }
+    if (!ui->loadMenu.visible && ui->loadMenu.mode != UI_LOAD_MENU_MODE_NONE) {
+        UIPanel_SetFileBrowserVisibleState(ui, true);
+    }
     UIPanel_LoadMenuClampScroll(ui);
 }
 
 void UIPanel_ToggleLoadMenu(void) {
     UIPanelState* ui = UIPanel_Get();
     if (!ui) return;
-    if (ui->loadMenu.open) {
+    if (ui->loadMenu.visible) {
         UIPanel_LoadMenuClose(ui);
         return;
     }
@@ -562,95 +774,238 @@ void UIPanel_ToggleLoadMenu(void) {
     }
     UIPanel_RefreshConfigList();
     if (ui->loadMenu.count <= 0) {
-        ui->loadMenu.open = false;
+        UIPanel_SetFileBrowserVisibleState(ui, true);
         return;
     }
-    ui->loadMenu.open = true;
+    UIPanel_SetFileBrowserVisibleState(ui, true);
     ui->loadMenu.hoverIndex = -1;
     ui->loadMenu.scrollOffsetPx = 0.0f;
     UIPanel_LoadMenuClampScroll(ui);
+    (void)UIPanel_SaveFileBrowserMode(ui);
 }
 
 bool UIPanel_IsLoadMenuOpen(void) {
-    return UIPanel_Get()->loadMenu.open;
+    UIPanelState* ui = UIPanel_Get();
+    if (!ui) return false;
+    return ui->activeLeftTab == UI_PANEL_LEFT_TAB_FILE &&
+           ui->loadMenu.visible &&
+           ui->loadMenu.mode != UI_LOAD_MENU_MODE_NONE;
+}
+
+void UIPanel_ActivateJsonBrowser(void) {
+    (void)UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_JSON, UI_BTN_LOAD_JSON);
+}
+
+void UIPanel_ActivateSceneBrowser(void) {
+    (void)UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_SCENE, UI_BTN_LOAD_SCENE);
+}
+
+bool UIPanel_RestorePersistedFileSession(void) {
+    UIPanelState* ui = UIPanel_Get();
+    bool restored = false;
+    if (!ui || ui->loadMenu.mode == UI_LOAD_MENU_MODE_NONE) return false;
+
+    restored = UIPanel_RestorePersistedEntryForMode(ui->loadMenu.mode);
+    UIPanel_RefreshConfigList();
+    UIPanel_SetFileBrowserVisibleState(ui, true);
+    ui->loadMenu.hoverIndex = -1;
+    ui->loadMenu.activeIndex = UIPanel_FindActiveLoadMenuIndex(ui);
+    if (ui->loadMenu.activeIndex < 0) {
+        ui->loadMenu.activeIndex = UIPanel_FindRememberedLoadMenuIndex(ui);
+    }
+    ui->loadMenu.scrollOffsetPx = 0.0f;
+    UIPanel_LoadMenuClampScroll(ui);
+    return restored;
+}
+
+void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
+    LineDrawing3dThemePalette palette = {0};
+    SDL_Color label_color = {200, 200, 210, 255};
+    SDL_Color value_color = {230, 230, 235, 255};
+    SDL_Color accent_color = {140, 170, 210, 255};
+    SDL_Color panel_fill = {20, 20, 24, 170};
+    SDL_Color panel_border = {90, 100, 115, 200};
+    TTF_Font* font = FontManager_Get(FONT_DEFAULT);
+    SDL_Rect rect = {0};
+    SDL_Rect list_clip = {0};
+    SDL_Rect track = {0};
+    SDL_Rect thumb = {0};
+    const char* title = NULL;
+    const char* helper = NULL;
+    const char* empty_label = NULL;
+    SDL_Color active_fill = {58, 68, 84, 185};
+    SDL_Color hover_fill = {42, 50, 62, 150};
+    SDL_Color active_text_color = {240, 242, 248, 255};
+    char status_line[96];
+    int font_h = 14;
+    UIPanelVisualMetrics metrics = UIPanelVisual_MakeMetrics(font);
+
+    if (!ui || !renderer || !font) return;
+    if (!UIPanel_IsLoadMenuOpen()) return;
+    rect = UIPanel_GetLoadMenuRect(ui);
+    if (rect.w <= 0 || rect.h <= 0) return;
+
+    title = (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON) ? "JSON Browser" :
+            (ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE) ? "Scene Browser" :
+            "Browser";
+    helper = (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON)
+                 ? "Single-click keeps the JSON browser open. Double-click Load JSON to pick its root. Session Paths edits only the live session root."
+                 : "Single-click keeps the scene browser open. Double-click Load Scene to pick its root. Session Paths edits only the live session root.";
+    empty_label = (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON)
+                      ? "No JSON files found in the current input root."
+                      : "No scene entries found in the current input root.";
+
+    if (line_drawing3d_shared_theme_resolve_palette(&palette)) {
+        label_color = palette.text_muted;
+        value_color = palette.text_primary;
+        accent_color = palette.button_border;
+        panel_fill = palette.panel_fill;
+        panel_fill.a = 165;
+        panel_border = palette.panel_border;
+        active_fill = UIPanelVisual_BlendColor(palette.panel_fill, palette.button_border, 102);
+        active_fill.a = 188;
+        hover_fill = UIPanelVisual_BlendColor(palette.panel_fill, palette.button_border, 48);
+        hover_fill.a = 150;
+        if ((((int)active_fill.r * 299) + ((int)active_fill.g * 587) + ((int)active_fill.b * 114)) / 1000 > 180) {
+            active_fill.r = (Uint8)(((int)active_fill.r > 48) ? ((int)active_fill.r - 48) : 0);
+            active_fill.g = (Uint8)(((int)active_fill.g > 48) ? ((int)active_fill.g - 48) : 0);
+            active_fill.b = (Uint8)(((int)active_fill.b > 48) ? ((int)active_fill.b - 48) : 0);
+            active_text_color = (SDL_Color){28, 32, 40, 255};
+        } else {
+            active_text_color = palette.text_primary;
+        }
+    }
+
+    font_h = TTF_FontHeight(font);
+    if (font_h < 12) font_h = 12;
+    snprintf(status_line,
+             sizeof(status_line),
+             "%d %s",
+             ui->loadMenu.count,
+             (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON)
+                 ? ((ui->loadMenu.count == 1) ? "JSON entry" : "JSON entries")
+                 : ((ui->loadMenu.count == 1) ? "scene entry" : "scene entries"));
+    list_clip = UIPanel_GetLoadMenuListClipRect(ui);
+    track = UIPanel_GetLoadMenuScrollTrackRect(ui);
+    thumb = UIPanel_GetLoadMenuScrollThumbRect(ui);
+
+#if !USE_VULKAN
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+#endif
+    UIPanelSummary_DrawCard(renderer,
+                            rect,
+                            panel_fill,
+                            panel_border,
+                            accent_color,
+                            4);
+
+    UIPanelSummary_DrawText(renderer, font, title, rect.x + metrics.pad_x, rect.y + metrics.pad_y + 1, label_color);
+    UIPanelSummary_DrawTextClipped(renderer,
+                                   font,
+                                   status_line,
+                                   rect.x + metrics.pad_x,
+                                   rect.y + metrics.pad_y + font_h + 3,
+                                   rect.w - (metrics.pad_x * 2),
+                                   font_h + 4,
+                                   value_color);
+    UIPanelSummary_DrawDivider(renderer,
+                               rect,
+                               rect.y + UI_LOAD_MENU_HEADER_H - 2,
+                               metrics.pad_x,
+                               accent_color,
+                               90);
+
+    if (list_clip.w > 0 && list_clip.h > 0) {
+        SDL_RenderSetClipRect(renderer, &list_clip);
+    }
+    if (ui->loadMenu.count <= 0) {
+        UIPanelSummary_DrawTextClipped(renderer,
+                                       font,
+                                       empty_label,
+                                       list_clip.x,
+                                       list_clip.y + metrics.row_text_y,
+                                       list_clip.w,
+                                       font_h + 4,
+                                       label_color);
+    } else {
+        const int first_index = (int)(ui->loadMenu.scrollOffsetPx / (float)UI_LOAD_MENU_ROW_H);
+        const int offset_in_row = (int)ui->loadMenu.scrollOffsetPx % UI_LOAD_MENU_ROW_H;
+        int y = list_clip.y - offset_in_row;
+        for (int i = first_index; i < ui->loadMenu.count && y < list_clip.y + list_clip.h; ++i) {
+            const bool hovered = (i == ui->loadMenu.hoverIndex);
+            const bool active = (i == ui->loadMenu.activeIndex);
+            SDL_Rect row_rect = {
+                list_clip.x,
+                y,
+                list_clip.w,
+                UI_LOAD_MENU_ROW_H - 2
+            };
+            {
+                SDL_Color fill = active ? active_fill : hover_fill;
+                SDL_Color border = active ? panel_border : UIPanelVisual_AdjustColor(panel_border, -10, -30);
+                SDL_Color accent = active ? accent_color : UIPanelVisual_AdjustColor(accent_color, -8, 0);
+                Uint8 inner_alpha = active ? 70 : 0;
+                if (hovered || active) {
+                    UIPanelVisual_DrawInteractiveRow(renderer,
+                                                     row_rect,
+                                                     fill,
+                                                     border,
+                                                     accent,
+                                                     hovered,
+                                                     active,
+                                                     3,
+                                                     inner_alpha);
+                }
+            }
+            UIPanelSummary_DrawTextClipped(renderer,
+                                           font,
+                                           ui->loadMenu.entries[i],
+                                           row_rect.x + metrics.pad_x,
+                                           row_rect.y + metrics.row_text_y,
+                                           row_rect.w - (metrics.pad_x * 2),
+                                           font_h + 4,
+                                           active ? active_text_color : value_color);
+            y += UI_LOAD_MENU_ROW_H;
+        }
+    }
+    SDL_RenderSetClipRect(renderer, NULL);
+
+    if (UIPanel_LoadMenuHasScrollableContent(ui) &&
+        track.w > 0 && track.h > 0 && thumb.h > 0) {
+        SDL_Color thumb_fill = accent_color;
+        SDL_Color thumb_border = panel_border;
+        thumb_fill.a = 220;
+        thumb_border.a = 210;
+        UIPanelVisual_DrawScrollbar(renderer,
+                                    track,
+                                    thumb,
+                                    UIPanelVisual_AdjustColor(panel_border, -12, -120),
+                                    panel_border,
+                                    thumb_fill,
+                                    thumb_border,
+                                    ui->loadMenu.scrollbarDragging);
+    }
+
+    UIPanelSummary_DrawTextClipped(renderer,
+                                   font,
+                                   helper,
+                                   rect.x + metrics.pad_x,
+                                   rect.y + rect.h - UI_LOAD_MENU_FOOTER_H + 4,
+                                   rect.w - (metrics.pad_x * 2),
+                                   font_h + 4,
+                                   label_color);
 }
 
 SDL_Rect UIPanel_GetLoadMenuRect(const UIPanelState* ui) {
-    SDL_Rect button_rect = {12, InfoOverlay_HeightPx() + 44, 168, 26};
-    SDL_Rect pane_rect = {0, 0, 0, 0};
-    SDL_Rect file_summary_rect = {0, 0, 0, 0};
-    SDL_Rect file_button_lane = {0, 0, 0, 0};
-    UIPanelLayoutMetrics metrics = {0};
-    int x = 12;
-    int y = InfoOverlay_HeightPx() + 44;
-    int w = UI_LOAD_MENU_DEFAULT_W;
-    int h = UI_LOAD_MENU_HEADER_H + UI_LOAD_MENU_FOOTER_H + UI_LOAD_MENU_ROW_H;
-    int screen_h = Global_GetScreenHeight();
-    int available_h = 0;
-    int max_list_h = 0;
-    int pane_inset = 10;
-    float content_h = 0.0f;
-
-    UIPanel_GetLayoutMetrics(&metrics);
-    pane_inset = metrics.pane_padding_px;
-    if (pane_inset < 6) pane_inset = 6;
-
-    if (ui && UIPanel_QueryLeftPaneRect(&pane_rect)) {
-        int content_bottom = 0;
-        x = pane_rect.x + pane_inset;
-        y = pane_rect.y + pane_inset;
-        w = pane_rect.w - (pane_inset * 2);
-        available_h = pane_rect.h - (pane_inset * 2);
-
-        if (UIPanel_GetLeftFileSummaryRect(ui, &file_summary_rect)) {
-            content_bottom = file_summary_rect.y + file_summary_rect.h;
-        }
-        if (UIPanel_GetLeftFileButtonLaneBounds(ui, &file_button_lane)) {
-            int lane_bottom = file_button_lane.y + file_button_lane.h;
-            if (lane_bottom > content_bottom) content_bottom = lane_bottom;
-        }
-        if (content_bottom > 0) {
-            y = content_bottom + UI_LOAD_MENU_SECTION_GAP_PX;
-            available_h = (pane_rect.y + pane_rect.h - pane_inset) - y;
-        }
-
-        if (w < 24) w = 24;
-        if (available_h < UI_LOAD_MENU_HEADER_H + UI_LOAD_MENU_FOOTER_H + UI_LOAD_MENU_ROW_H) {
-            available_h = UI_LOAD_MENU_HEADER_H + UI_LOAD_MENU_FOOTER_H + UI_LOAD_MENU_ROW_H;
-        }
-    } else if (ui && UIPanel_FindButtonRect(ui, ui->loadMenu.anchorButtonId, &button_rect)) {
-        x = button_rect.x;
-        y = button_rect.y + button_rect.h + 4;
-        if (button_rect.w > w) w = button_rect.w;
-        if (w < UI_LOAD_MENU_MIN_W) w = UI_LOAD_MENU_MIN_W;
-        available_h = screen_h - y - 16;
+    SDL_Rect rect = {0, 0, 0, 0};
+    if (ui && UIPanel_GetFilePaneRects(ui, NULL, NULL, NULL, &rect)) {
+        return rect;
     }
-
-    if (available_h <= 0) {
-        available_h = screen_h - y - 16;
-        if (available_h < UI_LOAD_MENU_HEADER_H + UI_LOAD_MENU_FOOTER_H + UI_LOAD_MENU_ROW_H) {
-            available_h = UI_LOAD_MENU_HEADER_H + UI_LOAD_MENU_FOOTER_H + UI_LOAD_MENU_ROW_H;
-        }
-    }
-
-    content_h = UIPanel_LoadMenuContentHeight(ui);
-    max_list_h = (int)lroundf(content_h);
-    if (max_list_h < UI_LOAD_MENU_ROW_H) max_list_h = UI_LOAD_MENU_ROW_H;
-    if (max_list_h > UI_LOAD_MENU_MAX_H) max_list_h = UI_LOAD_MENU_MAX_H;
-    h = UI_LOAD_MENU_HEADER_H + UI_LOAD_MENU_FOOTER_H + max_list_h;
-    if (h > available_h) h = available_h;
-
-    return (SDL_Rect){ x, y, w, h };
+    return rect;
 }
 
 SDL_Rect UIPanel_GetLoadMenuPaneClipRect(const UIPanelState* ui) {
-    SDL_Rect pane_rect = {0, 0, 0, 0};
-    SDL_Rect menu_rect = UIPanel_GetLoadMenuRect(ui);
-    (void)ui;
-    if (UIPanel_QueryLeftPaneRect(&pane_rect)) {
-        return pane_rect;
-    }
-    return menu_rect;
+    return UIPanel_GetLoadMenuRect(ui);
 }
 
 bool UIPanel_LoadLayoutFromPath(const char* path) {
@@ -662,6 +1017,8 @@ bool UIPanel_LoadLayoutFromPath(const char* path) {
     if (Layout_LoadFromFile(&state->layout, path)) {
         SDL_Log("[UI] Loaded layout %s", path);
         Global_OnLayoutLoaded(path);
+        UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_JSON, path);
+        UIPanel_RefreshConfigList();
         state->editor.selectedAnchorIndex = -1;
         state->editor.selectedWallIndex = -1;
         state->editor.selectedObject3DId = 0u;
@@ -687,19 +1044,23 @@ bool UIPanel_LoadLayoutFromPath(const char* path) {
 
 static bool UIPanel_LoadEntryByIndex(int index) {
     UIPanelState* ui = UIPanel_Get();
+    bool loaded = false;
     if (!ui || index < 0 || index >= ui->loadMenu.count) return false;
-    if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON) {
-        return UIPanel_LoadLayoutFromPath(ui->loadMenu.entryPaths[index]);
-    } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE) {
-        return UIPanel_LoadSceneFromPath(ui->loadMenu.entryPaths[index]);
+    if (ui->loadMenu.rootPath[0] != '\0') {
+        (void)Global_SetInputRoot(ui->loadMenu.rootPath, true);
     }
-    return false;
+    if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON) {
+        loaded = UIPanel_LoadLayoutFromPath(ui->loadMenu.entryPaths[index]);
+    } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE) {
+        loaded = UIPanel_LoadSceneFromPath(ui->loadMenu.entryPaths[index]);
+    }
+    return loaded;
 }
 
 bool UIPanel_HandleLoadMenuWheel(int mouseX, int mouseY, float wheel_delta) {
     UIPanelState* ui = UIPanel_Get();
     SDL_Rect rect = {0, 0, 0, 0};
-    if (!ui || !ui->loadMenu.open) return false;
+    if (!ui || !UIPanel_IsLoadMenuOpen()) return false;
     rect = UIPanel_GetLoadMenuRect(ui);
     if (!SDL_PointInRect(&(SDL_Point){ mouseX, mouseY }, &rect)) return false;
     if (!UIPanel_LoadMenuHasScrollableContent(ui)) return true;
@@ -714,16 +1075,14 @@ bool UIPanel_HandleLoadMenuClick(int mouseX, int mouseY) {
     SDL_Rect track = {0, 0, 0, 0};
     SDL_Rect thumb = {0, 0, 0, 0};
     int index = -1;
-    if (!ui || !ui->loadMenu.open) return false;
+    if (!ui || !UIPanel_IsLoadMenuOpen()) return false;
 
     rect = UIPanel_GetLoadMenuRect(ui);
     if (!SDL_PointInRect(&(SDL_Point){ mouseX, mouseY }, &rect)) {
-        UIPanel_LoadMenuClose(ui);
         return false;
     }
 
     if (ui->loadMenu.count <= 0) {
-        UIPanel_LoadMenuClose(ui);
         return true;
     }
 
@@ -785,7 +1144,7 @@ void UIPanel_HandleMouseMotion(int mouseX, int mouseY) {
 
     UIPanel_HandleSceneListMouseMotion(mouseX, mouseY);
 
-    if (!ui || !ui->loadMenu.open) {
+    if (!ui || !UIPanel_IsLoadMenuOpen()) {
         if (ui) ui->loadMenu.hoverIndex = -1;
         return;
     }

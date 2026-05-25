@@ -58,6 +58,47 @@ static void line_drawing_authoring_note_consumed(GlobalState* state) {
     state->workspaceAuthoring.consumed_event_count += 1u;
 }
 
+static int line_drawing_authoring_point_in_kit_rect(KitRenderRect rect, float x, float y) {
+    return x >= rect.x &&
+           y >= rect.y &&
+           x < (rect.x + rect.width) &&
+           y < (rect.y + rect.height);
+}
+
+static int line_drawing_authoring_hit_interactive_ui(const GlobalState* state,
+                                                     float x,
+                                                     float y) {
+    KitWorkspaceAuthoringOverlayButton buttons[4];
+    uint32_t count = 0u;
+
+    if (!state || !LineDrawingWorkspaceAuthoringHost_Active(state)) return 0;
+
+    count = kit_workspace_authoring_ui_build_overlay_buttons(
+        state->screenWidth,
+        1,
+        LineDrawingWorkspaceAuthoringHost_PaneOverlayActive(state),
+        buttons,
+        4u);
+    if (kit_workspace_authoring_ui_overlay_hit_test(buttons, count, x, y) !=
+        KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_NONE) {
+        return 1;
+    }
+
+    if (LineDrawingWorkspaceAuthoringHost_FontThemeOverlayActive(state)) {
+        KitWorkspaceAuthoringFontThemeLayout layout = {0};
+        if (kit_workspace_authoring_ui_font_theme_build_layout(NULL,
+                                                               state->screenWidth,
+                                                               state->screenHeight,
+                                                               &layout)) {
+            if (line_drawing_authoring_point_in_kit_rect(layout.panel, x, y)) {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 static void line_drawing_authoring_capture_baseline(GlobalState* state) {
     LineDrawingWorkspaceAuthoringHostState* authoring = NULL;
     LineDrawingPaneHost* pane_host = NULL;
@@ -339,13 +380,18 @@ int LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(GlobalState* state, const S
             state->workspaceAuthoring.last_pointer_x = event->motion.x;
             state->workspaceAuthoring.last_pointer_y = event->motion.y;
             state->workspaceAuthoring.last_pointer_ready = 1u;
-            line_drawing_authoring_note_consumed(state);
-            return 1;
+            if (line_drawing_authoring_hit_interactive_ui(state,
+                                                          (float)event->motion.x,
+                                                          (float)event->motion.y)) {
+                line_drawing_authoring_note_consumed(state);
+                return 1;
+            }
+            return 0;
         }
         return 0;
     }
 
-    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+    if (event->type == SDL_MOUSEBUTTONDOWN) {
         if (LineDrawingWorkspaceAuthoringHost_Active(state)) {
             KitWorkspaceAuthoringOverlayButton buttons[4];
             KitWorkspaceAuthoringOverlayButtonId hit;
@@ -353,6 +399,15 @@ int LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(GlobalState* state, const S
             state->workspaceAuthoring.last_pointer_x = event->button.x;
             state->workspaceAuthoring.last_pointer_y = event->button.y;
             state->workspaceAuthoring.last_pointer_ready = 1u;
+            if (event->button.button != SDL_BUTTON_LEFT) {
+                line_drawing_authoring_note_consumed(state);
+                return 1;
+            }
+            if (!line_drawing_authoring_hit_interactive_ui(state,
+                                                           (float)event->button.x,
+                                                           (float)event->button.y)) {
+                return 0;
+            }
             count = kit_workspace_authoring_ui_build_overlay_buttons(
                 state->screenWidth,
                 1,
@@ -398,10 +453,6 @@ int LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(GlobalState* state, const S
     }
 
     if (event->type != SDL_KEYDOWN && event->type != SDL_KEYUP) {
-        if (LineDrawingWorkspaceAuthoringHost_Active(state)) {
-            line_drawing_authoring_note_consumed(state);
-            return 1;
-        }
         return 0;
     }
 

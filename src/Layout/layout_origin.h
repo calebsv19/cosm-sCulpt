@@ -4,5 +4,8 @@
 #include "Layout/layout.h"
 #include "Layout/Grid/grid.h"
 
-void Layout_ShiftOriginToAnchor(Layout* layout, Grid* grid, int anchorIndex, int screenW, int screenH);
-
+void Layout_ShiftOriginToAnchor(Layout* layout,
+                                Grid* grid,
+                                int anchorIndex,
+                                float viewportCenterX,
+                                float viewportCenterY);

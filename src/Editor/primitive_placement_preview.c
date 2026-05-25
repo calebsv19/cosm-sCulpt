@@ -1,5 +1,6 @@
 #include "Editor/primitive_placement_preview.h"
 
+#include "Core/line_drawing_pane_host.h"
 #include "Core/space_mode_adapter.h"
 #include "Layout/layout.h"
 
@@ -39,8 +40,9 @@ static Vec3 PlacementPreview_ResolveSpawnOrigin(const GlobalState* state,
     if (!state || !viewCtx) return origin;
 
     Vec3 candidate = origin;
-    const int cx = state->screenWidth / 2;
-    const int cy = state->screenHeight / 2;
+    float cx = (float)state->screenWidth * 0.5f;
+    float cy = (float)state->screenHeight * 0.5f;
+    (void)LineDrawingPaneHost_GetViewportCenter(&state->paneHost, &cx, &cy);
     if (!SpaceAdapter_ScreenToWorld(cx, cy, &state->grid, viewCtx, false, &candidate)) {
         candidate = viewCtx->camera.target;
     }

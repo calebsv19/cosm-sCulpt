@@ -394,6 +394,7 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
 
     // Initialize global program state (grid, layout, editor, etc.)
     Global_Init(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
+    (void)UIPanel_RestorePersistedFileSession();
     LineDrawingHostMenu_Init(&g_line_drawing_host_menu);
     LineDrawingHostEnterMenu();
 

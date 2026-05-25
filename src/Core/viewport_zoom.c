@@ -16,17 +16,15 @@ static const float LINE_DRAWING_ZOOM_EXTENT_EPSILON = 0.0001f;
 static bool LineDrawingViewportZoom_GetCenterViewport(const GlobalState* state,
                                                       float* out_width,
                                                       float* out_height) {
-    CorePaneRect center = {0};
+    CorePaneRect viewport = {0};
 
     if (!state || !out_width || !out_height) return false;
     if (state->paneHost.initialized &&
-        LineDrawingPaneHost_GetRectForRole(&state->paneHost,
-                                           LINE_DRAWING_PANE_ROLE_CENTER_CANVAS,
-                                           &center) &&
-        center.width > 1.0f &&
-        center.height > 1.0f) {
-        *out_width = center.width;
-        *out_height = center.height;
+        LineDrawingPaneHost_GetViewportRect(&state->paneHost, &viewport) &&
+        viewport.width > 1.0f &&
+        viewport.height > 1.0f) {
+        *out_width = viewport.width;
+        *out_height = viewport.height;
         return true;
     }
 

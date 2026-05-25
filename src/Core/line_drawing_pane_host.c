@@ -23,6 +23,10 @@ enum {
     LINE_DRAWING_MODULE_TYPE_RIGHT = 1204u
 };
 
+static bool LineDrawingPaneHost_FindRectForPaneId(const LineDrawingPaneHost* host,
+                                                  uint32_t pane_id,
+                                                  CorePaneRect* out_rect);
+
 static void LineDrawingPaneHost_SetError(LineDrawingPaneHost* host, const char* fmt, ...) {
     va_list args;
     if (!host || !fmt) return;
@@ -40,6 +44,20 @@ static uint32_t LineDrawingPaneHost_PaneIdForRole(LineDrawingPaneRole role) {
         case LINE_DRAWING_PANE_ROLE_RIGHT_CONTROLS: return LINE_DRAWING_PANE_ID_RIGHT;
         default: return 0u;
     }
+}
+
+static bool LineDrawingPaneHost_FindRectForModuleType(const LineDrawingPaneHost* host,
+                                                      uint32_t module_type_id,
+                                                      CorePaneRect* out_rect) {
+    uint32_t i = 0u;
+
+    if (!host || !out_rect || module_type_id == 0u) return false;
+    for (i = 0u; i < host->module_binding_count; ++i) {
+        const CorePaneModuleBinding* binding = &host->module_bindings[i];
+        if (binding->module_type_id != module_type_id) continue;
+        return LineDrawingPaneHost_FindRectForPaneId(host, binding->pane_node_id, out_rect);
+    }
+    return false;
 }
 
 static CorePaneRect LineDrawingPaneHost_BoundsRect(float width, float height) {
@@ -477,6 +495,25 @@ bool LineDrawingPaneHost_GetVisibleSplitter(const LineDrawingPaneHost* host,
     if (out_active) {
         *out_active = active != 0;
     }
+    return true;
+}
+
+bool LineDrawingPaneHost_GetViewportRect(const LineDrawingPaneHost* host,
+                                         CorePaneRect* out_rect) {
+    if (!host || !out_rect || !host->initialized) return false;
+    return LineDrawingPaneHost_FindRectForModuleType(host,
+                                                     LINE_DRAWING_MODULE_TYPE_CENTER,
+                                                     out_rect);
+}
+
+bool LineDrawingPaneHost_GetViewportCenter(const LineDrawingPaneHost* host,
+                                           float* out_center_x,
+                                           float* out_center_y) {
+    CorePaneRect rect = {0};
+    if (!host || !out_center_x || !out_center_y) return false;
+    if (!LineDrawingPaneHost_GetViewportRect(host, &rect)) return false;
+    *out_center_x = rect.x + (rect.width * 0.5f);
+    *out_center_y = rect.y + (rect.height * 0.5f);
     return true;
 }
 

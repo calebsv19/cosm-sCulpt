@@ -191,7 +191,7 @@ static void RenderRootDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
 
     switch (ui->rootDialog.target) {
         case UI_ROOT_TARGET_INPUT:
-            title = "Set Input Root";
+            title = "Set Session Input Root";
             break;
         case UI_ROOT_TARGET_OUTPUT:
             title = "Set Output Root";
