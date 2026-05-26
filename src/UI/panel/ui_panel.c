@@ -737,6 +737,10 @@ void UIPanel_Init(int screenW, int screenH) {
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Export Scene", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_EXPORT_SCENE);
     yL += btnH + spacing;
+    AddButton(&g_uiPanel, "Use Session", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_FILE_BROWSER_USE_ACTIVE);
+    yL += btnH + spacing;
+    AddButton(&g_uiPanel, "Clear Last", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_FILE_BROWSER_CLEAR_REMEMBERED);
+    yL += btnH + spacing;
     AddButton(&g_uiPanel, "Session In Edit", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_INPUT_ROOT_EDIT);
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Session In Pick", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_ROOT_PATHS, UI_BTN_INPUT_ROOT_FOLDER);

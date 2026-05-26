@@ -6,10 +6,10 @@ Tests live in `tests/` (`test_runner.c`, `test_math.c`, `test_layout.c`).
 Runtime layout JSON files are in `config/`; exported shape assets are written to `export/`; font assets are in `include/fonts/`; third-party code is in `external/cjson/`.
 
 ## Build, Test, and Development Commands
-- `make`: Build app binary at `build/bin/LineDrawing`.
+- `make`: Build app binary at `build/toolchains/clang/bin/LineDrawing`.
 - `make run`: Build and launch the SDL app.
 - `make DEBUG=1`: Build with debug symbols (`-O0 -g`).
-- `make test`: Build and run `build/tests/bin/run_tests`.
+- `make test`: Build and run `build/host/tests/bin/run_tests`.
 - `make shape_tool`: Build CLI shape conversion tool.
 - `make shape-sanity`: Build shape sanity utility.
 - `make export-assets SHAPE_ASSET_DIR=...`: Sync exported shapes into canonical shared asset directory.

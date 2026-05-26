@@ -1,13 +1,11 @@
 #pragma once
 
+#include "Core/line_drawing_file_catalog.h"
 #include "UI/ui_panel.h"
 
 #include <stdbool.h>
 
-typedef struct LineDrawingSceneCatalogEntry {
-    char label[128];
-    char path[MAX_CONFIG_PATH];
-} LineDrawingSceneCatalogEntry;
+typedef LineDrawingFileCatalogEntry LineDrawingSceneCatalogEntry;
 
 typedef struct LineDrawingSceneCatalog {
     char input_root[MAX_CONFIG_PATH];

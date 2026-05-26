@@ -15,4 +15,4 @@ The test harness is a lightweight C executable that links against the engine cod
 make test
 ```
 
-This command compiles the application sources into `build/obj`, builds the test objects under `build/tests/obj`, links them into `build/tests/bin/run_tests`, and runs the binary. Use `DEBUG=1` with the command to compile the entire stack with debug flags.
+This command compiles the application sources into `build/toolchains/clang/obj`, builds the host test objects under `build/host/tests/obj`, links them into `build/host/tests/bin/run_tests`, and runs the binary. Use `DEBUG=1` with the command to compile the entire stack with debug flags.

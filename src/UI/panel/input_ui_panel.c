@@ -119,6 +119,16 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     UIPanel_ExportScene();
                     break;
                 }
+                case UI_BTN_FILE_BROWSER_USE_ACTIVE: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_FocusFileBrowserOnActiveSession();
+                    break;
+                }
+                case UI_BTN_FILE_BROWSER_CLEAR_REMEMBERED: {
+                    ui->loadMenu.open = false;
+                    (void)UIPanel_ClearRememberedFileBrowserEntry();
+                    break;
+                }
                 case UI_BTN_SCENE_CLEAR_SELECTION: {
                     ui->loadMenu.open = false;
                     UIPanel_SceneListClearSelection();

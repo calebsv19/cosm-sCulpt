@@ -6,10 +6,22 @@ include make/flags.mk
 include make/sources.mk
 include make/objects.mk
 
-.PHONY: all run run-ide-theme run-daw-theme clean test rebuild debug release format lint shape-sanity shape_pack_tool shape_to_pack export-assets test-shared-theme-font-adapter test-input-policy run-headless-smoke visual-harness test-stable test-legacy package-desktop package-desktop-smoke package-desktop-self-test package-desktop-copy-desktop package-desktop-sync package-desktop-open package-desktop-remove package-desktop-refresh release-contract release-clean release-build release-bundle-audit release-sign release-verify release-verify-signed release-notarize release-staple release-verify-notarized release-artifact release-distribute release-desktop-refresh scene-export-compile scene-pipeline-smoke agent-scene-smoke shape_tool agent_scene_tool shape_trace_tool shape_to_trace shape_to_trace_batch clang-build fisics-build toolchain-contract dump-sema-canonical-scene-export dump-sema-canonical-scene-export-primitives dump-sema-scene-import
+.PHONY: all run run-ide-theme run-daw-theme clean test rebuild debug release format lint shape-sanity shape_pack_tool shape_to_pack export-assets test-shared-theme-font-adapter test-input-policy run-headless-smoke visual-harness test-stable test-legacy package-desktop package-desktop-smoke package-desktop-self-test package-desktop-copy-desktop package-desktop-sync package-desktop-open package-desktop-remove package-desktop-refresh release-contract release-clean release-build release-bundle-audit release-sign release-verify release-verify-signed release-notarize release-staple release-verify-notarized release-artifact release-distribute release-desktop-refresh scene-export-compile scene-pipeline-smoke agent-scene-smoke shape_tool agent_scene_tool shape_trace_tool shape_to_trace shape_to_trace_batch clang-build fisics-build toolchain-contract dump-sema-canonical-scene-export dump-sema-canonical-scene-export-primitives dump-sema-scene-import print-app-target print-program-bin-dir print-shape-tool-bin print-agent-scene-tool-bin
 
 include make/rules-build.mk
 include make/rules-test.mk
 include make/package-macos.mk
 include make/release.mk
 include make/tools-shape.mk
+
+print-app-target:
+	@printf '%s\n' "$(APP_TARGET)"
+
+print-program-bin-dir:
+	@printf '%s\n' "$(PROGRAM_BIN_DIR)"
+
+print-shape-tool-bin:
+	@printf '%s\n' "$(SHAPE_TOOL_BIN)"
+
+print-agent-scene-tool-bin:
+	@printf '%s\n' "$(AGENT_SCENE_TOOL_BIN)"

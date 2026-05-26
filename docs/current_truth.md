@@ -118,6 +118,10 @@ Last updated: 2026-05-25
     - startup now follows that persisted file-browser mode:
       - JSON mode reopens the last loaded layout when available
       - Scene mode reopens the last loaded scene when available
+    - the host-menu catalog and the editor-local file browser now share one
+      app-local discovery helper for JSON layouts plus authored-scene
+      directories, which narrows the earlier risk of the two surfaces drifting
+      apart on what counts as a loadable scene
     - recent-context history now seeds the last-known layout/scene startup
       paths before the restore pass runs
     - after startup restore, the file browser rebuilds from the real active
@@ -153,6 +157,22 @@ Last updated: 2026-05-25
       so the pane tells the user whether the current browser state reflects an
       active session row, a remembered row, a mode with no matching row, or a
       mode with no entries
+    - the same summary card now also renders an explicit action-hint line, and
+      the browser footer now reuses that same state-aware hint text so the
+      user can tell when:
+        - `Use Session` is just re-centering a true active row
+        - `Use Session` is restoring the live session away from a remembered
+          fallback row
+        - `Clear Last` is only relevant because the current row is remembered
+    - the browser-state explanation now runs through one shared helper
+      contract, so the summary card, browser footer, and regression tests all
+      describe the same active-versus-remembered semantics
+    - the browser list now also marks those two row types visually:
+      - true active-session rows render with a `LIVE` chip
+      - remembered fallback rows render with a distinct `LAST` chip plus a
+        warmer row accent
+      - unmatched roots stay chip-free, so the file pane no longer relies on
+        text alone to distinguish remembered fallback from the real live row
     - the generic root controls are now explicitly labeled as `Session Paths`
       so they no longer imply that they edit the same root as the lower
       JSON/scene browser
@@ -179,6 +199,19 @@ Last updated: 2026-05-25
         `File` tab is active
     - browser refresh now scrolls the active/remembered row into view instead
       of always resetting long lists to the top
+    - `File / IO` now also exposes compact browser quick actions:
+      - `Use Session` retargets the browser to the best current working-session
+        row for the active mode:
+        - the current loaded layout/scene path when it still exists
+        - otherwise the most recent layout/scene path from recent-context
+          history
+      - session input-root edits now preserve that real loaded layout identity
+        instead of rewriting it back to the new root's default
+        `layout_config.json`, so `Use Session` can recover a true active row
+        after ordinary session-root changes
+      - `Clear Last` removes the remembered fallback entry for the active
+        browser mode so the pane can degrade cleanly to no highlighted row
+        when no real active-session match exists
     - the browser header now shows mode plus entry count instead of repeating
       the current browse root above the list; the root remains visible in the
       summary card instead
@@ -190,6 +223,12 @@ Last updated: 2026-05-25
     - invalid or empty candidate roots are rejected before mutating the
       current input root, so a failed folder pick does not clobber the prior
       working root
+    - strict authored-versus-compiled scene truth remains explicit:
+      `scene_runtime.json` is still compiled output only, and the regression
+      suite now directly checks that import rejects it as a load source
+    - the unattended scene-pipeline and agent-scene smoke lanes now resolve
+      their tool binaries through the current Makefile path contract instead of
+      assuming the older flat `build/bin/` layout
   - the editor-local JSON/scene browser is now owned by the left `File` lane
     geometry instead of floating as a transient lower overlay that disappears
     after unrelated actions

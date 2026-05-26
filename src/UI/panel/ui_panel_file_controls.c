@@ -19,10 +19,12 @@ static bool UIPanel_FileControlRowSpecForButton(int button_id, UIPanelFileContro
         case UI_BTN_LOAD_SCENE: spec = (UIPanelFileControlRowSpec){ 2, 2, 0 }; break;
         case UI_BTN_EXPORT_SHAPE: spec = (UIPanelFileControlRowSpec){ 2, 2, 1 }; break;
         case UI_BTN_EXPORT_SCENE: spec = (UIPanelFileControlRowSpec){ 3, 1, 0 }; break;
-        case UI_BTN_INPUT_ROOT_EDIT: spec = (UIPanelFileControlRowSpec){ 4, 2, 0 }; break;
-        case UI_BTN_INPUT_ROOT_FOLDER: spec = (UIPanelFileControlRowSpec){ 4, 2, 1 }; break;
-        case UI_BTN_OUTPUT_ROOT_EDIT: spec = (UIPanelFileControlRowSpec){ 5, 2, 0 }; break;
-        case UI_BTN_OUTPUT_ROOT_FOLDER: spec = (UIPanelFileControlRowSpec){ 5, 2, 1 }; break;
+        case UI_BTN_FILE_BROWSER_USE_ACTIVE: spec = (UIPanelFileControlRowSpec){ 4, 2, 0 }; break;
+        case UI_BTN_FILE_BROWSER_CLEAR_REMEMBERED: spec = (UIPanelFileControlRowSpec){ 4, 2, 1 }; break;
+        case UI_BTN_INPUT_ROOT_EDIT: spec = (UIPanelFileControlRowSpec){ 5, 2, 0 }; break;
+        case UI_BTN_INPUT_ROOT_FOLDER: spec = (UIPanelFileControlRowSpec){ 5, 2, 1 }; break;
+        case UI_BTN_OUTPUT_ROOT_EDIT: spec = (UIPanelFileControlRowSpec){ 6, 2, 0 }; break;
+        case UI_BTN_OUTPUT_ROOT_FOLDER: spec = (UIPanelFileControlRowSpec){ 6, 2, 1 }; break;
         default: return false;
     }
     if (out_spec) *out_spec = spec;
@@ -31,7 +33,7 @@ static bool UIPanel_FileControlRowSpecForButton(int button_id, UIPanelFileContro
 
 static int UIPanel_FileControlsRowCount(UIPanelGroup group) {
     switch (group) {
-        case UI_PANEL_GROUP_LEFT_FILE_IO: return 3;
+        case UI_PANEL_GROUP_LEFT_FILE_IO: return 4;
         case UI_PANEL_GROUP_LEFT_ROOT_PATHS: return 2;
         default: return 0;
     }

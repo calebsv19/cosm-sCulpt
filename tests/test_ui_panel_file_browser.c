@@ -336,6 +336,294 @@ static bool test_session_input_root_change_does_not_override_mode_browser_root(v
     return true;
 }
 
+static bool test_session_input_root_change_preserves_loaded_layout_identity(void) {
+    UIPanelState* ui = NULL;
+    char layout_root[LINE_DRAWING_PATH_CAP];
+    char session_root[LINE_DRAWING_PATH_CAP];
+    char alpha_path[LINE_DRAWING_PATH_CAP];
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(layout_root, sizeof(layout_root), "/tmp/ld_input_root_identity_a_%u", (unsigned)SDL_GetTicks());
+    snprintf(session_root, sizeof(session_root), "/tmp/ld_input_root_identity_b_%u", (unsigned)SDL_GetTicks() + 1u);
+    TEST_ASSERT(mkdir(layout_root, 0755) == 0 || errno == EEXIST);
+    TEST_ASSERT(mkdir(session_root, 0755) == 0 || errno == EEXIST);
+    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", layout_root);
+
+    ld_test_init_runtime();
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
+    TEST_ASSERT(UIPanel_LoadJsonFromFolderSelection(layout_root, true));
+    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
+    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), alpha_path) == 0);
+    TEST_ASSERT(strcmp(Global_GetLastLayoutPath(), alpha_path) == 0);
+
+    TEST_ASSERT(Global_SetInputRoot(session_root, true));
+    TEST_ASSERT(strcmp(Global_GetInputRoot(), session_root) == 0);
+    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), alpha_path) == 0);
+    TEST_ASSERT(strcmp(Global_GetLastLayoutPath(), alpha_path) == 0);
+    ld_test_shutdown_runtime();
+
+    ld_test_remove_file_browser_runtime_state();
+    (void)unlink(alpha_path);
+    (void)rmdir(layout_root);
+    (void)rmdir(session_root);
+    return true;
+}
+
+static bool test_session_input_root_change_updates_default_layout_path_before_load(void) {
+    char root_a[LINE_DRAWING_PATH_CAP];
+    char root_b[LINE_DRAWING_PATH_CAP];
+    char expected_default_path[LINE_DRAWING_PATH_CAP];
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(root_a, sizeof(root_a), "/tmp/ld_input_root_default_a_%u", (unsigned)SDL_GetTicks());
+    snprintf(root_b, sizeof(root_b), "/tmp/ld_input_root_default_b_%u", (unsigned)SDL_GetTicks() + 1u);
+    TEST_ASSERT(mkdir(root_a, 0755) == 0 || errno == EEXIST);
+    TEST_ASSERT(mkdir(root_b, 0755) == 0 || errno == EEXIST);
+
+    ld_test_init_runtime();
+    TEST_ASSERT(Global_SetInputRoot(root_a, true));
+    TEST_ASSERT(Global_SetInputRoot(root_b, true));
+    TEST_ASSERT(snprintf(expected_default_path,
+                         sizeof(expected_default_path),
+                         "%s/layout_config.json",
+                         root_b) < (int)sizeof(expected_default_path));
+    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), expected_default_path) == 0);
+    TEST_ASSERT(strcmp(Global_GetLastLayoutPath(), expected_default_path) == 0);
+    ld_test_shutdown_runtime();
+
+    ld_test_remove_file_browser_runtime_state();
+    (void)rmdir(root_a);
+    (void)rmdir(root_b);
+    return true;
+}
+
+static bool test_file_browser_status_text_marks_active_session_row(void) {
+    UIPanelState* ui = NULL;
+    char temp_root[LINE_DRAWING_PATH_CAP];
+    char alpha_path[LINE_DRAWING_PATH_CAP];
+    char status_text[256];
+    char action_text[320];
+    UILoadMenuSelectionState row_state = UI_LOAD_MENU_SELECTION_NONE;
+    int alpha_index = -1;
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_status_active_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
+    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
+
+    ld_test_init_runtime();
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
+    TEST_ASSERT(UIPanel_LoadJsonFromFolderSelection(temp_root, true));
+    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
+    alpha_index = ld_test_find_load_menu_index(ui, "alpha.json");
+    TEST_ASSERT(alpha_index >= 0);
+
+    TEST_ASSERT(UIPanel_GetFileBrowserStatusText(ui, status_text, sizeof(status_text)));
+    TEST_ASSERT(strstr(status_text, "Active row alpha.json") != NULL);
+    TEST_ASSERT(UIPanel_GetFileBrowserActionHintText(ui, action_text, sizeof(action_text)));
+    TEST_ASSERT(strstr(action_text, "re-centers the live row") != NULL);
+    TEST_ASSERT(strstr(action_text, "Clear Last is only for remembered fallback rows") != NULL);
+    TEST_ASSERT(UIPanel_GetFileBrowserRowSelectionState(ui, alpha_index, &row_state));
+    TEST_ASSERT(row_state == UI_LOAD_MENU_SELECTION_ACTIVE_SESSION);
+    ld_test_shutdown_runtime();
+
+    ld_test_remove_file_browser_runtime_state();
+    (void)unlink(alpha_path);
+    (void)rmdir(temp_root);
+    return true;
+}
+
+static bool test_file_browser_status_text_marks_remembered_fallback_row(void) {
+    UIPanelState* ui = NULL;
+    char temp_root[LINE_DRAWING_PATH_CAP];
+    char alpha_path[LINE_DRAWING_PATH_CAP];
+    char status_text[256];
+    char action_text[320];
+    UILoadMenuSelectionState row_state = UI_LOAD_MENU_SELECTION_NONE;
+    int alpha_index = -1;
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_status_remembered_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
+    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
+
+    ld_test_init_runtime();
+    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
+    TEST_ASSERT(Global_SetInputRoot(temp_root, true));
+    UIPanel_ActivateJsonBrowser();
+    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
+    ld_test_shutdown_runtime();
+
+    ld_test_init_runtime();
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    UIPanel_ActivateJsonBrowser();
+    alpha_index = ld_test_find_load_menu_index(ui, "alpha.json");
+    TEST_ASSERT(alpha_index >= 0);
+    TEST_ASSERT(UIPanel_GetFileBrowserStatusText(ui, status_text, sizeof(status_text)));
+    TEST_ASSERT(strstr(status_text, "Remembered row alpha.json") != NULL);
+    TEST_ASSERT(UIPanel_GetFileBrowserActionHintText(ui, action_text, sizeof(action_text)));
+    TEST_ASSERT(strstr(action_text, "restores the live session row") != NULL);
+    TEST_ASSERT(strstr(action_text, "removes this remembered fallback row") != NULL);
+    TEST_ASSERT(UIPanel_GetFileBrowserRowSelectionState(ui, alpha_index, &row_state));
+    TEST_ASSERT(row_state == UI_LOAD_MENU_SELECTION_REMEMBERED_ENTRY);
+    ld_test_shutdown_runtime();
+
+    ld_test_remove_file_browser_runtime_state();
+    (void)unlink(alpha_path);
+    (void)rmdir(temp_root);
+    return true;
+}
+
+static bool test_file_browser_status_text_marks_unmatched_root_state(void) {
+    UIPanelState* ui = NULL;
+    char root_a[LINE_DRAWING_PATH_CAP];
+    char root_b[LINE_DRAWING_PATH_CAP];
+    char alpha_path[LINE_DRAWING_PATH_CAP];
+    char gamma_path[LINE_DRAWING_PATH_CAP];
+    char status_text[256];
+    char action_text[320];
+    UILoadMenuSelectionState row_state = UI_LOAD_MENU_SELECTION_ACTIVE_SESSION;
+    int gamma_index = -1;
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(root_a, sizeof(root_a), "/tmp/ld_file_browser_status_unmatched_a_%u", (unsigned)SDL_GetTicks());
+    snprintf(root_b, sizeof(root_b), "/tmp/ld_file_browser_status_unmatched_b_%u", (unsigned)SDL_GetTicks() + 1u);
+    TEST_ASSERT(mkdir(root_a, 0755) == 0 || errno == EEXIST);
+    TEST_ASSERT(mkdir(root_b, 0755) == 0 || errno == EEXIST);
+    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", root_a);
+    snprintf(gamma_path, sizeof(gamma_path), "%s/gamma.json", root_b);
+
+    ld_test_init_runtime();
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
+    TEST_ASSERT(ld_test_write_layout_json(gamma_path));
+    TEST_ASSERT(Global_SetInputRoot(root_a, true));
+    UIPanel_ActivateJsonBrowser();
+    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
+    TEST_ASSERT(Global_SetInputRoot(root_b, true));
+    UIPanel_ActivateJsonBrowser();
+    gamma_index = ld_test_find_load_menu_index(ui, "gamma.json");
+    TEST_ASSERT(gamma_index >= 0);
+
+    TEST_ASSERT(UIPanel_GetFileBrowserStatusText(ui, status_text, sizeof(status_text)));
+    TEST_ASSERT(strstr(status_text, "JSON mode has entries but no active row") != NULL);
+    TEST_ASSERT(UIPanel_GetFileBrowserActionHintText(ui, action_text, sizeof(action_text)));
+    TEST_ASSERT(strstr(action_text, "Use Session targets the live session row") != NULL);
+    TEST_ASSERT(strstr(action_text, "stale remembered fallback") != NULL);
+    TEST_ASSERT(!UIPanel_GetFileBrowserRowSelectionState(ui, gamma_index, &row_state));
+    TEST_ASSERT(row_state == UI_LOAD_MENU_SELECTION_NONE);
+    ld_test_shutdown_runtime();
+
+    ld_test_remove_file_browser_runtime_state();
+    (void)unlink(alpha_path);
+    (void)unlink(gamma_path);
+    (void)rmdir(root_a);
+    (void)rmdir(root_b);
+    return true;
+}
+
+static bool test_file_browser_use_active_realigns_browser_root_and_highlight(void) {
+    UIPanelState* ui = NULL;
+    char root_a[LINE_DRAWING_PATH_CAP];
+    char root_b[LINE_DRAWING_PATH_CAP];
+    char alpha_path[LINE_DRAWING_PATH_CAP];
+    char gamma_path[LINE_DRAWING_PATH_CAP];
+    UILoadMenuSelectionState selection_state = UI_LOAD_MENU_SELECTION_NONE;
+    const char* selection_path = NULL;
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(root_a, sizeof(root_a), "/tmp/ld_file_browser_use_active_a_%u", (unsigned)SDL_GetTicks());
+    snprintf(root_b, sizeof(root_b), "/tmp/ld_file_browser_use_active_b_%u", (unsigned)SDL_GetTicks() + 1u);
+    TEST_ASSERT(mkdir(root_a, 0755) == 0 || errno == EEXIST);
+    TEST_ASSERT(mkdir(root_b, 0755) == 0 || errno == EEXIST);
+    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", root_a);
+    snprintf(gamma_path, sizeof(gamma_path), "%s/gamma.json", root_b);
+
+    ld_test_init_runtime();
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
+    TEST_ASSERT(ld_test_write_layout_json(gamma_path));
+    TEST_ASSERT(Global_SetInputRoot(root_a, true));
+    UIPanel_ActivateJsonBrowser();
+    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
+    TEST_ASSERT(ui->loadMenu.activeIndex == ld_test_find_load_menu_index(ui, "alpha.json"));
+
+    TEST_ASSERT(UIPanel_LoadJsonFromFolderSelection(root_b, true));
+    TEST_ASSERT(strcmp(ui->loadMenu.rootPath, root_b) == 0);
+    TEST_ASSERT(ui->loadMenu.activeIndex == -1);
+
+    TEST_ASSERT(UIPanel_FocusFileBrowserOnActiveSession());
+    TEST_ASSERT(strcmp(ui->loadMenu.rootPath, root_a) == 0);
+    TEST_ASSERT(ui->loadMenu.activeIndex == ld_test_find_load_menu_index(ui, "alpha.json"));
+    TEST_ASSERT(UIPanel_GetFileBrowserSelectionInfo(ui, &selection_state, &selection_path));
+    TEST_ASSERT(selection_state == UI_LOAD_MENU_SELECTION_ACTIVE_SESSION);
+    TEST_ASSERT(selection_path != NULL && strcmp(selection_path, alpha_path) == 0);
+    ld_test_shutdown_runtime();
+
+    ld_test_remove_file_browser_runtime_state();
+    (void)unlink(alpha_path);
+    (void)unlink(gamma_path);
+    (void)rmdir(root_a);
+    (void)rmdir(root_b);
+    return true;
+}
+
+static bool test_file_browser_clear_last_removes_remembered_fallback(void) {
+    UIPanelState* ui = NULL;
+    char temp_root[LINE_DRAWING_PATH_CAP];
+    char alpha_path[LINE_DRAWING_PATH_CAP];
+    char beta_path[LINE_DRAWING_PATH_CAP];
+    int beta_index = -1;
+    UILoadMenuSelectionState selection_state = UI_LOAD_MENU_SELECTION_NONE;
+    const char* selection_path = NULL;
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_clear_last_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
+    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
+    snprintf(beta_path, sizeof(beta_path), "%s/beta.json", temp_root);
+
+    ld_test_init_runtime();
+    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
+    TEST_ASSERT(ld_test_write_layout_json(beta_path));
+    TEST_ASSERT(Global_SetInputRoot(temp_root, true));
+    UIPanel_ActivateJsonBrowser();
+    TEST_ASSERT(UIPanel_LoadLayoutFromPath(beta_path));
+    ld_test_shutdown_runtime();
+
+    ld_test_init_runtime();
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    TEST_ASSERT(ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON);
+    UIPanel_ActivateJsonBrowser();
+    beta_index = ld_test_find_load_menu_index(ui, "beta.json");
+    TEST_ASSERT(beta_index >= 0);
+    TEST_ASSERT(ui->loadMenu.activeIndex == beta_index);
+    TEST_ASSERT(UIPanel_GetFileBrowserSelectionInfo(ui, &selection_state, &selection_path));
+    TEST_ASSERT(selection_state == UI_LOAD_MENU_SELECTION_REMEMBERED_ENTRY);
+    TEST_ASSERT(selection_path != NULL && strcmp(selection_path, beta_path) == 0);
+
+    TEST_ASSERT(UIPanel_ClearRememberedFileBrowserEntry());
+    TEST_ASSERT(ui->loadMenu.activeIndex == -1);
+    TEST_ASSERT(!UIPanel_GetFileBrowserSelectionInfo(ui, &selection_state, &selection_path));
+    TEST_ASSERT(selection_state == UI_LOAD_MENU_SELECTION_NONE);
+    TEST_ASSERT(selection_path == NULL);
+    ld_test_shutdown_runtime();
+
+    ld_test_remove_file_browser_runtime_state();
+    (void)unlink(alpha_path);
+    (void)unlink(beta_path);
+    (void)rmdir(temp_root);
+    return true;
+}
+
 bool ui_panel_file_browser_run_tests(void) {
     const TestCase cases[] = {
         { "file_browser_switches_modes_and_uses_pane_rect",
@@ -350,6 +638,20 @@ bool ui_panel_file_browser_run_tests(void) {
           test_file_browser_mode_specific_roots_restore_on_activation },
         { "session_input_root_change_does_not_override_mode_browser_root",
           test_session_input_root_change_does_not_override_mode_browser_root },
+        { "session_input_root_change_preserves_loaded_layout_identity",
+          test_session_input_root_change_preserves_loaded_layout_identity },
+        { "session_input_root_change_updates_default_layout_path_before_load",
+          test_session_input_root_change_updates_default_layout_path_before_load },
+        { "file_browser_status_text_marks_active_session_row",
+          test_file_browser_status_text_marks_active_session_row },
+        { "file_browser_status_text_marks_remembered_fallback_row",
+          test_file_browser_status_text_marks_remembered_fallback_row },
+        { "file_browser_status_text_marks_unmatched_root_state",
+          test_file_browser_status_text_marks_unmatched_root_state },
+        { "file_browser_use_active_realigns_browser_root_and_highlight",
+          test_file_browser_use_active_realigns_browser_root_and_highlight },
+        { "file_browser_clear_last_removes_remembered_fallback",
+          test_file_browser_clear_last_removes_remembered_fallback },
     };
     return run_test_cases("UIPanelFileBrowser", cases, sizeof(cases) / sizeof(cases[0]));
 }

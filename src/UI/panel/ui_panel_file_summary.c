@@ -52,7 +52,7 @@ int UIPanel_FileSummaryReservedHeight(const UIPanelState* ui) {
     font_h = UIPanelFileSummary_FontHeight();
     line_gap = UIPanelFileSummary_LineGap();
     pad = UIPanelFileSummary_PanelPad();
-    return (pad * 2) + (font_h * 6) + (line_gap * 5);
+    return (pad * 2) + (font_h * 7) + (line_gap * 6);
 }
 
 void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
@@ -74,9 +74,8 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     char line_input[384];
     char line_output[384];
     char line_status_browser[256];
+    char line_action_hint[320];
     char line_browser_root[384];
-    UILoadMenuSelectionState browser_state = UI_LOAD_MENU_SELECTION_NONE;
-    const char* browser_path = NULL;
 
     if (!ui || !renderer || !font || !state) return;
     if (ui->activeLeftTab != UI_PANEL_LEFT_TAB_FILE) return;
@@ -114,20 +113,26 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
              sizeof(line_output),
              "Output  %s",
              Global_GetOutputRoot() ? Global_GetOutputRoot() : "(unset)");
-    if (UIPanel_GetFileBrowserSelectionInfo(ui, &browser_state, &browser_path)) {
+    snprintf(line_status_browser,
+             sizeof(line_status_browser),
+             "Status  %s",
+             state->layoutDirtySinceSave ? "Modified" : "Clean");
+    (void)UIPanel_GetFileBrowserStatusText(ui, line_action_hint, sizeof(line_action_hint));
+    {
+        char browser_status_line[256];
+        if (!UIPanel_GetFileBrowserStatusText(ui, browser_status_line, sizeof(browser_status_line))) {
+            snprintf(browser_status_line, sizeof(browser_status_line), "Browser  %s", UIPanelFileSummary_ModeLabel(ui->loadMenu.mode));
+        }
         snprintf(line_status_browser,
                  sizeof(line_status_browser),
-                 "Status  %s   Browser %s %s",
+                 "Status  %s   %s",
                  state->layoutDirtySinceSave ? "Modified" : "Clean",
-                 browser_state == UI_LOAD_MENU_SELECTION_ACTIVE_SESSION ? "Active" : "Remembered",
-                 UIPanelFileSummary_BaseName(browser_path));
-    } else {
-        snprintf(line_status_browser,
-                 sizeof(line_status_browser),
-                 "Status  %s   Browser %s %s",
-                 state->layoutDirtySinceSave ? "Modified" : "Clean",
-                 UIPanelFileSummary_ModeLabel(ui->loadMenu.mode),
-                 ui->loadMenu.count > 0 ? "No row selected" : "No entries");
+                 browser_status_line);
+    }
+    if (!UIPanel_GetFileBrowserActionHintText(ui, line_action_hint, sizeof(line_action_hint))) {
+        snprintf(line_action_hint,
+                 sizeof(line_action_hint),
+                 "Actions  Use Session targets the live row. Clear Last removes remembered fallback rows.");
     }
     snprintf(line_browser_root,
              sizeof(line_browser_root),
@@ -144,4 +149,6 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     UIPanelSummary_DrawTextClipped(renderer, font, line_output, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), font_h + 4, value_color);
     y += font_h + line_gap;
     UIPanelSummary_DrawTextClipped(renderer, font, line_status_browser, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), font_h + 4, label_color);
+    y += font_h + line_gap;
+    UIPanelSummary_DrawTextClipped(renderer, font, line_action_hint, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), font_h + 4, label_color);
 }

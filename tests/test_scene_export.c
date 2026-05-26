@@ -198,6 +198,29 @@ static bool test_scene_import_rejects_unsupported_authoring_unit_metadata(void) 
     return true;
 }
 
+static bool test_scene_import_rejects_runtime_scene_file(void) {
+    Layout imported;
+    char diagnostics[256];
+    const char* path = "/tmp/line_drawing_scene_import_runtime_scene.json";
+    const char* json =
+        "{"
+        "\"schema_variant\":\"scene_runtime_v1\","
+        "\"scene_id\":\"scene_runtime_only\""
+        "}";
+
+    Layout_Init(&imported, 1.0f);
+    TEST_ASSERT(write_text_file(path, json));
+    TEST_ASSERT(!LineDrawingSceneImport_LoadLayoutFromAuthoringFile(&imported,
+                                                                   path,
+                                                                   diagnostics,
+                                                                   sizeof(diagnostics)));
+    TEST_ASSERT(strstr(diagnostics, "scene_runtime.json is compiled output") != NULL);
+
+    remove(path);
+    Layout_Free(&imported);
+    return true;
+}
+
 bool scene_export_run_tests(void) {
     const TestCase cases[] = {
         { "scene_export_emits_authoring_and_runtime_files", test_scene_export_emits_authoring_and_runtime_files },
@@ -207,6 +230,8 @@ bool scene_export_run_tests(void) {
           test_scene_import_accepts_supported_authoring_unit_metadata },
         { "scene_import_rejects_unsupported_authoring_unit_metadata",
           test_scene_import_rejects_unsupported_authoring_unit_metadata },
+        { "scene_import_rejects_runtime_scene_file",
+          test_scene_import_rejects_runtime_scene_file },
     };
     return run_test_cases("SceneExport", cases, sizeof(cases) / sizeof(cases[0]));
 }

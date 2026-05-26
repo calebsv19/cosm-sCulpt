@@ -11,8 +11,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 EXPORT_DIR="${1:-"$ROOT/line_drawing/export"}"
 OUT_DIR="${SHAPE_ASSET_DIR:-"$ROOT/shared/assets/shapes"}"
+LINE_DRAWING_SHAPE_SANITY_BIN=""
 
 mkdir -p "$OUT_DIR"
+
+if [[ -f "$ROOT/line_drawing/Makefile" ]]; then
+    LINE_DRAWING_SHAPE_SANITY_BIN_REL="$(make -s -C "$ROOT/line_drawing" print-program-bin-dir 2>/dev/null)/shape_sanity_tool" || true
+    if [[ -n "${LINE_DRAWING_SHAPE_SANITY_BIN_REL:-}" ]]; then
+        LINE_DRAWING_SHAPE_SANITY_BIN="$ROOT/line_drawing/$LINE_DRAWING_SHAPE_SANITY_BIN_REL"
+    fi
+fi
 
 # Pick a converter: prefer ray_tracing CLI, fall back to physics_sim.
 CONVERTER="${SHAPE_ASSET_CONVERTER:-}"
@@ -59,7 +67,7 @@ SANITY_BIN=()
 for candidate in \
     "$ROOT/physics_sim/shape_sanity_tool" \
     "$ROOT/ray_tracing/tools/cli/bin/shape_sanity_tool" \
-    "$ROOT/line_drawing/build/bin/shape_sanity_tool"; do
+    "${LINE_DRAWING_SHAPE_SANITY_BIN:-}"; do
     [[ -x "$candidate" ]] && SANITY_BIN+=("$candidate")
 done
 

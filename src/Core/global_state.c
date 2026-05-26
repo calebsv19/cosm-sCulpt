@@ -48,18 +48,64 @@ static bool Global_DirExists(const char* path) {
     return S_ISDIR(st.st_mode);
 }
 
-static void Global_SetDefaultLayoutPath(GlobalState* state) {
-    if (!state) return;
-    if (!LineDrawingDataPaths_BuildPath(state->currentConfigPath,
-                                        sizeof(state->currentConfigPath),
+static void Global_BuildDefaultLayoutPath(const GlobalState* state,
+                                          char* out_path,
+                                          size_t out_path_size) {
+    if (!out_path || out_path_size == 0u) return;
+    out_path[0] = '\0';
+    if (!state ||
+        !LineDrawingDataPaths_BuildPath(out_path,
+                                        out_path_size,
                                         state->dataPaths.input_root,
                                         k_default_layout_filename)) {
-        snprintf(state->currentConfigPath, sizeof(state->currentConfigPath), "config/layout_config.json");
+        snprintf(out_path, out_path_size, "config/layout_config.json");
     }
+}
+
+static void Global_SetDefaultLayoutPath(GlobalState* state) {
+    char default_path[LINE_DRAWING_PATH_CAP];
+    if (!state) return;
+    Global_BuildDefaultLayoutPath(state, default_path, sizeof(default_path));
+    snprintf(state->currentConfigPath,
+             sizeof(state->currentConfigPath),
+             "%s",
+             default_path);
     snprintf(state->lastLayoutPath,
              sizeof(state->lastLayoutPath),
              "%s",
-             state->currentConfigPath);
+             default_path);
+}
+
+static void Global_UpdateDefaultLayoutPathForInputRootChange(GlobalState* state,
+                                                             const char* prior_input_root) {
+    char old_default_path[LINE_DRAWING_PATH_CAP];
+    char new_default_path[LINE_DRAWING_PATH_CAP];
+
+    if (!state) return;
+
+    old_default_path[0] = '\0';
+    if (!LineDrawingDataPaths_BuildPath(old_default_path,
+                                        sizeof(old_default_path),
+                                        prior_input_root,
+                                        k_default_layout_filename)) {
+        snprintf(old_default_path, sizeof(old_default_path), "config/layout_config.json");
+    }
+    Global_BuildDefaultLayoutPath(state, new_default_path, sizeof(new_default_path));
+
+    if (state->currentConfigPath[0] == '\0' ||
+        strcmp(state->currentConfigPath, old_default_path) == 0) {
+        snprintf(state->currentConfigPath,
+                 sizeof(state->currentConfigPath),
+                 "%s",
+                 new_default_path);
+    }
+    if (state->lastLayoutPath[0] == '\0' ||
+        strcmp(state->lastLayoutPath, old_default_path) == 0) {
+        snprintf(state->lastLayoutPath,
+                 sizeof(state->lastLayoutPath),
+                 "%s",
+                 new_default_path);
+    }
 }
 
 static void Global_SeedLastSessionPathsFromRecents(GlobalState* state) {
@@ -618,10 +664,15 @@ bool Global_SaveRecentContexts(void) {
 
 bool Global_SetInputRoot(const char* path, bool persist) {
     GlobalState* state = Global_Get();
+    char prior_input_root[LINE_DRAWING_PATH_CAP];
     bool ok = true;
     if (!state) return false;
+    snprintf(prior_input_root,
+             sizeof(prior_input_root),
+             "%s",
+             state->dataPaths.input_root);
     if (!Global_SetPathField(state->dataPaths.input_root, sizeof(state->dataPaths.input_root), path)) return false;
-    Global_SetDefaultLayoutPath(state);
+    Global_UpdateDefaultLayoutPathForInputRootChange(state, prior_input_root);
     Global_RecordRecentInputRoot(state, state->dataPaths.input_root, false);
     if (persist) {
         ok &= Global_SaveDataRoots();

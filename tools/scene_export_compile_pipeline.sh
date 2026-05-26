@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 LINE_DIR="$ROOT/line_drawing"
 SCENE_COMPILE_BIN="$ROOT/shared/core/core_scene_compile/build/scene_compile_tool"
+SHAPE_TOOL_BIN=""
 
 LAYOUT_PATH="$LINE_DIR/tests/fixtures/ld3d2_layout_fixture.json"
 SCENE_ID="scene_line_drawing_ld3d2"
@@ -48,6 +49,14 @@ require_file() {
   local path="$1"
   if [[ ! -f "$path" ]]; then
     echo "[line-scene-pipeline] ERROR: missing file: $path" >&2
+    exit 1
+  fi
+}
+
+resolve_shape_tool_bin() {
+  SHAPE_TOOL_BIN="$(make -s -C "$LINE_DIR" print-shape-tool-bin)"
+  if [[ -z "$SHAPE_TOOL_BIN" || ! -x "$LINE_DIR/$SHAPE_TOOL_BIN" ]]; then
+    echo "[line-scene-pipeline] ERROR: shape_tool binary not found at '$LINE_DIR/$SHAPE_TOOL_BIN'" >&2
     exit 1
   fi
 }
@@ -141,6 +150,7 @@ main() {
 
   log "building line_drawing shape_tool"
   make -C "$LINE_DIR" shape_tool >/dev/null
+  resolve_shape_tool_bin
 
   log "building shared scene compile tool"
   make -C "$ROOT/shared/core/core_scene_compile" scene-compile-tool >/dev/null
@@ -164,7 +174,7 @@ main() {
   log "exporting authoring scene from layout"
   (
     cd "$LINE_DIR"
-    build/bin/shape_tool "${SHAPE_TOOL_ARGS[@]}" >/dev/null
+    "./$SHAPE_TOOL_BIN" "${SHAPE_TOOL_ARGS[@]}" >/dev/null
   )
   require_file "$export_path"
 

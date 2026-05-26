@@ -44,7 +44,7 @@ Identity note:
 This project targets SDL2 + SDL2_ttf and is built with `make`.
 
 ```sh
-make            # builds the LineDrawing binary into build/bin/LineDrawing
+make            # builds the LineDrawing binary into build/toolchains/clang/bin/LineDrawing
 make run        # builds then runs the application
 make debug=1    # builds with debug flags
 make clean      # removes build artifacts
@@ -60,7 +60,7 @@ Compiler and linker flags are pulled from `sdl2-config`, and `external/cjson/cJS
 Run the automated checks with:
 
 ```sh
-make test       # builds lib objects and executes build/tests/bin/run_tests
+make test       # builds host test objects and executes build/host/tests/bin/run_tests
 ```
 
 The test harness links against the same objects as the runtime (minus `src/main.c`) so behavioural drift is caught quickly.
@@ -71,13 +71,13 @@ The same shape conversion pipeline that powers the in-app Export button is avail
 
 ```sh
 # Convert a layout JSON into export/<name>.json
-build/bin/shape_tool config/airfoil_basic.json --export-shape airfoil.json
+build/toolchains/clang/bin/shape_tool config/airfoil_basic.json --export-shape airfoil.json
 
 # Convert using a specific projection plane (xy|yz|xz)
-build/bin/shape_tool config/airfoil_basic.json --plane yz --export-shape airfoil_yz.json
+build/toolchains/clang/bin/shape_tool config/airfoil_basic.json --plane yz --export-shape airfoil_yz.json
 
 # Preview the resulting geometry in an SDL window
-build/bin/shape_tool config/airfoil_basic.json --view
+build/toolchains/clang/bin/shape_tool config/airfoil_basic.json --view
 ```
 
 All exported assets are written to `export/` regardless of the path you pass after `--export-shape`, which keeps them easy to find even when sharing between projects.

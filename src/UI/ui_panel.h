@@ -67,6 +67,7 @@ typedef struct {
 #define UI_BTN_INPUT_ROOT_FOLDER 6
 #define UI_BTN_OUTPUT_ROOT_EDIT 7
 #define UI_BTN_OUTPUT_ROOT_FOLDER 8
+#define UI_BTN_FILE_BROWSER_USE_ACTIVE 9
 
 #define UI_BTN_RESET_ORIGIN 10
 #define UI_BTN_ZOOM_IN 11
@@ -101,6 +102,7 @@ typedef struct {
 #define UI_BTN_SCENE_DELETE_SELECTED 40
 #define UI_BTN_OBJECT_CLEAR_SELECTION 41
 #define UI_BTN_OBJECT_DELETE_SELECTED 42
+#define UI_BTN_FILE_BROWSER_CLEAR_REMEMBERED 43
 
 #define MAX_CONFIG_FILES 128
 #define MAX_CONFIG_PATH 512
@@ -326,10 +328,21 @@ bool UIPanel_IsLoadMenuOpen(void);
 void UIPanel_LoadFileBrowserMode(UIPanelState* ui);
 void UIPanel_ActivateJsonBrowser(void);
 void UIPanel_ActivateSceneBrowser(void);
+bool UIPanel_FocusFileBrowserOnActiveSession(void);
+bool UIPanel_ClearRememberedFileBrowserEntry(void);
 bool UIPanel_RestorePersistedFileSession(void);
 bool UIPanel_GetFileBrowserSelectionInfo(const UIPanelState* ui,
                                          UILoadMenuSelectionState* out_state,
                                          const char** out_path);
+bool UIPanel_GetFileBrowserRowSelectionState(const UIPanelState* ui,
+                                             int index,
+                                             UILoadMenuSelectionState* out_state);
+bool UIPanel_GetFileBrowserStatusText(const UIPanelState* ui,
+                                      char* out_text,
+                                      size_t out_text_size);
+bool UIPanel_GetFileBrowserActionHintText(const UIPanelState* ui,
+                                          char* out_text,
+                                          size_t out_text_size);
 void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer);
 void UIPanel_ResetTransientUiState(void);
 void UIPanel_HandleMouseMotion(int mouseX, int mouseY);

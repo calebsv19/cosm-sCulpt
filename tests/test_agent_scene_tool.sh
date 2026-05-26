@@ -9,7 +9,13 @@ GALLERY_OUT_DIR="$LINE_DIR/tmp/agent_gallery_room_blocks_v2/line_drawing"
 GALLERY_REQUEST="$LINE_DIR/tests/fixtures/agent_gallery_room_blocks_v2_request.json"
 EMITTER_OUT_DIR="$LINE_DIR/tmp/agent_floor_prism_emitter/line_drawing"
 EMITTER_REQUEST="$LINE_DIR/tests/fixtures/agent_floor_prism_emitter_request.json"
-TOOL="$LINE_DIR/build/bin/agent_scene_tool"
+TOOL_REL="$(make -s -C "$LINE_DIR" print-agent-scene-tool-bin)"
+TOOL="$LINE_DIR/$TOOL_REL"
+
+if [[ -z "$TOOL_REL" || ! -x "$TOOL" ]]; then
+  echo "[line-agent-scene] ERROR: agent_scene_tool binary not found at $TOOL" >&2
+  exit 1
+fi
 
 require_pattern() {
   local pattern="$1"

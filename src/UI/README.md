@@ -103,6 +103,13 @@ The UI layer provides the editor-local button panel, quick file/scene pickers, a
     - the `File / Session` summary now includes a browser-status line so the
       pane distinguishes active-session rows, remembered rows, empty-mode
       states, and roots with no entries
+    - the summary now also renders a state-aware action-hint line, and the
+      browser footer reuses that same hint contract so active-session rows,
+      remembered fallback rows, and unmatched roots each explain why
+      `Use Session` or `Clear Last` is the relevant recovery action
+    - the browser rows now also carry an at-a-glance visual distinction:
+      - `LIVE` chip for a true active-session row
+      - `LAST` chip plus a warmer accent for a remembered fallback row
     - the `Session Paths` block is now explicitly session-scoped instead of
       implying that it edits the same root as the lower JSON/scene browser
     - the summary now exposes a separate `Browse In` line so the saved
@@ -118,6 +125,16 @@ The UI layer provides the editor-local button panel, quick file/scene pickers, a
       `File` tab is active
     - browser refresh scrolls the active/remembered row into view so deeper
       lists behave more like the top-level host menu lists
+    - `File / IO` now also includes explicit browser-state quick actions:
+      - `Use Session` retargets the browser to the best working-session row
+        for the active mode, preferring the still-existing loaded path and
+        otherwise falling back to the most recent layout/scene history entry
+      - session input-root edits now preserve that loaded layout identity
+        instead of clobbering it back to the default `layout_config.json`
+        path for the new root, so `Use Session` returns to a true active row
+        after ordinary session-root changes
+      - `Clear Last` removes the remembered fallback entry for the active mode
+        so the browser can drop to no highlighted row without a root change
     - invalid or empty candidate roots are rejected before replacing the
       current input root
     - the browser header now avoids re-reporting the browse root above the
