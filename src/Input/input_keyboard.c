@@ -3,13 +3,98 @@
 #include "Core/global_state.h"
 #include "Core/viewport_zoom.h"
 #include "Editor/editor.h"
+#include "Editor/object_face_extrude.h"
+#include "Editor/object_face_sketch.h"
 #include "Layout/layout.h"
 #include "Layout/layout_origin.h"
 #include "Layout/Grid/grid.h"
 #include "UI/ui_panel.h"
+#include "UI/ui_panel_shell.h"
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
 #include <SDL2/SDL.h>
+
+static bool Input_CancelObjectFaceAuthoring(GlobalState* state) {
+    bool cancelled = false;
+    if (!state) return false;
+    if (state->editor.objectFaceExtrudeDragging ||
+        state->editor.objectFaceExtrudeToolArmed ||
+        state->editor.objectFaceExtrudeHasPreview ||
+        state->editor.objectFaceSketchToolArmed ||
+        state->editor.objectFaceSketchDragging ||
+        state->editor.objectFaceSketchHasRectangle) {
+        Editor_ObjectFaceExtrudeClear(&state->editor);
+        Editor_ObjectFaceSketchClear(&state->editor);
+        state->editor.objectAuthoringMode = Editor_ObjectAuthoringIdleMode(&state->editor);
+        Global_FlagHitboxesDirty();
+        cancelled = true;
+    }
+    return cancelled;
+}
+
+static bool Input_HandleObjectFaceAuthoringOperationShortcut(GlobalState* state,
+                                                             SDL_Keycode keycode) {
+    ObjectFaceExtrudeMode extrude_mode = OBJECT_FACE_EXTRUDE_MODE_ADD;
+
+    if (!state) return false;
+    if (Global_GetWorkspaceMode() != LINE_DRAWING_WORKSPACE_MODE_OBJECT) return false;
+
+    if (keycode == SDLK_EQUALS || keycode == SDLK_PLUS || keycode == SDLK_KP_PLUS) {
+        extrude_mode = OBJECT_FACE_EXTRUDE_MODE_ADD;
+    } else if (keycode == SDLK_MINUS || keycode == SDLK_KP_MINUS) {
+        extrude_mode = OBJECT_FACE_EXTRUDE_MODE_CUT;
+    } else {
+        return false;
+    }
+
+    if (Editor_ObjectFaceExtrudeTrigger(state, extrude_mode)) {
+        UIPanel_FocusObjectAuthoringTab(UIPanel_Get());
+        return true;
+    }
+    return false;
+}
+
+static bool Input_HandleObjectFaceAuthoringWorkflowShortcut(GlobalState* state,
+                                                            SDL_Keycode keycode) {
+    if (!state) return false;
+    if (Global_GetWorkspaceMode() != LINE_DRAWING_WORKSPACE_MODE_OBJECT) return false;
+
+    if (keycode == SDLK_r) {
+        if (Editor_ObjectFaceSketchArmRectangle(state)) {
+            UIPanel_FocusObjectAuthoringTab(UIPanel_Get());
+            return true;
+        }
+        return false;
+    }
+
+    if (!state->editor.objectFaceSketchHasRectangle) return false;
+    if (state->editor.selectedObjectAssetBodyId != state->editor.objectFaceSketchBodyId ||
+        state->editor.selectedObjectAssetFace != state->editor.objectFaceSketchFace) {
+        return false;
+    }
+
+    if (keycode == SDLK_s) {
+        if (Editor_ObjectFaceSketchSelect(&state->editor, OBJECT_FACE_SKETCH_HANDLE_BODY)) {
+            UIPanel_FocusObjectAuthoringTab(UIPanel_Get());
+            Global_FlagHitboxesDirty();
+            return true;
+        }
+        return false;
+    }
+
+    if (keycode == SDLK_f) {
+        Editor_ObjectFaceExtrudeClear(&state->editor);
+        Editor_ObjectFaceSketchDeselect(&state->editor);
+        if (state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE) {
+            state->editor.objectAuthoringMode = OBJECT_AUTHORING_MODE_FACE_SELECT;
+        }
+        UIPanel_FocusObjectAuthoringTab(UIPanel_Get());
+        Global_FlagHitboxesDirty();
+        return true;
+    }
+
+    return false;
+}
 
 // 		Continuous movement (arrow keys, zoom, quit)
 // ============================================================
@@ -49,7 +134,6 @@ static void HandleHeldKeys(AppContext* ctx) {
         Global_FlagGridChanged();
     }
 
-    if (keys[SDL_SCANCODE_ESCAPE]) ctx->quit = true;
 }
 
 static bool Input_Is3DMode(const GlobalState* state) {
@@ -85,6 +169,28 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
     if (event->type == SDL_KEYDOWN || event->type == SDL_KEYUP) {
         SDL_Keymod mods = SDL_GetModState();
         bool primaryModifier = (mods & (KMOD_CTRL | KMOD_GUI)) != 0;
+
+        if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
+            if (Input_CancelObjectFaceAuthoring(state)) {
+                return;
+            }
+            ctx->quit = true;
+            return;
+        }
+
+        if (event->type == SDL_KEYDOWN &&
+            !primaryModifier &&
+            Input_HandleObjectFaceAuthoringOperationShortcut(state,
+                                                             event->key.keysym.sym)) {
+            return;
+        }
+        if (event->type == SDL_KEYDOWN &&
+            !primaryModifier &&
+            (mods & (KMOD_SHIFT | KMOD_ALT)) == 0 &&
+            Input_HandleObjectFaceAuthoringWorkflowShortcut(state,
+                                                            event->key.keysym.sym)) {
+            return;
+        }
 
         if (event->type == SDL_KEYDOWN && primaryModifier) {
             if (event->key.keysym.sym == SDLK_EQUALS ||

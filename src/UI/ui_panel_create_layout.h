@@ -9,4 +9,5 @@ bool UIPanel_GetCreatePaneRects(const UIPanelState* ui,
                                 SDL_Rect* out_summary_rect,
                                 SDL_Rect* out_workspace_rect,
                                 SDL_Rect* out_primitives_rect,
+                                SDL_Rect* out_operations_rect,
                                 SDL_Rect* out_construction_rect);

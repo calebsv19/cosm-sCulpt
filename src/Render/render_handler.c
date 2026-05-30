@@ -5,7 +5,9 @@
 #include "UI/ui_panel.h"
 #include "UI/render_ui_panel.h"
 #include "UI/info_overlay.h"
+#include "UI/object_workspace_viewport_hud.h"
 #include "UI/shared_theme_font_adapter.h"
+#include "UI/topbar/line_drawing_editor_topbar.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_overlay.h"
 
 #include "Layout/Grid/render_grid.h"
@@ -388,9 +390,7 @@ void Render_SubmitFrame(AppContext* ctx,
     Render_FreeViewAxisGizmo(ctx->renderer, derive_frame->state);
     LogDrawCallDelta("Layout", should_log, vk, &before_draws);
 
-    Render_Editor_AxisGizmo(derive_frame->editor, ctx);
-    Render_Editor_Anchor(derive_frame->editor, ctx);
-    Render_Editor_GhostWall(derive_frame->editor, ctx);
+    Render_EditorOverlay(derive_frame->editor, ctx);
     Render_Editor_SelectionBox(derive_frame->editor, ctx);
     Render_ViewCenterCrosshair(ctx->renderer, derive_frame->state);
     if (has_center_clip) {
@@ -402,6 +402,7 @@ void Render_SubmitFrame(AppContext* ctx,
         (void)SDL_RenderSetClipRect(ctx->renderer, &top_clip);
     }
     Render_InfoOverlay(ctx->renderer);
+    LineDrawingEditorTopbar_Render(ctx->renderer);
     if (has_top_clip) {
         (void)SDL_RenderSetClipRect(ctx->renderer, NULL);
     }
@@ -423,6 +424,7 @@ void Render_SubmitFrame(AppContext* ctx,
     RenderPaneSplitterHandle(ctx->renderer, derive_frame->state, chrome_border);
 
     UIPanel_RenderOverlays(ctx->renderer);
+    LineDrawingObjectWorkspaceViewportHud_Render(ctx->renderer, derive_frame->state);
     LineDrawingWorkspaceAuthoringOverlay_Draw(ctx->renderer, derive_frame->state);
     LogDrawCallDelta("UI panel", should_log, vk, &before_draws);
 

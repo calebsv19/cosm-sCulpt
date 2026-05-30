@@ -1,6 +1,7 @@
 #include "UI/ui_panel_object_inspector.h"
 
 #include "Core/global_state.h"
+#include "Layout/scene/layout_object_faces.h"
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
 #include "UI/ui_panel_object_layout.h"
@@ -167,6 +168,7 @@ static void UIPanelObjectInspector_DrawSummaryCard(const UIPanelState* ui,
     y += font_h + line_gap;
 
     if (!object) {
+        const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
         UIPanelObjectInspector_DrawTextClipped(renderer,
                                                font,
                                                "No object selected.",
@@ -177,7 +179,9 @@ static void UIPanelObjectInspector_DrawSummaryCard(const UIPanelState* ui,
         y += font_h + line_gap;
         UIPanelObjectInspector_DrawTextClipped(renderer,
                                                font,
-                                               "Select in Scene or click in the viewport.",
+                                               object_mode
+                                                   ? "Click in the viewport or create a new primitive."
+                                                   : "Select in Scene or click in the viewport.",
                                                panel.x + metrics.pad_x,
                                                y,
                                                panel.w - (metrics.pad_x * 2),
@@ -241,6 +245,7 @@ static void UIPanelObjectInspector_DrawDetailsCard(const UIPanelState* ui,
     y += font_h + line_gap;
 
     if (!object) {
+        const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
         y += UIPanelObjectInspector_DrawWrappedLine(renderer,
                                                     font,
                                                     "Nothing to inspect yet.",
@@ -251,7 +256,9 @@ static void UIPanelObjectInspector_DrawDetailsCard(const UIPanelState* ui,
                                                     value_color) * (font_h + line_gap);
         y += UIPanelObjectInspector_DrawWrappedLine(renderer,
                                                     font,
-                                                    "The Scene tab owns the object list.",
+                                                    object_mode
+                                                        ? "Object Workspace is editing the current asset document."
+                                                        : "The Scene tab owns the object list.",
                                                     panel,
                                                     y,
                                                     font_h,
@@ -259,7 +266,9 @@ static void UIPanelObjectInspector_DrawDetailsCard(const UIPanelState* ui,
                                                     label_color) * (font_h + line_gap);
         y += UIPanelObjectInspector_DrawWrappedLine(renderer,
                                                     font,
-                                                    "Select from Scene or use Create, then this pane becomes the object editor.",
+                                                    object_mode
+                                                        ? "Use Shape to place primitives, then this pane becomes the active object editor."
+                                                        : "Select from Scene or use Create, then this pane becomes the object editor.",
                                                     panel,
                                                     y,
                                                     font_h,
@@ -329,9 +338,10 @@ static void UIPanelObjectInspector_DrawDetailsCard(const UIPanelState* ui,
                  lock_bounds ? "On" : "Off");
         snprintf(line_editing,
                  sizeof(line_editing),
-                 "Editing  %s   Gizmo:%s   Unit:%s",
+                 "Editing  %s   Gizmo:%s   Face:%s   Unit:%s",
                  UIPanelObjectInspector_DimensionalModeLabel(object->coreMeta.dimensional_mode),
                  Global_Get()->editor.object3DRotateMode ? "Rotate" : "Move",
+                 Layout_Object3DFaceKind_Label(Global_Get()->editor.selectedObjectAssetFace),
                  UIPanel_GetDisplayUnitSymbol());
 
         y += UIPanelObjectInspector_DrawWrappedLine(renderer, font, line_identity, panel, y, font_h, line_gap, value_color) * (font_h + line_gap);

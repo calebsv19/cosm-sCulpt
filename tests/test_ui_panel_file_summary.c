@@ -14,7 +14,7 @@ static bool test_file_summary_reserves_space_for_file_controls(void) {
 
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    ui->activeLeftTab = UI_PANEL_LEFT_TAB_FILE;
+    UIPanel_SetActiveLeftTab(ui, UI_PANEL_LEFT_TAB_FILE);
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
 
     reserved_height = UIPanel_FileSummaryReservedHeight(ui);

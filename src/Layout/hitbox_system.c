@@ -1,4 +1,5 @@
 #include "hitbox_system.h"
+#include "Editor/editor.h"
 #include "Editor/object_handle_gizmo.h"
 #include "Editor/space_gizmo_drag.h"
 #include <SDL2/SDL.h>
@@ -16,14 +17,16 @@ static int Hitbox_TypePriority(HitboxType type) {
         case HITBOX_SCENE_BOUNDS_GIZMO_AXIS: return 0;
         case HITBOX_OBJECT3D_GIZMO_AXIS: return 1;
         case HITBOX_GIZMO_AXIS: return 2;
-        case HITBOX_HANDLE: return 3;
-        case HITBOX_OBJECT3D_PRISM_HANDLE: return 4;
-        case HITBOX_OBJECT3D_PLANE_CORNER: return 5;
-        case HITBOX_OBJECT3D_PLANE_EDGE: return 6;
-        case HITBOX_SCENE_BOUNDS_HANDLE: return 7;
-        case HITBOX_POINT: return 8;
-        case HITBOX_WALL: return 9;
-        case HITBOX_OBJECT3D: return 10;
+        case HITBOX_OBJECT_FACE_SKETCH_HANDLE: return 3;
+        case HITBOX_HANDLE: return 4;
+        case HITBOX_OBJECT_FACE_SKETCH_BODY: return 5;
+        case HITBOX_OBJECT3D_PRISM_HANDLE: return 6;
+        case HITBOX_OBJECT3D_PLANE_CORNER: return 7;
+        case HITBOX_OBJECT3D_PLANE_EDGE: return 8;
+        case HITBOX_SCENE_BOUNDS_HANDLE: return 9;
+        case HITBOX_POINT: return 10;
+        case HITBOX_WALL: return 11;
+        case HITBOX_OBJECT3D: return 12;
         case HITBOX_NONE:
         default: return 10;
     }
@@ -208,6 +211,72 @@ static void Hitbox_AddObjectHandleGizmoAxes(const Object3D* object,
     }
 }
 
+static void Hitbox_AddObjectFaceSketch(const ObjectFaceSketchHitboxState* sketch,
+                                       float gridSize,
+                                       float scale,
+                                       float offsetX,
+                                       float offsetY,
+                                       ViewPlane plane,
+                                       const FreeViewCamera* camera) {
+    Vec3 axis_u = {0};
+    Vec3 axis_v = {0};
+    Vec3 origin = {0};
+    Vec3 corners[4];
+    float min_x = 0.0f;
+    float min_y = 0.0f;
+    float max_x = 0.0f;
+    float max_y = 0.0f;
+    const int body_pad = SDL_max(6, (int)(gridSize * scale * 0.08f));
+    const int handle_radius = SDL_max(7, (int)(gridSize * scale * 0.14f));
+
+    if (!sketch || !sketch->visible) return;
+    axis_u = Vec3_Normalize(sketch->frame.axisU);
+    axis_v = Vec3_Normalize(sketch->frame.axisV);
+    origin = sketch->frame.origin;
+
+    corners[0] = Vec3_Add(origin, Vec3_Add(Vec3_Scale(axis_u, sketch->minUV.x), Vec3_Scale(axis_v, sketch->minUV.y)));
+    corners[1] = Vec3_Add(origin, Vec3_Add(Vec3_Scale(axis_u, sketch->maxUV.x), Vec3_Scale(axis_v, sketch->minUV.y)));
+    corners[2] = Vec3_Add(origin, Vec3_Add(Vec3_Scale(axis_u, sketch->maxUV.x), Vec3_Scale(axis_v, sketch->maxUV.y)));
+    corners[3] = Vec3_Add(origin, Vec3_Add(Vec3_Scale(axis_u, sketch->minUV.x), Vec3_Scale(axis_v, sketch->maxUV.y)));
+
+    for (int i = 0; i < 4; ++i) {
+        const Vec2 view = Vec3_ProjectToView(corners[i], plane, camera);
+        const float sx = (view.x - offsetX) * gridSize * scale;
+        const float sy = (view.y - offsetY) * gridSize * scale;
+        if (i == 0) {
+            min_x = max_x = sx;
+            min_y = max_y = sy;
+        } else {
+            if (sx < min_x) min_x = sx;
+            if (sx > max_x) max_x = sx;
+            if (sy < min_y) min_y = sy;
+            if (sy > max_y) max_y = sy;
+        }
+
+        Hitbox_Add(HITBOX_OBJECT_FACE_SKETCH_HANDLE,
+                   (int)sketch->bodyId,
+                   OBJECT_FACE_SKETCH_HANDLE_CORNER_MIN_U_MIN_V + i,
+                   (SDL_Rect){
+                       (int)lroundf(sx) - handle_radius,
+                       (int)lroundf(sy) - handle_radius,
+                       handle_radius * 2,
+                       handle_radius * 2
+                   },
+                   Hitbox_DepthDistance(plane, camera, corners[i]));
+    }
+
+    Hitbox_Add(HITBOX_OBJECT_FACE_SKETCH_BODY,
+               (int)sketch->bodyId,
+               OBJECT_FACE_SKETCH_HANDLE_BODY,
+               (SDL_Rect){
+                   (int)floorf(min_x) - body_pad,
+                   (int)floorf(min_y) - body_pad,
+                   SDL_max(1, (int)ceilf(max_x - min_x) + body_pad * 2),
+                   SDL_max(1, (int)ceilf(max_y - min_y) + body_pad * 2)
+               },
+               Hitbox_DepthDistance(plane, camera, sketch->frame.origin));
+}
+
 static void Hitbox_AddObject3DPrimitives(const Layout* layout,
                                          float scale,
                                          float offsetX,
@@ -217,6 +286,7 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
                                          uint32_t selectedObject3DId,
                                          int selectedObject3DResizeHandle,
                                          int selectedObject3DPrismHandle,
+                                         uint32_t suppressedHandleObjectId,
                                          bool gizmoEnabled) {
     if (!layout) return;
     const float gridSize = layout->gridSize;
@@ -264,6 +334,7 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
                        Hitbox_DepthDistance(plane, camera, object->transform.position));
 
             if (object->objectId != selectedObject3DId) continue;
+            if (suppressedHandleObjectId == object->objectId) continue;
 
             const float handleDepth = Hitbox_DepthDistance(plane, camera, object->transform.position);
             const int cornerRadius = SDL_max(5, (int)(gridSize * scale * 0.12f));
@@ -354,6 +425,7 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
                        Hitbox_DepthDistance(plane, camera, object->transform.position));
 
             if (object->objectId != selectedObject3DId) continue;
+            if (suppressedHandleObjectId == object->objectId) continue;
 
             const bool freeView = gizmoEnabled && camera && camera->enabled;
             if (freeView) {
@@ -562,6 +634,7 @@ void HitboxSystem_Rebuild(const Layout* layout,
                          uint32_t selectedObject3DId,
                          int selectedObject3DResizeHandle,
                          int selectedObject3DPrismHandle,
+                         const ObjectFaceSketchHitboxState* objectFaceSketch,
                          int selectedSceneBoundsHandle,
                          bool sceneBoundsHandlesVisible,
                          bool gizmoEnabled) {
@@ -696,7 +769,17 @@ void HitboxSystem_Rebuild(const Layout* layout,
                                  selectedObject3DId,
                                  selectedObject3DResizeHandle,
                                  selectedObject3DPrismHandle,
+                                 (objectFaceSketch && objectFaceSketch->visible)
+                                     ? objectFaceSketch->bodyId
+                                     : 0u,
                                  gizmoEnabled);
+    Hitbox_AddObjectFaceSketch(objectFaceSketch,
+                               layout->gridSize,
+                               scale,
+                               offsetX,
+                               offsetY,
+                               plane,
+                               camera);
     if (sceneBoundsHandlesVisible) {
         Hitbox_AddSceneBounds3DHandles(layout,
                                        scale,

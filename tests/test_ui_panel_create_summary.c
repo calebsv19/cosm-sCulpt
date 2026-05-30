@@ -10,6 +10,7 @@ static bool test_create_summary_reserves_space_for_create_controls(void) {
     SDL_Rect summary_rect = {0, 0, 0, 0};
     SDL_Rect workspace_rect = {0, 0, 0, 0};
     SDL_Rect primitives_rect = {0, 0, 0, 0};
+    SDL_Rect operations_rect = {0, 0, 0, 0};
     SDL_Rect construction_rect = {0, 0, 0, 0};
     const UIButton* first_create_button = NULL;
 
@@ -28,11 +29,13 @@ static bool test_create_summary_reserves_space_for_create_controls(void) {
                                            &summary_rect,
                                            &workspace_rect,
                                            &primitives_rect,
+                                           &operations_rect,
                                            &construction_rect));
     TEST_ASSERT(summary_rect.h == reserved_height);
     TEST_ASSERT(workspace_rect.y >= summary_rect.y + summary_rect.h);
     TEST_ASSERT(primitives_rect.y >= workspace_rect.y + workspace_rect.h);
-    TEST_ASSERT(construction_rect.y >= primitives_rect.y + primitives_rect.h);
+    TEST_ASSERT(operations_rect.y >= primitives_rect.y + primitives_rect.h ||
+                construction_rect.y >= primitives_rect.y + primitives_rect.h);
 
     for (int i = 0; i < ui->count; ++i) {
         if (ui->buttons[i].id == UI_BTN_CREATE_PLANE) {
@@ -56,10 +59,12 @@ static bool test_create_layout_stays_stable_when_stage_changes(void) {
     SDL_Rect none_summary_rect = {0, 0, 0, 0};
     SDL_Rect none_workspace_rect = {0, 0, 0, 0};
     SDL_Rect none_primitives_rect = {0, 0, 0, 0};
+    SDL_Rect none_operations_rect = {0, 0, 0, 0};
     SDL_Rect none_construction_rect = {0, 0, 0, 0};
     SDL_Rect prism_summary_rect = {0, 0, 0, 0};
     SDL_Rect prism_workspace_rect = {0, 0, 0, 0};
     SDL_Rect prism_primitives_rect = {0, 0, 0, 0};
+    SDL_Rect prism_operations_rect = {0, 0, 0, 0};
     SDL_Rect prism_construction_rect = {0, 0, 0, 0};
 
     ld_test_init_runtime();
@@ -76,6 +81,7 @@ static bool test_create_layout_stays_stable_when_stage_changes(void) {
                                            &none_summary_rect,
                                            &none_workspace_rect,
                                            &none_primitives_rect,
+                                           &none_operations_rect,
                                            &none_construction_rect));
 
     state->editor.primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM;
@@ -84,6 +90,7 @@ static bool test_create_layout_stays_stable_when_stage_changes(void) {
                                            &prism_summary_rect,
                                            &prism_workspace_rect,
                                            &prism_primitives_rect,
+                                           &prism_operations_rect,
                                            &prism_construction_rect));
 
     TEST_ASSERT(none_summary_rect.y == prism_summary_rect.y);
@@ -91,6 +98,7 @@ static bool test_create_layout_stays_stable_when_stage_changes(void) {
     TEST_ASSERT(none_workspace_rect.y == prism_workspace_rect.y);
     TEST_ASSERT(none_workspace_rect.h == prism_workspace_rect.h);
     TEST_ASSERT(none_primitives_rect.y == prism_primitives_rect.y);
+    TEST_ASSERT(none_operations_rect.y == prism_operations_rect.y);
     TEST_ASSERT(none_construction_rect.y == prism_construction_rect.y);
 
     ld_test_shutdown_runtime();
@@ -103,6 +111,7 @@ static bool test_create_sections_fit_inside_pane_and_anchor_bottom(void) {
     SDL_Rect summary_rect = {0, 0, 0, 0};
     SDL_Rect workspace_rect = {0, 0, 0, 0};
     SDL_Rect primitives_rect = {0, 0, 0, 0};
+    SDL_Rect operations_rect = {0, 0, 0, 0};
     SDL_Rect construction_rect = {0, 0, 0, 0};
 
     ld_test_init_runtime();
@@ -117,14 +126,20 @@ static bool test_create_sections_fit_inside_pane_and_anchor_bottom(void) {
                                            &summary_rect,
                                            &workspace_rect,
                                            &primitives_rect,
+                                           &operations_rect,
                                            &construction_rect));
 
     TEST_ASSERT(summary_rect.x >= ui->rightBodyRect.x);
     TEST_ASSERT(summary_rect.y >= ui->rightBodyRect.y);
     TEST_ASSERT(summary_rect.y + summary_rect.h <= workspace_rect.y);
     TEST_ASSERT(workspace_rect.y + workspace_rect.h <= primitives_rect.y);
-    TEST_ASSERT(primitives_rect.y + primitives_rect.h <= construction_rect.y);
-    TEST_ASSERT(construction_rect.y + construction_rect.h == ui->rightBodyRect.y + ui->rightBodyRect.h);
+    TEST_ASSERT(primitives_rect.y + primitives_rect.h <= operations_rect.y ||
+                primitives_rect.y + primitives_rect.h <= construction_rect.y);
+    if (operations_rect.h > 0) {
+        TEST_ASSERT(operations_rect.y + operations_rect.h == ui->rightBodyRect.y + ui->rightBodyRect.h);
+    } else {
+        TEST_ASSERT(construction_rect.y + construction_rect.h == ui->rightBodyRect.y + ui->rightBodyRect.h);
+    }
 
     for (int i = 0; i < ui->count; ++i) {
         const UIButton* btn = &ui->buttons[i];

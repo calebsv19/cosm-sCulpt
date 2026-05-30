@@ -1,5 +1,6 @@
 // src/Layout/layout_render.c
 #include "Layout/render_layout.h"
+#include "Layout/render_layout_surfaces.h"
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
 #include "Editor/editor.h"
@@ -298,6 +299,8 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
     ViewPlane plane = viewCtx.plane;
     const bool freeView = (state->spaceMode == SPACE_MODE_3D) &&
                           SpaceAdapter_IsFreeViewEnabled(&viewCtx);
+    const bool objectWorkspace =
+        Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
 
     for (size_t i = 0; i < layout->objectStore.count; ++i) {
         const Object3D* object = &layout->objectStore.items[i];
@@ -317,45 +320,50 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                 corners2[c] = WorldToScreen(SpaceAdapter_ProjectToView(corners3[c], &viewCtx), grid);
             }
 
-            int thickness = 2;
-            if (isSelected) {
-                SDL_SetRenderDrawColor(renderer, 255, 220, 0, 255);
-                thickness = 3;
-            } else if (isHovered) {
-                SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
-                thickness = 2;
-            } else {
+            if (!objectWorkspace) {
+                int thickness = 2;
+                if (isSelected) {
+                    SDL_SetRenderDrawColor(renderer, 255, 220, 0, 255);
+                    thickness = 3;
+                } else if (isHovered) {
+                    SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
+                    thickness = 2;
+                } else {
+                    SDL_SetRenderDrawColor(renderer,
+                                           ApplyDepthToChannel(110, depthFactor),
+                                           ApplyDepthToChannel(200, depthFactor),
+                                           ApplyDepthToChannel(130, depthFactor),
+                                           255);
+                    thickness = 2;
+                }
+
+                for (int edge = 0; edge < 4; ++edge) {
+                    const int next = (edge + 1) % 4;
+                    DrawLineWithThickness(renderer,
+                                          (int)corners2[edge].x, (int)corners2[edge].y,
+                                          (int)corners2[next].x, (int)corners2[next].y,
+                                          thickness);
+                }
+
                 SDL_SetRenderDrawColor(renderer,
+                                       ApplyDepthToChannel(90, depthFactor),
+                                       ApplyDepthToChannel(170, depthFactor),
                                        ApplyDepthToChannel(110, depthFactor),
-                                       ApplyDepthToChannel(200, depthFactor),
-                                       ApplyDepthToChannel(130, depthFactor),
-                                       255);
-                thickness = 2;
-            }
-
-            for (int edge = 0; edge < 4; ++edge) {
-                const int next = (edge + 1) % 4;
+                                       isSelected ? 255 : 200);
                 DrawLineWithThickness(renderer,
-                                      (int)corners2[edge].x, (int)corners2[edge].y,
-                                      (int)corners2[next].x, (int)corners2[next].y,
-                                      thickness);
-            }
-
-            SDL_SetRenderDrawColor(renderer,
-                                   ApplyDepthToChannel(90, depthFactor),
-                                   ApplyDepthToChannel(170, depthFactor),
-                                   ApplyDepthToChannel(110, depthFactor),
-                                   isSelected ? 255 : 200);
-            DrawLineWithThickness(renderer,
-                                  (int)corners2[0].x, (int)corners2[0].y,
-                                  (int)corners2[2].x, (int)corners2[2].y,
-                                  1);
-            DrawLineWithThickness(renderer,
-                                  (int)corners2[1].x, (int)corners2[1].y,
-                                  (int)corners2[3].x, (int)corners2[3].y,
-                                  1);
-            for (int c = 0; c < 4; ++c) {
-                DrawFilledCircle(renderer, (int)corners2[c].x, (int)corners2[c].y, isSelected ? 3 : 2);
+                                      (int)corners2[0].x, (int)corners2[0].y,
+                                      (int)corners2[2].x, (int)corners2[2].y,
+                                      1);
+                DrawLineWithThickness(renderer,
+                                      (int)corners2[1].x, (int)corners2[1].y,
+                                      (int)corners2[3].x, (int)corners2[3].y,
+                                      1);
+                for (int c = 0; c < 4; ++c) {
+                    DrawFilledCircle(renderer,
+                                     (int)corners2[c].x,
+                                     (int)corners2[c].y,
+                                     isSelected ? 3 : 2);
+                }
             }
 
             if (isSelected) {
@@ -415,49 +423,51 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                 corners2[c] = WorldToScreen(SpaceAdapter_ProjectToView(corners3[c], &viewCtx), grid);
             }
 
-            int thickness = 2;
-            if (isSelected) {
-                SDL_SetRenderDrawColor(renderer, 255, 210, 80, 255);
-                thickness = 3;
-            } else if (isHovered) {
-                SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
-                thickness = 2;
-            } else {
-                SDL_SetRenderDrawColor(renderer,
-                                       ApplyDepthToChannel(120, depthFactor),
-                                       ApplyDepthToChannel(165, depthFactor),
-                                       ApplyDepthToChannel(215, depthFactor),
-                                       255);
-                thickness = 2;
-            }
-
             static const int kRectEdges[12][2] = {
                 {0, 1}, {1, 2}, {2, 3}, {3, 0},
                 {4, 5}, {5, 6}, {6, 7}, {7, 4},
                 {0, 4}, {1, 5}, {2, 6}, {3, 7}
             };
-            for (int e = 0; e < 12; ++e) {
-                const Vec2 a = corners2[kRectEdges[e][0]];
-                const Vec2 b = corners2[kRectEdges[e][1]];
-                DrawLineWithThickness(renderer,
-                                      (int)a.x, (int)a.y,
-                                      (int)b.x, (int)b.y,
-                                      thickness);
-            }
+            if (!objectWorkspace) {
+                int thickness = 2;
+                if (isSelected) {
+                    SDL_SetRenderDrawColor(renderer, 255, 210, 80, 255);
+                    thickness = 3;
+                } else if (isHovered) {
+                    SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
+                    thickness = 2;
+                } else {
+                    SDL_SetRenderDrawColor(renderer,
+                                           ApplyDepthToChannel(120, depthFactor),
+                                           ApplyDepthToChannel(165, depthFactor),
+                                           ApplyDepthToChannel(215, depthFactor),
+                                           255);
+                    thickness = 2;
+                }
 
-            SDL_SetRenderDrawColor(renderer,
-                                   ApplyDepthToChannel(95, depthFactor),
-                                   ApplyDepthToChannel(140, depthFactor),
-                                   ApplyDepthToChannel(190, depthFactor),
-                                   isSelected ? 255 : 210);
-            DrawLineWithThickness(renderer, (int)corners2[0].x, (int)corners2[0].y,
-                                  (int)corners2[2].x, (int)corners2[2].y, 1);
-            DrawLineWithThickness(renderer, (int)corners2[1].x, (int)corners2[1].y,
-                                  (int)corners2[3].x, (int)corners2[3].y, 1);
-            DrawLineWithThickness(renderer, (int)corners2[4].x, (int)corners2[4].y,
-                                  (int)corners2[6].x, (int)corners2[6].y, 1);
-            DrawLineWithThickness(renderer, (int)corners2[5].x, (int)corners2[5].y,
-                                  (int)corners2[7].x, (int)corners2[7].y, 1);
+                for (int e = 0; e < 12; ++e) {
+                    const Vec2 a = corners2[kRectEdges[e][0]];
+                    const Vec2 b = corners2[kRectEdges[e][1]];
+                    DrawLineWithThickness(renderer,
+                                          (int)a.x, (int)a.y,
+                                          (int)b.x, (int)b.y,
+                                          thickness);
+                }
+
+                SDL_SetRenderDrawColor(renderer,
+                                       ApplyDepthToChannel(95, depthFactor),
+                                       ApplyDepthToChannel(140, depthFactor),
+                                       ApplyDepthToChannel(190, depthFactor),
+                                       isSelected ? 255 : 210);
+                DrawLineWithThickness(renderer, (int)corners2[0].x, (int)corners2[0].y,
+                                      (int)corners2[2].x, (int)corners2[2].y, 1);
+                DrawLineWithThickness(renderer, (int)corners2[1].x, (int)corners2[1].y,
+                                      (int)corners2[3].x, (int)corners2[3].y, 1);
+                DrawLineWithThickness(renderer, (int)corners2[4].x, (int)corners2[4].y,
+                                      (int)corners2[6].x, (int)corners2[6].y, 1);
+                DrawLineWithThickness(renderer, (int)corners2[5].x, (int)corners2[5].y,
+                                      (int)corners2[7].x, (int)corners2[7].y, 1);
+            }
 
             if (isSelected) {
                 if (freeView) {
@@ -777,6 +787,7 @@ void Layout_Render(const Layout* layout, AppContext* ctx) {
 
     Layout_RenderSceneBounds3D(layout, renderer);
     Layout_RenderPrimitivePlacementPreview(renderer);
+    Layout_RenderObjectSurfaces(layout, renderer);
     Layout_RenderObjects3D(layout, renderer);
     Layout_RenderWalls(layout, renderer);
     Layout_RenderHandles(layout, renderer);

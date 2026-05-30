@@ -109,6 +109,17 @@ typedef enum {
     OBJECT3D_KIND_RECT_PRISM = 2
 } Object3DKind;
 
+typedef enum {
+    OBJECT3D_FACE_NONE = 0,
+    OBJECT3D_FACE_PLANE_SURFACE = 1,
+    OBJECT3D_FACE_RECT_PRISM_NEG_N = 2,
+    OBJECT3D_FACE_RECT_PRISM_POS_N = 3,
+    OBJECT3D_FACE_RECT_PRISM_NEG_V = 4,
+    OBJECT3D_FACE_RECT_PRISM_POS_V = 5,
+    OBJECT3D_FACE_RECT_PRISM_NEG_U = 6,
+    OBJECT3D_FACE_RECT_PRISM_POS_U = 7
+} Object3DFaceKind;
+
 typedef struct {
     float width;
     float height;

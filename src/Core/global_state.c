@@ -1,6 +1,7 @@
 // src/Core/global_state.c
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
+#include "Core/workspace/line_drawing_workspace_mode_handoff.h"
 #include "Layout/hitbox_system.h"
 #include "UI/ui_panel.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
@@ -16,6 +17,7 @@ static GlobalState* global = NULL;
 static const char* k_space_mode_runtime_path = "data/runtime/space_mode.txt";
 static const char* k_space_mode_legacy_path = "config/space_mode.txt";
 static const char* k_default_layout_filename = "layout_config.json";
+static const char* k_default_object_asset_filename = "object_asset.json";
 
 static bool EnsureRuntimeDir(void) {
     if (mkdir("data", 0755) != 0 && errno != EEXIST) {
@@ -62,6 +64,20 @@ static void Global_BuildDefaultLayoutPath(const GlobalState* state,
     }
 }
 
+static void Global_BuildDefaultObjectAssetPath(const GlobalState* state,
+                                               char* out_path,
+                                               size_t out_path_size) {
+    if (!out_path || out_path_size == 0u) return;
+    out_path[0] = '\0';
+    if (!state ||
+        !LineDrawingDataPaths_BuildPath(out_path,
+                                        out_path_size,
+                                        state->dataPaths.object_asset_root,
+                                        k_default_object_asset_filename)) {
+        snprintf(out_path, out_path_size, "config/object_asset.json");
+    }
+}
+
 static void Global_SetDefaultLayoutPath(GlobalState* state) {
     char default_path[LINE_DRAWING_PATH_CAP];
     if (!state) return;
@@ -72,6 +88,20 @@ static void Global_SetDefaultLayoutPath(GlobalState* state) {
              default_path);
     snprintf(state->lastLayoutPath,
              sizeof(state->lastLayoutPath),
+                 "%s",
+                 default_path);
+}
+
+static void Global_SetDefaultObjectAssetPath(GlobalState* state) {
+    char default_path[LINE_DRAWING_PATH_CAP];
+    if (!state) return;
+    Global_BuildDefaultObjectAssetPath(state, default_path, sizeof(default_path));
+    snprintf(state->currentObjectAssetPath,
+             sizeof(state->currentObjectAssetPath),
+             "%s",
+             default_path);
+    snprintf(state->lastObjectAssetPath,
+             sizeof(state->lastObjectAssetPath),
              "%s",
              default_path);
 }
@@ -108,6 +138,38 @@ static void Global_UpdateDefaultLayoutPathForInputRootChange(GlobalState* state,
     }
 }
 
+static void Global_UpdateDefaultObjectAssetPathForRootChange(GlobalState* state,
+                                                             const char* prior_root) {
+    char old_default_path[LINE_DRAWING_PATH_CAP];
+    char new_default_path[LINE_DRAWING_PATH_CAP];
+
+    if (!state) return;
+
+    old_default_path[0] = '\0';
+    if (!LineDrawingDataPaths_BuildPath(old_default_path,
+                                        sizeof(old_default_path),
+                                        prior_root,
+                                        k_default_object_asset_filename)) {
+        snprintf(old_default_path, sizeof(old_default_path), "config/object_asset.json");
+    }
+    Global_BuildDefaultObjectAssetPath(state, new_default_path, sizeof(new_default_path));
+
+    if (state->currentObjectAssetPath[0] == '\0' ||
+        strcmp(state->currentObjectAssetPath, old_default_path) == 0) {
+        snprintf(state->currentObjectAssetPath,
+                 sizeof(state->currentObjectAssetPath),
+                 "%s",
+                 new_default_path);
+    }
+    if (state->lastObjectAssetPath[0] == '\0' ||
+        strcmp(state->lastObjectAssetPath, old_default_path) == 0) {
+        snprintf(state->lastObjectAssetPath,
+                 sizeof(state->lastObjectAssetPath),
+                 "%s",
+                 new_default_path);
+    }
+}
+
 static void Global_SeedLastSessionPathsFromRecents(GlobalState* state) {
     if (!state) return;
     if (state->recentContexts.layouts.count > 0 &&
@@ -123,6 +185,13 @@ static void Global_SeedLastSessionPathsFromRecents(GlobalState* state) {
                  sizeof(state->lastSceneAuthoringPath),
                  "%s",
                  state->recentContexts.scenes.paths[0]);
+    }
+    if (state->recentContexts.object_assets.count > 0 &&
+        state->recentContexts.object_assets.paths[0][0] != '\0') {
+        snprintf(state->lastObjectAssetPath,
+                 sizeof(state->lastObjectAssetPath),
+                 "%s",
+                 state->recentContexts.object_assets.paths[0]);
     }
 }
 
@@ -193,6 +262,27 @@ static bool Global_ApplyStartupRootFallbacks(GlobalState* state) {
         changed = true;
     }
 
+    if (state->dataPaths.object_asset_root[0] == '\0') {
+        fprintf(stderr,
+                "[startup] Object asset root unset; using '%s'.\n",
+                LineDrawingDataPaths_DefaultObjectAssetRoot());
+        snprintf(state->dataPaths.object_asset_root,
+                 sizeof(state->dataPaths.object_asset_root),
+                 "%s",
+                 LineDrawingDataPaths_DefaultObjectAssetRoot());
+        changed = true;
+    } else if (!Global_DirExists(state->dataPaths.object_asset_root)) {
+        fprintf(stderr,
+                "[startup] Startup fallback: object asset root '%s' missing; using '%s'.\n",
+                state->dataPaths.object_asset_root,
+                LineDrawingDataPaths_DefaultObjectAssetRoot());
+        snprintf(state->dataPaths.object_asset_root,
+                 sizeof(state->dataPaths.object_asset_root),
+                 "%s",
+                 LineDrawingDataPaths_DefaultObjectAssetRoot());
+        changed = true;
+    }
+
     return changed;
 }
 
@@ -209,6 +299,15 @@ static void Global_RecordRecentScene(GlobalState* state, const char* path, bool 
     bool changed = false;
     if (!state) return;
     changed = LineDrawingRecentContexts_TrackScene(&state->recentContexts, path);
+    if (persist && changed) {
+        (void)Global_SaveRecentContexts();
+    }
+}
+
+static void Global_RecordRecentObjectAsset(GlobalState* state, const char* path, bool persist) {
+    bool changed = false;
+    if (!state) return;
+    changed = LineDrawingRecentContexts_TrackObjectAsset(&state->recentContexts, path);
     if (persist && changed) {
         (void)Global_SaveRecentContexts();
     }
@@ -234,6 +333,12 @@ static void Global_RecordRecentOutputRoot(GlobalState* state, const char* path, 
 
 const char* Global_GetSpaceModeLabel(SpaceMode mode) {
     return mode == SPACE_MODE_2D ? "2D" : "3D";
+}
+
+const char* Global_GetWorkspaceModeLabel(LineDrawingWorkspaceMode mode) {
+    return mode == LINE_DRAWING_WORKSPACE_MODE_OBJECT
+               ? "Object Workspace"
+               : "Scene Workspace";
 }
 
 static bool SpaceMode_Parse(const char* text, SpaceMode* out_mode) {
@@ -321,6 +426,37 @@ bool Global_LoadSpaceMode(void) {
     return Global_SetSpaceMode(loaded, false);
 }
 
+LineDrawingWorkspaceMode Global_GetWorkspaceMode(void) {
+    if (!global) return LINE_DRAWING_WORKSPACE_MODE_SCENE;
+    return global->workspaceMode;
+}
+
+bool Global_SetWorkspaceMode(LineDrawingWorkspaceMode mode) {
+    if (!global) return false;
+    if (mode != LINE_DRAWING_WORKSPACE_MODE_SCENE &&
+        mode != LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
+        return false;
+    }
+    if (global->workspaceMode == mode) {
+        return true;
+    }
+
+    if (!LineDrawingWorkspaceModeHandoff_Apply(global, mode)) {
+        return false;
+    }
+    UIPanel_OnWindowResized(global->screenWidth, global->screenHeight);
+    Global_FlagGridChanged();
+    return true;
+}
+
+bool Global_ToggleWorkspaceMode(void) {
+    if (!global) return false;
+    return Global_SetWorkspaceMode(
+        global->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_SCENE
+            ? LINE_DRAWING_WORKSPACE_MODE_OBJECT
+            : LINE_DRAWING_WORKSPACE_MODE_SCENE);
+}
+
 bool Global_IsCenterCrosshairEnabled(void) {
     if (!global) return false;
     return global->centerCrosshairEnabled;
@@ -396,6 +532,8 @@ void Global_Init(int screenWidth, int screenHeight) {
     global->centerCrosshairEnabled = true;
     global->layoutDirtySinceSave = false;
     global->lastSavedSnapshot = NULL;
+    memset(&global->sceneWorkspaceDocument, 0, sizeof(global->sceneWorkspaceDocument));
+    memset(&global->objectWorkspaceDocument, 0, sizeof(global->objectWorkspaceDocument));
     LineDrawingDataPaths_SetDefaults(&global->dataPaths);
     LineDrawingRecentContexts_Init(&global->recentContexts);
     Global_LoadDataRoots();
@@ -410,11 +548,14 @@ void Global_Init(int screenWidth, int screenHeight) {
     Global_RecordRecentInputRoot(global, global->dataPaths.input_root, true);
     Global_RecordRecentOutputRoot(global, global->dataPaths.output_root, true);
     Global_SetDefaultLayoutPath(global);
+    Global_SetDefaultObjectAssetPath(global);
     Global_SeedLastSessionPathsFromRecents(global);
 
     Grid_init(&global->grid, 1.0f, screenWidth, screenHeight);
 
     Layout_Init(&global->layout, 1.0f);
+    global->spaceMode = SPACE_MODE_3D;
+    global->workspaceMode = LINE_DRAWING_WORKSPACE_MODE_SCENE;
     global->activePlane = Layout_ConstructionPlane3D_ToViewPlane(&global->layout.scene3d.constructionPlane);
     Editor_Init(&global->editor);
     if (!LineDrawingPaneHost_Init(&global->paneHost, (float)screenWidth, (float)screenHeight)) {
@@ -436,6 +577,10 @@ void Global_Shutdown(void) {
         free(global->lastSavedSnapshot);
         global->lastSavedSnapshot = NULL;
     }
+    free(global->sceneWorkspaceDocument.layoutSnapshot);
+    free(global->sceneWorkspaceDocument.savedSnapshot);
+    free(global->objectWorkspaceDocument.layoutSnapshot);
+    free(global->objectWorkspaceDocument.savedSnapshot);
     Editor_Free(&global->editor);
     Layout_Free(&global->layout);
     free(global);
@@ -498,6 +643,7 @@ void Global_FlagHitboxesDirty(void) {
 
 void Global_RebuildHitboxesIfDirty(void) {
     GlobalState* state = Global_Get();
+    ObjectFaceSketchHitboxState object_face_sketch = {0};
     if (!state) return;
 
     Global_ProcessLayoutChanges(state);
@@ -506,6 +652,30 @@ void Global_RebuildHitboxesIfDirty(void) {
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     bool gizmoEnabled = (state->spaceMode == SPACE_MODE_3D) &&
                         SpaceAdapter_IsFreeViewEnabled(&viewCtx);
+    if (state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT &&
+        (state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE ||
+         state->editor.objectFaceSketchToolArmed ||
+         state->editor.objectFaceSketchDragging ||
+         state->editor.objectFaceSketchHasRectangle ||
+         state->editor.objectFaceExtrudeToolArmed ||
+         state->editor.objectFaceExtrudeDragging)) {
+        gizmoEnabled = false;
+    }
+    if (state->editor.objectFaceSketchHasRectangle &&
+        state->editor.selectedObjectAssetBodyId == state->editor.objectFaceSketchBodyId &&
+        state->editor.selectedObjectAssetFace == state->editor.objectFaceSketchFace) {
+        object_face_sketch.visible = true;
+        object_face_sketch.bodyId = state->editor.objectFaceSketchBodyId;
+        object_face_sketch.frame = state->editor.objectFaceSketchFrame;
+        object_face_sketch.minUV = (Vec2){
+            fminf(state->editor.objectFaceSketchStartUV.x, state->editor.objectFaceSketchCurrentUV.x),
+            fminf(state->editor.objectFaceSketchStartUV.y, state->editor.objectFaceSketchCurrentUV.y)
+        };
+        object_face_sketch.maxUV = (Vec2){
+            fmaxf(state->editor.objectFaceSketchStartUV.x, state->editor.objectFaceSketchCurrentUV.x),
+            fmaxf(state->editor.objectFaceSketchStartUV.y, state->editor.objectFaceSketchCurrentUV.y)
+        };
+    }
     HitboxSystem_Rebuild(&state->layout,
                          state->grid.scale,
                          state->grid.offsetX,
@@ -516,6 +686,7 @@ void Global_RebuildHitboxesIfDirty(void) {
                          state->editor.selectedObject3DId,
                          state->editor.selectedObject3DResizeHandle,
                          state->editor.selectedObject3DPrismHandle,
+                         object_face_sketch.visible ? &object_face_sketch : NULL,
                          state->editor.selectedSceneBoundsHandle,
                          state->editor.sceneBoundsHandlesVisible,
                          gizmoEnabled);
@@ -532,6 +703,7 @@ void Global_OnLayoutSaved(const char* path) {
         state->lastLayoutPath[sizeof(state->lastLayoutPath) - 1] = '\0';
         Global_RecordRecentLayout(state, state->currentConfigPath, true);
     }
+    state->currentObjectAssetPath[0] = '\0';
     state->layoutDirtySinceSave = false;
     state->layoutDirty = false;
     state->hitboxDirty = true;
@@ -549,6 +721,7 @@ void Global_OnLayoutLoaded(const char* path) {
         Global_RecordRecentLayout(state, state->currentConfigPath, true);
     }
     state->currentSceneAuthoringPath[0] = '\0';
+    state->currentObjectAssetPath[0] = '\0';
     state->layoutDirtySinceSave = false;
     state->layoutDirty = false;
     state->hitboxDirty = true;
@@ -578,6 +751,45 @@ void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_p
         strncpy(state->currentConfigPath, scene_authoring_path, sizeof(state->currentConfigPath) - 1);
         state->currentConfigPath[sizeof(state->currentConfigPath) - 1] = '\0';
     }
+    state->currentObjectAssetPath[0] = '\0';
+    state->layoutDirtySinceSave = false;
+    state->layoutDirty = false;
+    state->hitboxDirty = true;
+    Global_UpdateSavedSnapshot();
+}
+
+void Global_OnObjectAssetSaved(const char* path) {
+    GlobalState* state = Global_Get();
+    if (!state) return;
+    if (path && *path) {
+        strncpy(state->currentObjectAssetPath, path, sizeof(state->currentObjectAssetPath) - 1);
+        state->currentObjectAssetPath[sizeof(state->currentObjectAssetPath) - 1] = '\0';
+        strncpy(state->lastObjectAssetPath, path, sizeof(state->lastObjectAssetPath) - 1);
+        state->lastObjectAssetPath[sizeof(state->lastObjectAssetPath) - 1] = '\0';
+        strncpy(state->currentConfigPath, path, sizeof(state->currentConfigPath) - 1);
+        state->currentConfigPath[sizeof(state->currentConfigPath) - 1] = '\0';
+        Global_RecordRecentObjectAsset(state, state->currentObjectAssetPath, true);
+    }
+    state->currentSceneAuthoringPath[0] = '\0';
+    state->layoutDirtySinceSave = false;
+    state->layoutDirty = false;
+    state->hitboxDirty = true;
+    Global_UpdateSavedSnapshot();
+}
+
+void Global_OnObjectAssetLoaded(const char* path) {
+    GlobalState* state = Global_Get();
+    if (!state) return;
+    if (path && *path) {
+        strncpy(state->currentObjectAssetPath, path, sizeof(state->currentObjectAssetPath) - 1);
+        state->currentObjectAssetPath[sizeof(state->currentObjectAssetPath) - 1] = '\0';
+        strncpy(state->lastObjectAssetPath, path, sizeof(state->lastObjectAssetPath) - 1);
+        state->lastObjectAssetPath[sizeof(state->lastObjectAssetPath) - 1] = '\0';
+        strncpy(state->currentConfigPath, path, sizeof(state->currentConfigPath) - 1);
+        state->currentConfigPath[sizeof(state->currentConfigPath) - 1] = '\0';
+        Global_RecordRecentObjectAsset(state, state->currentObjectAssetPath, true);
+    }
+    state->currentSceneAuthoringPath[0] = '\0';
     state->layoutDirtySinceSave = false;
     state->layoutDirty = false;
     state->hitboxDirty = true;
@@ -596,6 +808,12 @@ const char* Global_GetCurrentSceneAuthoringPath(void) {
     return state->currentSceneAuthoringPath;
 }
 
+const char* Global_GetCurrentObjectAssetPath(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return state->currentObjectAssetPath;
+}
+
 const char* Global_GetLastLayoutPath(void) {
     GlobalState* state = Global_Get();
     if (!state) return NULL;
@@ -606,6 +824,12 @@ const char* Global_GetLastSceneAuthoringPath(void) {
     GlobalState* state = Global_Get();
     if (!state) return NULL;
     return state->lastSceneAuthoringPath;
+}
+
+const char* Global_GetLastObjectAssetPath(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return state->lastObjectAssetPath;
 }
 
 const LineDrawingRecentContexts* Global_GetRecentContexts(void) {
@@ -636,6 +860,12 @@ const char* Global_GetLayoutRoot(void) {
     GlobalState* state = Global_Get();
     if (!state) return NULL;
     return state->dataPaths.layout_root;
+}
+
+const char* Global_GetObjectAssetRoot(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return state->dataPaths.object_asset_root;
 }
 
 bool Global_LoadDataRoots(void) {
@@ -699,6 +929,21 @@ bool Global_SetLayoutRoot(const char* path, bool persist) {
     if (!state) return false;
     if (!Global_SetPathField(state->dataPaths.layout_root, sizeof(state->dataPaths.layout_root), path)) return false;
     Global_SetDefaultLayoutPath(state);
+    if (persist) return Global_SaveDataRoots();
+    return true;
+}
+
+bool Global_SetObjectAssetRoot(const char* path, bool persist) {
+    GlobalState* state = Global_Get();
+    char prior_root[LINE_DRAWING_PATH_CAP];
+    if (!state) return false;
+    snprintf(prior_root, sizeof(prior_root), "%s", state->dataPaths.object_asset_root);
+    if (!Global_SetPathField(state->dataPaths.object_asset_root,
+                             sizeof(state->dataPaths.object_asset_root),
+                             path)) {
+        return false;
+    }
+    Global_UpdateDefaultObjectAssetPathForRootChange(state, prior_root);
     if (persist) return Global_SaveDataRoots();
     return true;
 }

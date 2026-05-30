@@ -35,5 +35,8 @@ bool UIPanel_PerformSave(UIPanelState* ui);
 void UIPanel_RememberLoadedEntry(UILoadMenuMode mode, const char* path);
 bool UIPanel_LoadLayoutFromPath(const char* path);
 bool UIPanel_LoadSceneFromPath(const char* path);
+bool UIPanel_LoadObjectAssetFromPath(const char* path);
 bool UIPanel_LoadJsonFromFolderSelection(const char* selected_folder, bool persist_root);
 bool UIPanel_LoadSceneFromFolderSelection(const char* selected_folder, bool persist_root);
+bool UIPanel_LoadObjectAssetFromFolderSelection(const char* selected_folder, bool persist_root);
+bool UIPanel_NewObjectAssetDocument(void);

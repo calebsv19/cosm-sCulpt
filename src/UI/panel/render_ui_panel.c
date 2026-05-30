@@ -9,9 +9,11 @@
 #include "UI/ui_panel_shell.h"
 #include "UI/ui_panel_visual_style.h"
 #include "UI/ui_panel_view_summary.h"
+#include "UI/ui_panel_object_workspace_summary.h"
 #include "UI/font_manager.h"
 #include "UI/text_draw.h"
 #include "Core/global_state.h"
+#include "Editor/object_face_sketch.h"
 
 #include <SDL2/SDL.h>
 #include <limits.h>
@@ -80,14 +82,63 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     SDL_Color textColor = {255, 255, 255, 255};
     TTF_Font* font = FontManager_GetUIPanelFont();
     UIPanelVisualMetrics metrics = UIPanelVisual_MakeMetrics(font);
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+    const GlobalState* state = Global_Get();
+    const bool has_face_target = state &&
+        state->editor.selectedObjectAssetBodyId != 0u &&
+        state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE;
+    const bool has_committed_sketch = state && state->editor.objectFaceSketchHasRectangle;
+    const bool selected_committed_sketch =
+        state && Editor_ObjectFaceSketchIsSelected(&state->editor);
+    const bool has_shape_bodies = state &&
+        Layout_ObjectStore_LiveCount(&state->layout.objectStore) > 0u;
+    const bool sketch_active = state &&
+        (state->editor.objectFaceSketchToolArmed ||
+         state->editor.objectFaceSketchDragging ||
+         state->editor.objectFaceSketchHasRectangle);
+    const bool extrude_add_active = state &&
+        state->editor.objectFaceExtrudeToolArmed &&
+        state->editor.objectFaceExtrudeMode == OBJECT_FACE_EXTRUDE_MODE_ADD;
+    const bool extrude_cut_active = state &&
+        state->editor.objectFaceExtrudeToolArmed &&
+        state->editor.objectFaceExtrudeMode == OBJECT_FACE_EXTRUDE_MODE_CUT;
+    const Object3D* sketch_body = (state && state->editor.objectFaceSketchBodyId != 0u)
+        ? Layout_ObjectStore_FindConst(&state->layout.objectStore,
+                                       state->editor.objectFaceSketchBodyId)
+        : NULL;
+    const bool extrude_enabled = selected_committed_sketch || extrude_add_active;
+    const bool extrude_cut_enabled =
+        extrude_cut_active ||
+        (selected_committed_sketch &&
+         sketch_body &&
+         sketch_body->kind == OBJECT3D_KIND_RECT_PRISM);
+    const bool render_disabled =
+        object_mode &&
+        (((btn->id == UI_BTN_CREATE_PLANE || btn->id == UI_BTN_OBJECT_FACE_SELECT) &&
+          !has_face_target && !has_committed_sketch && has_shape_bodies) ||
+         (btn->id == UI_BTN_OBJECT_SKETCH_SELECT && !has_committed_sketch) ||
+         (btn->id == UI_BTN_OBJECT_SKETCH_CLEAR && !sketch_active) ||
+         (btn->id == UI_BTN_EXTRUDE_ADD && !extrude_enabled) ||
+         (btn->id == UI_BTN_EXTRUDE_CUT && !extrude_cut_enabled));
 
     (void)UIPanelVisual_ResolvePalette(&palette);
     button_fill = palette.button_fill;
     button_border = palette.button_border;
     textColor = palette.text_primary;
+    if (render_disabled) {
+        button_fill = UIPanelVisual_AdjustColor(button_fill, -18, 0);
+        button_fill.a = 150;
+        button_border = UIPanelVisual_AdjustColor(button_border, -24, 0);
+        textColor = palette.text_muted;
+    }
     if (btn->hovered) {
         button_fill = palette.button_fill_hover;
         button_border = UIPanelVisual_AdjustColor(button_border, 18, 0);
+        if (render_disabled) {
+            button_fill = UIPanelVisual_AdjustColor(button_fill, -20, 0);
+            button_fill.a = 170;
+            button_border = UIPanelVisual_AdjustColor(button_border, -10, 0);
+        }
     }
 
     UIPanelVisual_DrawFrame(r, btn->bounds, button_fill, button_border, 80);
@@ -105,6 +156,48 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         const char* modeLabel = state ? Global_GetSpaceModeLabel(state->spaceMode) : "3D";
         snprintf(dynamicLabel, sizeof(dynamicLabel), "%s (M)", modeLabel);
         label = dynamicLabel;
+    } else if (object_mode &&
+               (btn->id == UI_BTN_SAVE_JSON ||
+                btn->id == UI_BTN_LOAD_JSON ||
+                btn->id == UI_BTN_LOAD_SCENE ||
+                btn->id == UI_BTN_EXPORT_SCENE ||
+                btn->id == UI_BTN_INPUT_ROOT_EDIT ||
+                btn->id == UI_BTN_INPUT_ROOT_FOLDER ||
+                btn->id == UI_BTN_CREATE_PLANE ||
+                btn->id == UI_BTN_CREATE_RECT_PRISM ||
+                btn->id == UI_BTN_OBJECT_FACE_SELECT ||
+                btn->id == UI_BTN_OBJECT_SKETCH_SELECT ||
+                btn->id == UI_BTN_OBJECT_SKETCH_CLEAR ||
+                btn->id == UI_BTN_EXTRUDE_ADD ||
+                btn->id == UI_BTN_EXTRUDE_CUT)) {
+        if (btn->id == UI_BTN_SAVE_JSON) {
+            label = "Save Asset";
+        } else if (btn->id == UI_BTN_LOAD_JSON) {
+            label = "Load Asset";
+        } else if (btn->id == UI_BTN_LOAD_SCENE) {
+            label = "New Asset";
+        } else if (btn->id == UI_BTN_EXPORT_SCENE) {
+            label = "Mesh Export Soon";
+        } else if (btn->id == UI_BTN_INPUT_ROOT_EDIT) {
+            label = "Asset Root Edit";
+        } else if (btn->id == UI_BTN_INPUT_ROOT_FOLDER) {
+            label = "Asset Root Pick";
+        } else if (btn->id == UI_BTN_CREATE_PLANE) {
+            label = object_mode ? "Sketch Rect" : "Add Plane";
+        } else if (btn->id == UI_BTN_CREATE_RECT_PRISM) {
+            label = "Add Prism";
+        } else if (btn->id == UI_BTN_OBJECT_FACE_SELECT) {
+            label = "Face Select";
+        } else if (btn->id == UI_BTN_OBJECT_SKETCH_SELECT) {
+            label = "Sketch Select";
+        } else if (btn->id == UI_BTN_OBJECT_SKETCH_CLEAR) {
+            label = "Clear Sketch";
+        } else if (btn->id == UI_BTN_EXTRUDE_ADD) {
+            label = extrude_add_active ? "Commit +" : "Extrude +";
+        } else if (btn->id == UI_BTN_EXTRUDE_CUT) {
+            label = extrude_cut_active ? "Commit -" :
+                    extrude_cut_enabled ? "Extrude -" : "Cut Prism";
+        }
     } else if (btn->id == UI_BTN_TOGGLE_OBJECT_GIZMO_MODE) {
         GlobalState* state = Global_Get();
         const bool rotateMode = state ? state->editor.object3DRotateMode : false;
@@ -277,6 +370,7 @@ static void DrawPaneSurface(SDL_Renderer* renderer,
 }
 
 static const char* UIPanel_GroupTitle(UIPanelGroup group, UIPanelSide side) {
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     (void)side;
     switch (group) {
         case UI_PANEL_GROUP_LEFT_SCENE_SELECTION: return "Selection";
@@ -285,7 +379,8 @@ static const char* UIPanel_GroupTitle(UIPanelGroup group, UIPanelSide side) {
         case UI_PANEL_GROUP_LEFT_ROOT_PATHS: return "Session Paths";
         case UI_PANEL_GROUP_RIGHT_VIEW: return "View";
         case UI_PANEL_GROUP_RIGHT_MODES: return "Modes";
-        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return "Primitives";
+        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return object_mode ? "Seed / Sketch" : "Primitives";
+        case UI_PANEL_GROUP_RIGHT_OPERATIONS: return "Operations";
         case UI_PANEL_GROUP_RIGHT_CONSTRUCTION: return "Construction";
         case UI_PANEL_GROUP_RIGHT_PRISM: return "Prism";
         case UI_PANEL_GROUP_RIGHT_GIZMO: return "Gizmo";
@@ -323,6 +418,8 @@ static SDL_Rect UIPanel_GroupSectionRect(const UIPanelState* ui,
             return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) ? ui->viewPane.modesRect : zero;
         case UI_PANEL_GROUP_RIGHT_PRIMITIVES:
             return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) ? ui->createPane.primitivesRect : zero;
+        case UI_PANEL_GROUP_RIGHT_OPERATIONS:
+            return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) ? ui->createPane.operationsRect : zero;
         case UI_PANEL_GROUP_RIGHT_CONSTRUCTION:
             return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) ? ui->createPane.constructionRect : zero;
         case UI_PANEL_GROUP_RIGHT_PRISM:
@@ -471,9 +568,26 @@ static void Render_UIPanelRightTabSummary(const UIPanelState* ui, SDL_Renderer* 
 }
 
 void Render_UIPanel(const UIPanelState* ui, SDL_Renderer* renderer) {
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     if (!ui || !renderer) return;
     Render_UIPanelSide(ui, renderer, UI_PANEL_LEFT);
     Render_UIPanelSide(ui, renderer, UI_PANEL_RIGHT);
+    if (object_mode) {
+        if (ui->activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
+            Render_UIPanelRootSummary(ui, renderer);
+            Render_UIPanelFileBrowser(ui, renderer);
+        } else {
+            Render_UIPanelObjectWorkspaceSummary(ui, renderer);
+        }
+
+        if (ui->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) {
+            Render_UIPanelViewSummary(ui, renderer);
+        } else {
+            Render_UIPanelRightTabSummary(ui, renderer);
+        }
+        return;
+    }
+
     Render_UIPanelSceneSummary(ui, renderer);
     Render_UIPanelSceneList(ui, renderer);
     Render_UIPanelRootSummary(ui, renderer);

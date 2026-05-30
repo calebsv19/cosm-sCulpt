@@ -128,6 +128,8 @@ void Editor_Init(EditorState* editor) {
     editor->selectedHandleAnchor = -1;
     editor->selectedHandleComponent = -1;
     editor->selectedObject3DId = 0u;
+    editor->selectedObjectAssetBodyId = 0u;
+    editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -139,6 +141,8 @@ void Editor_Init(EditorState* editor) {
     editor->hoveredSceneBoundsGizmoAxis = -1;
     editor->activeSceneBoundsGizmoAxis = -1;
     editor->hoveredObject3DId = 0u;
+    editor->hoveredObjectAssetBodyId = 0u;
+    editor->hoveredObjectAssetFace = OBJECT3D_FACE_NONE;
     editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -150,6 +154,31 @@ void Editor_Init(EditorState* editor) {
     editor->object3DRotateMode = false;
     editor->sceneBoundsHandlesVisible = true;
     editor->primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
+    editor->objectAuthoringMode = OBJECT_AUTHORING_MODE_NONE;
+    editor->objectFaceSketchToolArmed = false;
+    editor->objectFaceSketchDragging = false;
+    editor->objectFaceSketchHasRectangle = false;
+    editor->objectFaceSketchBodyId = 0u;
+    editor->objectFaceSketchFace = OBJECT3D_FACE_NONE;
+    editor->objectFaceSketchFrame = (PlaneFrame3){0};
+    editor->objectFaceSketchStartUV = (Vec2){0.0f, 0.0f};
+    editor->objectFaceSketchCurrentUV = (Vec2){0.0f, 0.0f};
+    editor->hoveredObjectFaceSketchHandle = OBJECT_FACE_SKETCH_HANDLE_NONE;
+    editor->selectedObjectFaceSketchHandle = OBJECT_FACE_SKETCH_HANDLE_NONE;
+    editor->activeObjectFaceSketchHandle = OBJECT_FACE_SKETCH_HANDLE_NONE;
+    editor->objectFaceSketchEditDragging = false;
+    editor->objectFaceSketchEditStartUV = (Vec2){0.0f, 0.0f};
+    editor->objectFaceSketchEditStartMinUV = (Vec2){0.0f, 0.0f};
+    editor->objectFaceSketchEditStartMaxUV = (Vec2){0.0f, 0.0f};
+    editor->objectFaceExtrudeToolArmed = false;
+    editor->objectFaceExtrudeDragging = false;
+    editor->objectFaceExtrudeHasPreview = false;
+    editor->objectFaceExtrudeMode = OBJECT_FACE_EXTRUDE_MODE_NONE;
+    editor->objectFaceExtrudeBodyId = 0u;
+    editor->objectFaceExtrudeFace = OBJECT3D_FACE_NONE;
+    editor->objectFaceExtrudeFrame = (PlaneFrame3){0};
+    editor->objectFaceExtrudeStartScreen = (Vec2){0.0f, 0.0f};
+    editor->objectFaceExtrudeDepth = 0.0f;
     editor->isPreciseDrag = false;
     editor->anchorSelection = NULL;
     editor->anchorSelectionCount = 0;
@@ -160,6 +189,72 @@ void Editor_Init(EditorState* editor) {
     Editor_ResetGizmoDrag(editor);
     HistoryStack_Init(&editor->undoStack);
     HistoryStack_Init(&editor->redoStack);
+}
+
+ObjectAuthoringMode Editor_ObjectAuthoringIdleMode(const EditorState* editor) {
+    if (!editor) return OBJECT_AUTHORING_MODE_NONE;
+    if (editor->selectedObjectAssetBodyId != 0u &&
+        editor->selectedObjectAssetFace != OBJECT3D_FACE_NONE) {
+        return OBJECT_AUTHORING_MODE_FACE_SELECT;
+    }
+    return OBJECT_AUTHORING_MODE_NONE;
+}
+
+const char* Editor_ObjectAuthoringModeLabel(ObjectAuthoringMode mode) {
+    switch (mode) {
+        case OBJECT_AUTHORING_MODE_FACE_SELECT: return "Face Select";
+        case OBJECT_AUTHORING_MODE_SKETCH_DRAW: return "Sketch Draw";
+        case OBJECT_AUTHORING_MODE_SKETCH_SELECT: return "Sketch Select";
+        case OBJECT_AUTHORING_MODE_OPERATION_PREVIEW: return "Operation";
+        case OBJECT_AUTHORING_MODE_NONE:
+        default:
+            return "None";
+    }
+}
+
+const char* Editor_ObjectAuthoringStageLabel(const EditorState* editor) {
+    if (!editor) return "Idle";
+    switch (editor->objectAuthoringMode) {
+        case OBJECT_AUTHORING_MODE_FACE_SELECT:
+            return "Face Select";
+        case OBJECT_AUTHORING_MODE_SKETCH_DRAW:
+            return editor->objectFaceSketchDragging ? "Sketch Draw Active" : "Sketch Draw Armed";
+        case OBJECT_AUTHORING_MODE_SKETCH_SELECT:
+            return editor->objectFaceSketchEditDragging ? "Sketch Edit Drag" : "Sketch Select";
+        case OBJECT_AUTHORING_MODE_OPERATION_PREVIEW:
+            if (editor->objectFaceExtrudeMode == OBJECT_FACE_EXTRUDE_MODE_CUT) {
+                return editor->objectFaceExtrudeDragging ? "Cut Depth Drag" : "Cut Preview";
+            }
+            return editor->objectFaceExtrudeDragging ? "Extrude Depth Drag" : "Extrude Preview";
+        case OBJECT_AUTHORING_MODE_NONE:
+        default:
+            return "Idle";
+    }
+}
+
+const char* Editor_ObjectAuthoringPromptLabel(const EditorState* editor) {
+    if (!editor) return "Select a body face before sketching";
+    switch (editor->objectAuthoringMode) {
+        case OBJECT_AUTHORING_MODE_FACE_SELECT:
+            return editor->selectedObjectAssetFace != OBJECT3D_FACE_NONE
+                ? "Use Face / Rect / Select on the right panel, or R and S from the keyboard"
+                : "Select a visible body face before sketching";
+        case OBJECT_AUTHORING_MODE_SKETCH_DRAW:
+            return editor->objectFaceSketchDragging
+                ? "Release to commit the marquee rectangle"
+                : "Click-drag in the viewport to place the rectangle";
+        case OBJECT_AUTHORING_MODE_SKETCH_SELECT:
+            return editor->objectFaceSketchEditDragging
+                ? "Release to keep the updated sketch bounds"
+                : "Selected sketch is live: drag the body to move, corners to resize, then use Extrude + or Cut";
+        case OBJECT_AUTHORING_MODE_OPERATION_PREVIEW:
+            return editor->objectFaceExtrudeDragging
+                ? "Release in the viewport to commit the current operation depth"
+                : "Extrude preview is armed: drag in the viewport to change depth, or press the same operation again to commit";
+        case OBJECT_AUTHORING_MODE_NONE:
+        default:
+            return "Select a body face before sketching";
+    }
 }
 
 void Editor_Free(EditorState* editor) {
@@ -194,6 +289,8 @@ static void Editor_ResetSelection(EditorState* editor) {
     editor->selectedHandleAnchor = -1;
     editor->selectedHandleComponent = -1;
     editor->selectedObject3DId = 0u;
+    editor->selectedObjectAssetBodyId = 0u;
+    editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -203,6 +300,8 @@ static void Editor_ResetSelection(EditorState* editor) {
     editor->hoveredSceneBoundsGizmoAxis = -1;
     editor->activeSceneBoundsGizmoAxis = -1;
     editor->hoveredObject3DId = 0u;
+    editor->hoveredObjectAssetBodyId = 0u;
+    editor->hoveredObjectAssetFace = OBJECT3D_FACE_NONE;
     editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -212,6 +311,31 @@ static void Editor_ResetSelection(EditorState* editor) {
     editor->isRotatingObject3D = false;
     editor->isPreciseDrag = false;
     editor->primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
+    editor->objectAuthoringMode = OBJECT_AUTHORING_MODE_NONE;
+    editor->objectFaceSketchToolArmed = false;
+    editor->objectFaceSketchDragging = false;
+    editor->objectFaceSketchHasRectangle = false;
+    editor->objectFaceSketchBodyId = 0u;
+    editor->objectFaceSketchFace = OBJECT3D_FACE_NONE;
+    editor->objectFaceSketchFrame = (PlaneFrame3){0};
+    editor->objectFaceSketchStartUV = (Vec2){0.0f, 0.0f};
+    editor->objectFaceSketchCurrentUV = (Vec2){0.0f, 0.0f};
+    editor->hoveredObjectFaceSketchHandle = OBJECT_FACE_SKETCH_HANDLE_NONE;
+    editor->selectedObjectFaceSketchHandle = OBJECT_FACE_SKETCH_HANDLE_NONE;
+    editor->activeObjectFaceSketchHandle = OBJECT_FACE_SKETCH_HANDLE_NONE;
+    editor->objectFaceSketchEditDragging = false;
+    editor->objectFaceSketchEditStartUV = (Vec2){0.0f, 0.0f};
+    editor->objectFaceSketchEditStartMinUV = (Vec2){0.0f, 0.0f};
+    editor->objectFaceSketchEditStartMaxUV = (Vec2){0.0f, 0.0f};
+    editor->objectFaceExtrudeToolArmed = false;
+    editor->objectFaceExtrudeDragging = false;
+    editor->objectFaceExtrudeHasPreview = false;
+    editor->objectFaceExtrudeMode = OBJECT_FACE_EXTRUDE_MODE_NONE;
+    editor->objectFaceExtrudeBodyId = 0u;
+    editor->objectFaceExtrudeFace = OBJECT3D_FACE_NONE;
+    editor->objectFaceExtrudeFrame = (PlaneFrame3){0};
+    editor->objectFaceExtrudeStartScreen = (Vec2){0.0f, 0.0f};
+    editor->objectFaceExtrudeDepth = 0.0f;
     editor->selectionBoxActive = false;
     editor->selectionBoxAdditive = false;
     editor->mode = TOOL_IDLE;
@@ -221,6 +345,8 @@ static void Editor_ResetSelection(EditorState* editor) {
 void Editor_SelectAnchorsInBox(EditorState* editor, const Layout* layout, Vec2 min, Vec2 max, bool additive) {
     if (!editor || !layout) return;
     editor->selectedObject3DId = 0u;
+    editor->selectedObjectAssetBodyId = 0u;
+    editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -301,6 +427,36 @@ void Editor_ClearHistory(EditorState* editor) {
     HistoryStack_Reset(&editor->redoStack);
 }
 
+void Editor_ResetDocumentState(EditorState* editor) {
+    if (!editor) return;
+    Editor_ClearHistory(editor);
+    Editor_ClearAnchorSelection(editor);
+    editor->anchor = (Vec3){0.0f, 0.0f, 0.0f};
+    editor->shiftHeld = false;
+    editor->hoveredWallIndex = -1;
+    editor->hoveredAnchorIndex = -1;
+    editor->selectedWallIndex = -1;
+    editor->selectedHandleAnchor = -1;
+    editor->selectedHandleComponent = -1;
+    editor->hoveredHandleAnchor = -1;
+    editor->hoveredHandleComponent = -1;
+    editor->selectedObject3DId = 0u;
+    editor->selectedObjectAssetBodyId = 0u;
+    editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
+    editor->hoveredObject3DId = 0u;
+    editor->hoveredObjectAssetBodyId = 0u;
+    editor->hoveredObjectAssetFace = OBJECT3D_FACE_NONE;
+    editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+    editor->selectionBoxActive = false;
+    editor->selectionBoxAdditive = false;
+    editor->selectionBoxStart = (Vec2){0.0f, 0.0f};
+    editor->selectionBoxEnd = (Vec2){0.0f, 0.0f};
+    editor->dragSnapshotCount = 0;
+    editor->mode = TOOL_IDLE;
+}
+
 void Editor_ClearAnchorSelection(EditorState* editor) {
     if (!editor) return;
     AnchorSelection_Clear(editor);
@@ -309,7 +465,11 @@ void Editor_ClearAnchorSelection(EditorState* editor) {
     editor->hoveredGizmoAxis = -1;
     editor->hoveredObject3DGizmoAxis = -1;
     editor->selectedObject3DId = 0u;
+    editor->selectedObjectAssetBodyId = 0u;
+    editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
     editor->hoveredObject3DId = 0u;
+    editor->hoveredObjectAssetBodyId = 0u;
+    editor->hoveredObjectAssetFace = OBJECT3D_FACE_NONE;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -333,6 +493,8 @@ void Editor_SelectAnchor(EditorState* editor, int anchorIndex, bool additive) {
     if (anchorIndex < 0) {
         editor->selectedAnchorIndex = -1;
         editor->selectedObject3DId = 0u;
+        editor->selectedObjectAssetBodyId = 0u;
+        editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
         editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -341,6 +503,8 @@ void Editor_SelectAnchor(EditorState* editor, int anchorIndex, bool additive) {
     AnchorSelection_Add(editor, anchorIndex);
     editor->selectedAnchorIndex = anchorIndex;
     editor->selectedObject3DId = 0u;
+    editor->selectedObjectAssetBodyId = 0u;
+    editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;

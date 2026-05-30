@@ -8,6 +8,7 @@
 
 static const char* k_runtime_recent_layouts_path = "data/runtime/recent_layouts.txt";
 static const char* k_runtime_recent_scenes_path = "data/runtime/recent_scenes.txt";
+static const char* k_runtime_recent_object_assets_path = "data/runtime/recent_object_assets.txt";
 static const char* k_runtime_recent_input_roots_path = "data/runtime/recent_input_roots.txt";
 static const char* k_runtime_recent_output_roots_path = "data/runtime/recent_output_roots.txt";
 
@@ -138,6 +139,8 @@ bool LineDrawingRecentContexts_Load(LineDrawingRecentContexts* contexts) {
     LineDrawingRecentContexts_Init(contexts);
     (void)line_drawing_recent_contexts_read_list(k_runtime_recent_layouts_path, &contexts->layouts);
     (void)line_drawing_recent_contexts_read_list(k_runtime_recent_scenes_path, &contexts->scenes);
+    (void)line_drawing_recent_contexts_read_list(k_runtime_recent_object_assets_path,
+                                                 &contexts->object_assets);
     (void)line_drawing_recent_contexts_read_list(k_runtime_recent_input_roots_path,
                                                  &contexts->input_roots);
     (void)line_drawing_recent_contexts_read_list(k_runtime_recent_output_roots_path,
@@ -151,6 +154,8 @@ bool LineDrawingRecentContexts_Save(const LineDrawingRecentContexts* contexts) {
     if (!line_drawing_recent_contexts_ensure_runtime_dir()) return false;
     ok &= line_drawing_recent_contexts_write_list(k_runtime_recent_layouts_path, &contexts->layouts);
     ok &= line_drawing_recent_contexts_write_list(k_runtime_recent_scenes_path, &contexts->scenes);
+    ok &= line_drawing_recent_contexts_write_list(k_runtime_recent_object_assets_path,
+                                                  &contexts->object_assets);
     ok &= line_drawing_recent_contexts_write_list(k_runtime_recent_input_roots_path,
                                                   &contexts->input_roots);
     ok &= line_drawing_recent_contexts_write_list(k_runtime_recent_output_roots_path,
@@ -168,6 +173,11 @@ bool LineDrawingRecentContexts_TrackScene(LineDrawingRecentContexts* contexts, c
     return line_drawing_recent_contexts_push_front(&contexts->scenes, path);
 }
 
+bool LineDrawingRecentContexts_TrackObjectAsset(LineDrawingRecentContexts* contexts, const char* path) {
+    if (!contexts) return false;
+    return line_drawing_recent_contexts_push_front(&contexts->object_assets, path);
+}
+
 bool LineDrawingRecentContexts_TrackInputRoot(LineDrawingRecentContexts* contexts, const char* path) {
     if (!contexts) return false;
     return line_drawing_recent_contexts_push_front(&contexts->input_roots, path);
@@ -177,4 +187,3 @@ bool LineDrawingRecentContexts_TrackOutputRoot(LineDrawingRecentContexts* contex
     if (!contexts) return false;
     return line_drawing_recent_contexts_push_front(&contexts->output_roots, path);
 }
-

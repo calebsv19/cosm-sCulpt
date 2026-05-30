@@ -14,6 +14,7 @@ typedef struct LineDrawingRecentPathList {
 typedef struct LineDrawingRecentContexts {
     LineDrawingRecentPathList layouts;
     LineDrawingRecentPathList scenes;
+    LineDrawingRecentPathList object_assets;
     LineDrawingRecentPathList input_roots;
     LineDrawingRecentPathList output_roots;
 } LineDrawingRecentContexts;
@@ -23,6 +24,6 @@ bool LineDrawingRecentContexts_Load(LineDrawingRecentContexts* contexts);
 bool LineDrawingRecentContexts_Save(const LineDrawingRecentContexts* contexts);
 bool LineDrawingRecentContexts_TrackLayout(LineDrawingRecentContexts* contexts, const char* path);
 bool LineDrawingRecentContexts_TrackScene(LineDrawingRecentContexts* contexts, const char* path);
+bool LineDrawingRecentContexts_TrackObjectAsset(LineDrawingRecentContexts* contexts, const char* path);
 bool LineDrawingRecentContexts_TrackInputRoot(LineDrawingRecentContexts* contexts, const char* path);
 bool LineDrawingRecentContexts_TrackOutputRoot(LineDrawingRecentContexts* contexts, const char* path);
-

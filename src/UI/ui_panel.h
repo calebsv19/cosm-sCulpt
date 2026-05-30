@@ -6,7 +6,7 @@
 #include "Math/math_util.h"
 #include "core_units.h"
 
-#define MAX_UI_BUTTONS 48
+#define MAX_UI_BUTTONS 52
 
 typedef enum {
     UI_PANEL_LEFT,
@@ -35,6 +35,7 @@ typedef enum {
     UI_PANEL_GROUP_RIGHT_VIEW,
     UI_PANEL_GROUP_RIGHT_MODES,
     UI_PANEL_GROUP_RIGHT_PRIMITIVES,
+    UI_PANEL_GROUP_RIGHT_OPERATIONS,
     UI_PANEL_GROUP_RIGHT_CONSTRUCTION,
     UI_PANEL_GROUP_RIGHT_PRISM,
     UI_PANEL_GROUP_RIGHT_GIZMO,
@@ -103,6 +104,11 @@ typedef struct {
 #define UI_BTN_OBJECT_CLEAR_SELECTION 41
 #define UI_BTN_OBJECT_DELETE_SELECTED 42
 #define UI_BTN_FILE_BROWSER_CLEAR_REMEMBERED 43
+#define UI_BTN_EXTRUDE_ADD 44
+#define UI_BTN_EXTRUDE_CUT 45
+#define UI_BTN_OBJECT_FACE_SELECT 46
+#define UI_BTN_OBJECT_SKETCH_SELECT 47
+#define UI_BTN_OBJECT_SKETCH_CLEAR 48
 
 #define MAX_CONFIG_FILES 128
 #define MAX_CONFIG_PATH 512
@@ -110,7 +116,8 @@ typedef struct {
 typedef enum {
     UI_LOAD_MENU_MODE_NONE = 0,
     UI_LOAD_MENU_MODE_JSON = 1,
-    UI_LOAD_MENU_MODE_SCENE = 2
+    UI_LOAD_MENU_MODE_SCENE = 2,
+    UI_LOAD_MENU_MODE_OBJECT = 3
 } UILoadMenuMode;
 
 typedef enum {
@@ -122,7 +129,8 @@ typedef enum {
 typedef enum {
     UI_ROOT_TARGET_NONE = 0,
     UI_ROOT_TARGET_INPUT = 1,
-    UI_ROOT_TARGET_OUTPUT = 2
+    UI_ROOT_TARGET_OUTPUT = 2,
+    UI_ROOT_TARGET_OBJECT_ASSET = 3
 } UIRootDialogTarget;
 
 typedef enum {
@@ -154,6 +162,10 @@ typedef enum {
 typedef struct {
     UIButton buttons[MAX_UI_BUTTONS];
     int count;
+    UIPanelLeftTab sceneActiveLeftTab;
+    UIPanelRightTab sceneActiveRightTab;
+    UIPanelLeftTab objectActiveLeftTab;
+    UIPanelRightTab objectActiveRightTab;
     UIPanelLeftTab activeLeftTab;
     UIPanelRightTab activeRightTab;
     UIPanelTabButton leftTabs[UI_PANEL_LEFT_TAB_COUNT];
@@ -176,6 +188,10 @@ typedef struct {
     } scenePane;
     struct {
         SDL_Rect summaryRect;
+        SDL_Rect browserRect;
+    } objectWorkspacePane;
+    struct {
+        SDL_Rect summaryRect;
         SDL_Rect detailsRect;
         SDL_Rect actionsRect;
         SDL_Rect prismRect;
@@ -186,6 +202,7 @@ typedef struct {
         SDL_Rect summaryRect;
         SDL_Rect workspaceRect;
         SDL_Rect primitivesRect;
+        SDL_Rect operationsRect;
         SDL_Rect constructionRect;
     } createPane;
     struct {
@@ -309,6 +326,7 @@ void UIPanel_RefreshConfigList(void);
 void UIPanel_BeginSaveDialog(void);
 bool UIPanel_OpenJsonFolderDialog(void);
 bool UIPanel_OpenSceneFolderDialog(void);
+bool UIPanel_OpenObjectAssetFolderDialog(void);
 void UIPanel_ExportShape(void);
 void UIPanel_ExportScene(void);
 bool UIPanel_IsSaveDialogActive(void);
@@ -328,6 +346,7 @@ bool UIPanel_IsLoadMenuOpen(void);
 void UIPanel_LoadFileBrowserMode(UIPanelState* ui);
 void UIPanel_ActivateJsonBrowser(void);
 void UIPanel_ActivateSceneBrowser(void);
+void UIPanel_ActivateObjectAssetBrowser(void);
 bool UIPanel_FocusFileBrowserOnActiveSession(void);
 bool UIPanel_ClearRememberedFileBrowserEntry(void);
 bool UIPanel_RestorePersistedFileSession(void);
@@ -348,6 +367,7 @@ void UIPanel_ResetTransientUiState(void);
 void UIPanel_HandleMouseMotion(int mouseX, int mouseY);
 void UIPanel_BeginInputRootDialog(void);
 void UIPanel_BeginOutputRootDialog(void);
+void UIPanel_BeginObjectAssetRootDialog(void);
 bool UIPanel_BeginPrismWidthDialog(void);
 bool UIPanel_BeginPrismHeightDialog(void);
 bool UIPanel_BeginPrismDepthDialog(void);

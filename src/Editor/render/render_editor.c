@@ -2,6 +2,8 @@
 #include "Editor/render_editor.h"
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
+#include "Editor/object_face_extrude.h"
+#include "Editor/object_face_sketch.h"
 #include "Editor/object_handle_gizmo.h"
 #include "Editor/space_gizmo_drag.h"
 #include "Layout/Grid/grid.h"
@@ -120,6 +122,8 @@ static SDL_Color RectPrismAxis_ColorState(RectPrismAxisDirection dir, bool hover
 // ─────────────────────────────────────────────
 // High-level combined renderer
 void Render_EditorOverlay(EditorState* editor, AppContext* ctx) {
+    Render_EditorObjectFaceSketch(editor, ctx);
+    Render_EditorObjectFaceExtrude(editor, ctx);
     Render_Editor_AxisGizmo(editor, ctx);
     Render_Editor_Anchor(editor, ctx);
     Render_Editor_GhostWall(editor, ctx);
@@ -200,6 +204,15 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
     const Grid* grid = &state->grid;
     const float axisWorldLen = fmaxf(grid->gridSize * 2.0f, 1.0f);
     const int baseRadius = SDL_max(6, (int)(grid->gridSize * grid->scale * 0.13f));
+    const bool objectFaceSketchLaneActive =
+        (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) &&
+        (editor->selectedObjectAssetFace != OBJECT3D_FACE_NONE ||
+         editor->objectFaceSketchToolArmed ||
+         editor->objectFaceSketchDragging ||
+         editor->objectFaceSketchHasRectangle ||
+         editor->objectFaceSketchEditDragging ||
+         editor->objectFaceExtrudeToolArmed ||
+         editor->objectFaceExtrudeDragging);
 
     if (editor->sceneBoundsHandlesVisible &&
         Layout_SceneBoundsHandle_IsValid((SceneBoundsHandleKind)editor->selectedSceneBoundsHandle)) {
@@ -267,7 +280,7 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
         }
     }
 
-    if (editor->selectedObject3DId != 0u) {
+    if (!objectFaceSketchLaneActive && editor->selectedObject3DId != 0u) {
         const Object3D* selectedObject =
             Layout_ObjectStore_FindConst(&state->layout.objectStore, editor->selectedObject3DId);
         if (selectedObject && Layout_ObjectStore_ValidateObject(selectedObject)) {

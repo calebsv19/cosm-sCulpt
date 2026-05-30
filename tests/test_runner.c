@@ -1,7 +1,5 @@
 #include "test_framework.h"
 
-#include <stdio.h>
-
 bool layout_run_tests(void);
 bool math_run_tests(void);
 bool shape_dataset_run_tests(void);
@@ -21,6 +19,7 @@ bool scene_catalog_run_tests(void);
 bool catalog_preview_run_tests(void);
 bool root_browser_run_tests(void);
 bool workspace_authoring_host_run_tests(void);
+bool object_face_sketch_run_tests(void);
 
 int main(void) {
     bool ok = true;
@@ -43,6 +42,7 @@ int main(void) {
     ok &= catalog_preview_run_tests();
     ok &= root_browser_run_tests();
     ok &= workspace_authoring_host_run_tests();
+    ok &= object_face_sketch_run_tests();
 
     if (ok) {
         printf("All tests passed\n");

@@ -2,12 +2,14 @@
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
 #include "Layout/layout.h"
+#include "Layout/scene/layout_object_faces.h"
 #include "Layout/Grid/grid.h"
 #include "UI/text_draw.h"
 #include "UI/font_manager.h"
 #include "UI/ui_panel.h"
 #include "UI/shared_theme_font_adapter.h"
 #include "Editor/editor.h"
+#include "Editor/object_face_sketch.h"
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <math.h>
@@ -167,7 +169,39 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
         hoveredObject = Layout_ObjectStore_FindConst(&layout->objectStore, editor->hoveredObject3DId);
     }
 
-    if (selectedObject) {
+    if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
+        const size_t object_count = Layout_ObjectStore_LiveCount(&layout->objectStore);
+        const bool has_rect = editor->objectFaceSketchHasRectangle;
+        const bool sketch_selected = Editor_ObjectFaceSketchIsSelected(editor);
+        const char* stage_label = Editor_ObjectAuthoringStageLabel(editor);
+        const char* prompt_label = Editor_ObjectAuthoringPromptLabel(editor);
+        if (selectedObject) {
+            snprintf(line1, sizeof(line1),
+                     "Object Workspace  Body #%u  Face:%s  Kind:%s",
+                     editor->selectedObjectAssetBodyId != 0u
+                         ? editor->selectedObjectAssetBodyId
+                         : selectedObject->objectId,
+                     Layout_Object3DFaceKind_Label(editor->selectedObjectAssetFace),
+                     Object3DKind_Label(selectedObject->kind));
+            snprintf(line2, sizeof(line2),
+                     "Stage:%s  Sketch:%s%s  Prompt:%s",
+                     stage_label,
+                     sketch_selected ? "Selected" : "Unselected",
+                     has_rect ? "  RectSaved" : "",
+                     prompt_label);
+        } else if (object_count == 0u) {
+            snprintf(line1, sizeof(line1),
+                     "Object Workspace  Empty viewport");
+            snprintf(line2, sizeof(line2),
+                     "No scene object was seeded. Load an asset or create a primitive to begin authoring.");
+        } else {
+            snprintf(line1, sizeof(line1),
+                     "Object Workspace  %zu live bodies",
+                     object_count);
+            snprintf(line2, sizeof(line2),
+                     "Viewport editing, asset save/load, and body-local authoring are routed through the object workspace.");
+        }
+    } else if (selectedObject) {
         snprintf(line1, sizeof(line1),
                  "Object3D #%u  Kind:%s  Pos:(%.2f, %.2f, %.2f)",
                  selectedObject->objectId,
@@ -382,6 +416,7 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
 
     char statusLine[768];
     const char* modeLabel = Global_GetSpaceModeLabel(state->spaceMode);
+    const char* workspaceLabel = Global_GetWorkspaceModeLabel(Global_GetWorkspaceMode());
     const char* viewLabel = SpaceAdapter_IsFreeViewEnabled(&viewCtx) ? "FREE" : "PLANE";
     {
         char constructionPlaneSummary[168];
@@ -423,9 +458,10 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
                  bounds->min.x, bounds->min.y, bounds->min.z,
                  bounds->max.x, bounds->max.y, bounds->max.z);
         snprintf(statusLine, sizeof(statusLine),
-             "File:%s%s  |  Mode:%s  View:%s  Plane:%s (%s=%.2f)  |  %s  |  %s  |  Gizmo:%s Obj3D:%zu Undo:%zu Redo:%zu Delete:%s",
+             "File:%s%s  |  Workspace:%s  Mode:%s  View:%s  Plane:%s (%s=%.2f)  |  %s  |  %s  |  Gizmo:%s Obj3D:%zu Undo:%zu Redo:%zu Delete:%s",
              base ? base : "(unsaved)",
              dirty ? " *" : "",
+             workspaceLabel,
              modeLabel,
              viewLabel,
              planeLabel,

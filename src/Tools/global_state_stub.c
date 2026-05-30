@@ -17,6 +17,7 @@ void Global_Init(int screenWidth, int screenHeight) {
     g_stubState.screenWidth = screenWidth;
     g_stubState.screenHeight = screenHeight;
     g_stubState.spaceMode = SPACE_MODE_3D;
+    g_stubState.workspaceMode = LINE_DRAWING_WORKSPACE_MODE_SCENE;
     LineDrawingDataPaths_SetDefaults(&g_stubState.dataPaths);
     (void)snprintf(g_stubState.currentConfigPath,
                    sizeof(g_stubState.currentConfigPath),
@@ -26,6 +27,14 @@ void Global_Init(int screenWidth, int screenHeight) {
                    sizeof(g_stubState.lastLayoutPath),
                    "%s",
                    g_stubState.currentConfigPath);
+    (void)snprintf(g_stubState.currentObjectAssetPath,
+                   sizeof(g_stubState.currentObjectAssetPath),
+                   "%s/object_asset.json",
+                   g_stubState.dataPaths.object_asset_root);
+    (void)snprintf(g_stubState.lastObjectAssetPath,
+                   sizeof(g_stubState.lastObjectAssetPath),
+                   "%s",
+                   g_stubState.currentObjectAssetPath);
 }
 
 void Global_Shutdown(void) {
@@ -73,6 +82,7 @@ void Global_OnLayoutSaved(const char* path) {
                        "%s",
                        path);
     }
+    g_stubState.currentObjectAssetPath[0] = '\0';
     g_stubState.layoutDirty = false;
     g_stubState.layoutDirtySinceSave = false;
 }
@@ -88,6 +98,7 @@ void Global_OnLayoutLoaded(const char* path) {
                        "%s",
                        path);
     }
+    g_stubState.currentObjectAssetPath[0] = '\0';
     g_stubState.layoutDirty = false;
     g_stubState.layoutDirtySinceSave = false;
 }
@@ -109,8 +120,33 @@ void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_p
                        "%s",
                        layout_path_hint);
     }
+    g_stubState.currentObjectAssetPath[0] = '\0';
     g_stubState.layoutDirty = false;
     g_stubState.layoutDirtySinceSave = false;
+}
+
+void Global_OnObjectAssetSaved(const char* path) {
+    if (path && path[0]) {
+        (void)snprintf(g_stubState.currentObjectAssetPath,
+                       sizeof(g_stubState.currentObjectAssetPath),
+                       "%s",
+                       path);
+        (void)snprintf(g_stubState.lastObjectAssetPath,
+                       sizeof(g_stubState.lastObjectAssetPath),
+                       "%s",
+                       path);
+        (void)snprintf(g_stubState.currentConfigPath,
+                       sizeof(g_stubState.currentConfigPath),
+                       "%s",
+                       path);
+    }
+    g_stubState.currentSceneAuthoringPath[0] = '\0';
+    g_stubState.layoutDirty = false;
+    g_stubState.layoutDirtySinceSave = false;
+}
+
+void Global_OnObjectAssetLoaded(const char* path) {
+    Global_OnObjectAssetSaved(path);
 }
 
 const char* Global_GetCurrentConfigPath(void) {
@@ -121,12 +157,24 @@ const char* Global_GetCurrentSceneAuthoringPath(void) {
     return g_stubState.currentSceneAuthoringPath;
 }
 
+const char* Global_GetCurrentObjectAssetPath(void) {
+    return g_stubState.currentObjectAssetPath;
+}
+
 const char* Global_GetLastLayoutPath(void) {
     return g_stubState.lastLayoutPath;
 }
 
 const char* Global_GetLastSceneAuthoringPath(void) {
     return g_stubState.lastSceneAuthoringPath;
+}
+
+const char* Global_GetLastObjectAssetPath(void) {
+    return g_stubState.lastObjectAssetPath;
+}
+
+const LineDrawingRecentContexts* Global_GetRecentContexts(void) {
+    return &g_stubState.recentContexts;
 }
 
 bool Global_IsLayoutDirty(void) {
@@ -143,6 +191,10 @@ const char* Global_GetOutputRoot(void) {
 
 const char* Global_GetLayoutRoot(void) {
     return g_stubState.dataPaths.layout_root;
+}
+
+const char* Global_GetObjectAssetRoot(void) {
+    return g_stubState.dataPaths.object_asset_root;
 }
 
 bool Global_SetInputRoot(const char* path, bool persist) {
@@ -178,11 +230,35 @@ bool Global_SetLayoutRoot(const char* path, bool persist) {
                     g_stubState.dataPaths.layout_root) < (int)sizeof(g_stubState.currentConfigPath);
 }
 
+bool Global_SetObjectAssetRoot(const char* path, bool persist) {
+    (void)persist;
+    if (!path || !path[0]) return false;
+    if (snprintf(g_stubState.dataPaths.object_asset_root,
+                 sizeof(g_stubState.dataPaths.object_asset_root),
+                 "%s",
+                 path) >= (int)sizeof(g_stubState.dataPaths.object_asset_root)) {
+        return false;
+    }
+    return snprintf(g_stubState.currentObjectAssetPath,
+                    sizeof(g_stubState.currentObjectAssetPath),
+                    "%s/object_asset.json",
+                    g_stubState.dataPaths.object_asset_root) <
+           (int)sizeof(g_stubState.currentObjectAssetPath);
+}
+
 bool Global_LoadDataRoots(void) {
     return true;
 }
 
 bool Global_SaveDataRoots(void) {
+    return true;
+}
+
+bool Global_LoadRecentContexts(void) {
+    return true;
+}
+
+bool Global_SaveRecentContexts(void) {
     return true;
 }
 
@@ -219,5 +295,45 @@ bool Global_LoadSpaceMode(void) {
 }
 
 bool Global_SaveSpaceMode(void) {
+    return true;
+}
+
+LineDrawingWorkspaceMode Global_GetWorkspaceMode(void) {
+    return g_stubState.workspaceMode;
+}
+
+const char* Global_GetWorkspaceModeLabel(LineDrawingWorkspaceMode mode) {
+    return mode == LINE_DRAWING_WORKSPACE_MODE_OBJECT
+               ? "Object Workspace"
+               : "Scene Workspace";
+}
+
+bool Global_SetWorkspaceMode(LineDrawingWorkspaceMode mode) {
+    if (mode != LINE_DRAWING_WORKSPACE_MODE_SCENE &&
+        mode != LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
+        return false;
+    }
+    g_stubState.workspaceMode = mode;
+    return true;
+}
+
+bool Global_ToggleWorkspaceMode(void) {
+    return Global_SetWorkspaceMode(
+        g_stubState.workspaceMode == LINE_DRAWING_WORKSPACE_MODE_SCENE
+            ? LINE_DRAWING_WORKSPACE_MODE_OBJECT
+            : LINE_DRAWING_WORKSPACE_MODE_SCENE);
+}
+
+bool Global_IsCenterCrosshairEnabled(void) {
+    return g_stubState.centerCrosshairEnabled;
+}
+
+bool Global_SetCenterCrosshairEnabled(bool enabled) {
+    g_stubState.centerCrosshairEnabled = enabled;
+    return true;
+}
+
+bool Global_ToggleCenterCrosshair(void) {
+    g_stubState.centerCrosshairEnabled = !g_stubState.centerCrosshairEnabled;
     return true;
 }

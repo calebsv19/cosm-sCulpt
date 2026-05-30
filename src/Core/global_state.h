@@ -17,11 +17,34 @@ typedef enum {
     SPACE_MODE_3D = 1
 } SpaceMode;
 
+typedef enum {
+    LINE_DRAWING_WORKSPACE_MODE_SCENE = 0,
+    LINE_DRAWING_WORKSPACE_MODE_OBJECT = 1
+} LineDrawingWorkspaceMode;
+
+typedef struct {
+    char* layoutSnapshot;
+    char* savedSnapshot;
+    bool layoutDirtySinceSave;
+    bool hasViewportState;
+    uint32_t workspaceSourceSceneObjectId;
+    uint32_t selectedObjectId;
+    uint32_t selectedAssetBodyId;
+    Object3DFaceKind selectedAssetFace;
+    Grid grid;
+    ViewPlane activePlane;
+    FreeViewCamera freeViewCamera;
+    char currentConfigPath[LINE_DRAWING_PATH_CAP];
+    char currentSceneAuthoringPath[LINE_DRAWING_PATH_CAP];
+    char currentObjectAssetPath[LINE_DRAWING_PATH_CAP];
+} LineDrawingWorkspaceDocumentState;
+
 typedef struct GlobalState {
     Grid grid;
     Layout layout;
     EditorState editor;
     SpaceMode spaceMode;
+    LineDrawingWorkspaceMode workspaceMode;
     ViewPlane activePlane;
     FreeViewCamera freeViewCamera;
     bool centerCrosshairEnabled;
@@ -36,12 +59,16 @@ typedef struct GlobalState {
 
     char currentConfigPath[LINE_DRAWING_PATH_CAP];
     char currentSceneAuthoringPath[LINE_DRAWING_PATH_CAP];
+    char currentObjectAssetPath[LINE_DRAWING_PATH_CAP];
     char lastLayoutPath[LINE_DRAWING_PATH_CAP];
     char lastSceneAuthoringPath[LINE_DRAWING_PATH_CAP];
+    char lastObjectAssetPath[LINE_DRAWING_PATH_CAP];
     LineDrawingDataPaths dataPaths;
     LineDrawingRecentContexts recentContexts;
     bool layoutDirtySinceSave;
     char* lastSavedSnapshot;
+    LineDrawingWorkspaceDocumentState sceneWorkspaceDocument;
+    LineDrawingWorkspaceDocumentState objectWorkspaceDocument;
 } GlobalState;
 
 extern GlobalState* Global_Get(void);
@@ -65,18 +92,24 @@ int Global_GetScreenHeight(void);
 void Global_OnLayoutSaved(const char* path);
 void Global_OnLayoutLoaded(const char* path);
 void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_path_hint);
+void Global_OnObjectAssetSaved(const char* path);
+void Global_OnObjectAssetLoaded(const char* path);
 const char* Global_GetCurrentConfigPath(void);
 const char* Global_GetCurrentSceneAuthoringPath(void);
+const char* Global_GetCurrentObjectAssetPath(void);
 const char* Global_GetLastLayoutPath(void);
 const char* Global_GetLastSceneAuthoringPath(void);
+const char* Global_GetLastObjectAssetPath(void);
 const LineDrawingRecentContexts* Global_GetRecentContexts(void);
 bool Global_IsLayoutDirty(void);
 const char* Global_GetInputRoot(void);
 const char* Global_GetOutputRoot(void);
 const char* Global_GetLayoutRoot(void);
+const char* Global_GetObjectAssetRoot(void);
 bool Global_SetInputRoot(const char* path, bool persist);
 bool Global_SetOutputRoot(const char* path, bool persist);
 bool Global_SetLayoutRoot(const char* path, bool persist);
+bool Global_SetObjectAssetRoot(const char* path, bool persist);
 bool Global_LoadDataRoots(void);
 bool Global_SaveDataRoots(void);
 bool Global_LoadRecentContexts(void);
@@ -87,6 +120,10 @@ bool Global_SetSpaceMode(SpaceMode mode, bool persist);
 bool Global_ToggleSpaceMode(bool persist);
 bool Global_LoadSpaceMode(void);
 bool Global_SaveSpaceMode(void);
+LineDrawingWorkspaceMode Global_GetWorkspaceMode(void);
+const char* Global_GetWorkspaceModeLabel(LineDrawingWorkspaceMode mode);
+bool Global_SetWorkspaceMode(LineDrawingWorkspaceMode mode);
+bool Global_ToggleWorkspaceMode(void);
 bool Global_IsCenterCrosshairEnabled(void);
 bool Global_SetCenterCrosshairEnabled(bool enabled);
 bool Global_ToggleCenterCrosshair(void);

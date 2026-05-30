@@ -1,143 +1,30 @@
 // src/Input/input_mouse.c
 #include "input_mouse.h"
+#include "Input/input_mouse_internal.h"
 #include "Input/input_mouse_drag.h"
 #include "Input/input_mouse_drag_shared.h"
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
 #include "Core/viewport_zoom.h"
+#include "Core/workspace/line_drawing_object_workspace_view.h"
 #include "Editor/editor.h"
-#include "Editor/object3d_origin_pick.h"
+#include "Editor/object_face_extrude.h"
+#include "Editor/object_face_sketch.h"
+#include "Editor/object_face_sketch_edit.h"
 
 #include "UI/input_ui_panel.h"
+#include "UI/object_workspace_viewport_hud.h"
+#include "UI/topbar/line_drawing_editor_topbar.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_scene_list.h"
+#include "UI/ui_panel_shell.h"
 
 #include "Layout/Grid/grid.h"
-#include "Layout/hitbox_system.h"  // ← if using hitboxes
-
 #include "Math/math_util.h"
 #include <SDL2/SDL.h>
 #include <stdbool.h>
 #include <math.h>
 #include <string.h>
-
-typedef enum {
-    POINTER_PANE_TOP = 0,
-    POINTER_PANE_LEFT = 1,
-    POINTER_PANE_RIGHT = 2,
-    POINTER_PANE_CENTER = 3,
-    POINTER_PANE_OUTSIDE = 4
-} PointerPaneLane;
-
-static const float kObject3DOriginPickCaptureRadiusPx = 28.0f;
-
-static SDL_Rect PaneRectToSDLRect(CorePaneRect rect) {
-    SDL_Rect out = {0, 0, 0, 0};
-    int x0 = (int)floorf(rect.x);
-    int y0 = (int)floorf(rect.y);
-    int x1 = (int)ceilf(rect.x + rect.width);
-    int y1 = (int)ceilf(rect.y + rect.height);
-    if (x1 < x0) x1 = x0;
-    if (y1 < y0) y1 = y0;
-    out.x = x0;
-    out.y = y0;
-    out.w = x1 - x0;
-    out.h = y1 - y0;
-    return out;
-}
-
-static bool ResolvePaneRect(LineDrawingPaneRole role, SDL_Rect* out_rect) {
-    const LineDrawingPaneHost* pane_host = NULL;
-    CorePaneRect pane_rect = {0};
-    if (!out_rect) return false;
-    *out_rect = (SDL_Rect){0, 0, 0, 0};
-
-    pane_host = Global_GetPaneHostConst();
-    if (!pane_host || !pane_host->initialized) return false;
-    if (!LineDrawingPaneHost_GetRectForRole(pane_host, role, &pane_rect)) return false;
-
-    *out_rect = PaneRectToSDLRect(pane_rect);
-    return out_rect->w > 0 && out_rect->h > 0;
-}
-
-static bool ResolveViewportRect(SDL_Rect* out_rect) {
-    const LineDrawingPaneHost* pane_host = NULL;
-    CorePaneRect pane_rect = {0};
-    if (!out_rect) return false;
-    *out_rect = (SDL_Rect){0, 0, 0, 0};
-
-    pane_host = Global_GetPaneHostConst();
-    if (!pane_host || !pane_host->initialized) return false;
-    if (!LineDrawingPaneHost_GetViewportRect(pane_host, &pane_rect)) return false;
-
-    *out_rect = PaneRectToSDLRect(pane_rect);
-    return out_rect->w > 0 && out_rect->h > 0;
-}
-
-static LineDrawingPaneHost* ResolvePaneHostMutable(void) {
-    return Global_GetPaneHost();
-}
-
-static PointerPaneLane ResolvePointerPaneLane(int x, int y) {
-    SDL_Point point = { x, y };
-    SDL_Rect top = {0, 0, 0, 0};
-    SDL_Rect left = {0, 0, 0, 0};
-    SDL_Rect right = {0, 0, 0, 0};
-    SDL_Rect viewport = {0, 0, 0, 0};
-    bool any_resolved = false;
-
-    if (ResolveViewportRect(&viewport)) {
-        any_resolved = true;
-        if (SDL_PointInRect(&point, &viewport)) return POINTER_PANE_CENTER;
-    }
-    if (ResolvePaneRect(LINE_DRAWING_PANE_ROLE_TOP_BAR, &top)) {
-        any_resolved = true;
-        if (SDL_PointInRect(&point, &top)) return POINTER_PANE_TOP;
-    }
-    if (ResolvePaneRect(LINE_DRAWING_PANE_ROLE_LEFT_CONTROLS, &left)) {
-        any_resolved = true;
-        if (SDL_PointInRect(&point, &left)) return POINTER_PANE_LEFT;
-    }
-    if (ResolvePaneRect(LINE_DRAWING_PANE_ROLE_RIGHT_CONTROLS, &right)) {
-        any_resolved = true;
-        if (SDL_PointInRect(&point, &right)) return POINTER_PANE_RIGHT;
-    }
-
-    if (!any_resolved) {
-        // Legacy fallback when pane host is unavailable.
-        return POINTER_PANE_CENTER;
-    }
-    return POINTER_PANE_OUTSIDE;
-}
-
-static void ClearHoverState(EditorState* editor) {
-    if (!editor) return;
-    editor->hoveredAnchorIndex = -1;
-    editor->hoveredWallIndex = -1;
-    editor->hoveredHandleAnchor = -1;
-    editor->hoveredHandleComponent = -1;
-    editor->hoveredGizmoAxis = -1;
-    editor->hoveredObject3DGizmoAxis = -1;
-    editor->hoveredObject3DId = 0u;
-    editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-    editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-    editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
-    editor->hoveredSceneBoundsGizmoAxis = -1;
-}
-
-static Hitbox ResolveViewportObjectBodyHit(const GlobalState* state, int mx, int my, Hitbox baseHit) {
-    SpaceViewContext viewCtx = {0};
-
-    if (!state) return baseHit;
-    viewCtx = SpaceAdapter_BuildViewContext(state);
-    return Editor_ResolveObject3DBodyPick(&state->layout,
-                                          &state->grid,
-                                          &viewCtx,
-                                          mx,
-                                          my,
-                                          baseHit,
-                                          kObject3DOriginPickCaptureRadiusPx);
-}
 
 static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
     if (!motion) return false;
@@ -148,6 +35,7 @@ static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
     GlobalState* state = Global_Get();
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (!state || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
+    if (InputMouse_IsObjectFaceAuthoringModal(&state->editor)) return false;
     if (UIPanel_IsCapturingKeyboard()) return false;
     if (ResolvePointerPaneLane(motion->x, motion->y) != POINTER_PANE_CENTER) return false;
 
@@ -168,132 +56,6 @@ static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
     FreeView_NormalizeOrbitAngles(&state->freeViewCamera);
     Global_FlagHitboxesDirty();
     return true;
-}
-
-static void UpdateHover(int mx, int my) {
-    GlobalState* state = Global_Get();
-    if (!state) return;
-    EditorState* editor = &state->editor;
-
-    if (UIPanel_IsCapturingKeyboard()) {
-        ClearHoverState(editor);
-        return;
-    }
-    if (ResolvePointerPaneLane(mx, my) != POINTER_PANE_CENTER) {
-        ClearHoverState(editor);
-        return;
-    }
-
-    Hitbox hit = HitboxSystem_GetHitAt(mx, my);
-    hit = ResolveViewportObjectBodyHit(state, mx, my, hit);
-    editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
-    editor->hoveredSceneBoundsGizmoAxis = -1;
-    if (hit.type == HITBOX_POINT) {
-        editor->hoveredAnchorIndex = hit.index;
-        editor->hoveredWallIndex = -1;
-        editor->hoveredHandleAnchor = -1;
-        editor->hoveredHandleComponent = -1;
-        editor->hoveredGizmoAxis = -1;
-        editor->hoveredObject3DGizmoAxis = -1;
-        editor->hoveredObject3DId = 0u;
-        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-    } else if (hit.type == HITBOX_HANDLE) {
-        editor->hoveredHandleAnchor = hit.index;
-        editor->hoveredHandleComponent = hit.subIndex;
-        editor->hoveredAnchorIndex = hit.index;
-        editor->hoveredWallIndex = -1;
-        editor->hoveredGizmoAxis = -1;
-        editor->hoveredObject3DGizmoAxis = -1;
-        editor->hoveredObject3DId = 0u;
-        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-    } else if (hit.type == HITBOX_GIZMO_AXIS) {
-        editor->hoveredGizmoAxis = hit.subIndex;
-        editor->hoveredHandleAnchor = -1;
-        editor->hoveredHandleComponent = -1;
-        editor->hoveredAnchorIndex = hit.index;
-        editor->hoveredWallIndex = -1;
-        editor->hoveredObject3DGizmoAxis = -1;
-        editor->hoveredObject3DId = 0u;
-        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-    } else if (hit.type == HITBOX_OBJECT3D_GIZMO_AXIS) {
-        editor->hoveredObject3DId = (uint32_t)hit.index;
-        editor->hoveredObject3DGizmoAxis = hit.subIndex;
-        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-        editor->hoveredWallIndex = -1;
-        editor->hoveredAnchorIndex = -1;
-        editor->hoveredHandleAnchor = -1;
-        editor->hoveredHandleComponent = -1;
-        editor->hoveredGizmoAxis = -1;
-    } else if (hit.type == HITBOX_SCENE_BOUNDS_GIZMO_AXIS) {
-        editor->hoveredSceneBoundsGizmoAxis = hit.subIndex;
-        editor->hoveredObject3DGizmoAxis = -1;
-        editor->hoveredObject3DId = 0u;
-        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-        editor->hoveredWallIndex = -1;
-        editor->hoveredAnchorIndex = -1;
-        editor->hoveredHandleAnchor = -1;
-        editor->hoveredHandleComponent = -1;
-        editor->hoveredGizmoAxis = -1;
-    } else if (hit.type == HITBOX_SCENE_BOUNDS_HANDLE) {
-        editor->hoveredSceneBoundsHandle = hit.subIndex;
-        editor->hoveredObject3DGizmoAxis = -1;
-        editor->hoveredObject3DId = 0u;
-        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-        editor->hoveredWallIndex = -1;
-        editor->hoveredAnchorIndex = -1;
-        editor->hoveredHandleAnchor = -1;
-        editor->hoveredHandleComponent = -1;
-        editor->hoveredGizmoAxis = -1;
-    } else if (hit.type == HITBOX_WALL) {
-        editor->hoveredWallIndex = hit.index;
-        editor->hoveredAnchorIndex = -1;
-        editor->hoveredHandleAnchor = -1;
-        editor->hoveredHandleComponent = -1;
-        editor->hoveredGizmoAxis = -1;
-        editor->hoveredObject3DGizmoAxis = -1;
-        editor->hoveredObject3DId = 0u;
-        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-    } else if (hit.type == HITBOX_OBJECT3D_PRISM_HANDLE) {
-        editor->hoveredObject3DId = (uint32_t)hit.index;
-        editor->hoveredObject3DPrismHandle = hit.subIndex;
-        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        editor->hoveredWallIndex = -1;
-        editor->hoveredAnchorIndex = -1;
-        editor->hoveredHandleAnchor = -1;
-        editor->hoveredHandleComponent = -1;
-        editor->hoveredGizmoAxis = -1;
-        editor->hoveredObject3DGizmoAxis = -1;
-    } else if (hit.type == HITBOX_OBJECT3D_PLANE_CORNER ||
-               hit.type == HITBOX_OBJECT3D_PLANE_EDGE) {
-        editor->hoveredObject3DId = (uint32_t)hit.index;
-        editor->hoveredObject3DResizeHandle = hit.subIndex;
-        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-        editor->hoveredWallIndex = -1;
-        editor->hoveredAnchorIndex = -1;
-        editor->hoveredHandleAnchor = -1;
-        editor->hoveredHandleComponent = -1;
-        editor->hoveredGizmoAxis = -1;
-        editor->hoveredObject3DGizmoAxis = -1;
-    } else if (hit.type == HITBOX_OBJECT3D) {
-        editor->hoveredObject3DId = (uint32_t)hit.index;
-        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-        editor->hoveredWallIndex = -1;
-        editor->hoveredAnchorIndex = -1;
-        editor->hoveredHandleAnchor = -1;
-        editor->hoveredHandleComponent = -1;
-        editor->hoveredGizmoAxis = -1;
-        editor->hoveredObject3DGizmoAxis = -1;
-    } else {
-        ClearHoverState(editor);
-    }
 }
 
 
@@ -350,6 +112,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
 
     pane_lane = ResolvePointerPaneLane(btn->x, btn->y);
     if (pane_lane == POINTER_PANE_TOP) {
+        (void)LineDrawingEditorTopbar_HandleClick(btn->x, btn->y);
         return;
     }
     if (pane_lane == POINTER_PANE_LEFT || pane_lane == POINTER_PANE_RIGHT) {
@@ -358,6 +121,38 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     }
     if (pane_lane == POINTER_PANE_OUTSIDE) {
         return;
+    }
+
+    {
+        GlobalState* state = Global_Get();
+        if (pane_lane == POINTER_PANE_CENTER &&
+            LineDrawingObjectWorkspaceViewportHud_HandleClick(state, btn->x, btn->y)) {
+            SyncObjectFaceSketchTarget(&state->editor);
+            UpdateHover(btn->x, btn->y);
+            return;
+        }
+        if (pane_lane == POINTER_PANE_CENTER &&
+            InputMouse_IsObjectFaceAuthoringModal(&state->editor)) {
+            if (Editor_ObjectFaceExtrudeHandleLeftMouseDown(state, btn->x, btn->y)) {
+                draggingHandle = false;
+                draggingPan = false;
+                draggingAnchor = false;
+                draggingSelectionBox = false;
+                Global_FlagHitboxesDirty();
+                UpdateHover(btn->x, btn->y);
+                return;
+            }
+            if (Editor_ObjectFaceSketchHandleLeftMouseDown(state, btn->x, btn->y)) {
+                draggingHandle = false;
+                draggingPan = false;
+                draggingAnchor = false;
+                draggingSelectionBox = false;
+                Global_FlagHitboxesDirty();
+                UpdateHover(btn->x, btn->y);
+                return;
+            }
+            return;
+        }
     }
 
     draggingPan = false;
@@ -377,6 +172,37 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
 
     GlobalState* state = Global_Get();
     EditorState* editor = &state->editor;
+    if (InputMouse_ObjectModeEnabled() &&
+        Editor_ObjectFaceExtrudeHandleLeftMouseDown(state, btn->x, btn->y)) {
+        draggingHandle = false;
+        draggingPan = false;
+        draggingAnchor = false;
+        draggingSelectionBox = false;
+        Global_FlagHitboxesDirty();
+        UpdateHover(btn->x, btn->y);
+        return;
+    }
+    if (InputMouse_ObjectModeEnabled() &&
+        Editor_ObjectFaceSketchHandleLeftMouseDown(state, btn->x, btn->y)) {
+        draggingHandle = false;
+        draggingPan = false;
+        draggingAnchor = false;
+        draggingSelectionBox = false;
+        Global_FlagHitboxesDirty();
+        UpdateHover(btn->x, btn->y);
+        return;
+    }
+    if (InputMouse_ObjectModeEnabled() &&
+        InputMouse_IsObjectFaceSketchDrawActive(editor)) {
+        draggingHandle = false;
+        draggingPan = false;
+        draggingAnchor = false;
+        draggingSelectionBox = false;
+        Global_FlagHitboxesDirty();
+        UpdateHover(btn->x, btn->y);
+        return;
+    }
+
     Editor_ResetGizmoDrag(editor);
     ResetObjectResizeDrag(editor);
     ResetObjectGizmoDrag(editor);
@@ -398,15 +224,33 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     bool clickedHandle = (hit.type == HITBOX_HANDLE);
     bool clickedGizmo = (hit.type == HITBOX_GIZMO_AXIS);
     bool clickedObjectGizmo = (hit.type == HITBOX_OBJECT3D_GIZMO_AXIS);
+    bool clickedSketch = (hit.type == HITBOX_OBJECT_FACE_SKETCH_HANDLE ||
+                          hit.type == HITBOX_OBJECT_FACE_SKETCH_BODY);
     bool clickedSceneBoundsGizmo = (hit.type == HITBOX_SCENE_BOUNDS_GIZMO_AXIS);
     bool clickedSceneBoundsHandle = (hit.type == HITBOX_SCENE_BOUNDS_HANDLE);
     bool clickedPrismHandle = (hit.type == HITBOX_OBJECT3D_PRISM_HANDLE);
     bool clickedObjectResize = (hit.type == HITBOX_OBJECT3D_PLANE_CORNER ||
                                 hit.type == HITBOX_OBJECT3D_PLANE_EDGE);
     bool doubleClick = (!shiftSelect && btn->clicks >= 2);
+    const bool object_mode = InputMouse_ObjectModeEnabled();
 
     // Priority: anchor selection overrides wall
-    if (hit.type == HITBOX_POINT) {
+    if (hit.type == HITBOX_OBJECT_FACE_SKETCH_HANDLE ||
+        hit.type == HITBOX_OBJECT_FACE_SKETCH_BODY) {
+        Editor_ClearAnchorSelection(editor);
+        (void)Editor_ObjectFaceSketchSelect(editor, (ObjectFaceSketchHandleKind)hit.subIndex);
+        UIPanel_FocusObjectAuthoringTab(UIPanel_Get());
+        editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+        editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+        editor->selectedWallIndex = -1;
+        editor->selectedHandleAnchor = -1;
+        editor->selectedHandleComponent = -1;
+        startedObjectResize = Editor_ObjectFaceSketchBeginEditDrag(
+            state,
+            (ObjectFaceSketchHandleKind)hit.subIndex,
+            btn->x,
+            btn->y);
+    } else if (hit.type == HITBOX_POINT) {
         bool alreadySelected = Editor_IsAnchorSelected(editor, hit.index);
         if (doubleClick) {
             Editor_SelectAnchor(editor, hit.index, false);
@@ -419,6 +263,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         editor->selectedHandleAnchor = -1;
         editor->selectedHandleComponent = -1;
         editor->selectedObject3DId = 0u;
+        ClearObjectAuthoringSelection(editor);
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
         editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -438,6 +283,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         editor->selectedHandleAnchor = hit.index;
         editor->selectedHandleComponent = hit.subIndex;
         editor->selectedObject3DId = 0u;
+        ClearObjectAuthoringSelection(editor);
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
         Editor_HistoryCapture(editor, &state->layout);
@@ -447,6 +293,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         editor->selectedHandleAnchor = -1;
         editor->selectedHandleComponent = -1;
         editor->selectedObject3DId = 0u;
+        ClearObjectAuthoringSelection(editor);
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
         startedGizmoDrag = BeginGizmoDragSession(state,
@@ -459,6 +306,9 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
                hit.type == HITBOX_OBJECT3D_PLANE_EDGE) {
         Editor_ClearAnchorSelection(editor);
         editor->selectedObject3DId = (uint32_t)hit.index;
+        editor->selectedObjectAssetBodyId = object_mode ? (uint32_t)hit.index : 0u;
+        editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
+        SyncObjectFaceSketchTarget(editor);
         editor->selectedObject3DResizeHandle = hit.subIndex;
         editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
         editor->selectedWallIndex = -1;
@@ -482,6 +332,9 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     } else if (hit.type == HITBOX_OBJECT3D_PRISM_HANDLE) {
         Editor_ClearAnchorSelection(editor);
         editor->selectedObject3DId = (uint32_t)hit.index;
+        editor->selectedObjectAssetBodyId = object_mode ? (uint32_t)hit.index : 0u;
+        editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
+        SyncObjectFaceSketchTarget(editor);
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = hit.subIndex;
         editor->selectedWallIndex = -1;
@@ -492,6 +345,9 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         const int selectedPrismHandle = editor->selectedObject3DPrismHandle;
         Editor_ClearAnchorSelection(editor);
         editor->selectedObject3DId = (uint32_t)hit.index;
+        editor->selectedObjectAssetBodyId = object_mode ? (uint32_t)hit.index : 0u;
+        editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
+        SyncObjectFaceSketchTarget(editor);
         editor->selectedObject3DResizeHandle = selectedPlaneHandle;
         editor->selectedObject3DPrismHandle = selectedPrismHandle;
         editor->selectedWallIndex = -1;
@@ -531,6 +387,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         Editor_ClearAnchorSelection(editor);
         editor->selectedSceneBoundsHandle = hit.subIndex;
         editor->selectedObject3DId = 0u;
+        ClearObjectAuthoringSelection(editor);
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
         editor->selectedWallIndex = -1;
@@ -541,6 +398,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         Editor_ClearAnchorSelection(editor);
         editor->selectedSceneBoundsHandle = selectedBoundsHandle;
         editor->selectedObject3DId = 0u;
+        ClearObjectAuthoringSelection(editor);
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
         editor->selectedWallIndex = -1;
@@ -559,16 +417,35 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         editor->selectedHandleAnchor = -1;
         editor->selectedHandleComponent = -1;
         editor->selectedObject3DId = 0u;
+        ClearObjectAuthoringSelection(editor);
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     } else if (hit.type == HITBOX_OBJECT3D) {
+        const Object3D* object =
+            Layout_ObjectStore_FindConst(&state->layout.objectStore, (uint32_t)hit.index);
+        Object3DFaceKind selected_face = OBJECT3D_FACE_NONE;
+        if (object_mode) {
+            selected_face = ResolveObjectAuthoringFaceForSelection(state, object, btn->x, btn->y);
+        }
         Editor_ClearAnchorSelection(editor);
+        Editor_ObjectFaceSketchDeselect(editor);
         editor->selectedObject3DId = (uint32_t)hit.index;
+        editor->selectedObjectAssetBodyId = object_mode ? (uint32_t)hit.index : 0u;
+        editor->selectedObjectAssetFace = object_mode ? selected_face : OBJECT3D_FACE_NONE;
+        SyncObjectFaceSketchTarget(editor);
+        editor->objectAuthoringMode = object_mode
+            ? Editor_ObjectAuthoringIdleMode(editor)
+            : OBJECT_AUTHORING_MODE_NONE;
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
         editor->selectedWallIndex = -1;
         editor->selectedHandleAnchor = -1;
         editor->selectedHandleComponent = -1;
+        if (doubleClick && object_mode && selected_face != OBJECT3D_FACE_NONE) {
+            (void)LineDrawingObjectWorkspaceView_FocusFace(state,
+                                                           (uint32_t)hit.index,
+                                                           selected_face);
+        }
     } else {
         if (shiftSelect) {
             editor->selectionBoxActive = true;
@@ -579,17 +456,47 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
             lastMx = btn->x;
             lastMy = btn->y;
         } else {
+            const bool same_face_committed_sketch =
+                object_mode &&
+                Editor_ObjectFaceSketchHasCommittedRectangle(editor) &&
+                editor->selectedObjectAssetBodyId == editor->objectFaceSketchBodyId &&
+                editor->selectedObjectAssetFace == editor->objectFaceSketchFace;
+            const bool preserveCommittedSketchSelection =
+                same_face_committed_sketch &&
+                (Editor_ObjectFaceSketchIsSelected(editor) ||
+                 editor->objectAuthoringMode == OBJECT_AUTHORING_MODE_SKETCH_SELECT);
             editor->selectedWallIndex = -1;
             Editor_ClearAnchorSelection(editor);
             editor->selectedHandleAnchor = -1;
             editor->selectedHandleComponent = -1;
-            editor->selectedObject3DId = 0u;
-            editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-            editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+            if (preserveCommittedSketchSelection) {
+                (void)Editor_ObjectFaceSketchSelect(editor,
+                                                    (ObjectFaceSketchHandleKind)
+                                                        editor->selectedObjectFaceSketchHandle);
+                editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+                editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+            } else if (same_face_committed_sketch) {
+                editor->selectedObject3DId = editor->selectedObjectAssetBodyId;
+                Editor_ObjectFaceExtrudeClear(editor);
+                Editor_ObjectFaceSketchDeselect(editor);
+                editor->objectAuthoringMode = OBJECT_AUTHORING_MODE_FACE_SELECT;
+                editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+                editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+            } else {
+                editor->selectedObject3DId = 0u;
+                Editor_ObjectFaceSketchDeselect(editor);
+                ClearObjectAuthoringSelection(editor);
+                editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+                editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+            }
         }
     }
 
-    if (clickedHandle) {
+    if (clickedSketch) {
+        draggingHandle = false;
+        draggingPan = false;
+        draggingObjectResize = startedObjectResize;
+    } else if (clickedHandle) {
         draggingHandle = true;
         draggingPan = false;
     } else if (clickedGizmo) {
@@ -627,7 +534,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         editor->selectionBoxActive = true;
     } else {
         draggingHandle = false;
-        draggingPan = true;
+        draggingPan = !(object_mode && hit.type == HITBOX_OBJECT3D);
     }
 
     Global_FlagHitboxesDirty();
@@ -645,6 +552,15 @@ static void HandleRightMouseDown(SDL_MouseButtonEvent* btn) {
         return;
     }
     GlobalState* state = Global_Get();
+    if (state && (InputMouse_IsObjectFaceAuthoringModal(&state->editor) ||
+                  state->editor.objectFaceSketchHasRectangle ||
+                  state->editor.objectFaceExtrudeHasPreview)) {
+        Editor_ObjectFaceSketchClear(&state->editor);
+        Editor_ObjectFaceExtrudeClear(&state->editor);
+        Global_FlagHitboxesDirty();
+        UpdateHover(btn->x, btn->y);
+        return;
+    }
     Grid* grid = &state->grid;
     EditorState* editor = &state->editor;
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
@@ -695,6 +611,16 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
                 anchorDragCaptured = false;
                 GlobalState* state = Global_Get();
                 if (state) {
+                    Editor_ObjectFaceExtrudeHandleLeftMouseUp(state,
+                                                              event->button.x,
+                                                              event->button.y);
+                    Editor_ObjectFaceSketchEndEditDrag(state,
+                                                       event->button.x,
+                                                       event->button.y);
+                    Editor_ObjectFaceSketchHandleLeftMouseUp(state,
+                                                            event->button.x,
+                                                            event->button.y);
+                    Global_FlagHitboxesDirty();
                     state->editor.isDraggingAnchor = false;
                     state->editor.isResizingObject3D = false;
                     state->editor.isResizingSceneBounds = false;
@@ -740,6 +666,24 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
             if (HandleFreeViewOrbitMotion(&event->motion)) {
                 UpdateHover(event->motion.x, event->motion.y);
                 break;
+            }
+            {
+                GlobalState* state = Global_Get();
+                if (state) {
+                    Editor_ObjectFaceExtrudeHandleMouseMotion(state,
+                                                              event->motion.x,
+                                                              event->motion.y);
+                    Editor_ObjectFaceSketchUpdateEditDrag(state,
+                                                          event->motion.x,
+                                                          event->motion.y);
+                    Editor_ObjectFaceSketchHandleMouseMotion(state,
+                                                             event->motion.x,
+                                                             event->motion.y);
+                    if (InputMouse_IsObjectFaceAuthoringModal(&state->editor)) {
+                        UpdateHover(event->motion.x, event->motion.y);
+                        break;
+                    }
+                }
             }
             HandleMouseDrag(&event->motion);
             UpdateHover(event->motion.x, event->motion.y);

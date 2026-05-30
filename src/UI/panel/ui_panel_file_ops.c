@@ -1,6 +1,7 @@
 #include "UI/ui_panel_internal.h"
 
 #include "Core/global_state.h"
+#include "Layout/asset/layout_object_asset_mesh_authoring.h"
 #include "Layout/layout_json.h"
 #include "Editor/editor.h"
 #include "Tools/scene_import.h"
@@ -15,6 +16,10 @@
 #include <strings.h>
 
 static const char* k_legacy_layout_root = "config";
+
+static bool UIPanel_IsObjectWorkspace(void) {
+    return Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+}
 
 static void SanitizeBuffer(char* buffer) {
     size_t len = strlen(buffer);
@@ -65,6 +70,31 @@ static void UIPanel_GetDefaultLoadDirectory(char* out_dir, size_t out_dir_size) 
     snprintf(out_dir, out_dir_size, "%s", k_legacy_layout_root);
 }
 
+static void UIPanel_GetDefaultObjectAssetSelectionDirectory(char* out_dir, size_t out_dir_size) {
+    const char* current_asset_path = Global_GetCurrentObjectAssetPath();
+    const char* asset_root = Global_GetObjectAssetRoot();
+    if (!out_dir || out_dir_size == 0) return;
+    out_dir[0] = '\0';
+
+    if (current_asset_path && current_asset_path[0] != '\0') {
+        const char* last_slash = strrchr(current_asset_path, '/');
+        if (last_slash && last_slash != current_asset_path) {
+            const size_t len = (size_t)(last_slash - current_asset_path);
+            const size_t copy_len = len < out_dir_size - 1 ? len : out_dir_size - 1;
+            memcpy(out_dir, current_asset_path, copy_len);
+            out_dir[copy_len] = '\0';
+            return;
+        }
+    }
+
+    if (asset_root && asset_root[0] != '\0') {
+        snprintf(out_dir, out_dir_size, "%s", asset_root);
+        return;
+    }
+
+    snprintf(out_dir, out_dir_size, "%s", k_legacy_layout_root);
+}
+
 static void UIPanel_GetDefaultSceneSelectionDirectory(char* out_dir, size_t out_dir_size) {
     const char* current_scene_path = Global_GetCurrentSceneAuthoringPath();
     const char* input_root = Global_GetInputRoot();
@@ -91,7 +121,9 @@ static void UIPanel_GetDefaultSceneSelectionDirectory(char* out_dir, size_t out_
 }
 
 static void UIPanel_PopulateDefaultFilename(UIPanelState* ui) {
-    const char* path = Global_GetCurrentConfigPath();
+    const char* path = UIPanel_IsObjectWorkspace()
+                           ? Global_GetCurrentObjectAssetPath()
+                           : Global_GetCurrentConfigPath();
     ui->saveDialog.buffer[0] = '\0';
     ui->saveDialog.length = 0;
     ui->saveDialog.cursor = 0;
@@ -151,6 +183,8 @@ static const char* UIPanel_GetRootValue(UIRootDialogTarget target) {
             return Global_GetInputRoot();
         case UI_ROOT_TARGET_OUTPUT:
             return Global_GetOutputRoot();
+        case UI_ROOT_TARGET_OBJECT_ASSET:
+            return Global_GetObjectAssetRoot();
         default:
             return NULL;
     }
@@ -162,16 +196,28 @@ static bool UIPanel_SetRootValue(UIRootDialogTarget target, const char* value) {
             return Global_SetInputRoot(value, true);
         case UI_ROOT_TARGET_OUTPUT:
             return Global_SetOutputRoot(value, true);
+        case UI_ROOT_TARGET_OBJECT_ASSET:
+            return Global_SetObjectAssetRoot(value, true);
         default:
             return false;
     }
 }
 
-static bool UIPanel_ShouldRefreshBrowserForSessionInputRoot(const UIPanelState* ui) {
+static bool UIPanel_ShouldRefreshBrowserForEditedRoot(const UIPanelState* ui,
+                                                      UIRootDialogTarget target) {
     if (!ui) return false;
     if (!ui->loadMenu.visible || ui->loadMenu.mode == UI_LOAD_MENU_MODE_NONE) return true;
     if (!ui->loadMenu.rootPath[0]) return true;
-    return strcmp(ui->loadMenu.rootPath, Global_GetInputRoot()) == 0;
+
+    if (target == UI_ROOT_TARGET_INPUT) {
+        return ui->loadMenu.mode != UI_LOAD_MENU_MODE_OBJECT &&
+               strcmp(ui->loadMenu.rootPath, Global_GetInputRoot()) == 0;
+    }
+    if (target == UI_ROOT_TARGET_OBJECT_ASSET) {
+        return ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT &&
+               strcmp(ui->loadMenu.rootPath, Global_GetObjectAssetRoot()) == 0;
+    }
+    return false;
 }
 
 static bool UIPanel_SelectFolderWithPrompt(const char* prompt, char* out_path, size_t out_path_size) {
@@ -278,8 +324,7 @@ bool UIPanel_ApplyRootDialog(UIPanelState* ui) {
         SDL_Log("[UI] Root update failed for path '%s'", ui->rootDialog.buffer);
         return false;
     }
-    if (ui->rootDialog.target == UI_ROOT_TARGET_INPUT &&
-        UIPanel_ShouldRefreshBrowserForSessionInputRoot(ui)) {
+    if (UIPanel_ShouldRefreshBrowserForEditedRoot(ui, ui->rootDialog.target)) {
         UIPanel_RefreshConfigList();
     }
     SDL_Log("[UI] Root updated: %s", ui->rootDialog.buffer);
@@ -313,17 +358,32 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
 
     char path[256];
     char fallback_path[256];
-    const char* input_root = Global_GetInputRoot();
+    char diagnostics[256];
+    const bool object_workspace = UIPanel_IsObjectWorkspace();
+    const char* save_root = object_workspace ? Global_GetObjectAssetRoot() : Global_GetInputRoot();
     bool saved = false;
 
     GlobalState* state = Global_Get();
+    diagnostics[0] = '\0';
     Layout_CompactDeletedElements(&state->layout);
 
-    if (LineDrawingDataPaths_BuildPath(path, sizeof(path), input_root ? input_root : k_legacy_layout_root, filename)) {
-        if (Layout_SaveToFile(&state->layout, path)) {
+    if (LineDrawingDataPaths_BuildPath(path,
+                                       sizeof(path),
+                                       save_root ? save_root : k_legacy_layout_root,
+                                       filename)) {
+        if (object_workspace
+                ? LayoutObjectAssetMeshAuthoring_Save(&state->layout,
+                                                      path,
+                                                      diagnostics,
+                                                      sizeof(diagnostics))
+                : Layout_SaveToFile(&state->layout, path)) {
             saved = true;
         } else {
-            SDL_Log("[UI] Primary save failed at %s; trying legacy fallback.", path);
+            SDL_Log("[UI] Primary save failed at %s%s%s%s; trying legacy fallback.",
+                    path,
+                    diagnostics[0] ? " (" : "",
+                    diagnostics[0] ? diagnostics : "",
+                    diagnostics[0] ? ")" : "");
         }
     }
 
@@ -332,15 +392,29 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
             SDL_Log("[UI] Save failed: invalid legacy fallback path.");
             return false;
         }
-        if (!Layout_SaveToFile(&state->layout, fallback_path)) {
-            SDL_Log("[UI] Failed to save layout to %s", fallback_path);
+        if (!(object_workspace
+                  ? LayoutObjectAssetMeshAuthoring_Save(&state->layout,
+                                                        fallback_path,
+                                                        diagnostics,
+                                                        sizeof(diagnostics))
+                  : Layout_SaveToFile(&state->layout, fallback_path))) {
+            SDL_Log("[UI] Failed to save %s to %s%s%s%s",
+                    object_workspace ? "object asset" : "layout",
+                    fallback_path,
+                    diagnostics[0] ? " (" : "",
+                    diagnostics[0] ? diagnostics : "",
+                    diagnostics[0] ? ")" : "");
             return false;
         }
         snprintf(path, sizeof(path), "%s", fallback_path);
     }
 
-    SDL_Log("[UI] Layout saved to %s", path);
-    Global_OnLayoutSaved(path);
+    SDL_Log("[UI] %s saved to %s", object_workspace ? "Object asset" : "Layout", path);
+    if (object_workspace) {
+        Global_OnObjectAssetSaved(path);
+    } else {
+        Global_OnLayoutSaved(path);
+    }
     Editor_ClearHistory(&state->editor);
     Editor_HistoryCapture(&state->editor, &state->layout);
     UIPanel_RefreshConfigList();
@@ -448,6 +522,27 @@ bool UIPanel_OpenSceneFolderDialog(void) {
     return true;
 }
 
+bool UIPanel_OpenObjectAssetFolderDialog(void) {
+    char selected_folder[LINE_DRAWING_PATH_CAP];
+    char default_dir[LINE_DRAWING_PATH_CAP];
+
+    UIPanel_GetDefaultObjectAssetSelectionDirectory(default_dir, sizeof(default_dir));
+    if (!UIPanel_SelectFolderWithPromptAndDefault("Choose sCulpt Object Asset Root",
+                                                  default_dir,
+                                                  selected_folder,
+                                                  sizeof(selected_folder))) {
+        SDL_Log("[UI] Object asset root selection canceled.");
+        return false;
+    }
+
+    if (!UIPanel_LoadObjectAssetFromFolderSelection(selected_folder, true)) {
+        SDL_Log("[UI] Object asset root selection rejected: %s", selected_folder);
+        return false;
+    }
+
+    return true;
+}
+
 void UIPanel_ExportScene(void) {
     GlobalState* state = Global_Get();
     LineDrawingSceneExportPaths export_paths;
@@ -489,6 +584,10 @@ void UIPanel_BeginOutputRootDialog(void) {
     UIPanel_BeginRootDialog(UI_ROOT_TARGET_OUTPUT);
 }
 
+void UIPanel_BeginObjectAssetRootDialog(void) {
+    UIPanel_BeginRootDialog(UI_ROOT_TARGET_OBJECT_ASSET);
+}
+
 bool UIPanel_OpenInputRootFolderDialog(void) {
     char path[256];
     UIPanelState* ui = UIPanel_Get();
@@ -500,7 +599,7 @@ bool UIPanel_OpenInputRootFolderDialog(void) {
         SDL_Log("[UI] Failed to set session input root to %s", path);
         return false;
     }
-    if (UIPanel_ShouldRefreshBrowserForSessionInputRoot(ui)) {
+    if (UIPanel_ShouldRefreshBrowserForEditedRoot(ui, UI_ROOT_TARGET_INPUT)) {
         UIPanel_RefreshConfigList();
     }
     SDL_Log("[UI] Session input root updated: %s", path);
@@ -518,5 +617,44 @@ bool UIPanel_OpenOutputRootFolderDialog(void) {
         return false;
     }
     SDL_Log("[UI] Output root updated: %s", path);
+    return true;
+}
+
+bool UIPanel_NewObjectAssetDocument(void) {
+    GlobalState* state = Global_Get();
+    char default_path[LINE_DRAWING_PATH_CAP];
+    if (!state) return false;
+
+    Layout_Free(&state->layout);
+    Layout_Init(&state->layout, state->grid.gridSize > 0.0f ? state->grid.gridSize : 1.0f);
+    state->activePlane = Layout_ConstructionPlane3D_ToViewPlane(&state->layout.scene3d.constructionPlane);
+    Editor_ClearHistory(&state->editor);
+    state->editor.selectedAnchorIndex = -1;
+    state->editor.selectedWallIndex = -1;
+    state->editor.selectedObject3DId = 0u;
+    state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    state->editor.hoveredAnchorIndex = -1;
+    state->editor.hoveredWallIndex = -1;
+    state->editor.hoveredObject3DId = 0u;
+    state->editor.hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    state->editor.hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    state->editor.hoveredHandleAnchor = -1;
+    state->editor.hoveredHandleComponent = -1;
+    state->editor.hoveredGizmoAxis = -1;
+    state->editor.hoveredObject3DGizmoAxis = -1;
+    state->editor.activeObject3DGizmoAxis = -1;
+
+    default_path[0] = '\0';
+    if (!LineDrawingDataPaths_BuildPath(default_path,
+                                        sizeof(default_path),
+                                        Global_GetObjectAssetRoot() ? Global_GetObjectAssetRoot() : k_legacy_layout_root,
+                                        "object_asset.json")) {
+        snprintf(default_path, sizeof(default_path), "%s/object_asset.json", k_legacy_layout_root);
+    }
+
+    Global_OnObjectAssetLoaded(default_path);
+    Editor_HistoryCapture(&state->editor, &state->layout);
+    UIPanel_RefreshConfigList();
     return true;
 }

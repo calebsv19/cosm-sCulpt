@@ -23,6 +23,29 @@ typedef enum {
     PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM = 2
 } PrimitivePlacementPreviewKind;
 
+typedef enum {
+    OBJECT_FACE_EXTRUDE_MODE_NONE = 0,
+    OBJECT_FACE_EXTRUDE_MODE_ADD = 1,
+    OBJECT_FACE_EXTRUDE_MODE_CUT = 2
+} ObjectFaceExtrudeMode;
+
+typedef enum {
+    OBJECT_FACE_SKETCH_HANDLE_NONE = 0,
+    OBJECT_FACE_SKETCH_HANDLE_BODY = 1,
+    OBJECT_FACE_SKETCH_HANDLE_CORNER_MIN_U_MIN_V = 2,
+    OBJECT_FACE_SKETCH_HANDLE_CORNER_POS_U_MIN_V = 3,
+    OBJECT_FACE_SKETCH_HANDLE_CORNER_POS_U_POS_V = 4,
+    OBJECT_FACE_SKETCH_HANDLE_CORNER_MIN_U_POS_V = 5
+} ObjectFaceSketchHandleKind;
+
+typedef enum {
+    OBJECT_AUTHORING_MODE_NONE = 0,
+    OBJECT_AUTHORING_MODE_FACE_SELECT = 1,
+    OBJECT_AUTHORING_MODE_SKETCH_DRAW = 2,
+    OBJECT_AUTHORING_MODE_SKETCH_SELECT = 3,
+    OBJECT_AUTHORING_MODE_OPERATION_PREVIEW = 4
+} ObjectAuthoringMode;
+
 typedef struct {
     char** entries;
     size_t count;
@@ -51,6 +74,8 @@ typedef struct {
     int selectedHandleAnchor;
     int selectedHandleComponent;   // 0 = incoming, 1 = outgoing, -1 = none
     uint32_t selectedObject3DId;
+    uint32_t selectedObjectAssetBodyId;
+    Object3DFaceKind selectedObjectAssetFace;
     int selectedObject3DResizeHandle; // PlaneResizeHandleKind or PLANE_RESIZE_HANDLE_NONE
     int selectedObject3DPrismHandle;  // RectPrismResizeHandleKind or RECT_PRISM_RESIZE_HANDLE_NONE
     int selectedSceneBoundsHandle;    // SceneBoundsHandleKind or SCENE_BOUNDS_HANDLE_NONE
@@ -62,6 +87,8 @@ typedef struct {
     int hoveredSceneBoundsGizmoAxis; // RectPrismAxisDirection or -1
     int activeSceneBoundsGizmoAxis;  // RectPrismAxisDirection or -1 while dragging
     uint32_t hoveredObject3DId;
+    uint32_t hoveredObjectAssetBodyId;
+    Object3DFaceKind hoveredObjectAssetFace;
     int hoveredObject3DResizeHandle; // PlaneResizeHandleKind or PLANE_RESIZE_HANDLE_NONE
     int hoveredObject3DPrismHandle;  // RectPrismResizeHandleKind or RECT_PRISM_RESIZE_HANDLE_NONE
     int hoveredSceneBoundsHandle;    // SceneBoundsHandleKind or SCENE_BOUNDS_HANDLE_NONE
@@ -82,6 +109,31 @@ typedef struct {
     bool object3DRotateMode;
     bool sceneBoundsHandlesVisible;
     PrimitivePlacementPreviewKind primitivePlacementPreview;
+    ObjectAuthoringMode objectAuthoringMode;
+    bool objectFaceSketchToolArmed;
+    bool objectFaceSketchDragging;
+    bool objectFaceSketchHasRectangle;
+    uint32_t objectFaceSketchBodyId;
+    Object3DFaceKind objectFaceSketchFace;
+    PlaneFrame3 objectFaceSketchFrame;
+    Vec2 objectFaceSketchStartUV;
+    Vec2 objectFaceSketchCurrentUV;
+    int hoveredObjectFaceSketchHandle;
+    int selectedObjectFaceSketchHandle;
+    int activeObjectFaceSketchHandle;
+    bool objectFaceSketchEditDragging;
+    Vec2 objectFaceSketchEditStartUV;
+    Vec2 objectFaceSketchEditStartMinUV;
+    Vec2 objectFaceSketchEditStartMaxUV;
+    bool objectFaceExtrudeToolArmed;
+    bool objectFaceExtrudeDragging;
+    bool objectFaceExtrudeHasPreview;
+    ObjectFaceExtrudeMode objectFaceExtrudeMode;
+    uint32_t objectFaceExtrudeBodyId;
+    Object3DFaceKind objectFaceExtrudeFace;
+    PlaneFrame3 objectFaceExtrudeFrame;
+    Vec2 objectFaceExtrudeStartScreen;
+    float objectFaceExtrudeDepth;
     bool isPreciseDrag;
     GizmoAxisDragSession gizmoDrag;
 
@@ -106,6 +158,11 @@ bool Editor_Redo(EditorState* editor, Layout* layout);
 size_t Editor_UndoCount(const EditorState* editor);
 size_t Editor_RedoCount(const EditorState* editor);
 void Editor_ClearHistory(EditorState* editor);
+void Editor_ResetDocumentState(EditorState* editor);
+ObjectAuthoringMode Editor_ObjectAuthoringIdleMode(const EditorState* editor);
+const char* Editor_ObjectAuthoringModeLabel(ObjectAuthoringMode mode);
+const char* Editor_ObjectAuthoringStageLabel(const EditorState* editor);
+const char* Editor_ObjectAuthoringPromptLabel(const EditorState* editor);
 
 void Editor_ClearAnchorSelection(EditorState* editor);
 void Editor_SelectAnchor(EditorState* editor, int anchorIndex, bool additive);

@@ -1,4 +1,5 @@
 #include "UI/ui_panel_right_controls.h"
+#include "Core/global_state.h"
 
 typedef struct UIPanelRightControlRowSpec {
     int row_key;
@@ -6,8 +7,26 @@ typedef struct UIPanelRightControlRowSpec {
     int column_index;
 } UIPanelRightControlRowSpec;
 
+static bool UIPanel_RightControlButtonVisible(int button_id) {
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+    switch (button_id) {
+        case UI_BTN_CREATE_RECT_PRISM:
+            return !object_mode;
+        case UI_BTN_CREATE_PLANE:
+            return true;
+        case UI_BTN_OBJECT_FACE_SELECT:
+        case UI_BTN_OBJECT_SKETCH_SELECT:
+        case UI_BTN_OBJECT_SKETCH_CLEAR:
+            return object_mode;
+        default:
+            return true;
+    }
+}
+
 static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightControlRowSpec* out_spec) {
     UIPanelRightControlRowSpec spec = {0, 0, 0};
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+    if (!UIPanel_RightControlButtonVisible(button_id)) return false;
     switch (button_id) {
         case UI_BTN_RESET_ORIGIN: spec = (UIPanelRightControlRowSpec){ 1, 3, 0 }; break;
         case UI_BTN_ZOOM_IN: spec = (UIPanelRightControlRowSpec){ 1, 3, 1 }; break;
@@ -18,8 +37,16 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
         case UI_BTN_LINK_HANDLES: spec = (UIPanelRightControlRowSpec){ 2, 3, 2 }; break;
         case UI_BTN_TOGGLE_SPACE_MODE: spec = (UIPanelRightControlRowSpec){ 3, 1, 0 }; break;
 
-        case UI_BTN_CREATE_PLANE: spec = (UIPanelRightControlRowSpec){ 4, 2, 0 }; break;
+        case UI_BTN_CREATE_PLANE: spec = object_mode
+            ? (UIPanelRightControlRowSpec){ 4, 2, 1 }
+            : (UIPanelRightControlRowSpec){ 4, 2, 0 };
+            break;
         case UI_BTN_CREATE_RECT_PRISM: spec = (UIPanelRightControlRowSpec){ 4, 2, 1 }; break;
+        case UI_BTN_OBJECT_FACE_SELECT: spec = (UIPanelRightControlRowSpec){ 4, 2, 0 }; break;
+        case UI_BTN_OBJECT_SKETCH_SELECT: spec = (UIPanelRightControlRowSpec){ 5, 2, 0 }; break;
+        case UI_BTN_OBJECT_SKETCH_CLEAR: spec = (UIPanelRightControlRowSpec){ 5, 2, 1 }; break;
+        case UI_BTN_EXTRUDE_ADD: spec = (UIPanelRightControlRowSpec){ 12, 2, 0 }; break;
+        case UI_BTN_EXTRUDE_CUT: spec = (UIPanelRightControlRowSpec){ 12, 2, 1 }; break;
 
         case UI_BTN_SET_CONSTRUCTION_PLANE_XY: spec = (UIPanelRightControlRowSpec){ 5, 3, 0 }; break;
         case UI_BTN_SET_CONSTRUCTION_PLANE_YZ: spec = (UIPanelRightControlRowSpec){ 5, 3, 1 }; break;
@@ -46,10 +73,12 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
 }
 
 static int UIPanel_RightControlsRowCount(UIPanelGroup group) {
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     switch (group) {
         case UI_PANEL_GROUP_RIGHT_VIEW: return 1;
         case UI_PANEL_GROUP_RIGHT_MODES: return 2;
-        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return 1;
+        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return object_mode ? 2 : 1;
+        case UI_PANEL_GROUP_RIGHT_OPERATIONS: return object_mode ? 1 : 1;
         case UI_PANEL_GROUP_RIGHT_CONSTRUCTION: return 2;
         case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS: return 1;
         case UI_PANEL_GROUP_RIGHT_PRISM: return 1;
@@ -66,6 +95,7 @@ static SDL_Rect UIPanel_RightControlsGroupRect(const UIPanelState* ui, UIPanelGr
         case UI_PANEL_GROUP_RIGHT_VIEW: return ui->viewPane.viewRect;
         case UI_PANEL_GROUP_RIGHT_MODES: return ui->viewPane.modesRect;
         case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return ui->createPane.primitivesRect;
+        case UI_PANEL_GROUP_RIGHT_OPERATIONS: return ui->createPane.operationsRect;
         case UI_PANEL_GROUP_RIGHT_CONSTRUCTION: return ui->createPane.constructionRect;
         case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS: return ui->objectPane.actionsRect;
         case UI_PANEL_GROUP_RIGHT_PRISM: return ui->objectPane.prismRect;
@@ -181,7 +211,11 @@ void UIPanel_LayoutRightPaneButtons(UIPanelState* ui, const UIPanelLayoutMetrics
             break;
         case UI_PANEL_RIGHT_TAB_CREATE:
             UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_PRIMITIVES, metrics);
-            UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_CONSTRUCTION, metrics);
+            if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
+                UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_OPERATIONS, metrics);
+            } else {
+                UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_CONSTRUCTION, metrics);
+            }
             break;
         case UI_PANEL_RIGHT_TAB_OBJECT:
             UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, metrics);

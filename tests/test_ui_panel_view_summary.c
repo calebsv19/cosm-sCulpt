@@ -21,7 +21,7 @@ static bool test_view_summary_reserves_space_for_view_controls(void) {
 
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    ui->activeRightTab = UI_PANEL_RIGHT_TAB_VIEW;
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_VIEW);
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
 
     reserved_height = UIPanel_ViewSummaryReservedHeight(ui);
@@ -73,7 +73,7 @@ static bool test_view_layout_stays_stable_when_selection_changes(void) {
 
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    ui->activeRightTab = UI_PANEL_RIGHT_TAB_VIEW;
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_VIEW);
     state->editor.selectedObject3DId = 0u;
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     TEST_ASSERT(UIPanel_GetViewPaneRects(ui,
@@ -129,7 +129,7 @@ static bool test_view_sections_fit_inside_pane_and_anchor_bottom(void) {
 
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    ui->activeRightTab = UI_PANEL_RIGHT_TAB_VIEW;
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_VIEW);
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     TEST_ASSERT(UIPanel_GetViewPaneRects(ui,
                                          &summary_rect,
@@ -177,7 +177,7 @@ static bool test_view_buttons_use_uniform_grid_rows(void) {
 
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    ui->activeRightTab = UI_PANEL_RIGHT_TAB_VIEW;
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_VIEW);
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
 
     for (int i = 0; i < ui->count; ++i) {

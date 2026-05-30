@@ -1,6 +1,9 @@
 #include "UI/ui_panel_create_summary.h"
 
 #include "Core/global_state.h"
+#include "Editor/editor.h"
+#include "Editor/object_face_sketch.h"
+#include "Layout/scene/layout_object_faces.h"
 #include "Editor/primitive_placement_preview.h"
 #include "UI/font_manager.h"
 #include "UI/ui_panel_internal.h"
@@ -190,6 +193,128 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
 
     plane = UIPanel_CurrentConstructionViewPlane(state);
     active_preview = state->editor.primitivePlacementPreview;
+
+    if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
+        const bool has_face_target =
+            state->editor.selectedObjectAssetBodyId != 0u &&
+            state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE;
+        const bool tool_armed = state->editor.objectFaceSketchToolArmed;
+        const bool dragging = state->editor.objectFaceSketchDragging;
+        const bool has_rect = state->editor.objectFaceSketchHasRectangle;
+        const bool sketch_selected = Editor_ObjectFaceSketchIsSelected(&state->editor);
+        const char* stage_label = Editor_ObjectAuthoringStageLabel(&state->editor);
+        const char* prompt_label = Editor_ObjectAuthoringPromptLabel(&state->editor);
+
+        snprintf(summary_space,
+                 sizeof(summary_space),
+                 "Workspace  Object asset authoring");
+        snprintf(summary_plane,
+                 sizeof(summary_plane),
+                 "Target  %s",
+                 has_face_target
+                     ? Layout_Object3DFaceKind_Label(state->editor.selectedObjectAssetFace)
+                     : "Select a body face");
+        {
+        snprintf(summary_mode,
+                 sizeof(summary_mode),
+                 "Mode  %s  |  Stage  %s",
+                 Editor_ObjectAuthoringModeLabel(state->editor.objectAuthoringMode),
+                 stage_label);
+        }
+        {
+            char grid_text[32];
+            UIPanelCreateSummary_FormatDimension(state->grid.gridSize, grid_text, sizeof(grid_text));
+            snprintf(summary_grid, sizeof(summary_grid), "Grid  %s step on face plane", grid_text);
+        }
+        snprintf(summary_stage,
+                 sizeof(summary_stage),
+                 "Sketch rectangles stay local to this object asset and operations require an active sketch selection");
+
+        summary_lines[0] = summary_space;
+        summary_lines[1] = summary_plane;
+        summary_lines[2] = summary_mode;
+        summary_lines[3] = summary_grid;
+        summary_lines[4] = summary_stage;
+        summary_colors[0] = accent_color;
+        summary_colors[1] = value_color;
+        summary_colors[2] = value_color;
+        summary_colors[3] = value_color;
+        summary_colors[4] = label_color;
+
+        UIPanelSummary_DrawCard(renderer, summary_rect, fill_color, border_color, accent_color, metrics.accent_h);
+        UIPanelCreateSummary_DrawLines(renderer,
+                                       font,
+                                       summary_rect,
+                                       "Create",
+                                       summary_lines,
+                                       summary_colors,
+                                       5,
+                                       false,
+                                       label_color,
+                                       accent_color);
+
+        if (workspace_rect.w <= 0 || workspace_rect.h <= 0) return;
+
+        snprintf(work_tool,
+                 sizeof(work_tool),
+                 "Tool lane  Face -> Rect -> Select / Clear -> Operations");
+        snprintf(work_ready,
+                 sizeof(work_ready),
+                 "Ready now  %s",
+                 prompt_label);
+        snprintf(work_plane,
+                 sizeof(work_plane),
+                 "Face target  %s",
+                 state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE
+                     ? Layout_Object3DFaceKind_Label(state->editor.selectedObjectAssetFace)
+                     : "None");
+        snprintf(work_prism,
+                 sizeof(work_prism),
+                 "Sketch target  %s",
+                 sketch_selected
+                     ? "Committed rectangle selected for move/resize/operations"
+                     : has_rect
+                         ? "Committed rectangle present but not selected"
+                         : dragging
+                             ? "Marquee rectangle is being placed"
+                             : tool_armed
+                                 ? "Rectangle tool is armed on the active face"
+                                 : "No committed sketch yet");
+        snprintf(work_next,
+                 sizeof(work_next),
+                 "Operations lane  first press arms a visible preview, second press commits, and viewport drag adjusts depth");
+        snprintf(work_future,
+                 sizeof(work_future),
+                 "Face selection, sketch drawing, sketch editing, and operations now read as distinct workflow states");
+
+        work_lines[0] = work_tool;
+        work_lines[1] = work_ready;
+        work_lines[2] = work_plane;
+        work_lines[3] = work_prism;
+        work_lines[4] = work_next;
+        work_lines[5] = work_future;
+        work_colors[0] = value_color;
+        work_colors[1] = value_color;
+        work_colors[2] = value_color;
+        work_colors[3] = value_color;
+        work_colors[4] = label_color;
+        work_colors[5] = label_color;
+
+        fill_color = palette.workspace_fill;
+        fill_color.a = palette.workspace_fill.a;
+        UIPanelSummary_DrawCard(renderer, workspace_rect, fill_color, border_color, accent_color, metrics.accent_h);
+        UIPanelCreateSummary_DrawLines(renderer,
+                                       font,
+                                       workspace_rect,
+                                       "Authoring Workspace",
+                                       work_lines,
+                                       work_colors,
+                                       6,
+                                       true,
+                                       label_color,
+                                       accent_color);
+        return;
+    }
 
     snprintf(summary_space,
              sizeof(summary_space),

@@ -13,6 +13,7 @@
 #include "Tools/scene_import.h"
 #include "Tools/shape_from_layout.h"
 #include "UI/ui_panel.h"
+#include "UI/ui_panel_shell.h"
 #include "core_units.h"
 #include "cjson/cJSON.h"
 

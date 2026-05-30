@@ -2,6 +2,7 @@
 
 #include "Core/global_state.h"
 #include "Editor/editor.h"
+#include "Layout/scene/layout_object_faces.h"
 #include "UI/font_manager.h"
 #include "UI/ui_panel_internal.h"
 #include "UI/ui_panel_summary_surface.h"
@@ -116,7 +117,16 @@ static void UIPanelViewSummary_BuildSelectionLine(const GlobalState* state,
         return;
     }
     if (state->editor.selectedObject3DId != 0u) {
-        snprintf(out, out_size, "Selection  object #%u", state->editor.selectedObject3DId);
+        if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT &&
+            state->editor.selectedObjectAssetBodyId != 0u) {
+            snprintf(out,
+                     out_size,
+                     "Selection  body #%u   face %s",
+                     state->editor.selectedObjectAssetBodyId,
+                     Layout_Object3DFaceKind_Label(state->editor.selectedObjectAssetFace));
+        } else {
+            snprintf(out, out_size, "Selection  object #%u", state->editor.selectedObject3DId);
+        }
         return;
     }
     if (state->editor.selectedAnchorIndex >= 0) {

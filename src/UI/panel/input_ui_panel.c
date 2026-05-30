@@ -1,5 +1,6 @@
 #include "UI/input_ui_panel.h"
 #include "UI/ui_panel.h"
+#include "UI/ui_panel_internal.h"
 #include "UI/ui_panel_scene_list.h"
 #include "UI/ui_panel_shell.h"
 
@@ -11,6 +12,8 @@
 #include "Layout/layout_json.h"
 
 #include "Editor/editor.h"
+#include "Editor/object_face_extrude.h"
+#include "Editor/object_face_sketch.h"
 
 enum {
     UI_FILE_BROWSER_BUTTON_DOUBLE_CLICK_MS = 350
@@ -21,6 +24,7 @@ static bool UIPanel_IsFileBrowserModeButton(int button_id) {
 }
 
 static bool UIPanel_HandleFileBrowserModeButtonClick(UIPanelState* ui, int button_id) {
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     Uint32 now = SDL_GetTicks();
     bool is_double_click = false;
     if (!ui || !UIPanel_IsFileBrowserModeButton(button_id)) return false;
@@ -29,6 +33,17 @@ static bool UIPanel_HandleFileBrowserModeButtonClick(UIPanelState* ui, int butto
                       (now - ui->loadMenu.lastModeButtonClickTicks <= UI_FILE_BROWSER_BUTTON_DOUBLE_CLICK_MS);
     ui->loadMenu.lastModeButtonId = button_id;
     ui->loadMenu.lastModeButtonClickTicks = now;
+
+    if (object_mode) {
+        if (button_id == UI_BTN_LOAD_JSON) {
+            if (is_double_click) {
+                return UIPanel_OpenObjectAssetFolderDialog();
+            }
+            UIPanel_ActivateObjectAssetBrowser();
+            return true;
+        }
+        return UIPanel_NewObjectAssetDocument();
+    }
 
     if (button_id == UI_BTN_LOAD_JSON) {
         if (is_double_click) {
@@ -45,11 +60,57 @@ static bool UIPanel_HandleFileBrowserModeButtonClick(UIPanelState* ui, int butto
     return true;
 }
 
+static void UIPanel_ObjectAuthoringSetFaceSelect(GlobalState* state) {
+    EditorState* editor = NULL;
+    if (!state) return;
+    editor = &state->editor;
+    Editor_ObjectFaceExtrudeClear(editor);
+    Editor_ObjectFaceSketchDeselect(editor);
+    editor->objectAuthoringMode =
+        editor->selectedObjectAssetFace != OBJECT3D_FACE_NONE
+            ? OBJECT_AUTHORING_MODE_FACE_SELECT
+            : Editor_ObjectAuthoringIdleMode(editor);
+}
+
+static void UIPanel_ObjectAuthoringSelectCommittedSketch(GlobalState* state) {
+    EditorState* editor = NULL;
+    if (!state) return;
+    editor = &state->editor;
+    Editor_ObjectFaceExtrudeClear(editor);
+    if (Editor_ObjectFaceSketchHasCommittedRectangle(editor)) {
+        (void)Editor_ObjectFaceSketchSelect(editor, OBJECT_FACE_SKETCH_HANDLE_BODY);
+    }
+}
+
+static void UIPanel_ObjectAuthoringClearSketch(GlobalState* state) {
+    EditorState* editor = NULL;
+    if (!state) return;
+    editor = &state->editor;
+    Editor_ObjectFaceExtrudeClear(editor);
+    Editor_ObjectFaceSketchClear(editor);
+    editor->objectAuthoringMode =
+        editor->selectedObjectAssetFace != OBJECT3D_FACE_NONE
+            ? OBJECT_AUTHORING_MODE_FACE_SELECT
+            : Editor_ObjectAuthoringIdleMode(editor);
+}
+
 bool UIPanel_HandleClick(int mouseX, int mouseY) {
     UIPanelState* ui = UIPanel_Get();
     GlobalState* state = Global_Get();
     EditorState* editor = &state->editor;
     Grid* grid = &state->grid;
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+    const bool has_face_target =
+        object_mode &&
+        state->editor.selectedObjectAssetBodyId != 0u &&
+        state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE;
+    const bool has_committed_sketch =
+        object_mode && state->editor.objectFaceSketchHasRectangle;
+    const bool sketch_active =
+        object_mode &&
+        (state->editor.objectFaceSketchToolArmed ||
+         state->editor.objectFaceSketchDragging ||
+         state->editor.objectFaceSketchHasRectangle);
 
     if (UIPanel_IsSaveDialogActive() ||
         UIPanel_IsRootDialogActive() ||
@@ -116,7 +177,9 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
             }
                 case UI_BTN_EXPORT_SCENE: { // Export Scene
                     ui->loadMenu.open = false;
-                    UIPanel_ExportScene();
+                    if (!object_mode) {
+                        UIPanel_ExportScene();
+                    }
                     break;
                 }
                 case UI_BTN_FILE_BROWSER_USE_ACTIVE: {
@@ -142,12 +205,20 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 
                 case UI_BTN_INPUT_ROOT_EDIT: { // Edit input root
                     ui->loadMenu.open = false;
-                    UIPanel_BeginInputRootDialog();
+                    if (object_mode) {
+                        UIPanel_BeginObjectAssetRootDialog();
+                    } else {
+                        UIPanel_BeginInputRootDialog();
+                    }
                     break;
                 }
                 case UI_BTN_INPUT_ROOT_FOLDER: { // Pick input root via folder chooser
                     ui->loadMenu.open = false;
-                    UIPanel_OpenInputRootFolderDialog();
+                    if (object_mode) {
+                        UIPanel_OpenObjectAssetFolderDialog();
+                    } else {
+                        UIPanel_OpenInputRootFolderDialog();
+                    }
                     break;
                 }
                 case UI_BTN_OUTPUT_ROOT_EDIT: { // Edit output root
@@ -229,12 +300,59 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 }
                 case UI_BTN_CREATE_PLANE: { // Add plane primitive
                     ui->loadMenu.open = false;
-                    (void)UIPanel_CreatePlanePrimitiveFromActiveContext(false);
+                    if (object_mode) {
+                        if (has_face_target || has_committed_sketch) {
+                            (void)Editor_ObjectFaceSketchArmRectangle(state);
+                            UIPanel_FocusObjectAuthoringTab(ui);
+                        } else {
+                            (void)UIPanel_CreatePlanePrimitiveFromActiveContext(false);
+                        }
+                    } else {
+                        (void)UIPanel_CreatePlanePrimitiveFromActiveContext(false);
+                    }
                     break;
                 }
                 case UI_BTN_CREATE_RECT_PRISM: { // Add rectangular prism primitive
                     ui->loadMenu.open = false;
-                    (void)UIPanel_CreateRectPrismPrimitiveFromActiveContext(false);
+                    if (!object_mode) {
+                        (void)UIPanel_CreateRectPrismPrimitiveFromActiveContext(false);
+                    }
+                    break;
+                }
+                case UI_BTN_OBJECT_FACE_SELECT: {
+                    ui->loadMenu.open = false;
+                    if (object_mode) {
+                        UIPanel_ObjectAuthoringSetFaceSelect(state);
+                        UIPanel_FocusObjectAuthoringTab(ui);
+                    }
+                    break;
+                }
+                case UI_BTN_OBJECT_SKETCH_SELECT: {
+                    ui->loadMenu.open = false;
+                    if (object_mode && has_committed_sketch) {
+                        UIPanel_ObjectAuthoringSelectCommittedSketch(state);
+                        UIPanel_FocusObjectAuthoringTab(ui);
+                    }
+                    break;
+                }
+                case UI_BTN_OBJECT_SKETCH_CLEAR: {
+                    ui->loadMenu.open = false;
+                    if (object_mode && sketch_active) {
+                        UIPanel_ObjectAuthoringClearSketch(state);
+                        UIPanel_FocusObjectAuthoringTab(ui);
+                    }
+                    break;
+                }
+                case UI_BTN_EXTRUDE_ADD:
+                case UI_BTN_EXTRUDE_CUT: {
+                    ui->loadMenu.open = false;
+                    if (Editor_ObjectFaceExtrudeTrigger(
+                        state,
+                        btn->id == UI_BTN_EXTRUDE_ADD
+                            ? OBJECT_FACE_EXTRUDE_MODE_ADD
+                            : OBJECT_FACE_EXTRUDE_MODE_CUT)) {
+                        UIPanel_FocusObjectAuthoringTab(ui);
+                    }
                     break;
                 }
                 case UI_BTN_EDIT_PRISM_WIDTH: { // Edit selected prism width

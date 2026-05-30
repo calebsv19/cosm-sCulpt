@@ -9,9 +9,11 @@
 static const char* k_input_root_default = "config";
 static const char* k_output_root_default = "export";
 static const char* k_layout_root_default = "config";
+static const char* k_object_asset_root_default = "config";
 static const char* k_runtime_input_root_path = "data/runtime/input_root.txt";
 static const char* k_runtime_output_root_path = "data/runtime/output_root.txt";
 static const char* k_runtime_layout_root_path = "data/runtime/layout_root.txt";
+static const char* k_runtime_object_asset_root_path = "data/runtime/object_asset_root.txt";
 
 const char* LineDrawingDataPaths_DefaultInputRoot(void) {
     return k_input_root_default;
@@ -23,6 +25,10 @@ const char* LineDrawingDataPaths_DefaultOutputRoot(void) {
 
 const char* LineDrawingDataPaths_DefaultLayoutRoot(void) {
     return k_layout_root_default;
+}
+
+const char* LineDrawingDataPaths_DefaultObjectAssetRoot(void) {
+    return k_object_asset_root_default;
 }
 
 static bool ensure_runtime_dir(void) {
@@ -95,6 +101,10 @@ void LineDrawingDataPaths_SetDefaults(LineDrawingDataPaths* paths) {
     copy_non_empty_or_default(paths->input_root, sizeof(paths->input_root), NULL, k_input_root_default);
     copy_non_empty_or_default(paths->output_root, sizeof(paths->output_root), NULL, k_output_root_default);
     copy_non_empty_or_default(paths->layout_root, sizeof(paths->layout_root), NULL, k_layout_root_default);
+    copy_non_empty_or_default(paths->object_asset_root,
+                              sizeof(paths->object_asset_root),
+                              NULL,
+                              k_object_asset_root_default);
 }
 
 bool LineDrawingDataPaths_Load(LineDrawingDataPaths* paths) {
@@ -112,6 +122,12 @@ bool LineDrawingDataPaths_Load(LineDrawingDataPaths* paths) {
     if (read_path_file(k_runtime_layout_root_path, buffer, sizeof(buffer))) {
         copy_non_empty_or_default(paths->layout_root, sizeof(paths->layout_root), buffer, k_layout_root_default);
     }
+    if (read_path_file(k_runtime_object_asset_root_path, buffer, sizeof(buffer))) {
+        copy_non_empty_or_default(paths->object_asset_root,
+                                  sizeof(paths->object_asset_root),
+                                  buffer,
+                                  k_object_asset_root_default);
+    }
 
     return true;
 }
@@ -122,6 +138,7 @@ bool LineDrawingDataPaths_Save(const LineDrawingDataPaths* paths) {
     if (!write_path_file(k_runtime_input_root_path, paths->input_root)) return false;
     if (!write_path_file(k_runtime_output_root_path, paths->output_root)) return false;
     if (!write_path_file(k_runtime_layout_root_path, paths->layout_root)) return false;
+    if (!write_path_file(k_runtime_object_asset_root_path, paths->object_asset_root)) return false;
     return true;
 }
 

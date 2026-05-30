@@ -40,7 +40,7 @@ static bool test_object_inspector_reserves_space_for_selected_object(void) {
 
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    ui->activeRightTab = UI_PANEL_RIGHT_TAB_OBJECT;
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_OBJECT);
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
 
     summary_height = UIPanel_ObjectInspectorReservedHeight(ui);
@@ -106,7 +106,7 @@ static bool test_object_inspector_layout_stays_stable_when_selection_changes(voi
 
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    ui->activeRightTab = UI_PANEL_RIGHT_TAB_OBJECT;
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_OBJECT);
     state->editor.selectedObject3DId = 0u;
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     TEST_ASSERT(UIPanel_GetObjectPaneRects(ui,
@@ -190,7 +190,7 @@ static bool test_object_inspector_sections_fit_inside_pane(void) {
 
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    ui->activeRightTab = UI_PANEL_RIGHT_TAB_OBJECT;
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_OBJECT);
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     TEST_ASSERT(UIPanel_GetObjectPaneRects(ui,
                                            &summary_rect,
@@ -237,7 +237,7 @@ static bool test_object_inspector_lower_sections_anchor_to_bottom(void) {
 
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    ui->activeRightTab = UI_PANEL_RIGHT_TAB_OBJECT;
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_OBJECT);
     state->editor.selectedObject3DId = 0u;
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     TEST_ASSERT(UIPanel_GetObjectPaneRects(ui,
@@ -277,7 +277,7 @@ static bool test_object_buttons_use_uniform_grid_rows(void) {
 
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    ui->activeRightTab = UI_PANEL_RIGHT_TAB_OBJECT;
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_OBJECT);
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
 
     for (int i = 0; i < ui->count; ++i) {

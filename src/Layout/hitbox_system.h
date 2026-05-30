@@ -8,6 +8,8 @@ typedef enum {
     HITBOX_SCENE_BOUNDS_GIZMO_AXIS,
     HITBOX_GIZMO_AXIS,
     HITBOX_OBJECT3D_GIZMO_AXIS,
+    HITBOX_OBJECT_FACE_SKETCH_HANDLE,
+    HITBOX_OBJECT_FACE_SKETCH_BODY,
     HITBOX_OBJECT3D_PRISM_HANDLE,
     HITBOX_OBJECT3D_PLANE_CORNER,
     HITBOX_OBJECT3D_PLANE_EDGE,
@@ -26,6 +28,14 @@ typedef struct {
     float depthDistance;
 } Hitbox;
 
+typedef struct {
+    bool visible;
+    uint32_t bodyId;
+    PlaneFrame3 frame;
+    Vec2 minUV;
+    Vec2 maxUV;
+} ObjectFaceSketchHitboxState;
+
 // Call once per frame after layout update
 void HitboxSystem_Rebuild(const Layout* layout,
                          float scale,
@@ -37,6 +47,7 @@ void HitboxSystem_Rebuild(const Layout* layout,
                          uint32_t selectedObject3DId,
                          int selectedObject3DResizeHandle,
                          int selectedObject3DPrismHandle,
+                         const ObjectFaceSketchHitboxState* objectFaceSketch,
                          int selectedSceneBoundsHandle,
                          bool sceneBoundsHandlesVisible,
                          bool gizmoEnabled);

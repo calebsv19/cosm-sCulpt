@@ -416,6 +416,206 @@ static bool test_layout_json_v8_persists_rect_prism_payload_deterministically(vo
     return true;
 }
 
+static bool test_workspace_mode_handoff_seeds_object_workspace_selection_and_focus(void) {
+    GlobalState* state = NULL;
+    Layout* layout = NULL;
+    PlanePrimitiveCreateParams params;
+    uint32_t scene_object_id = 0u;
+    bool adjusted = false;
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    layout = &state->layout;
+
+    params = (PlanePrimitiveCreateParams){
+        .width = 6.0f,
+        .height = 4.0f,
+        .useExplicitFrame = true,
+        .explicitFrame = {
+            .origin = { 14.0f, -8.0f, 3.0f },
+            .axisU = { 1.0f, 0.0f, 0.0f },
+            .axisV = { 0.0f, 1.0f, 0.0f },
+            .normal = { 0.0f, 0.0f, 1.0f }
+        },
+        .lockToConstructionPlane = true,
+        .lockToBounds = false
+    };
+    TEST_ASSERT(Layout_CreatePlanePrimitive(layout, &params, &scene_object_id, &adjusted));
+    state->editor.selectedObject3DId = scene_object_id;
+    state->grid.scale = 5.0f;
+    state->grid.offsetX = 27.0f;
+    state->grid.offsetY = -11.0f;
+    state->activePlane = (ViewPlane){ .axis = VIEW_PLANE_XZ, .offset = 2.0f };
+    state->freeViewCamera.enabled = true;
+    state->freeViewCamera.target = (Vec3){ 50.0f, 60.0f, 70.0f };
+
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+    TEST_ASSERT(state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT);
+    TEST_ASSERT(Layout_ObjectStore_LiveCount(&state->layout.objectStore) == 1u);
+    TEST_ASSERT(state->editor.selectedObject3DId == 1u);
+    TEST_ASSERT(state->editor.selectedObjectAssetBodyId == 1u);
+    TEST_ASSERT(state->editor.selectedObjectAssetFace == OBJECT3D_FACE_PLANE_SURFACE);
+    TEST_ASSERT(state->layout.scene3d.bounds.enabled);
+    TEST_ASSERT(state->freeViewCamera.enabled);
+    TEST_ASSERT(ld_test_vec3_nearly_equal(state->freeViewCamera.target, (Vec3){ 0.0f, 0.0f, 0.0f }));
+    TEST_ASSERT(state->grid.scale > 30.0f);
+    TEST_ASSERT(state->sceneWorkspaceDocument.hasViewportState);
+    TEST_ASSERT(ld_test_nearly_equal(state->sceneWorkspaceDocument.grid.scale, 5.0f));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(state->sceneWorkspaceDocument.freeViewCamera.target,
+                                          (Vec3){ 50.0f, 60.0f, 70.0f }));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_workspace_mode_handoff_restores_scene_and_object_viewports(void) {
+    GlobalState* state = NULL;
+    Layout* layout = NULL;
+    RectPrismPrimitiveCreateParams params;
+    uint32_t scene_object_id = 0u;
+    bool adjusted = false;
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    layout = &state->layout;
+
+    params = (RectPrismPrimitiveCreateParams){
+        .width = 4.0f,
+        .height = 5.0f,
+        .depth = 6.0f,
+        .useExplicitFrame = true,
+        .explicitFrame = {
+            .origin = { -9.0f, 12.0f, 1.5f },
+            .axisU = { 1.0f, 0.0f, 0.0f },
+            .axisV = { 0.0f, 1.0f, 0.0f },
+            .normal = { 0.0f, 0.0f, 1.0f }
+        },
+        .lockToConstructionPlane = false,
+        .lockToBounds = false
+    };
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(layout, &params, &scene_object_id, &adjusted));
+    state->editor.selectedObject3DId = scene_object_id;
+    state->grid.scale = 7.0f;
+    state->grid.offsetX = 13.0f;
+    state->grid.offsetY = -4.5f;
+    state->activePlane = (ViewPlane){ .axis = VIEW_PLANE_YZ, .offset = -2.0f };
+    state->freeViewCamera.enabled = true;
+    state->freeViewCamera.yawDeg = 61.0f;
+    state->freeViewCamera.pitchDeg = 14.0f;
+    state->freeViewCamera.target = (Vec3){ 3.0f, 4.0f, 5.0f };
+
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+    state->grid.scale = 19.0f;
+    state->grid.offsetX = -8.0f;
+    state->grid.offsetY = 2.5f;
+    state->activePlane = (ViewPlane){ .axis = VIEW_PLANE_XY, .offset = 6.0f };
+    state->freeViewCamera.enabled = true;
+    state->freeViewCamera.yawDeg = 88.0f;
+    state->freeViewCamera.pitchDeg = 11.0f;
+    state->freeViewCamera.target = (Vec3){ 0.5f, 1.5f, 2.5f };
+
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_SCENE));
+    TEST_ASSERT(state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_SCENE);
+    TEST_ASSERT(state->editor.selectedObject3DId == scene_object_id);
+    TEST_ASSERT(ld_test_nearly_equal(state->grid.scale, 7.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->grid.offsetX, 13.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->grid.offsetY, -4.5f));
+    TEST_ASSERT(state->activePlane.axis == VIEW_PLANE_YZ);
+    TEST_ASSERT(ld_test_nearly_equal(state->activePlane.offset, -2.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->freeViewCamera.yawDeg, 61.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->freeViewCamera.pitchDeg, 14.0f));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(state->freeViewCamera.target, (Vec3){ 3.0f, 4.0f, 5.0f }));
+    TEST_ASSERT(state->objectWorkspaceDocument.hasViewportState);
+    TEST_ASSERT(ld_test_nearly_equal(state->objectWorkspaceDocument.grid.scale, 19.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->objectWorkspaceDocument.grid.offsetX, -8.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->objectWorkspaceDocument.grid.offsetY, 2.5f));
+
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+    TEST_ASSERT(state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT);
+    TEST_ASSERT(state->editor.selectedObjectAssetBodyId == 1u);
+    TEST_ASSERT(state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE);
+    TEST_ASSERT(ld_test_nearly_equal(state->grid.scale, 19.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->grid.offsetX, -8.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->grid.offsetY, 2.5f));
+    TEST_ASSERT(state->activePlane.axis == VIEW_PLANE_XY);
+    TEST_ASSERT(ld_test_nearly_equal(state->activePlane.offset, 6.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->freeViewCamera.yawDeg, 88.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->freeViewCamera.pitchDeg, 11.0f));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(state->freeViewCamera.target, (Vec3){ 0.5f, 1.5f, 2.5f }));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_workspace_mode_handoff_reseeds_object_workspace_when_scene_selection_changes(void) {
+    GlobalState* state = NULL;
+    Layout* layout = NULL;
+    PlanePrimitiveCreateParams plane_params;
+    RectPrismPrimitiveCreateParams prism_params;
+    uint32_t plane_scene_object_id = 0u;
+    uint32_t prism_scene_object_id = 0u;
+    bool adjusted = false;
+    const Object3D* selected_object = NULL;
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    layout = &state->layout;
+
+    plane_params = (PlanePrimitiveCreateParams){
+        .width = 6.0f,
+        .height = 4.0f,
+        .useExplicitFrame = true,
+        .explicitFrame = {
+            .origin = { 0.0f, 0.0f, 0.0f },
+            .axisU = { 1.0f, 0.0f, 0.0f },
+            .axisV = { 0.0f, 1.0f, 0.0f },
+            .normal = { 0.0f, 0.0f, 1.0f }
+        },
+        .lockToConstructionPlane = true,
+        .lockToBounds = false
+    };
+    TEST_ASSERT(Layout_CreatePlanePrimitive(layout, &plane_params, &plane_scene_object_id, &adjusted));
+
+    prism_params = (RectPrismPrimitiveCreateParams){
+        .width = 4.0f,
+        .height = 5.0f,
+        .depth = 6.0f,
+        .useExplicitFrame = true,
+        .explicitFrame = {
+            .origin = { 12.0f, -9.0f, 3.0f },
+            .axisU = { 1.0f, 0.0f, 0.0f },
+            .axisV = { 0.0f, 1.0f, 0.0f },
+            .normal = { 0.0f, 0.0f, 1.0f }
+        },
+        .lockToConstructionPlane = false,
+        .lockToBounds = false
+    };
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(layout, &prism_params, &prism_scene_object_id, &adjusted));
+
+    state->editor.selectedObject3DId = plane_scene_object_id;
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+    TEST_ASSERT(state->objectWorkspaceDocument.workspaceSourceSceneObjectId == plane_scene_object_id);
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_SCENE));
+
+    state->editor.selectedObject3DId = prism_scene_object_id;
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+    TEST_ASSERT(state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT);
+    TEST_ASSERT(state->objectWorkspaceDocument.workspaceSourceSceneObjectId == prism_scene_object_id);
+    TEST_ASSERT(Layout_ObjectStore_LiveCount(&state->layout.objectStore) == 1u);
+    TEST_ASSERT(state->editor.selectedObject3DId == 1u);
+    TEST_ASSERT(state->editor.selectedObjectAssetBodyId == 1u);
+    selected_object =
+        Layout_ObjectStore_FindConst(&state->layout.objectStore, state->editor.selectedObject3DId);
+    TEST_ASSERT(selected_object != NULL);
+    TEST_ASSERT(selected_object->kind == OBJECT3D_KIND_RECT_PRISM);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 bool test_layout_object3d_store_run_tests(void) {
     const TestCase cases[] = {
         { "ObjectStoreIdStabilityAndTombstoneDelete", test_object_store_id_stability_and_tombstone_delete },
@@ -427,7 +627,11 @@ bool test_layout_object3d_store_run_tests(void) {
         { "LayoutObject3DComputeRectPrismCornersContract", test_layout_object3d_compute_rect_prism_corners_contract },
         { "LayoutJsonV8PersistsPlanePrimitivesDeterministically", test_layout_json_v8_persists_plane_primitives_deterministically },
         { "ObjectStoreRectPrismPayloadValidation", test_object_store_rect_prism_payload_validation },
-        { "LayoutJsonV8PersistsRectPrismPayloadDeterministically", test_layout_json_v8_persists_rect_prism_payload_deterministically }
+        { "LayoutJsonV8PersistsRectPrismPayloadDeterministically", test_layout_json_v8_persists_rect_prism_payload_deterministically },
+        { "WorkspaceModeHandoffSeedsObjectWorkspaceSelectionAndFocus", test_workspace_mode_handoff_seeds_object_workspace_selection_and_focus },
+        { "WorkspaceModeHandoffRestoresSceneAndObjectViewports", test_workspace_mode_handoff_restores_scene_and_object_viewports },
+        { "WorkspaceModeHandoffReseedsObjectWorkspaceWhenSceneSelectionChanges",
+          test_workspace_mode_handoff_reseeds_object_workspace_when_scene_selection_changes }
     };
 
     return run_test_cases("LayoutObject3DStore", cases, sizeof(cases) / sizeof(cases[0]));

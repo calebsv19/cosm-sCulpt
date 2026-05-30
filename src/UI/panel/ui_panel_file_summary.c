@@ -39,6 +39,7 @@ static const char* UIPanelFileSummary_ModeLabel(UILoadMenuMode mode) {
     switch (mode) {
         case UI_LOAD_MENU_MODE_JSON: return "JSON";
         case UI_LOAD_MENU_MODE_SCENE: return "Scene";
+        case UI_LOAD_MENU_MODE_OBJECT: return "Asset";
         case UI_LOAD_MENU_MODE_NONE:
         default: return "Idle";
     }
@@ -97,18 +98,34 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     panel_pad = metrics.pad_y;
     y = panel.y + panel_pad;
 
-    UIPanelSummary_DrawText(renderer, font, "File", panel.x + metrics.pad_x, y, label_color);
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+
+    UIPanelSummary_DrawText(renderer,
+                            font,
+                            object_mode ? "Asset File" : "File",
+                            panel.x + metrics.pad_x,
+                            y,
+                            label_color);
     y += font_h + line_gap;
 
-    snprintf(line_layout_scene,
-             sizeof(line_layout_scene),
-             "Layout %s   Scene %s",
-             UIPanelFileSummary_BaseName(Global_GetCurrentConfigPath()),
-             UIPanelFileSummary_BaseName(Global_GetCurrentSceneAuthoringPath()));
+    if (object_mode) {
+        snprintf(line_layout_scene,
+                 sizeof(line_layout_scene),
+                 "Asset %s",
+                 UIPanelFileSummary_BaseName(Global_GetCurrentObjectAssetPath()));
+    } else {
+        snprintf(line_layout_scene,
+                 sizeof(line_layout_scene),
+                 "Layout %s   Scene %s",
+                 UIPanelFileSummary_BaseName(Global_GetCurrentConfigPath()),
+                 UIPanelFileSummary_BaseName(Global_GetCurrentSceneAuthoringPath()));
+    }
     snprintf(line_input,
              sizeof(line_input),
-             "Input  %s",
-             Global_GetInputRoot() ? Global_GetInputRoot() : "(unset)");
+             object_mode ? "Asset Root  %s" : "Input  %s",
+             object_mode
+                 ? (Global_GetObjectAssetRoot() ? Global_GetObjectAssetRoot() : "(unset)")
+                 : (Global_GetInputRoot() ? Global_GetInputRoot() : "(unset)"));
     snprintf(line_output,
              sizeof(line_output),
              "Output  %s",
@@ -136,7 +153,7 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     }
     snprintf(line_browser_root,
              sizeof(line_browser_root),
-             "Browser  %s",
+             object_mode ? "Browser Root  %s" : "Browser  %s",
              ui->loadMenu.rootPath[0] ? ui->loadMenu.rootPath : "(mode root unset)");
 
     UIPanelSummary_DrawTextClipped(renderer, font, line_layout_scene, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), font_h + 4, accent_color);

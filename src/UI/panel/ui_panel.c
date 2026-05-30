@@ -11,6 +11,7 @@
 #include "UI/ui_panel_scene_layout.h"
 #include "UI/ui_panel_scene_summary.h"
 #include "UI/ui_panel_overlay_render.h"
+#include "UI/panel/ui_panel_object_workspace_layout.h"
 #include "UI/ui_panel_shell.h"
 #include "UI/ui_panel_view_layout.h"
 #include "UI/ui_panel_view_summary.h"
@@ -227,6 +228,11 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         "Pin Anchor (P)",
         "Link Handles (L)",
         "Mode: 3D (M)",
+        "Face Select",
+        "Sketch Rect",
+        "Sketch Select",
+        "Clear Sketch",
+        "Cut Prism",
         "Gizmo: Rotate (X)",
         "Clear Select",
         "Delete Object",
@@ -580,6 +586,7 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
     }
     UIPanel_UpdateTabLayout(&g_uiPanel, &leftPaneRect, &rightPaneRect, &metrics);
     UIPanel_UpdateScenePaneLayout(&g_uiPanel);
+    UIPanel_UpdateObjectWorkspacePaneLayout(&g_uiPanel);
     UIPanel_UpdateFilePaneLayout(&g_uiPanel);
     UIPanel_UpdateViewPaneLayout(&g_uiPanel);
     UIPanel_UpdateCreatePaneLayout(&g_uiPanel);
@@ -595,15 +602,16 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
     int leftFileActionsY = leftY;
     int leftRootPathsY = leftY;
     {
-        if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_SCENE) {
+        if (UIPanel_GetActiveLeftTab(&g_uiPanel) == UI_PANEL_LEFT_TAB_SCENE &&
+            Global_GetWorkspaceMode() != LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
             leftSceneSelectionY = g_uiPanel.scenePane.selectionRect.y;
             leftSceneBoundsY = g_uiPanel.scenePane.boundsRect.y;
         }
-        if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
+        if (UIPanel_GetActiveLeftTab(&g_uiPanel) == UI_PANEL_LEFT_TAB_FILE) {
             leftFileActionsY = g_uiPanel.filePane.fileActionsRect.y;
             leftRootPathsY = g_uiPanel.filePane.rootPathsRect.y;
         }
-        if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
+        if (UIPanel_GetActiveLeftTab(&g_uiPanel) == UI_PANEL_LEFT_TAB_FILE) {
             int fileSummaryHeight = UIPanel_FileSummaryReservedHeight(&g_uiPanel);
             if (fileSummaryHeight > 0) {
                 leftY += fileSummaryHeight + groupGap;
@@ -621,7 +629,8 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
             }
             if ((btn->group == UI_PANEL_GROUP_LEFT_SCENE_SELECTION ||
                  btn->group == UI_PANEL_GROUP_LEFT_SCENE_BOUNDS) &&
-                g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_SCENE) {
+                UIPanel_GetActiveLeftTab(&g_uiPanel) == UI_PANEL_LEFT_TAB_SCENE &&
+                Global_GetWorkspaceMode() != LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
                 int* groupY = (btn->group == UI_PANEL_GROUP_LEFT_SCENE_SELECTION)
                                   ? &leftSceneSelectionY
                                   : &leftSceneBoundsY;
@@ -631,7 +640,7 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
             }
             if ((btn->group == UI_PANEL_GROUP_LEFT_FILE_IO ||
                  btn->group == UI_PANEL_GROUP_LEFT_ROOT_PATHS) &&
-                g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
+                UIPanel_GetActiveLeftTab(&g_uiPanel) == UI_PANEL_LEFT_TAB_FILE) {
                 int* groupY = (btn->group == UI_PANEL_GROUP_LEFT_FILE_IO)
                                   ? &leftFileActionsY
                                   : &leftRootPathsY;
@@ -649,7 +658,7 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
         }
     }
 
-    if (g_uiPanel.activeLeftTab == UI_PANEL_LEFT_TAB_FILE) {
+    if (UIPanel_GetActiveLeftTab(&g_uiPanel) == UI_PANEL_LEFT_TAB_FILE) {
         UIPanel_LayoutFilePaneButtons(&g_uiPanel, &metrics, metrics.button_text_pad_px);
     }
     UIPanel_LayoutRightPaneButtons(&g_uiPanel, &metrics);
@@ -768,6 +777,16 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "+Plane", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_CREATE_PLANE);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "+Prism", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_CREATE_RECT_PRISM);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Face Select", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_OBJECT_FACE_SELECT);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Sketch Select", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_OBJECT_SKETCH_SELECT);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Clear Sketch", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_OBJECT_SKETCH_CLEAR);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Extrude +", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OPERATIONS, UI_BTN_EXTRUDE_ADD);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Extrude -", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OPERATIONS, UI_BTN_EXTRUDE_CUT);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "XY", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CONSTRUCTION, UI_BTN_SET_CONSTRUCTION_PLANE_XY);
     yR += btnH + spacing;

@@ -15,6 +15,7 @@ CORE_IO_DIR := $(SHARED_ROOT)/core/core_io
 CORE_DATA_DIR := $(SHARED_ROOT)/core/core_data
 CORE_MATH_DIR := $(SHARED_ROOT)/core/core_math
 CORE_TIME_DIR := $(SHARED_ROOT)/core/core_time
+CORE_MESH_ASSET_DIR := $(SHARED_ROOT)/core/core_mesh_asset
 CORE_SCENE_DIR := $(SHARED_ROOT)/core/core_scene
 CORE_OBJECT_DIR := $(SHARED_ROOT)/core/core_object
 CORE_UNITS_DIR := $(SHARED_ROOT)/core/core_units
