@@ -154,6 +154,8 @@ const char *core_mesh_asset_source_mode_name(CoreMeshAssetSourceMode mode) {
             return "primitive_seed";
         case CORE_MESH_ASSET_SOURCE_MODE_REVOLVE:
             return "revolve";
+        case CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH:
+            return "imported_mesh";
         case CORE_MESH_ASSET_SOURCE_MODE_UNKNOWN:
         default:
             return "unknown";
@@ -179,10 +181,90 @@ CoreResult core_mesh_asset_source_mode_parse(const char *text, CoreMeshAssetSour
         *out_mode = CORE_MESH_ASSET_SOURCE_MODE_REVOLVE;
         return core_result_ok();
     }
+    if (core_mesh_asset_text_equals(text, "imported_mesh")) {
+        *out_mode = CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH;
+        return core_result_ok();
+    }
     {
         CoreResult r = { CORE_ERR_NOT_FOUND, "unknown mesh asset source mode" };
         return r;
     }
+}
+
+const char *core_mesh_asset_imported_mesh_source_format_name(
+    CoreMeshAssetImportedMeshSourceFormat format) {
+    switch (format) {
+        case CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_STL:
+            return "stl";
+        case CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_UNKNOWN:
+        default:
+            return "unknown";
+    }
+}
+
+CoreResult core_mesh_asset_imported_mesh_source_format_parse(
+    const char *text,
+    CoreMeshAssetImportedMeshSourceFormat *out_format) {
+    if (out_format) {
+        *out_format = CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_UNKNOWN;
+    }
+    if (!text || !out_format) {
+        return core_mesh_asset_invalid_arg("invalid argument");
+    }
+    if (core_mesh_asset_text_equals(text, "stl")) {
+        *out_format = CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_STL;
+        return core_result_ok();
+    }
+    {
+        CoreResult r = { CORE_ERR_NOT_FOUND, "unknown imported mesh source format" };
+        return r;
+    }
+}
+
+void core_mesh_asset_imported_mesh_source_init(CoreMeshAssetImportedMeshSource *source) {
+    if (!source) {
+        return;
+    }
+    memset(source, 0, sizeof(*source));
+    source->source_unit_kind = CORE_UNIT_METER;
+    source->source_to_asset_scale = 1.0;
+    memcpy(source->orientation_policy, "source_axes", sizeof("source_axes"));
+    memcpy(source->default_surface_group_id, "imported_surface", sizeof("imported_surface"));
+    source->weld_vertices = true;
+    source->weld_tolerance = 0.000001;
+    source->preserve_source_normals = false;
+}
+
+CoreResult core_mesh_asset_imported_mesh_source_validate(
+    const CoreMeshAssetImportedMeshSource *source) {
+    if (!source) {
+        return core_mesh_asset_invalid_arg("imported mesh source is null");
+    }
+    if (source->import_id[0] == '\0') {
+        return core_mesh_asset_invalid_arg("import_id is required");
+    }
+    if (source->source_format != CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_STL) {
+        return core_mesh_asset_invalid_arg("known imported mesh source_format is required");
+    }
+    if (source->source_uri[0] == '\0') {
+        return core_mesh_asset_invalid_arg("source_uri is required");
+    }
+    if (source->source_unit_kind == CORE_UNIT_UNKNOWN) {
+        return core_mesh_asset_invalid_arg("known source_unit_kind is required");
+    }
+    if (source->orientation_policy[0] == '\0') {
+        return core_mesh_asset_invalid_arg("orientation_policy is required");
+    }
+    if (source->default_surface_group_id[0] == '\0') {
+        return core_mesh_asset_invalid_arg("default_surface_group_id is required");
+    }
+    if (!isfinite(source->source_to_asset_scale) || source->source_to_asset_scale <= 0.0) {
+        return core_mesh_asset_invalid_arg("source_to_asset_scale must be positive and finite");
+    }
+    if (!isfinite(source->weld_tolerance) || source->weld_tolerance < 0.0) {
+        return core_mesh_asset_invalid_arg("weld_tolerance must be finite and non-negative");
+    }
+    return core_result_ok();
 }
 
 void core_mesh_asset_authoring_contract_init(CoreMeshAssetAuthoringContract *contract) {
@@ -223,7 +305,8 @@ CoreResult core_mesh_asset_authoring_contract_validate(
     }
     if (contract->source_mode != CORE_MESH_ASSET_SOURCE_MODE_PROFILE_EXTRUSION &&
         contract->source_mode != CORE_MESH_ASSET_SOURCE_MODE_PRIMITIVE_SEED &&
-        contract->source_mode != CORE_MESH_ASSET_SOURCE_MODE_REVOLVE) {
+        contract->source_mode != CORE_MESH_ASSET_SOURCE_MODE_REVOLVE &&
+        contract->source_mode != CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH) {
         return core_mesh_asset_invalid_arg("known source_mode is required");
     }
     if (contract->unit_kind == CORE_UNIT_UNKNOWN) {

@@ -422,6 +422,126 @@ static CoreResult core_mesh_asset_doc_validate_primitive_seed(
     return core_result_ok();
 }
 
+static cJSON *core_mesh_asset_doc_imported_mesh_source_to_json(
+    const CoreMeshAssetImportedMeshSource *source) {
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj || !source) {
+        cJSON_Delete(obj);
+        return NULL;
+    }
+    cJSON_AddStringToObject(obj, "import_id", source->import_id);
+    cJSON_AddStringToObject(
+        obj,
+        "source_format",
+        core_mesh_asset_imported_mesh_source_format_name(source->source_format));
+    cJSON_AddStringToObject(obj, "source_uri", source->source_uri);
+    cJSON_AddStringToObject(obj, "source_unit_system",
+                            core_units_kind_name(source->source_unit_kind));
+    cJSON_AddNumberToObject(obj, "source_to_asset_scale", source->source_to_asset_scale);
+    cJSON_AddStringToObject(obj, "orientation_policy", source->orientation_policy);
+    cJSON_AddStringToObject(obj,
+                            "default_surface_group_id",
+                            source->default_surface_group_id);
+    cJSON_AddBoolToObject(obj, "weld_vertices", source->weld_vertices);
+    cJSON_AddNumberToObject(obj, "weld_tolerance", source->weld_tolerance);
+    cJSON_AddBoolToObject(obj, "preserve_source_normals", source->preserve_source_normals);
+    cJSON_AddBoolToObject(obj,
+                          "topology_closed_volume_observed",
+                          source->topology_closed_volume_observed);
+    cJSON_AddBoolToObject(obj,
+                          "topology_manifold_observed",
+                          source->topology_manifold_observed);
+    return obj;
+}
+
+static CoreResult core_mesh_asset_doc_imported_mesh_source_from_json(
+    const cJSON *node,
+    CoreMeshAssetImportedMeshSource *out_source) {
+    const cJSON *import_id = NULL;
+    const cJSON *source_format = NULL;
+    const cJSON *source_uri = NULL;
+    const cJSON *source_unit_system = NULL;
+    const cJSON *source_to_asset_scale = NULL;
+    const cJSON *orientation_policy = NULL;
+    const cJSON *default_surface_group_id = NULL;
+    const cJSON *weld_vertices = NULL;
+    const cJSON *weld_tolerance = NULL;
+    const cJSON *preserve_source_normals = NULL;
+    const cJSON *topology_closed_volume_observed = NULL;
+    const cJSON *topology_manifold_observed = NULL;
+    CoreResult r;
+    if (!cJSON_IsObject(node) || !out_source) {
+        return core_mesh_asset_doc_invalid_arg("imported_mesh source is invalid");
+    }
+    core_mesh_asset_imported_mesh_source_init(out_source);
+    import_id = cJSON_GetObjectItemCaseSensitive(node, "import_id");
+    source_format = cJSON_GetObjectItemCaseSensitive(node, "source_format");
+    source_uri = cJSON_GetObjectItemCaseSensitive(node, "source_uri");
+    source_unit_system = cJSON_GetObjectItemCaseSensitive(node, "source_unit_system");
+    source_to_asset_scale = cJSON_GetObjectItemCaseSensitive(node, "source_to_asset_scale");
+    orientation_policy = cJSON_GetObjectItemCaseSensitive(node, "orientation_policy");
+    default_surface_group_id = cJSON_GetObjectItemCaseSensitive(node, "default_surface_group_id");
+    weld_vertices = cJSON_GetObjectItemCaseSensitive(node, "weld_vertices");
+    weld_tolerance = cJSON_GetObjectItemCaseSensitive(node, "weld_tolerance");
+    preserve_source_normals = cJSON_GetObjectItemCaseSensitive(node, "preserve_source_normals");
+    topology_closed_volume_observed =
+        cJSON_GetObjectItemCaseSensitive(node, "topology_closed_volume_observed");
+    topology_manifold_observed =
+        cJSON_GetObjectItemCaseSensitive(node, "topology_manifold_observed");
+    if (!cJSON_IsString(import_id) || !import_id->valuestring ||
+        !cJSON_IsString(source_format) || !source_format->valuestring ||
+        !cJSON_IsString(source_uri) || !source_uri->valuestring ||
+        !cJSON_IsString(source_unit_system) || !source_unit_system->valuestring ||
+        !cJSON_IsNumber(source_to_asset_scale) || !cJSON_IsString(orientation_policy) ||
+        !orientation_policy->valuestring || !cJSON_IsString(default_surface_group_id) ||
+        !default_surface_group_id->valuestring || !cJSON_IsBool(weld_vertices) ||
+        !cJSON_IsNumber(weld_tolerance) || !cJSON_IsBool(preserve_source_normals) ||
+        !cJSON_IsBool(topology_closed_volume_observed) ||
+        !cJSON_IsBool(topology_manifold_observed)) {
+        return core_mesh_asset_doc_invalid_arg("imported_mesh source fields are missing");
+    }
+    r = core_mesh_asset_doc_copy_text(out_source->import_id,
+                                      sizeof(out_source->import_id),
+                                      import_id->valuestring);
+    if (r.code != CORE_OK) {
+        return r;
+    }
+    r = core_mesh_asset_imported_mesh_source_format_parse(source_format->valuestring,
+                                                          &out_source->source_format);
+    if (r.code != CORE_OK) {
+        return r;
+    }
+    r = core_mesh_asset_doc_copy_text(out_source->source_uri,
+                                      sizeof(out_source->source_uri),
+                                      source_uri->valuestring);
+    if (r.code != CORE_OK) {
+        return r;
+    }
+    r = core_units_parse_kind(source_unit_system->valuestring, &out_source->source_unit_kind);
+    if (r.code != CORE_OK) {
+        return r;
+    }
+    out_source->source_to_asset_scale = source_to_asset_scale->valuedouble;
+    r = core_mesh_asset_doc_copy_text(out_source->orientation_policy,
+                                      sizeof(out_source->orientation_policy),
+                                      orientation_policy->valuestring);
+    if (r.code != CORE_OK) {
+        return r;
+    }
+    r = core_mesh_asset_doc_copy_text(out_source->default_surface_group_id,
+                                      sizeof(out_source->default_surface_group_id),
+                                      default_surface_group_id->valuestring);
+    if (r.code != CORE_OK) {
+        return r;
+    }
+    out_source->weld_vertices = cJSON_IsTrue(weld_vertices);
+    out_source->weld_tolerance = weld_tolerance->valuedouble;
+    out_source->preserve_source_normals = cJSON_IsTrue(preserve_source_normals);
+    out_source->topology_closed_volume_observed = cJSON_IsTrue(topology_closed_volume_observed);
+    out_source->topology_manifold_observed = cJSON_IsTrue(topology_manifold_observed);
+    return core_mesh_asset_imported_mesh_source_validate(out_source);
+}
+
 static CoreResult core_mesh_asset_doc_parse_root_contract(const cJSON *root,
                                                           CoreMeshAssetAuthoringDocument *document) {
     const cJSON *schema_family = NULL;
@@ -501,6 +621,7 @@ void core_mesh_asset_authoring_document_init(CoreMeshAssetAuthoringDocument *doc
     }
     memset(document, 0, sizeof(*document));
     core_mesh_asset_authoring_contract_init(&document->contract);
+    core_mesh_asset_imported_mesh_source_init(&document->imported_mesh_source);
 }
 
 void core_mesh_asset_authoring_document_free(CoreMeshAssetAuthoringDocument *document) {
@@ -510,6 +631,8 @@ void core_mesh_asset_authoring_document_free(CoreMeshAssetAuthoringDocument *doc
     core_free(document->primitive_seeds);
     document->primitive_seeds = NULL;
     document->primitive_seed_count = 0u;
+    document->has_imported_mesh_source = false;
+    core_mesh_asset_imported_mesh_source_init(&document->imported_mesh_source);
     core_mesh_asset_authoring_contract_init(&document->contract);
 }
 
@@ -557,9 +680,29 @@ CoreResult core_mesh_asset_authoring_document_validate(
             return core_mesh_asset_doc_invalid_arg(
                 "primitive_seed source_mode requires primitive_seeds");
         }
+        if (document->has_imported_mesh_source) {
+            return core_mesh_asset_doc_invalid_arg(
+                "imported_mesh source is only valid for imported_mesh source_mode");
+        }
+    } else if (document->contract.source_mode == CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH) {
+        if (!document->has_imported_mesh_source) {
+            return core_mesh_asset_doc_invalid_arg(
+                "imported_mesh source_mode requires imported_mesh source");
+        }
+        r = core_mesh_asset_imported_mesh_source_validate(&document->imported_mesh_source);
+        if (r.code != CORE_OK) {
+            return r;
+        }
+        if (document->primitive_seed_count != 0u || document->primitive_seeds != NULL) {
+            return core_mesh_asset_doc_invalid_arg(
+                "primitive_seeds are only valid for primitive_seed source_mode");
+        }
     } else if (document->primitive_seed_count != 0u || document->primitive_seeds != NULL) {
         return core_mesh_asset_doc_invalid_arg(
             "primitive_seeds are only valid for primitive_seed source_mode");
+    } else if (document->has_imported_mesh_source) {
+        return core_mesh_asset_doc_invalid_arg(
+            "imported_mesh source is only valid for imported_mesh source_mode");
     }
     for (i = 0u; i < document->primitive_seed_count; ++i) {
         r = core_mesh_asset_doc_validate_primitive_seed(&document->primitive_seeds[i]);
@@ -578,6 +721,7 @@ CoreResult core_mesh_asset_authoring_document_load_file(const char *path,
     const cJSON *authoring = NULL;
     const cJSON *source_mode = NULL;
     const cJSON *primitive_seeds = NULL;
+    const cJSON *imported_mesh = NULL;
     int primitive_seed_count = 0;
     int i;
     CoreResult r;
@@ -631,6 +775,7 @@ CoreResult core_mesh_asset_authoring_document_load_file(const char *path,
     }
 
     primitive_seeds = cJSON_GetObjectItemCaseSensitive(authoring, "primitive_seeds");
+    imported_mesh = cJSON_GetObjectItemCaseSensitive(authoring, "imported_mesh");
     if (document.contract.source_mode == CORE_MESH_ASSET_SOURCE_MODE_PRIMITIVE_SEED) {
         if (!cJSON_IsArray(primitive_seeds)) {
             cJSON_Delete(root);
@@ -700,6 +845,15 @@ CoreResult core_mesh_asset_authoring_document_load_file(const char *path,
                 return core_mesh_asset_doc_invalid_arg("rect prism primitive seed is invalid");
             }
         }
+    } else if (document.contract.source_mode == CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH) {
+        r = core_mesh_asset_doc_imported_mesh_source_from_json(imported_mesh,
+                                                               &document.imported_mesh_source);
+        if (r.code != CORE_OK) {
+            cJSON_Delete(root);
+            core_mesh_asset_authoring_document_free(&document);
+            return r;
+        }
+        document.has_imported_mesh_source = true;
     }
 
     cJSON_Delete(root);
@@ -781,6 +935,11 @@ CoreResult core_mesh_asset_authoring_document_save_file(
                                       core_mesh_asset_doc_rect_prism_seed_to_json(&seed->rect_prism));
             }
         }
+    } else if (document->contract.source_mode == CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH) {
+        cJSON_AddItemToObject(
+            authoring,
+            "imported_mesh",
+            core_mesh_asset_doc_imported_mesh_source_to_json(&document->imported_mesh_source));
     }
     cJSON_AddItemToObject(root, "surface_groups", cJSON_CreateArray());
     compile_hints = cJSON_CreateObject();

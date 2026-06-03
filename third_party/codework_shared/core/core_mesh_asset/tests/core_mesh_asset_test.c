@@ -32,6 +32,8 @@ static int test_parse_helpers(void) {
     CoreMeshAssetType type = CORE_MESH_ASSET_TYPE_SOLID_MESH;
     CoreMeshAssetPrimitiveSeedKind primitive_kind = CORE_MESH_ASSET_PRIMITIVE_SEED_KIND_RECT_PRISM;
     CoreMeshAssetSourceMode mode = CORE_MESH_ASSET_SOURCE_MODE_REVOLVE;
+    CoreMeshAssetImportedMeshSourceFormat format =
+        CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_STL;
 
     CHECK(core_mesh_asset_schema_variant_parse(NULL, &variant).code == CORE_ERR_INVALID_ARG);
     CHECK(variant == CORE_MESH_ASSET_SCHEMA_VARIANT_UNKNOWN);
@@ -58,8 +60,17 @@ static int test_parse_helpers(void) {
     CHECK(mode == CORE_MESH_ASSET_SOURCE_MODE_UNKNOWN);
     CHECK(core_mesh_asset_source_mode_parse("profile_extrusion", &mode).code == CORE_OK);
     CHECK(mode == CORE_MESH_ASSET_SOURCE_MODE_PROFILE_EXTRUSION);
+    CHECK(core_mesh_asset_source_mode_parse("imported_mesh", &mode).code == CORE_OK);
+    CHECK(mode == CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH);
     CHECK(strcmp(core_mesh_asset_source_mode_name(CORE_MESH_ASSET_SOURCE_MODE_REVOLVE),
                  "revolve") == 0);
+
+    CHECK(core_mesh_asset_imported_mesh_source_format_parse(NULL, &format).code ==
+          CORE_ERR_INVALID_ARG);
+    CHECK(format == CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_UNKNOWN);
+    CHECK(core_mesh_asset_imported_mesh_source_format_parse("stl", &format).code == CORE_OK);
+    CHECK(format == CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_STL);
+    CHECK(strcmp(core_mesh_asset_imported_mesh_source_format_name(format), "stl") == 0);
 
     return 0;
 }
@@ -107,7 +118,6 @@ static int test_authoring_document_validation(void) {
 
     CHECK(core_object_set_identity(&plane->object, "primitive_1", "plane_primitive").code ==
           CORE_OK);
-    CHECK(core_mesh_asset_authoring_contract_validate(&document.contract).code == CORE_OK);
     CHECK(core_mesh_asset_authoring_contract_validate(&document.contract).code == CORE_OK);
     plane->kind = CORE_MESH_ASSET_PRIMITIVE_SEED_KIND_PLANE;
     strcpy(plane->primitive_id, "primitive_1");
@@ -158,6 +168,39 @@ static int test_authoring_document_validation(void) {
     return 0;
 }
 
+static int test_imported_mesh_authoring_document_validation(void) {
+    CoreMeshAssetAuthoringDocument document;
+
+    core_mesh_asset_authoring_document_init(&document);
+    CHECK(core_mesh_asset_authoring_contract_set_asset_id(&document.contract,
+                                                          "asset_imported_bracket_01").code ==
+          CORE_OK);
+    document.contract.source_mode = CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH;
+    CHECK(core_mesh_asset_authoring_document_validate(&document).code == CORE_ERR_INVALID_ARG);
+
+    document.has_imported_mesh_source = true;
+    strcpy(document.imported_mesh_source.import_id, "import_bracket_stl_01");
+    document.imported_mesh_source.source_format =
+        CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_STL;
+    strcpy(document.imported_mesh_source.source_uri, "imports/bracket.stl");
+    document.imported_mesh_source.source_unit_kind = CORE_UNIT_MILLIMETER;
+    document.imported_mesh_source.source_to_asset_scale = 0.001;
+    strcpy(document.imported_mesh_source.orientation_policy, "source_axes");
+    strcpy(document.imported_mesh_source.default_surface_group_id, "imported_surface");
+    document.imported_mesh_source.weld_vertices = true;
+    document.imported_mesh_source.weld_tolerance = 0.000001;
+    document.imported_mesh_source.preserve_source_normals = false;
+    document.imported_mesh_source.topology_closed_volume_observed = true;
+    document.imported_mesh_source.topology_manifold_observed = true;
+    CHECK(core_mesh_asset_authoring_document_validate(&document).code == CORE_OK);
+
+    document.imported_mesh_source.source_to_asset_scale = 0.0;
+    CHECK(core_mesh_asset_authoring_document_validate(&document).code == CORE_ERR_INVALID_ARG);
+
+    core_mesh_asset_authoring_document_free(&document);
+    return 0;
+}
+
 static int test_runtime_contract_validation(void) {
     CoreMeshAssetRuntimeContract contract;
     core_mesh_asset_runtime_contract_init(&contract);
@@ -184,6 +227,140 @@ static int test_runtime_contract_validation(void) {
     return 0;
 }
 
+static int test_runtime_document_validation(void) {
+    CoreMeshAssetRuntimeDocument document;
+    core_mesh_asset_runtime_document_init(&document);
+
+    CHECK(core_mesh_asset_runtime_document_validate(NULL).code == CORE_ERR_INVALID_ARG);
+    CHECK(core_mesh_asset_runtime_contract_set_asset_id(&document.contract, "asset_triangle").code ==
+          CORE_OK);
+    CHECK(core_mesh_asset_runtime_contract_set_source_asset_id(&document.contract,
+                                                               "asset_triangle_src").code ==
+          CORE_OK);
+    document.contract.local_bounds.min.x = 0.0;
+    document.contract.local_bounds.min.y = 0.0;
+    document.contract.local_bounds.min.z = 0.0;
+    document.contract.local_bounds.max.x = 1.0;
+    document.contract.local_bounds.max.y = 1.0;
+    document.contract.local_bounds.max.z = 1.0;
+    CHECK(core_mesh_asset_runtime_document_set_vertex_count(&document, 3u).code == CORE_OK);
+    CHECK(core_mesh_asset_runtime_document_set_triangle_count(&document, 1u).code == CORE_OK);
+    CHECK(core_mesh_asset_runtime_document_set_surface_group_count(&document, 1u).code == CORE_OK);
+    document.vertices[0].position.x = 0.0;
+    document.vertices[0].position.y = 0.0;
+    document.vertices[0].position.z = 0.0;
+    document.vertices[1].position.x = 1.0;
+    document.vertices[1].position.y = 0.0;
+    document.vertices[1].position.z = 0.0;
+    document.vertices[2].position.x = 0.0;
+    document.vertices[2].position.y = 1.0;
+    document.vertices[2].position.z = 0.0;
+    document.triangles[0].a = 0u;
+    document.triangles[0].b = 1u;
+    document.triangles[0].c = 2u;
+    strcpy(document.triangles[0].surface_group_id, "shell");
+    strcpy(document.surface_groups[0].group_id, "shell");
+    document.surface_groups[0].triangle_start = 0u;
+    document.surface_groups[0].triangle_count = 1u;
+    CHECK(core_mesh_asset_runtime_document_validate(&document).code == CORE_OK);
+
+    document.triangles[0].c = 3u;
+    CHECK(core_mesh_asset_runtime_document_validate(&document).code == CORE_ERR_INVALID_ARG);
+    document.triangles[0].c = 2u;
+    strcpy(document.triangles[0].surface_group_id, "missing");
+    CHECK(core_mesh_asset_runtime_document_validate(&document).code == CORE_ERR_INVALID_ARG);
+    strcpy(document.triangles[0].surface_group_id, "shell");
+    document.vertices[2].position.y = 0.0;
+    CHECK(core_mesh_asset_runtime_document_validate(&document).code == CORE_ERR_INVALID_ARG);
+
+    core_mesh_asset_runtime_document_free(&document);
+    return 0;
+}
+
+static int test_runtime_document_file_load(void) {
+    CoreMeshAssetRuntimeDocument document;
+    core_mesh_asset_runtime_document_init(&document);
+
+    CHECK(core_mesh_asset_runtime_document_load_file(
+              "tests/fixtures/mesh_asset_runtime_v1_sample.json",
+              &document).code == CORE_OK);
+    CHECK(strcmp(document.contract.asset_id, "asset_bookshelf_01") == 0);
+    CHECK(document.vertex_count == 4u);
+    CHECK(document.triangle_count == 2u);
+    CHECK(document.surface_group_count == 1u);
+    CHECK(strcmp(document.surface_groups[0].group_id, "shelf_faces") == 0);
+    core_mesh_asset_runtime_document_free(&document);
+    return 0;
+}
+
+static int test_runtime_document_file_roundtrip(void) {
+    CoreMeshAssetRuntimeDocument document;
+    CoreMeshAssetRuntimeDocument reloaded;
+    const char *path = "/private/tmp/core_mesh_asset_runtime_roundtrip.json";
+
+    core_mesh_asset_runtime_document_init(&document);
+    core_mesh_asset_runtime_document_init(&reloaded);
+
+    CHECK(core_mesh_asset_runtime_document_load_file(
+              "tests/fixtures/mesh_asset_runtime_v1_sample.json",
+              &document).code == CORE_OK);
+    CHECK(core_mesh_asset_runtime_document_save_file(&document, path).code == CORE_OK);
+    CHECK(core_mesh_asset_runtime_document_load_file(path, &reloaded).code == CORE_OK);
+    CHECK(strcmp(reloaded.contract.asset_id, "asset_bookshelf_01") == 0);
+    CHECK(strcmp(reloaded.contract.source_asset_id, "asset_bookshelf_01") == 0);
+    CHECK(reloaded.vertex_count == 4u);
+    CHECK(reloaded.triangle_count == 2u);
+    CHECK(reloaded.surface_group_count == 1u);
+    CHECK(strcmp(reloaded.surface_groups[0].group_id, "shelf_faces") == 0);
+
+    core_mesh_asset_runtime_document_free(&document);
+    core_mesh_asset_runtime_document_free(&reloaded);
+    remove(path);
+    return 0;
+}
+
+static int test_runtime_document_mrt0_sphere_fixtures(void) {
+    static const struct {
+        const char *path;
+        const char *asset_id;
+        size_t vertices;
+        size_t triangles;
+    } cases[] = {
+        {
+            "../../../ray_tracing/tests/fixtures/mesh_asset_runtime_spheres/assets/mesh_assets/asset_sphere_8x4.runtime.json",
+            "asset_sphere_8x4",
+            26u,
+            48u
+        },
+        {
+            "../../../ray_tracing/tests/fixtures/mesh_asset_runtime_spheres/assets/mesh_assets/asset_sphere_16x8.runtime.json",
+            "asset_sphere_16x8",
+            114u,
+            224u
+        },
+        {
+            "../../../ray_tracing/tests/fixtures/mesh_asset_runtime_spheres/assets/mesh_assets/asset_sphere_32x16.runtime.json",
+            "asset_sphere_32x16",
+            482u,
+            960u
+        }
+    };
+    size_t i;
+    for (i = 0u; i < sizeof(cases) / sizeof(cases[0]); ++i) {
+        CoreMeshAssetRuntimeDocument document;
+        core_mesh_asset_runtime_document_init(&document);
+        CHECK(core_mesh_asset_runtime_document_load_file(cases[i].path, &document).code == CORE_OK);
+        CHECK(strcmp(document.contract.asset_id, cases[i].asset_id) == 0);
+        CHECK(document.vertex_count == cases[i].vertices);
+        CHECK(document.triangle_count == cases[i].triangles);
+        CHECK(document.surface_group_count == 1u);
+        CHECK(strcmp(document.surface_groups[0].group_id, "sphere_shell") == 0);
+        CHECK(document.surface_groups[0].triangle_count == cases[i].triangles);
+        core_mesh_asset_runtime_document_free(&document);
+    }
+    return 0;
+}
+
 static int test_fixture_tokens(void) {
     static const char *authoring_needles[] = {
         "\"schema_variant\"",
@@ -191,6 +368,13 @@ static int test_fixture_tokens(void) {
         "\"source_mode\"",
         "\"primitive_seed\"",
         "\"primitive_seeds\""
+    };
+    static const char *imported_authoring_needles[] = {
+        "\"source_mode\"",
+        "\"imported_mesh\"",
+        "\"source_format\"",
+        "\"stl\"",
+        "\"source_to_asset_scale\""
     };
     static const char *runtime_needles[] = {
         "\"schema_variant\"",
@@ -202,6 +386,10 @@ static int test_fixture_tokens(void) {
     CHECK(file_contains_all("tests/fixtures/mesh_asset_authoring_v1_sample.json",
                             authoring_needles,
                             sizeof(authoring_needles) / sizeof(authoring_needles[0])));
+    CHECK(file_contains_all("tests/fixtures/mesh_asset_authoring_v1_imported_stl_sample.json",
+                            imported_authoring_needles,
+                            sizeof(imported_authoring_needles) /
+                                sizeof(imported_authoring_needles[0])));
     CHECK(file_contains_all("tests/fixtures/mesh_asset_runtime_v1_sample.json",
                             runtime_needles,
                             sizeof(runtime_needles) / sizeof(runtime_needles[0])));
@@ -212,20 +400,13 @@ static int test_authoring_document_file_roundtrip(void) {
     CoreMeshAssetAuthoringDocument document;
     CoreMeshAssetAuthoringDocument reloaded;
     const char *path = "/private/tmp/core_mesh_asset_authoring_roundtrip.json";
-    CoreResult load_result;
 
     core_mesh_asset_authoring_document_init(&document);
     core_mesh_asset_authoring_document_init(&reloaded);
 
-    load_result = core_mesh_asset_authoring_document_load_file(
-        "tests/fixtures/mesh_asset_authoring_v1_sample.json",
-        &document);
-    if (load_result.code != CORE_OK) {
-        printf("roundtrip-load-fail:%d:%s\n",
-               load_result.code,
-               load_result.message ? load_result.message : "null");
-        return 1;
-    }
+    CHECK(core_mesh_asset_authoring_document_load_file(
+              "tests/fixtures/mesh_asset_authoring_v1_sample.json",
+              &document).code == CORE_OK);
     CHECK(document.contract.source_mode == CORE_MESH_ASSET_SOURCE_MODE_PRIMITIVE_SEED);
     CHECK(document.primitive_seed_count == 2u);
     CHECK(document.primitive_seeds[0].kind == CORE_MESH_ASSET_PRIMITIVE_SEED_KIND_PLANE);
@@ -242,12 +423,51 @@ static int test_authoring_document_file_roundtrip(void) {
     return 0;
 }
 
+static int test_imported_mesh_authoring_document_file_roundtrip(void) {
+    CoreMeshAssetAuthoringDocument document;
+    CoreMeshAssetAuthoringDocument reloaded;
+    const char *path = "/private/tmp/core_mesh_asset_imported_mesh_roundtrip.json";
+
+    core_mesh_asset_authoring_document_init(&document);
+    core_mesh_asset_authoring_document_init(&reloaded);
+
+    CHECK(core_mesh_asset_authoring_document_load_file(
+              "tests/fixtures/mesh_asset_authoring_v1_imported_stl_sample.json",
+              &document).code == CORE_OK);
+    CHECK(document.contract.source_mode == CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH);
+    CHECK(document.has_imported_mesh_source);
+    CHECK(document.primitive_seed_count == 0u);
+    CHECK(document.primitive_seeds == NULL);
+    CHECK(document.imported_mesh_source.source_format ==
+          CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_STL);
+    CHECK(strcmp(document.imported_mesh_source.source_uri, "imports/bracket.stl") == 0);
+    CHECK(document.imported_mesh_source.source_unit_kind == CORE_UNIT_MILLIMETER);
+    CHECK(core_mesh_asset_authoring_document_save_file(&document, path).code == CORE_OK);
+    CHECK(core_mesh_asset_authoring_document_load_file(path, &reloaded).code == CORE_OK);
+    CHECK(strcmp(reloaded.contract.asset_id, "asset_imported_bracket_01") == 0);
+    CHECK(reloaded.contract.source_mode == CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH);
+    CHECK(reloaded.has_imported_mesh_source);
+    CHECK(strcmp(reloaded.imported_mesh_source.default_surface_group_id,
+                 "imported_surface") == 0);
+
+    core_mesh_asset_authoring_document_free(&document);
+    core_mesh_asset_authoring_document_free(&reloaded);
+    remove(path);
+    return 0;
+}
+
 int main(void) {
     if (test_parse_helpers() != 0) return 1;
     if (test_authoring_contract_validation() != 0) return 1;
     if (test_authoring_document_validation() != 0) return 1;
+    if (test_imported_mesh_authoring_document_validation() != 0) return 1;
     if (test_runtime_contract_validation() != 0) return 1;
+    if (test_runtime_document_validation() != 0) return 1;
+    if (test_runtime_document_file_load() != 0) return 1;
+    if (test_runtime_document_file_roundtrip() != 0) return 1;
+    if (test_runtime_document_mrt0_sphere_fixtures() != 0) return 1;
     if (test_fixture_tokens() != 0) return 1;
     if (test_authoring_document_file_roundtrip() != 0) return 1;
+    if (test_imported_mesh_authoring_document_file_roundtrip() != 0) return 1;
     return 0;
 }

@@ -35,8 +35,14 @@ typedef enum CoreMeshAssetSourceMode {
     CORE_MESH_ASSET_SOURCE_MODE_UNKNOWN = 0,
     CORE_MESH_ASSET_SOURCE_MODE_PROFILE_EXTRUSION = 1,
     CORE_MESH_ASSET_SOURCE_MODE_PRIMITIVE_SEED = 2,
-    CORE_MESH_ASSET_SOURCE_MODE_REVOLVE = 3
+    CORE_MESH_ASSET_SOURCE_MODE_REVOLVE = 3,
+    CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH = 4
 } CoreMeshAssetSourceMode;
+
+typedef enum CoreMeshAssetImportedMeshSourceFormat {
+    CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_UNKNOWN = 0,
+    CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_STL = 1
+} CoreMeshAssetImportedMeshSourceFormat;
 
 typedef struct CoreMeshAssetFrame3 {
     CoreObjectVec3 origin;
@@ -73,6 +79,33 @@ typedef struct CoreMeshAssetRuntimeContract {
     bool topology_manifold_expected;
 } CoreMeshAssetRuntimeContract;
 
+typedef struct CoreMeshAssetRuntimeVertex {
+    CoreObjectVec3 position;
+} CoreMeshAssetRuntimeVertex;
+
+typedef struct CoreMeshAssetRuntimeTriangle {
+    size_t a;
+    size_t b;
+    size_t c;
+    char surface_group_id[64];
+} CoreMeshAssetRuntimeTriangle;
+
+typedef struct CoreMeshAssetSurfaceGroup {
+    char group_id[64];
+    size_t triangle_start;
+    size_t triangle_count;
+} CoreMeshAssetSurfaceGroup;
+
+typedef struct CoreMeshAssetRuntimeDocument {
+    CoreMeshAssetRuntimeContract contract;
+    size_t vertex_count;
+    CoreMeshAssetRuntimeVertex *vertices;
+    size_t triangle_count;
+    CoreMeshAssetRuntimeTriangle *triangles;
+    size_t surface_group_count;
+    CoreMeshAssetSurfaceGroup *surface_groups;
+} CoreMeshAssetRuntimeDocument;
+
 typedef struct CoreMeshAssetPlanePrimitiveSeed {
     double width;
     double height;
@@ -98,10 +131,27 @@ typedef struct CoreMeshAssetPrimitiveSeed {
     CoreMeshAssetRectPrismPrimitiveSeed rect_prism;
 } CoreMeshAssetPrimitiveSeed;
 
+typedef struct CoreMeshAssetImportedMeshSource {
+    char import_id[64];
+    CoreMeshAssetImportedMeshSourceFormat source_format;
+    char source_uri[256];
+    CoreUnitKind source_unit_kind;
+    double source_to_asset_scale;
+    char orientation_policy[64];
+    char default_surface_group_id[64];
+    bool weld_vertices;
+    double weld_tolerance;
+    bool preserve_source_normals;
+    bool topology_closed_volume_observed;
+    bool topology_manifold_observed;
+} CoreMeshAssetImportedMeshSource;
+
 typedef struct CoreMeshAssetAuthoringDocument {
     CoreMeshAssetAuthoringContract contract;
     size_t primitive_seed_count;
     CoreMeshAssetPrimitiveSeed *primitive_seeds;
+    bool has_imported_mesh_source;
+    CoreMeshAssetImportedMeshSource imported_mesh_source;
 } CoreMeshAssetAuthoringDocument;
 
 const char *core_mesh_asset_schema_variant_name(CoreMeshAssetSchemaVariant variant);
@@ -118,6 +168,15 @@ CoreResult core_mesh_asset_primitive_seed_kind_parse(const char *text,
 const char *core_mesh_asset_source_mode_name(CoreMeshAssetSourceMode mode);
 CoreResult core_mesh_asset_source_mode_parse(const char *text, CoreMeshAssetSourceMode *out_mode);
 
+const char *core_mesh_asset_imported_mesh_source_format_name(
+    CoreMeshAssetImportedMeshSourceFormat format);
+CoreResult core_mesh_asset_imported_mesh_source_format_parse(
+    const char *text,
+    CoreMeshAssetImportedMeshSourceFormat *out_format);
+void core_mesh_asset_imported_mesh_source_init(CoreMeshAssetImportedMeshSource *source);
+CoreResult core_mesh_asset_imported_mesh_source_validate(
+    const CoreMeshAssetImportedMeshSource *source);
+
 void core_mesh_asset_authoring_contract_init(CoreMeshAssetAuthoringContract *contract);
 CoreResult core_mesh_asset_authoring_contract_set_asset_id(CoreMeshAssetAuthoringContract *contract,
                                                            const char *asset_id);
@@ -131,6 +190,25 @@ CoreResult core_mesh_asset_runtime_contract_set_source_asset_id(
     CoreMeshAssetRuntimeContract *contract,
     const char *asset_id);
 CoreResult core_mesh_asset_runtime_contract_validate(const CoreMeshAssetRuntimeContract *contract);
+
+void core_mesh_asset_runtime_document_init(CoreMeshAssetRuntimeDocument *document);
+void core_mesh_asset_runtime_document_free(CoreMeshAssetRuntimeDocument *document);
+CoreResult core_mesh_asset_runtime_document_set_vertex_count(
+    CoreMeshAssetRuntimeDocument *document,
+    size_t vertex_count);
+CoreResult core_mesh_asset_runtime_document_set_triangle_count(
+    CoreMeshAssetRuntimeDocument *document,
+    size_t triangle_count);
+CoreResult core_mesh_asset_runtime_document_set_surface_group_count(
+    CoreMeshAssetRuntimeDocument *document,
+    size_t surface_group_count);
+CoreResult core_mesh_asset_runtime_document_validate(
+    const CoreMeshAssetRuntimeDocument *document);
+CoreResult core_mesh_asset_runtime_document_load_file(const char *path,
+                                                      CoreMeshAssetRuntimeDocument *out_document);
+CoreResult core_mesh_asset_runtime_document_save_file(
+    const CoreMeshAssetRuntimeDocument *document,
+    const char *path);
 
 void core_mesh_asset_authoring_document_init(CoreMeshAssetAuthoringDocument *document);
 void core_mesh_asset_authoring_document_free(CoreMeshAssetAuthoringDocument *document);
