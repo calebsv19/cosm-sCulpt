@@ -477,7 +477,7 @@ bool Global_ToggleCenterCrosshair(void) {
 static void Global_UpdateSavedSnapshot(void) {
     if (!global) return;
     if (global->lastSavedSnapshot) {
-        free(global->lastSavedSnapshot);
+        Layout_FreeString(global->lastSavedSnapshot);
         global->lastSavedSnapshot = NULL;
     }
     global->lastSavedSnapshot = Layout_SaveToString(&global->layout);
@@ -534,6 +534,9 @@ void Global_Init(int screenWidth, int screenHeight) {
     global->lastSavedSnapshot = NULL;
     memset(&global->sceneWorkspaceDocument, 0, sizeof(global->sceneWorkspaceDocument));
     memset(&global->objectWorkspaceDocument, 0, sizeof(global->objectWorkspaceDocument));
+    ObjectAuthoringSession_Init(&global->objectAuthoring);
+    ObjectAuthoringSession_Init(&global->sceneWorkspaceDocument.objectAuthoring);
+    ObjectAuthoringSession_Init(&global->objectWorkspaceDocument.objectAuthoring);
     LineDrawingDataPaths_SetDefaults(&global->dataPaths);
     LineDrawingRecentContexts_Init(&global->recentContexts);
     Global_LoadDataRoots();
@@ -574,13 +577,16 @@ void Global_Init(int screenWidth, int screenHeight) {
 
 void Global_Shutdown(void) {
     if (global->lastSavedSnapshot) {
-        free(global->lastSavedSnapshot);
+        Layout_FreeString(global->lastSavedSnapshot);
         global->lastSavedSnapshot = NULL;
     }
-    free(global->sceneWorkspaceDocument.layoutSnapshot);
+    Layout_FreeString(global->sceneWorkspaceDocument.layoutSnapshot);
     free(global->sceneWorkspaceDocument.savedSnapshot);
-    free(global->objectWorkspaceDocument.layoutSnapshot);
+    Layout_FreeString(global->objectWorkspaceDocument.layoutSnapshot);
     free(global->objectWorkspaceDocument.savedSnapshot);
+    ObjectAuthoringSession_Free(&global->objectAuthoring);
+    ObjectAuthoringSession_Free(&global->sceneWorkspaceDocument.objectAuthoring);
+    ObjectAuthoringSession_Free(&global->objectWorkspaceDocument.objectAuthoring);
     Editor_Free(&global->editor);
     Layout_Free(&global->layout);
     free(global);
@@ -644,6 +650,8 @@ void Global_FlagHitboxesDirty(void) {
 void Global_RebuildHitboxesIfDirty(void) {
     GlobalState* state = Global_Get();
     ObjectFaceSketchHitboxState object_face_sketch = {0};
+    const ObjectAuthoringDocument* object_topology = NULL;
+    bool object_topology_edit_mode = false;
     if (!state) return;
 
     Global_ProcessLayoutChanges(state);
@@ -652,29 +660,37 @@ void Global_RebuildHitboxesIfDirty(void) {
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     bool gizmoEnabled = (state->spaceMode == SPACE_MODE_3D) &&
                         SpaceAdapter_IsFreeViewEnabled(&viewCtx);
+    const bool has_object_authoring_sketch =
+        state->objectAuthoring.attached &&
+        ObjectAuthoringDocument_ActiveSketch(&state->objectAuthoring.document) != NULL;
     if (state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT &&
         (state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE ||
          state->editor.objectFaceSketchToolArmed ||
          state->editor.objectFaceSketchDragging ||
          state->editor.objectFaceSketchHasRectangle ||
+         has_object_authoring_sketch ||
          state->editor.objectFaceExtrudeToolArmed ||
          state->editor.objectFaceExtrudeDragging)) {
         gizmoEnabled = false;
     }
-    if (state->editor.objectFaceSketchHasRectangle &&
-        state->editor.selectedObjectAssetBodyId == state->editor.objectFaceSketchBodyId &&
-        state->editor.selectedObjectAssetFace == state->editor.objectFaceSketchFace) {
-        object_face_sketch.visible = true;
-        object_face_sketch.bodyId = state->editor.objectFaceSketchBodyId;
-        object_face_sketch.frame = state->editor.objectFaceSketchFrame;
-        object_face_sketch.minUV = (Vec2){
-            fminf(state->editor.objectFaceSketchStartUV.x, state->editor.objectFaceSketchCurrentUV.x),
-            fminf(state->editor.objectFaceSketchStartUV.y, state->editor.objectFaceSketchCurrentUV.y)
-        };
-        object_face_sketch.maxUV = (Vec2){
-            fmaxf(state->editor.objectFaceSketchStartUV.x, state->editor.objectFaceSketchCurrentUV.x),
-            fmaxf(state->editor.objectFaceSketchStartUV.y, state->editor.objectFaceSketchCurrentUV.y)
-        };
+    if (state->objectAuthoring.attached) {
+        const ObjectAuthoringSketch* sketch =
+            ObjectAuthoringDocument_ActiveSketch(&state->objectAuthoring.document);
+        if (state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
+            object_topology = &state->objectAuthoring.document;
+            object_topology_edit_mode =
+                state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_EDGE ||
+                state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_VERTEX;
+        }
+        if (sketch &&
+            state->editor.selectedObjectAssetBodyId == sketch->faceRef.bodyId &&
+            state->editor.selectedObjectAssetFace == sketch->faceRef.primitiveFace) {
+            object_face_sketch.visible = true;
+            object_face_sketch.bodyId = sketch->faceRef.bodyId;
+            object_face_sketch.frame = sketch->frame;
+            object_face_sketch.minUV = sketch->minUV;
+            object_face_sketch.maxUV = sketch->maxUV;
+        }
     }
     HitboxSystem_Rebuild(&state->layout,
                          state->grid.scale,
@@ -686,6 +702,8 @@ void Global_RebuildHitboxesIfDirty(void) {
                          state->editor.selectedObject3DId,
                          state->editor.selectedObject3DResizeHandle,
                          state->editor.selectedObject3DPrismHandle,
+                         object_topology,
+                         object_topology_edit_mode,
                          object_face_sketch.visible ? &object_face_sketch : NULL,
                          state->editor.selectedSceneBoundsHandle,
                          state->editor.sceneBoundsHandlesVisible,

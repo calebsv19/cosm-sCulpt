@@ -1,6 +1,7 @@
 #include "UI/input_ui_panel.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_internal.h"
+#include "UI/ui_panel_object_workspace_summary.h"
 #include "UI/ui_panel_scene_list.h"
 #include "UI/ui_panel_shell.h"
 
@@ -14,48 +15,52 @@
 #include "Editor/editor.h"
 #include "Editor/object_face_extrude.h"
 #include "Editor/object_face_sketch.h"
-
-enum {
-    UI_FILE_BROWSER_BUTTON_DOUBLE_CLICK_MS = 350
-};
+#include "ObjectAuthoring/object_authoring_document.h"
 
 static bool UIPanel_IsFileBrowserModeButton(int button_id) {
-    return button_id == UI_BTN_LOAD_JSON || button_id == UI_BTN_LOAD_SCENE;
+    return button_id == UI_BTN_LOAD_JSON ||
+           button_id == UI_BTN_LOAD_SCENE ||
+           button_id == UI_BTN_LOAD_MESH_ASSET ||
+           button_id == UI_BTN_LOAD_STL;
 }
 
 static bool UIPanel_HandleFileBrowserModeButtonClick(UIPanelState* ui, int button_id) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
-    Uint32 now = SDL_GetTicks();
-    bool is_double_click = false;
     if (!ui || !UIPanel_IsFileBrowserModeButton(button_id)) return false;
-
-    is_double_click = (ui->loadMenu.lastModeButtonId == button_id) &&
-                      (now - ui->loadMenu.lastModeButtonClickTicks <= UI_FILE_BROWSER_BUTTON_DOUBLE_CLICK_MS);
     ui->loadMenu.lastModeButtonId = button_id;
-    ui->loadMenu.lastModeButtonClickTicks = now;
+    ui->loadMenu.lastModeButtonClickTicks = SDL_GetTicks();
 
     if (object_mode) {
+        if (button_id == UI_BTN_LOAD_MESH_ASSET) {
+            UIPanel_ActivateRuntimeMeshBrowser();
+            return true;
+        }
         if (button_id == UI_BTN_LOAD_JSON) {
-            if (is_double_click) {
-                return UIPanel_OpenObjectAssetFolderDialog();
-            }
             UIPanel_ActivateObjectAssetBrowser();
+            return true;
+        }
+        if (button_id == UI_BTN_LOAD_STL) {
+            UIPanel_ActivateStlImportBrowser();
             return true;
         }
         return UIPanel_NewObjectAssetDocument();
     }
 
     if (button_id == UI_BTN_LOAD_JSON) {
-        if (is_double_click) {
-            return UIPanel_OpenJsonFolderDialog();
-        }
         UIPanel_ActivateJsonBrowser();
         return true;
     }
 
-    if (is_double_click) {
-        return UIPanel_OpenSceneFolderDialog();
+    if (button_id == UI_BTN_LOAD_MESH_ASSET) {
+        UIPanel_ActivateRuntimeMeshBrowser();
+        return true;
     }
+
+    if (button_id == UI_BTN_LOAD_STL) {
+        UIPanel_ActivateStlImportBrowser();
+        return true;
+    }
+
     UIPanel_ActivateSceneBrowser();
     return true;
 }
@@ -92,6 +97,48 @@ static void UIPanel_ObjectAuthoringClearSketch(GlobalState* state) {
         editor->selectedObjectAssetFace != OBJECT3D_FACE_NONE
             ? OBJECT_AUTHORING_MODE_FACE_SELECT
             : Editor_ObjectAuthoringIdleMode(editor);
+}
+
+static void UIPanel_ObjectEditSetSelectionMode(GlobalState* state,
+                                               ObjectEditSelectionMode mode) {
+    EditorState* editor = NULL;
+    ObjectAuthoringDocument* doc = NULL;
+    uint32_t body_id = 0u;
+    if (!state) return;
+    editor = &state->editor;
+    editor->objectEditSelectionMode = mode;
+    Editor_ObjectFaceExtrudeClear(editor);
+    Editor_ObjectFaceSketchDeselect(editor);
+
+    body_id = editor->selectedObjectAssetBodyId != 0u
+        ? editor->selectedObjectAssetBodyId
+        : editor->selectedObject3DId;
+    if (state->objectAuthoring.attached && body_id != 0u) {
+        doc = &state->objectAuthoring.document;
+        if (mode == OBJECT_EDIT_SELECTION_FACE) {
+            editor->objectAuthoringMode = Editor_ObjectAuthoringIdleMode(editor);
+        } else {
+            editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
+            editor->objectAuthoringMode = OBJECT_AUTHORING_MODE_NONE;
+            if ((mode == OBJECT_EDIT_SELECTION_VERTEX &&
+                 doc->selectionKind == OBJECT_AUTHORING_SELECTION_VERTEX &&
+                 doc->selectedVertex.vertexId != 0u) ||
+                (mode == OBJECT_EDIT_SELECTION_EDGE &&
+                 doc->selectionKind == OBJECT_AUTHORING_SELECTION_EDGE &&
+                 doc->selectedEdge.edgeId != 0u)) {
+                /* Keep an existing matching topology target live across panel focus. */
+            } else {
+                (void)ObjectAuthoringDocument_SetSelection(doc, body_id, OBJECT3D_FACE_NONE);
+            }
+        }
+    } else if (mode != OBJECT_EDIT_SELECTION_FACE) {
+        editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
+        editor->objectAuthoringMode = OBJECT_AUTHORING_MODE_NONE;
+    }
+
+    editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    Global_FlagHitboxesDirty();
 }
 
 bool UIPanel_HandleClick(int mouseX, int mouseY) {
@@ -136,6 +183,11 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
         return true;
     }
 
+    if (UIPanel_ObjectWorkspaceHandleModelTreeClick(ui, state, mouseX, mouseY)) {
+        ui->loadMenu.open = false;
+        return true;
+    }
+
     for (int i = 0; i < ui->count; ++i) {
         UIButton* btn = &ui->buttons[i];
         SDL_Rect r = btn->bounds;
@@ -170,6 +222,16 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 break;
             }
 
+            case UI_BTN_LOAD_MESH_ASSET: { // Mesh Assets
+                (void)UIPanel_HandleFileBrowserModeButtonClick(ui, btn->id);
+                break;
+            }
+
+            case UI_BTN_LOAD_STL: { // Load STL
+                (void)UIPanel_HandleFileBrowserModeButtonClick(ui, btn->id);
+                break;
+            }
+
 	case UI_BTN_EXPORT_SHAPE: { // Export Shape
                 ui->loadMenu.open = false;
                 UIPanel_ExportShape();
@@ -177,7 +239,9 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
             }
                 case UI_BTN_EXPORT_SCENE: { // Export Scene
                     ui->loadMenu.open = false;
-                    if (!object_mode) {
+                    if (object_mode) {
+                        (void)UIPanel_ExportObjectRuntimeMesh();
+                    } else {
                         UIPanel_ExportScene();
                     }
                     break;
@@ -319,9 +383,17 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     }
                     break;
                 }
+                case UI_BTN_PLACE_MESH_INSTANCE: {
+                    ui->loadMenu.open = false;
+                    if (!object_mode) {
+                        (void)UIPanel_PlaceLastRuntimeMeshAsSceneInstance();
+                    }
+                    break;
+                }
                 case UI_BTN_OBJECT_FACE_SELECT: {
                     ui->loadMenu.open = false;
                     if (object_mode) {
+                        editor->objectEditSelectionMode = OBJECT_EDIT_SELECTION_FACE;
                         UIPanel_ObjectAuthoringSetFaceSelect(state);
                         UIPanel_FocusObjectAuthoringTab(ui);
                     }
@@ -351,6 +423,16 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                         btn->id == UI_BTN_EXTRUDE_ADD
                             ? OBJECT_FACE_EXTRUDE_MODE_ADD
                             : OBJECT_FACE_EXTRUDE_MODE_CUT)) {
+                        UIPanel_FocusObjectAuthoringTab(ui);
+                    }
+                    break;
+                }
+                case UI_BTN_EXTRUDE_DEPTH_DEC:
+                case UI_BTN_EXTRUDE_DEPTH_INC: {
+                    ui->loadMenu.open = false;
+                    if (object_mode) {
+                        (void)UIPanel_AdjustObjectExtrudeDepth(
+                            btn->id == UI_BTN_EXTRUDE_DEPTH_INC ? 1 : -1);
                         UIPanel_FocusObjectAuthoringTab(ui);
                     }
                     break;
@@ -408,6 +490,38 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 case UI_BTN_EDIT_OBJECT_ROTATION_Z: {
                     ui->loadMenu.open = false;
                     (void)UIPanel_BeginObjectRotationZDialog();
+                    break;
+                }
+                case UI_BTN_OBJECT_EDIT_BODY_MODE: {
+                    ui->loadMenu.open = false;
+                    if (object_mode) {
+                        UIPanel_ObjectEditSetSelectionMode(state, OBJECT_EDIT_SELECTION_BODY);
+                        UIPanel_FocusObjectEditTab(ui);
+                    }
+                    break;
+                }
+                case UI_BTN_OBJECT_EDIT_FACE_MODE: {
+                    ui->loadMenu.open = false;
+                    if (object_mode) {
+                        UIPanel_ObjectEditSetSelectionMode(state, OBJECT_EDIT_SELECTION_FACE);
+                        UIPanel_FocusObjectEditTab(ui);
+                    }
+                    break;
+                }
+                case UI_BTN_OBJECT_EDIT_EDGE_MODE: {
+                    ui->loadMenu.open = false;
+                    if (object_mode) {
+                        UIPanel_ObjectEditSetSelectionMode(state, OBJECT_EDIT_SELECTION_EDGE);
+                        UIPanel_FocusObjectEditTab(ui);
+                    }
+                    break;
+                }
+                case UI_BTN_OBJECT_EDIT_VERTEX_MODE: {
+                    ui->loadMenu.open = false;
+                    if (object_mode) {
+                        UIPanel_ObjectEditSetSelectionMode(state, OBJECT_EDIT_SELECTION_VERTEX);
+                        UIPanel_FocusObjectEditTab(ui);
+                    }
                     break;
                 }
                 case UI_BTN_TOGGLE_SCENE_BOUNDS: { // Toggle scene bounds enabled

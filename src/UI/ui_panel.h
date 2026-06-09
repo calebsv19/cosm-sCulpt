@@ -6,7 +6,7 @@
 #include "Math/math_util.h"
 #include "core_units.h"
 
-#define MAX_UI_BUTTONS 52
+#define MAX_UI_BUTTONS 64
 
 typedef enum {
     UI_PANEL_LEFT,
@@ -23,6 +23,7 @@ typedef enum {
     UI_PANEL_RIGHT_TAB_VIEW = 0,
     UI_PANEL_RIGHT_TAB_CREATE = 1,
     UI_PANEL_RIGHT_TAB_OBJECT = 2,
+    UI_PANEL_RIGHT_TAB_EDIT = 3,
     UI_PANEL_RIGHT_TAB_COUNT
 } UIPanelRightTab;
 
@@ -40,7 +41,8 @@ typedef enum {
     UI_PANEL_GROUP_RIGHT_PRISM,
     UI_PANEL_GROUP_RIGHT_GIZMO,
     UI_PANEL_GROUP_RIGHT_TRANSFORM,
-    UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS
+    UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS,
+    UI_PANEL_GROUP_RIGHT_EDIT_SELECT
 } UIPanelGroup;
 
 typedef struct {
@@ -109,6 +111,15 @@ typedef struct {
 #define UI_BTN_OBJECT_FACE_SELECT 46
 #define UI_BTN_OBJECT_SKETCH_SELECT 47
 #define UI_BTN_OBJECT_SKETCH_CLEAR 48
+#define UI_BTN_EXTRUDE_DEPTH_DEC 49
+#define UI_BTN_EXTRUDE_DEPTH_INC 50
+#define UI_BTN_PLACE_MESH_INSTANCE 51
+#define UI_BTN_LOAD_MESH_ASSET 52
+#define UI_BTN_OBJECT_EDIT_BODY_MODE 53
+#define UI_BTN_OBJECT_EDIT_FACE_MODE 54
+#define UI_BTN_OBJECT_EDIT_EDGE_MODE 55
+#define UI_BTN_OBJECT_EDIT_VERTEX_MODE 56
+#define UI_BTN_LOAD_STL 57
 
 #define MAX_CONFIG_FILES 128
 #define MAX_CONFIG_PATH 512
@@ -117,7 +128,9 @@ typedef enum {
     UI_LOAD_MENU_MODE_NONE = 0,
     UI_LOAD_MENU_MODE_JSON = 1,
     UI_LOAD_MENU_MODE_SCENE = 2,
-    UI_LOAD_MENU_MODE_OBJECT = 3
+    UI_LOAD_MENU_MODE_OBJECT = 3,
+    UI_LOAD_MENU_MODE_RUNTIME_MESH = 4,
+    UI_LOAD_MENU_MODE_STL_IMPORT = 5
 } UILoadMenuMode;
 
 typedef enum {
@@ -191,6 +204,13 @@ typedef struct {
         SDL_Rect browserRect;
     } objectWorkspacePane;
     struct {
+        float operationScrollOffsetPx;
+        int hoverOperationIndex;
+        bool operationScrollbarDragging;
+        int operationScrollbarDragStartY;
+        float operationScrollbarDragStartOffsetPx;
+    } objectModelTree;
+    struct {
         SDL_Rect summaryRect;
         SDL_Rect detailsRect;
         SDL_Rect actionsRect;
@@ -211,6 +231,11 @@ typedef struct {
         SDL_Rect viewRect;
         SDL_Rect modesRect;
     } viewPane;
+    struct {
+        SDL_Rect summaryRect;
+        SDL_Rect workspaceRect;
+        SDL_Rect selectionModeRect;
+    } editPane;
     struct {
         float scrollOffsetPx;
         int hoverIndex;
@@ -327,8 +352,12 @@ void UIPanel_BeginSaveDialog(void);
 bool UIPanel_OpenJsonFolderDialog(void);
 bool UIPanel_OpenSceneFolderDialog(void);
 bool UIPanel_OpenObjectAssetFolderDialog(void);
+bool UIPanel_OpenDirectoryDialogForActiveBrowser(void);
 void UIPanel_ExportShape(void);
 void UIPanel_ExportScene(void);
+bool UIPanel_ExportObjectRuntimeMesh(void);
+bool UIPanel_PlaceLastRuntimeMeshAsSceneInstance(void);
+bool UIPanel_PlaceRuntimeMeshAsSceneInstance(const char* runtime_mesh_path);
 bool UIPanel_IsSaveDialogActive(void);
 bool UIPanel_IsRootDialogActive(void);
 bool UIPanel_IsPrismDimensionDialogActive(void);
@@ -347,6 +376,11 @@ void UIPanel_LoadFileBrowserMode(UIPanelState* ui);
 void UIPanel_ActivateJsonBrowser(void);
 void UIPanel_ActivateSceneBrowser(void);
 void UIPanel_ActivateObjectAssetBrowser(void);
+void UIPanel_ActivateRuntimeMeshBrowser(void);
+void UIPanel_ActivateStlImportBrowser(void);
+bool UIPanel_LoadStlFromFolderSelection(const char* selected_folder, bool persist_root);
+bool UIPanel_OpenStlFolderDialog(void);
+bool UIPanel_ImportStlAndPlaceFromPath(const char* stl_path);
 bool UIPanel_FocusFileBrowserOnActiveSession(void);
 bool UIPanel_ClearRememberedFileBrowserEntry(void);
 bool UIPanel_RestorePersistedFileSession(void);
@@ -377,6 +411,8 @@ CoreUnitKind UIPanel_GetDisplayUnit(void);
 const char* UIPanel_GetDisplayUnitSymbol(void);
 bool UIPanel_ToggleObjectGizmoRotateMode(void);
 bool UIPanel_IsObjectGizmoRotateMode(void);
+bool UIPanel_IsObjectGizmoSizeMode(void);
+const char* UIPanel_ObjectGizmoModeLabel(void);
 bool UIPanel_ToggleSceneBoundsEnabled(void);
 bool UIPanel_ToggleSceneBoundsClampOnEdit(void);
 bool UIPanel_BeginSceneBoundsMinDialog(void);
@@ -384,6 +420,7 @@ bool UIPanel_BeginSceneBoundsMaxDialog(void);
 bool UIPanel_SetConstructionPlaneAxis(ViewPlaneAxis axis);
 bool UIPanel_AdjustConstructionPlaneOffset(float delta_world);
 bool UIPanel_BeginConstructionPlaneOffsetDialog(void);
+bool UIPanel_AdjustObjectExtrudeDepth(int direction);
 bool UIPanel_BeginObjectPositionDialog(void);
 bool UIPanel_BeginObjectRotationXDialog(void);
 bool UIPanel_BeginObjectRotationYDialog(void);

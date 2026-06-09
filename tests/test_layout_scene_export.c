@@ -702,6 +702,75 @@ static bool test_canonical_scene_export_applies_scene_authoring_options(void) {
     return true;
 }
 
+static bool test_canonical_scene_export_emits_mesh_asset_instance_reference(void) {
+    const char* runtime_path = "/tmp/ld_mesh_asset_instance_scene_export.runtime.json";
+    const char* runtime_json =
+        "{"
+        "\"schema_variant\":\"mesh_asset_runtime_v1\","
+        "\"asset_id\":\"asset_scene_mesh\","
+        "\"source_asset_id\":\"source_scene_mesh\","
+        "\"vertex_count\":8,"
+        "\"triangle_count\":12,"
+        "\"local_bounds\":{"
+            "\"min\":{\"x\":-0.5,\"y\":-1.0,\"z\":-1.5},"
+            "\"max\":{\"x\":0.5,\"y\":1.0,\"z\":1.5}"
+        "}"
+        "}";
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    Transform3D transform = Layout_Transform3D_Default();
+    uint32_t object_id = 0u;
+    char diagnostics[256] = {0};
+
+    transform.position = (Vec3){ 4.0f, 5.0f, 6.0f };
+    TEST_ASSERT(ld_test_write_text_file_basic(runtime_path, runtime_json));
+    TEST_ASSERT(Layout_CreateMeshAssetInstanceFromRuntimeAsset(layout,
+                                                              runtime_path,
+                                                              &transform,
+                                                              &object_id,
+                                                              diagnostics,
+                                                              sizeof(diagnostics)));
+    TEST_ASSERT(object_id == 1u);
+
+    char* scene_json = LineDrawingCanonicalScene_ExportLayoutToString(layout, "scene_mesh_asset_instance");
+    TEST_ASSERT(scene_json != NULL);
+    cJSON* root = cJSON_Parse(scene_json);
+    TEST_ASSERT(root != NULL);
+    free(scene_json);
+
+    cJSON* objects = cJSON_GetObjectItem(root, "objects");
+    TEST_ASSERT(cJSON_IsArray(objects));
+    cJSON* obj = ld_test_find_object_by_id(objects, "obj3d_1");
+    TEST_ASSERT(cJSON_IsObject(obj));
+    TEST_ASSERT(strcmp(cJSON_GetObjectItem(obj, "object_type")->valuestring, "mesh_asset_instance") == 0);
+    {
+        cJSON* geometry_ref = cJSON_GetObjectItem(obj, "geometry_ref");
+        cJSON* extensions = cJSON_GetObjectItem(obj, "extensions");
+        cJSON* line_ext = cJSON_IsObject(extensions) ? cJSON_GetObjectItem(extensions, "line_drawing") : NULL;
+        cJSON* local_bounds = cJSON_IsObject(line_ext) ? cJSON_GetObjectItem(line_ext, "local_bounds") : NULL;
+        TEST_ASSERT(cJSON_IsObject(geometry_ref));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(geometry_ref, "kind")->valuestring, "mesh_asset") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(geometry_ref, "id")->valuestring, "asset_scene_mesh") == 0);
+        TEST_ASSERT(cJSON_IsObject(line_ext));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(line_ext, "geometry_source")->valuestring,
+                           "mesh_asset_instance") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(line_ext, "runtime_mesh_path")->valuestring,
+                           runtime_path) == 0);
+        TEST_ASSERT(cJSON_GetObjectItem(line_ext, "runtime_triangle_count")->valueint == 12);
+        TEST_ASSERT(cJSON_IsObject(local_bounds));
+        TEST_ASSERT(ld_test_json_vec3_matches(cJSON_GetObjectItem(local_bounds, "min"),
+                                              (Vec3){ -0.5f, -1.0f, -1.5f }));
+        TEST_ASSERT(ld_test_json_vec3_matches(cJSON_GetObjectItem(local_bounds, "max"),
+                                              (Vec3){ 0.5f, 1.0f, 1.5f }));
+    }
+
+    cJSON_Delete(root);
+    remove(runtime_path);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_canonical_scene_export_rejects_invalid_scene_authoring_options(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
@@ -748,6 +817,8 @@ bool test_layout_scene_export_run_tests(void) {
           test_layout_fixture_mixed_2d_3d_export_contract },
         { "CanonicalSceneExportAppliesSceneAuthoringOptions",
           test_canonical_scene_export_applies_scene_authoring_options },
+        { "CanonicalSceneExportEmitsMeshAssetInstanceReference",
+          test_canonical_scene_export_emits_mesh_asset_instance_reference },
         { "CanonicalSceneExportRejectsInvalidSceneAuthoringOptions",
           test_canonical_scene_export_rejects_invalid_scene_authoring_options }
     };

@@ -45,6 +45,28 @@ class Footprint:
     depth: float
 
 
+@dataclass
+class SubjectBounds:
+    object_id: str
+    x: float
+    y: float
+    z: float
+    radius: float
+    height: float
+
+
+@dataclass
+class LightingContext:
+    subject: SubjectBounds
+    front_x: float
+    front_y: float
+    front_angle: float
+    radius: float
+    front_limit_degrees: float
+    allow_backlight: bool
+    ambient_mode: str
+
+
 def load_json(path: Path) -> dict:
     return json.loads(path.read_text())
 
@@ -117,6 +139,365 @@ def rect_prism_footprint(obj: dict) -> Optional[Footprint]:
         z_max=z_max,
         depth=depth,
     )
+
+
+def object_subject_bounds(obj: dict) -> Optional[SubjectBounds]:
+    object_id = obj.get("id")
+    if not object_id:
+        return None
+    kind = obj.get("kind")
+    pos = obj.get("position", {})
+    x = float(pos.get("x", 0.0))
+    y = float(pos.get("y", 0.0))
+    z = float(pos.get("z", 0.0))
+    if kind == "rect_prism":
+        axis = obj.get("axis", "xy")
+        width = float(obj.get("width", 0.0))
+        height = float(obj.get("height", 0.0))
+        depth = float(obj.get("depth", 0.0))
+        if axis == "xy":
+            hz = depth * 0.5
+            radius = max(width, height) * 0.5
+        elif axis == "xz":
+            hz = height * 0.5
+            radius = max(width, depth) * 0.5
+        elif axis == "yz":
+            hz = height * 0.5
+            radius = max(depth, width) * 0.5
+        else:
+            return None
+        return SubjectBounds(object_id, x, y, z, max(0.1, radius), max(0.1, hz * 2.0))
+    if kind == "mesh_asset_instance":
+        scale = obj.get("scale", {})
+        sx = abs(float(scale.get("x", 1.0)))
+        sy = abs(float(scale.get("y", 1.0)))
+        sz = abs(float(scale.get("z", 1.0)))
+        radius = max(0.25, max(sx, sy) * 0.75)
+        height = max(0.25, sz * 1.5)
+        return SubjectBounds(object_id, x, y, z, radius, height)
+    return None
+
+
+def resolve_subject_bounds(request: dict, authoring: dict, policy: dict) -> SubjectBounds:
+    subject_id = policy.get("subject_object_id") or policy.get("subject_id")
+    selector = policy.get("subject")
+    if isinstance(selector, dict):
+        subject_id = selector.get("object_id") or subject_id
+    candidates = [
+        bounds
+        for bounds in (object_subject_bounds(obj) for obj in request.get("objects", []))
+        if bounds is not None
+    ]
+    if subject_id:
+        for bounds in candidates:
+            if bounds.object_id == subject_id:
+                return bounds
+    non_floor = [
+        bounds
+        for bounds in candidates
+        if not bounds.object_id.lower().startswith("floor")
+    ]
+    if non_floor:
+        cx = sum(item.x for item in non_floor) / len(non_floor)
+        cy = sum(item.y for item in non_floor) / len(non_floor)
+        cz = sum(item.z for item in non_floor) / len(non_floor)
+        radius = max(
+            max(math.hypot(item.x - cx, item.y - cy) + item.radius for item in non_floor),
+            0.25,
+        )
+        height = max(item.height for item in non_floor)
+        return SubjectBounds("subject_cluster", cx, cy, cz, radius, height)
+    focus = authoring.get("camera_focus_target", {})
+    return SubjectBounds(
+        "camera_focus_target",
+        float(focus.get("x", 0.0)),
+        float(focus.get("y", 0.0)),
+        float(focus.get("z", 1.0)),
+        0.75,
+        1.5,
+    )
+
+
+def normalize_xy(x: float, y: float, fallback: Tuple[float, float] = (0.0, -1.0)) -> Tuple[float, float]:
+    length = math.hypot(x, y)
+    if length < 1e-9:
+        return fallback
+    return x / length, y / length
+
+
+def first_path_point(path: dict) -> Optional[Tuple[float, float]]:
+    points = path.get("points", []) if isinstance(path, dict) else []
+    if not points:
+        return None
+    point = points[0]
+    return (float(point.get("x", 0.0)), float(point.get("y", 0.0)))
+
+
+def resolve_front_vector(authoring: dict, subject: SubjectBounds, policy: dict) -> Tuple[float, float, float]:
+    front_reference = policy.get("front_reference", "camera")
+    if front_reference == "explicit_vector":
+        vector = policy.get("front_vector") or policy.get("explicit_vector") or {}
+        vx, vy = normalize_xy(float(vector.get("x", 0.0)), float(vector.get("y", -1.0)))
+    elif front_reference == "object_forward":
+        vector = policy.get("object_forward") or {}
+        vx, vy = normalize_xy(float(vector.get("x", 0.0)), float(vector.get("y", -1.0)))
+    else:
+        camera = first_path_point(authoring.get("camera_path", {}))
+        if camera is None:
+            camera = (subject.x, subject.y - 4.0)
+        vx, vy = normalize_xy(camera[0] - subject.x, camera[1] - subject.y)
+    return vx, vy, math.atan2(vy, vx)
+
+
+def lighting_policy_bool(policy: dict, key: str, default: bool) -> bool:
+    value = policy.get(key)
+    if value is None:
+        return default
+    return bool(value)
+
+
+def ambient_policy_defaults(mode: str) -> dict:
+    if mode == "none":
+        return {"mode": "none", "ambient_strength": 0.0, "top_fill_strength": 0.0}
+    if mode == "transparent_fill":
+        return {"mode": "transparent_fill", "ambient_strength": 0.42, "top_fill_strength": 2.2}
+    if mode == "studio":
+        return {"mode": "studio", "ambient_strength": 0.32, "top_fill_strength": 1.6}
+    return {"mode": "review_fill", "ambient_strength": 0.28, "top_fill_strength": 1.2}
+
+
+def apply_ambient_policy(authoring: dict, ambient_policy: Optional[dict], required_mode: Optional[str] = None) -> dict:
+    policy = dict(ambient_policy or {})
+    mode = policy.get("mode") or required_mode or "none"
+    if required_mode and mode == "none":
+        mode = required_mode
+    normalized = ambient_policy_defaults(mode)
+    normalized.update(policy)
+    normalized["mode"] = mode
+    ambient_strength = clamp(float(normalized.get("ambient_strength", 0.0)), 0.0, 1.0)
+    top_fill_strength = clamp(float(normalized.get("top_fill_strength", 0.0)), 0.0, 20.0)
+    environment_brightness = normalized.get("environment_brightness")
+    environment = authoring.setdefault("environment", {})
+    if mode == "none":
+        environment["light_mode"] = 0
+        environment["ambient_strength"] = 0.0
+        environment["top_fill_strength"] = top_fill_strength
+    else:
+        environment["light_mode"] = 2 if ambient_strength > 0.0 else 1
+        environment["ambient_strength"] = ambient_strength
+        environment["top_fill_strength"] = top_fill_strength
+    if environment_brightness is not None:
+        environment["ambient_brightness"] = clamp(float(environment_brightness), 0.0, 255.0)
+    normalized["ambient_strength"] = ambient_strength
+    normalized["top_fill_strength"] = top_fill_strength
+    authoring["ambient_policy"] = normalized
+    return normalized
+
+
+def make_path_point(x: float,
+                    y: float,
+                    rotation: float = 0.0,
+                    vx1: float = 0.0,
+                    vy1: float = 0.0,
+                    vx2: float = 0.0,
+                    vy2: float = 0.0) -> dict:
+    point = {
+        "x": round(x, 4),
+        "y": round(y, 4),
+        "rotation": round(rotation, 6),
+        "handleLink": False,
+    }
+    if abs(vx1) > 1e-9 or abs(vy1) > 1e-9:
+        point["velocity1"] = {"vx": round(vx1, 4), "vy": round(vy1, 4)}
+    if abs(vx2) > 1e-9 or abs(vy2) > 1e-9:
+        point["velocity2"] = {"vx": round(vx2, 4), "vy": round(vy2, 4)}
+    return point
+
+
+def emit_polyline_path(points: List[Tuple[float, float]]) -> dict:
+    out = []
+    for idx, (x, y) in enumerate(points):
+        if idx == 0 and len(points) > 1:
+            nx, ny = points[idx + 1]
+            out.append(make_path_point(x, y, vx1=(nx - x) * 0.35, vy1=(ny - y) * 0.35))
+        elif idx == len(points) - 1 and idx > 0:
+            px, py = points[idx - 1]
+            out.append(make_path_point(x, y, vx2=-(x - px) * 0.35, vy2=-(y - py) * 0.35))
+        elif idx > 0 and idx < len(points) - 1:
+            px, py = points[idx - 1]
+            nx, ny = points[idx + 1]
+            out.append(
+                make_path_point(
+                    x,
+                    y,
+                    vx1=(nx - x) * 0.25,
+                    vy1=(ny - y) * 0.25,
+                    vx2=-(x - px) * 0.25,
+                    vy2=-(y - py) * 0.25,
+                )
+            )
+        else:
+            out.append(make_path_point(x, y))
+    return {"mode": "BEZIER_CUBIC", "points": out}
+
+
+def angle_points(subject: SubjectBounds,
+                 front_angle: float,
+                 radius: float,
+                 offsets: List[float]) -> List[Tuple[float, float]]:
+    points = []
+    for offset in offsets:
+        angle = front_angle + offset
+        points.append((subject.x + math.cos(angle) * radius, subject.y + math.sin(angle) * radius))
+    return points
+
+
+def z_values_for_policy(subject: SubjectBounds,
+                        policy: dict,
+                        mode: str,
+                        point_count: int) -> List[float]:
+    height_mode = policy.get("height_mode")
+    if mode == "front_corkscrew":
+        height_mode = "corkscrew"
+    elif mode in ("front_vertical_sweep",):
+        height_mode = "vertical_sweep"
+    elif mode == "high_shadow_orbit" and height_mode is None:
+        height_mode = "above_object"
+    elif height_mode is None:
+        height_mode = "object_height"
+    base = subject.z + subject.height * 0.75
+    if height_mode == "above_object":
+        z = subject.z + max(subject.height * 1.8, 2.0)
+        return [z for _ in range(point_count)]
+    if height_mode == "vertical_sweep":
+        vertical_range = float(policy.get("vertical_range", max(0.8, subject.height * 0.8)))
+        low = subject.z + subject.height * 0.35
+        high = low + vertical_range
+        if point_count <= 1:
+            return [high]
+        return [low + (high - low) * (idx / float(point_count - 1)) for idx in range(point_count)]
+    if height_mode == "corkscrew":
+        vertical_range = float(policy.get("vertical_range", max(0.6, subject.height * 0.65)))
+        mid = subject.z + subject.height * 0.8
+        return [
+            mid + math.sin(idx * math.pi * 0.85) * vertical_range * 0.5
+            for idx in range(point_count)
+        ]
+    return [base for _ in range(point_count)]
+
+
+def emit_depth_path(z_values: List[float]) -> dict:
+    points = []
+    for idx, z in enumerate(z_values):
+        point = {"z": round(z, 4)}
+        if idx == 0 and len(z_values) > 1:
+            point["velocity1"] = {"vz": round((z_values[idx + 1] - z) * 0.35, 4)}
+        elif idx == len(z_values) - 1 and idx > 0:
+            point["velocity2"] = {"vz": round(-(z - z_values[idx - 1]) * 0.35, 4)}
+        elif idx > 0 and idx < len(z_values) - 1:
+            point["velocity1"] = {"vz": round((z_values[idx + 1] - z) * 0.25, 4)}
+            point["velocity2"] = {"vz": round(-(z - z_values[idx - 1]) * 0.25, 4)}
+        points.append(point)
+    return {"points": points}
+
+
+def build_lighting_context(request: dict, authoring: dict, policy: dict, ambient_mode: str) -> LightingContext:
+    subject = resolve_subject_bounds(request, authoring, policy)
+    front_x, front_y, front_angle = resolve_front_vector(authoring, subject, policy)
+    radius_scale = float(policy.get("radius_scale", 2.3))
+    radius = max(0.7, subject.radius * radius_scale)
+    front_limit = clamp(float(policy.get("front_hemisphere_degrees", 150.0)), 20.0, 180.0)
+    allow_backlight = lighting_policy_bool(policy, "allow_backlight", False)
+    return LightingContext(subject, front_x, front_y, front_angle, radius, front_limit, allow_backlight, ambient_mode)
+
+
+def signed_front_angle_degrees(point: Tuple[float, float], context: LightingContext) -> float:
+    dx = point[0] - context.subject.x
+    dy = point[1] - context.subject.y
+    vx, vy = normalize_xy(dx, dy)
+    dot = clamp(vx * context.front_x + vy * context.front_y, -1.0, 1.0)
+    return math.degrees(math.acos(dot))
+
+
+def synthesize_lighting_policy(request: dict) -> dict:
+    authoring = request.setdefault("extensions", {}).setdefault("ray_tracing", {}).setdefault("authoring", {})
+    policy = authoring.get("lighting_policy")
+    if not isinstance(policy, dict):
+        return {"applied": False, "reason": "no_lighting_policy"}
+
+    mode = policy.get("mode", "front_key_orbit")
+    ambient_required = None
+    if mode == "transparent_review":
+        ambient_required = "transparent_fill"
+    elif mode == "rim_light" and lighting_policy_bool(policy, "ambient_required_for_backlight", True):
+        ambient_required = "review_fill"
+    ambient = apply_ambient_policy(authoring, authoring.get("ambient_policy"), ambient_required)
+    context = build_lighting_context(request, authoring, policy, ambient.get("mode", "none"))
+
+    revolutions = max(0.1, float(policy.get("revolutions", 1.0)))
+    front_half = math.radians(context.front_limit_degrees * 0.5)
+    if mode == "front_corkscrew":
+        count = max(5, int(math.ceil(revolutions * 6.0)))
+        offsets = [
+            math.sin(idx * math.pi * 2.0 / max(1.0, count - 1.0) * revolutions) * front_half * 0.75
+            for idx in range(count)
+        ]
+    elif mode == "front_vertical_sweep":
+        offsets = [0.0, 0.0, 0.0]
+    elif mode in ("full_orbit", "fixed_height_orbit", "high_shadow_orbit"):
+        count = max(5, int(math.ceil(revolutions * 8.0)) + 1)
+        offsets = [math.pi * 2.0 * revolutions * idx / float(count - 1) for idx in range(count)]
+    elif mode == "rim_light":
+        back_angle = context.front_angle + math.pi
+        offsets = [
+            back_angle - context.front_angle - math.radians(28.0),
+            back_angle - context.front_angle,
+            back_angle - context.front_angle + math.radians(28.0),
+        ]
+    else:
+        offsets = [-front_half * 0.85, -front_half * 0.35, 0.0, front_half * 0.35, front_half * 0.85]
+
+    if mode == "high_shadow_orbit":
+        radius = context.radius * 1.25
+    elif mode == "front_corkscrew":
+        radius = context.radius * 0.78
+    else:
+        radius = context.radius
+    points = angle_points(context.subject, context.front_angle, radius, offsets)
+    z_values = z_values_for_policy(context.subject, policy, mode, len(points))
+
+    authoring["light_path"] = emit_polyline_path(points)
+    authoring["light_path_depth"] = emit_depth_path(z_values)
+
+    first_angle = signed_front_angle_degrees(points[0], context)
+    hemisphere_violations = [
+        idx
+        for idx, point in enumerate(points)
+        if signed_front_angle_degrees(point, context) > context.front_limit_degrees * 0.5 + 1e-5
+    ]
+    front_biased = mode in ("front_key_orbit", "front_corkscrew", "front_vertical_sweep", "transparent_review")
+    if front_biased and not context.allow_backlight:
+        assert first_angle <= 90.0 + 1e-5
+        assert not hemisphere_violations
+
+    return {
+        "applied": True,
+        "mode": mode,
+        "subject": {
+            "object_id": context.subject.object_id,
+            "x": round(context.subject.x, 4),
+            "y": round(context.subject.y, 4),
+            "z": round(context.subject.z, 4),
+            "radius": round(context.subject.radius, 4),
+            "height": round(context.subject.height, 4),
+        },
+        "front_vector": {"x": round(context.front_x, 4), "y": round(context.front_y, 4)},
+        "radius": round(radius, 4),
+        "first_camera_side_degrees": round(first_angle, 4),
+        "front_hemisphere_violations": hemisphere_violations,
+        "ambient_policy": ambient,
+        "path_point_count": len(points),
+    }
 
 
 def is_transparent_tall_prism(obj: dict, material: Optional[dict]) -> bool:
@@ -370,9 +751,12 @@ def count_path_collisions(samples: List[Tuple[float, float]], footprints: List[F
 
 def apply_light_path_pass(request: dict, transparent_footprints: List[Footprint]) -> dict:
     authoring = request.setdefault("extensions", {}).setdefault("ray_tracing", {}).setdefault("authoring", {})
+    policy_result = synthesize_lighting_policy(request)
+    if policy_result.get("applied"):
+        return policy_result
     floor = find_floor_bounds(request)
     if not floor or not transparent_footprints:
-        return {"applied": False}
+        return policy_result
     before = count_path_collisions(light_path_samples(authoring), transparent_footprints)
 
     min_x, max_x, min_y, max_y = floor

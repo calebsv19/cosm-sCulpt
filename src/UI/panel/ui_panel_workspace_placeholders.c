@@ -70,15 +70,15 @@ void Render_UIPanelObjectWorkspaceLeftPlaceholder(const UIPanelState* ui, SDL_Re
     if (ui->activeLeftTab == UI_PANEL_LEFT_TAB_SCENE) {
         Placeholder_DrawCard(renderer,
                              ui->objectWorkspacePane.summaryRect,
-                             "Object Workspace",
-                             "Reusable mesh-asset authoring scaffold is active.",
-                             "Closed profiles, extrude, inset, and face editing land next.",
+                             "Model",
+                             "Object-local document structure lives here.",
+                             "Bodies, sketches, and operations become the model tree.",
                              "Use the top bar to switch back to Scene Workspace.");
         Placeholder_DrawCard(renderer,
                              ui->objectWorkspacePane.browserRect,
-                             "Asset Browser",
-                             "Saved object assets are not wired into this pane yet.",
-                             "This area will become the local object structure and asset list.",
+                             "History",
+                             "The operation stack is the editable CAD source.",
+                             "Asset browsing lives in the Assets tab.",
                              "");
     }
 }
@@ -89,28 +89,28 @@ void Render_UIPanelObjectWorkspaceRightPlaceholder(const UIPanelState* ui, SDL_R
     if (ui->activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) {
         Placeholder_DrawCard(renderer,
                              ui->createPane.summaryRect,
-                             "Shape Tools",
-                             "Shape-authoring controls are scaffolded but not active yet.",
-                             "The first editing lane will focus on profile-to-mesh creation.",
+                             "Tools",
+                             "CAD tools and active tool parameters live here.",
+                             "Sketch and solid operations share this task lane.",
                              "");
         Placeholder_DrawCard(renderer,
                              ui->createPane.workspaceRect,
-                             "Near-Term Tool Slice",
-                             "1. Draw a closed profile on a construction plane.",
-                             "2. Extrude into a reusable mesh asset.",
-                             "3. Add inset and face-move operations.");
+                             "Active Tool",
+                             "Tool setup, accept/cancel, and diagnostics land here.",
+                             "The viewport stays focused on object-local editing.",
+                             "");
     } else if (ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) {
         Placeholder_DrawCard(renderer,
                              ui->objectPane.summaryRect,
-                             "Asset Inspector",
-                             "Object-asset metadata and save controls land in this tab.",
-                             "Per-asset bounds, pivot, and compile hints will live here.",
+                             "Properties",
+                             "Selected body, face, sketch, or operation details live here.",
+                             "Asset-level file controls stay in the Assets tab.",
                              "");
         Placeholder_DrawCard(renderer,
                              ui->objectPane.detailsRect,
-                             "Headless Authoring Path",
-                             "This lane will also host prompt-driven object creation hooks.",
-                             "The same shared mesh asset contract will back manual and agent-built objects.",
+                             "Selection Details",
+                             "Dimensions, transforms, materials, and diagnostics land here.",
+                             "The first pass keeps existing behavior wired.",
                              "");
     }
 }

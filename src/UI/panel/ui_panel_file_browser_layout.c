@@ -111,6 +111,26 @@ SDL_Rect UIPanel_GetLoadMenuScrollThumbRect(const UIPanelState* ui) {
     return thumb;
 }
 
+SDL_Rect UIPanel_GetLoadMenuSetDirectoryButtonRect(const UIPanelState* ui) {
+    SDL_Rect rect = UIPanel_GetLoadMenuRect(ui);
+    SDL_Rect button = {0, 0, 0, 0};
+    const int button_w = 92;
+    const int button_h = 18;
+    if (!ui || rect.w <= 0 || rect.h <= 0 || ui->loadMenu.mode == UI_LOAD_MENU_MODE_NONE) {
+        return button;
+    }
+    button.w = button_w;
+    button.h = button_h;
+    button.x = rect.x + rect.w - UI_LOAD_MENU_PADDING_PX - button.w;
+    button.y = rect.y + 5;
+    if (button.x < rect.x + UI_LOAD_MENU_PADDING_PX) {
+        button.x = rect.x + UI_LOAD_MENU_PADDING_PX;
+        button.w = rect.w - (UI_LOAD_MENU_PADDING_PX * 2);
+        if (button.w < 0) button.w = 0;
+    }
+    return button;
+}
+
 int UIPanel_LoadMenuIndexAtPoint(const UIPanelState* ui, int mouseX, int mouseY) {
     SDL_Rect clip = UIPanel_GetLoadMenuListClipRect(ui);
     int content_y = 0;

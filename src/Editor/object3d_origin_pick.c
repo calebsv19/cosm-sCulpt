@@ -92,7 +92,9 @@ bool Editor_PickNearestObject3DOrigin(const Layout* layout,
 
         if (!Layout_ObjectStore_ValidateObject(object)) continue;
 
-        Vec2 originView = SpaceAdapter_ProjectToView(object->transform.position, viewCtx);
+        Vec3 originWorld = object->transform.position;
+        (void)Layout_Object3D_ComputeVisualCenter(object, &originWorld);
+        Vec2 originView = SpaceAdapter_ProjectToView(originWorld, viewCtx);
         Vec2 originScreen = WorldToScreen(originView, grid);
         dx = originScreen.x - (float)mouseX;
         dy = originScreen.y - (float)mouseY;

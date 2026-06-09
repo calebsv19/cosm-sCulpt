@@ -1,0 +1,109 @@
+{
+  "schema": "line_drawing_agent_scene_request_v1",
+  "scene_id": "agent_high_quality_mesh_sphere",
+  "scene_name": "Agent High Quality Mesh Sphere",
+  "grid_size": 0.5,
+  "bounds": {
+    "enabled": true,
+    "clamp_on_edit": true,
+    "min": { "x": -3.0, "y": -3.0, "z": -0.25 },
+    "max": { "x": 3.0, "y": 3.0, "z": 3.2 }
+  },
+  "construction_plane": {
+    "axis": "xy",
+    "offset": 0.0
+  },
+  "scene_options": {
+    "material_id": "mat_high_quality_default",
+    "material_type": "flat_color",
+    "light_id": "light_high_quality_key",
+    "light_type": "point",
+    "camera_id": "cam_high_quality_default",
+    "camera_type": "perspective"
+  },
+  "extensions": {
+    "ray_tracing": {
+      "authoring": {
+        "camera_focus_target": { "x": 0.0, "y": 0.0, "z": 0.65 },
+        "object_materials": [
+          { "object_id": "floor", "material_id": 0, "object_color": 7304303, "roughness": 0.85 },
+          { "object_id": "high_quality_sphere", "material_id": 0, "object_color": 12933707, "roughness": 0.46 }
+        ],
+        "light_path": {
+          "mode": "BEZIER_CUBIC",
+          "points": [
+            {
+              "x": 0.0,
+              "y": 0.0,
+              "rotation": 0.0,
+              "handleLink": false,
+              "velocity1": { "vx": 0.0, "vy": 0.0 }
+            },
+            {
+              "x": 0.0,
+              "y": 0.0,
+              "rotation": 0.0,
+              "handleLink": false,
+              "velocity2": { "vx": 0.0, "vy": 0.0 }
+            }
+          ]
+        },
+        "light_path_depth": {
+          "points": [
+            { "z": 2.35, "velocity1": { "vz": 0.0 } },
+            { "z": 2.35, "velocity2": { "vz": 0.0 } }
+          ]
+        },
+        "camera_path": {
+          "mode": "BEZIER_CUBIC",
+          "points": [
+            {
+              "x": 0.0,
+              "y": -4.2,
+              "rotation": 0.0,
+              "handleLink": false,
+              "velocity1": { "vx": 0.0, "vy": 0.0 }
+            },
+            {
+              "x": 0.0,
+              "y": -4.2,
+              "rotation": 0.0,
+              "handleLink": false,
+              "velocity2": { "vx": 0.0, "vy": 0.0 }
+            }
+          ]
+        },
+        "camera_path_depth": {
+          "points": [
+            { "z": 1.55, "lookPitch": -0.05, "velocity1": { "vz": 0.0 } },
+            { "z": 1.55, "lookPitch": -0.05, "velocity2": { "vz": 0.0 } }
+          ]
+        }
+      }
+    }
+  },
+  "objects": [
+    {
+      "id": "floor",
+      "kind": "plane",
+      "axis": "xy",
+      "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "width": 4.2,
+      "height": 4.2,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true
+    },
+    {
+      "id": "high_quality_sphere",
+      "kind": "mesh_asset_instance",
+      "asset_id": "asset_sphere_128x64",
+      "asset_source_path": "../../../ray_tracing/tests/fixtures/mesh_asset_runtime_spheres/assets/mesh_assets/asset_sphere_128x64.runtime.json",
+      "variant": "runtime_default",
+      "material_id": "mat_high_quality_sphere",
+      "position": { "x": 0.0, "y": 0.0, "z": 0.62 },
+      "rotation": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "scale": { "x": 0.52, "y": 0.52, "z": 0.52 },
+      "lock_to_bounds": true
+    }
+  ]
+}

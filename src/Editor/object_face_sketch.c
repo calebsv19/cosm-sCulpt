@@ -71,6 +71,53 @@ static Vec2 ObjectFaceSketch_WorldToFaceUV(const PlaneFrame3* frame, Vec3 world)
     };
 }
 
+static ObjectAuthoringSession* ObjectFaceSketch_GlobalSessionForEditor(EditorState* editor) {
+    GlobalState* state = Global_Get();
+    if (!state || editor != &state->editor || !state->objectAuthoring.attached) {
+        return NULL;
+    }
+    return &state->objectAuthoring;
+}
+
+static void ObjectFaceSketch_SyncCommittedRectangleToSession(EditorState* editor) {
+    ObjectAuthoringSession* session = NULL;
+    Vec2 min_uv = {0};
+    Vec2 max_uv = {0};
+    if (!editor || !editor->objectFaceSketchHasRectangle) return;
+    session = ObjectFaceSketch_GlobalSessionForEditor(editor);
+    if (!session) return;
+    min_uv = (Vec2){
+        fminf(editor->objectFaceSketchStartUV.x, editor->objectFaceSketchCurrentUV.x),
+        fminf(editor->objectFaceSketchStartUV.y, editor->objectFaceSketchCurrentUV.y)
+    };
+    max_uv = (Vec2){
+        fmaxf(editor->objectFaceSketchStartUV.x, editor->objectFaceSketchCurrentUV.x),
+        fmaxf(editor->objectFaceSketchStartUV.y, editor->objectFaceSketchCurrentUV.y)
+    };
+    (void)ObjectAuthoringSession_SetRectangleSketch(session,
+                                                    editor->objectFaceSketchBodyId,
+                                                    editor->objectFaceSketchFace,
+                                                    editor->objectFaceSketchFrame,
+                                                    min_uv,
+                                                    max_uv,
+                                                    NULL);
+}
+
+static bool ObjectFaceSketch_BuildActiveSessionSketch(const GlobalState* state,
+                                                      ObjectAuthoringSketch* out_sketch) {
+    const ObjectAuthoringSketch* sketch = NULL;
+    if (out_sketch) {
+        *out_sketch = (ObjectAuthoringSketch){0};
+    }
+    if (!state || !state->objectAuthoring.attached) return false;
+    sketch = ObjectAuthoringDocument_ActiveSketch(&state->objectAuthoring.document);
+    if (!sketch) return false;
+    if (out_sketch) {
+        *out_sketch = *sketch;
+    }
+    return true;
+}
+
 static void ObjectFaceSketch_DrawHorizontalLine(SDL_Renderer* renderer,
                                                 int y,
                                                 float x0,
@@ -156,14 +203,14 @@ static void ObjectFaceSketch_FillTriangle(SDL_Renderer* renderer, Vec2 p0, Vec2 
     }
 }
 
-static void ObjectFaceSketch_FaceUVToWorldCorners(const EditorState* editor, Vec3 out_corners[4]) {
-    Vec2 min_uv = {0};
-    Vec2 max_uv = {0};
-    const Vec3 axis_u = Vec3_Normalize(editor->objectFaceSketchFrame.axisU);
-    const Vec3 axis_v = Vec3_Normalize(editor->objectFaceSketchFrame.axisV);
-    const Vec3 origin = editor->objectFaceSketchFrame.origin;
+static void ObjectFaceSketch_FaceUVToWorldCorners(PlaneFrame3 frame,
+                                                  Vec2 min_uv,
+                                                  Vec2 max_uv,
+                                                  Vec3 out_corners[4]) {
+    const Vec3 axis_u = Vec3_Normalize(frame.axisU);
+    const Vec3 axis_v = Vec3_Normalize(frame.axisV);
+    const Vec3 origin = frame.origin;
 
-    Editor_ObjectFaceSketchGetRectangleUV(editor, &min_uv, &max_uv);
     out_corners[0] = Vec3_Add(origin, Vec3_Add(Vec3_Scale(axis_u, min_uv.x), Vec3_Scale(axis_v, min_uv.y)));
     out_corners[1] = Vec3_Add(origin, Vec3_Add(Vec3_Scale(axis_u, max_uv.x), Vec3_Scale(axis_v, min_uv.y)));
     out_corners[2] = Vec3_Add(origin, Vec3_Add(Vec3_Scale(axis_u, max_uv.x), Vec3_Scale(axis_v, max_uv.y)));
@@ -171,7 +218,11 @@ static void ObjectFaceSketch_FaceUVToWorldCorners(const EditorState* editor, Vec
 }
 
 void Editor_ObjectFaceSketchClear(EditorState* editor) {
+    ObjectAuthoringSession* session = ObjectFaceSketch_GlobalSessionForEditor(editor);
     if (!editor) return;
+    if (session) {
+        (void)ObjectAuthoringSession_ClearActiveSketch(session);
+    }
     editor->objectFaceSketchToolArmed = false;
     editor->objectFaceSketchDragging = false;
     editor->objectFaceSketchHasRectangle = false;
@@ -228,6 +279,22 @@ void Editor_ObjectFaceSketchDeselect(EditorState* editor) {
     }
 }
 
+bool Editor_ObjectFaceSketchSyncFromAuthoring(GlobalState* state) {
+    ObjectAuthoringSketch sketch = {0};
+    if (!state) return false;
+    if (!ObjectFaceSketch_BuildActiveSessionSketch(state, &sketch)) return false;
+
+    state->editor.objectFaceSketchToolArmed = false;
+    state->editor.objectFaceSketchDragging = false;
+    state->editor.objectFaceSketchHasRectangle = true;
+    state->editor.objectFaceSketchBodyId = sketch.faceRef.bodyId;
+    state->editor.objectFaceSketchFace = sketch.faceRef.primitiveFace;
+    state->editor.objectFaceSketchFrame = sketch.frame;
+    state->editor.objectFaceSketchStartUV = sketch.minUV;
+    state->editor.objectFaceSketchCurrentUV = sketch.maxUV;
+    return true;
+}
+
 void Editor_ObjectFaceSketchGetRectangleUV(const EditorState* editor,
                                            Vec2* out_min_uv,
                                            Vec2* out_max_uv) {
@@ -259,6 +326,14 @@ void Editor_ObjectFaceSketchSetRectangleUV(EditorState* editor,
     editor->objectFaceSketchHasRectangle =
         fabsf(editor->objectFaceSketchCurrentUV.x - editor->objectFaceSketchStartUV.x) > 1e-3f &&
         fabsf(editor->objectFaceSketchCurrentUV.y - editor->objectFaceSketchStartUV.y) > 1e-3f;
+    if (editor->objectFaceSketchHasRectangle) {
+        ObjectFaceSketch_SyncCommittedRectangleToSession(editor);
+    } else {
+        ObjectAuthoringSession* session = ObjectFaceSketch_GlobalSessionForEditor(editor);
+        if (session) {
+            (void)ObjectAuthoringSession_ClearActiveSketch(session);
+        }
+    }
 }
 
 bool Editor_ObjectFaceSketchArmRectangle(GlobalState* state) {
@@ -283,6 +358,11 @@ bool Editor_ObjectFaceSketchArmRectangle(GlobalState* state) {
     state->editor.objectFaceSketchBodyId = state->editor.selectedObjectAssetBodyId;
     state->editor.objectFaceSketchFace = state->editor.selectedObjectAssetFace;
     state->editor.objectFaceSketchFrame = frame;
+    if (state->objectAuthoring.attached) {
+        (void)ObjectAuthoringSession_SetSelection(&state->objectAuthoring,
+                                                  state->editor.objectFaceSketchBodyId,
+                                                  state->editor.objectFaceSketchFace);
+    }
     return true;
 }
 
@@ -343,6 +423,7 @@ void Editor_ObjectFaceSketchHandleLeftMouseUp(GlobalState* state, int mouse_x, i
         fabsf(state->editor.objectFaceSketchCurrentUV.y - state->editor.objectFaceSketchStartUV.y) > min_extent;
     state->editor.objectFaceSketchToolArmed = false;
     if (state->editor.objectFaceSketchHasRectangle) {
+        ObjectFaceSketch_SyncCommittedRectangleToSession(&state->editor);
         (void)Editor_ObjectFaceSketchSelect(&state->editor, OBJECT_FACE_SKETCH_HANDLE_BODY);
     } else {
         state->editor.objectAuthoringMode = Editor_ObjectAuthoringIdleMode(&state->editor);
@@ -463,16 +544,32 @@ static void RenderObjectFaceSketchHandles(SDL_Renderer* renderer,
 void Render_EditorObjectFaceSketch(EditorState* editor, AppContext* ctx) {
     GlobalState* state = Global_Get();
     SpaceViewContext view_ctx = {0};
+    ObjectAuthoringSketch sketch = {0};
+    PlaneFrame3 frame = {0};
+    Vec2 min_uv = {0};
+    Vec2 max_uv = {0};
     Vec3 corners[4];
 
     if (!editor || !ctx || !state) return;
-    if (!editor->objectFaceSketchHasRectangle && !editor->objectFaceSketchDragging) return;
+    if (editor->objectFaceSketchDragging) {
+        frame = editor->objectFaceSketchFrame;
+        Editor_ObjectFaceSketchGetRectangleUV(editor, &min_uv, &max_uv);
+    } else if (ObjectFaceSketch_BuildActiveSessionSketch(state, &sketch)) {
+        frame = sketch.frame;
+        min_uv = sketch.minUV;
+        max_uv = sketch.maxUV;
+    } else if (editor->objectFaceSketchHasRectangle) {
+        frame = editor->objectFaceSketchFrame;
+        Editor_ObjectFaceSketchGetRectangleUV(editor, &min_uv, &max_uv);
+    } else {
+        return;
+    }
 
     view_ctx = SpaceAdapter_BuildViewContext(state);
 #if !USE_VULKAN
     SDL_SetRenderDrawBlendMode(ctx->renderer, SDL_BLENDMODE_BLEND);
 #endif
-    ObjectFaceSketch_FaceUVToWorldCorners(editor, corners);
+    ObjectFaceSketch_FaceUVToWorldCorners(frame, min_uv, max_uv, corners);
     RenderObjectFaceSketchQuad(ctx->renderer, &state->grid, &view_ctx, corners, editor);
     RenderObjectFaceSketchHandles(ctx->renderer, &state->grid, &view_ctx, corners, editor);
 }

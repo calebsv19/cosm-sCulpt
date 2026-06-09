@@ -1,6 +1,8 @@
 // src/Input/input_keyboard.c
 #include "input_keyboard.h"
+#include "input_editor_actions.h"
 #include "Core/global_state.h"
+#include "Core/line_drawing_pane_host.h"
 #include "Core/viewport_zoom.h"
 #include "Editor/editor.h"
 #include "Editor/object_face_extrude.h"
@@ -273,37 +275,20 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
         }
 
         if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_m) {
-            if (Global_ToggleSpaceMode(true)) {
-                printf("[Editor] Space mode: %s\n", Global_GetSpaceModeLabel(state->spaceMode));
-            }
+            (void)InputEditorAction_ToggleSpaceMode(true);
             return;
         }
 
         if (event->type == SDL_KEYDOWN &&
             event->key.keysym.sym == SDLK_x &&
             (mods & (KMOD_CTRL | KMOD_GUI | KMOD_ALT)) == 0) {
-            if (UIPanel_ToggleObjectGizmoRotateMode()) {
-                printf("[Editor] Object gizmo mode: %s\n",
-                       UIPanel_IsObjectGizmoRotateMode() ? "ROTATE" : "MOVE");
-            }
+            (void)InputEditorAction_ToggleObjectGizmoMode();
             return;
         }
 
         if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_v) {
-            if (!Input_Is3DMode(state)) {
-                printf("[Editor] View toggle requires SPACE_MODE_3D.\n");
-                return;
-            }
-            state->freeViewCamera.enabled = !state->freeViewCamera.enabled;
-            if (state->freeViewCamera.enabled) {
-                bool hasAnchors = false;
-                Vec3 center = Layout_ComputeCentroid(&state->layout, &hasAnchors);
-                if (hasAnchors) {
-                    state->freeViewCamera.target = center;
-                }
-            }
-            Global_FlagHitboxesDirty();
-            printf("[Editor] View mode: %s\n", state->freeViewCamera.enabled ? "FREE_VIEW" : "PLANE_VIEW");
+            (void)InputEditorAction_ToggleFreeView();
+            return;
         }
 
         if (event->type == SDL_KEYDOWN &&

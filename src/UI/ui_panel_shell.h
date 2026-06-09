@@ -22,3 +22,4 @@ void UIPanel_SetActiveRightTab(UIPanelState* ui, UIPanelRightTab tab);
 void UIPanel_SyncWorkspaceTabState(UIPanelState* ui);
 void UIPanel_FocusObjectAuthoringTab(UIPanelState* ui);
 void UIPanel_FocusObjectInspectorTab(UIPanelState* ui);
+void UIPanel_FocusObjectEditTab(UIPanelState* ui);

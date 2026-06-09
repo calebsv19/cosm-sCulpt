@@ -17,6 +17,8 @@ static const char* UIPanel_GetModeBrowseName(UILoadMenuMode mode) {
         case UI_LOAD_MENU_MODE_JSON: return "JSON";
         case UI_LOAD_MENU_MODE_SCENE: return "Scene";
         case UI_LOAD_MENU_MODE_OBJECT: return "Asset";
+        case UI_LOAD_MENU_MODE_RUNTIME_MESH: return "Runtime Mesh";
+        case UI_LOAD_MENU_MODE_STL_IMPORT: return "STL";
         case UI_LOAD_MENU_MODE_NONE:
         default: return "Browser";
     }
@@ -136,12 +138,25 @@ bool UIPanel_GetFileBrowserActionHintText(const UIPanelState* ui,
     UILoadMenuSelectionState selection_state = UI_LOAD_MENU_SELECTION_NONE;
     const char* selection_path = NULL;
     const char* mode_name = NULL;
+    GlobalState* state = NULL;
 
     if (!out_text || out_text_size == 0u) return false;
     out_text[0] = '\0';
     if (!ui) return false;
 
     mode_name = UIPanel_GetModeBrowseName(ui->loadMenu.mode);
+    state = Global_Get();
+    if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT &&
+        state &&
+        strncmp(state->objectRuntimeMeshStatus,
+                "STL import failed:",
+                strlen("STL import failed:")) == 0) {
+        return snprintf(out_text,
+                        out_text_size,
+                        "Actions  %s",
+                        state->objectRuntimeMeshStatus) < (int)out_text_size;
+    }
+
     if (UIPanel_GetFileBrowserSelectionInfo(ui, &selection_state, &selection_path)) {
         if (selection_state == UI_LOAD_MENU_SELECTION_ACTIVE_SESSION) {
             return snprintf(out_text,
@@ -164,7 +179,6 @@ bool UIPanel_GetFileBrowserActionHintText(const UIPanelState* ui,
 
     return snprintf(out_text,
                     out_text_size,
-                    "Actions  Double-click Load %s to pick the %s mode root.",
-                    mode_name,
+                    "Actions  Use Set Directory in the browser header to pick the %s root.",
                     mode_name) < (int)out_text_size;
 }

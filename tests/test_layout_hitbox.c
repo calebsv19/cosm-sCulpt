@@ -1,6 +1,7 @@
 #include "test_layout_internal.h"
 #include "Editor/object_handle_gizmo.h"
 #include "Editor/object3d_origin_pick.h"
+#include "Input/input_mouse_drag.h"
 
 static bool test_hitbox_plane_object_is_selectable(void) {
     ld_test_init_runtime();
@@ -25,6 +26,131 @@ static bool test_hitbox_plane_object_is_selectable(void) {
     Hitbox hit = HitboxSystem_GetHitAt((int)centerScreen.x, (int)centerScreen.y);
     TEST_ASSERT(hit.type == HITBOX_OBJECT3D);
     TEST_ASSERT(hit.index == (int)objectId);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_hitbox_mesh_asset_instance_is_selectable(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    Transform3D transform = Layout_Transform3D_Default();
+    transform.position = (Vec3){ 0.0f, 0.0f, 0.0f };
+    uint32_t objectId = Layout_ObjectStore_Create(&layout->objectStore,
+                                                  OBJECT3D_KIND_MESH_ASSET_INSTANCE,
+                                                  &transform,
+                                                  "mesh_asset_instance",
+                                                  CORE_OBJECT_DIMENSIONAL_MODE_FULL_3D,
+                                                  CORE_OBJECT_PLANE_XY);
+    TEST_ASSERT(objectId != 0u);
+
+    Object3D* object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+    snprintf(object->meshInstance.assetId,
+             sizeof(object->meshInstance.assetId),
+             "mesh_hitbox");
+    snprintf(object->meshInstance.sourceAssetId,
+             sizeof(object->meshInstance.sourceAssetId),
+             "mesh_hitbox_source");
+    snprintf(object->meshInstance.runtimePath,
+             sizeof(object->meshInstance.runtimePath),
+             "/tmp/mesh_hitbox.runtime.json");
+    object->meshInstance.localBoundsMin = (Vec3){ -2.0f, -1.0f, -0.5f };
+    object->meshInstance.localBoundsMax = (Vec3){  2.0f,  1.0f,  0.5f };
+    object->meshInstance.vertexCount = 8u;
+    object->meshInstance.triangleCount = 12u;
+    object->meshInstance.lockToBounds = true;
+    TEST_ASSERT(Layout_ObjectStore_ValidateObject(object));
+
+    Global_FlagHitboxesDirty();
+    Global_RebuildHitboxesIfDirty();
+
+    Vec2 centerView = Vec3_ProjectToView(object->transform.position, state->activePlane, &state->freeViewCamera);
+    Vec2 centerScreen = WorldToScreen(centerView, &state->grid);
+    Hitbox hit = HitboxSystem_GetHitAt((int)centerScreen.x, (int)centerScreen.y);
+    TEST_ASSERT(hit.type == HITBOX_OBJECT3D);
+    TEST_ASSERT(hit.index == (int)objectId);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_mesh_asset_instance_center_gizmo_drag_can_begin(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    Transform3D transform = Layout_Transform3D_Default();
+    transform.position = (Vec3){ 0.0f, 0.0f, 0.0f };
+    uint32_t objectId = Layout_ObjectStore_Create(&layout->objectStore,
+                                                  OBJECT3D_KIND_MESH_ASSET_INSTANCE,
+                                                  &transform,
+                                                  "mesh_asset_instance",
+                                                  CORE_OBJECT_DIMENSIONAL_MODE_FULL_3D,
+                                                  CORE_OBJECT_PLANE_XY);
+    TEST_ASSERT(objectId != 0u);
+
+    Object3D* object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+    snprintf(object->meshInstance.assetId,
+             sizeof(object->meshInstance.assetId),
+             "mesh_drag");
+    snprintf(object->meshInstance.sourceAssetId,
+             sizeof(object->meshInstance.sourceAssetId),
+             "mesh_drag_source");
+    snprintf(object->meshInstance.runtimePath,
+             sizeof(object->meshInstance.runtimePath),
+             "/tmp/mesh_drag.runtime.json");
+    object->meshInstance.localBoundsMin = (Vec3){ 10.0f, 20.0f, 30.0f };
+    object->meshInstance.localBoundsMax = (Vec3){ 30.0f, 60.0f, 70.0f };
+    object->meshInstance.vertexCount = 8u;
+    object->meshInstance.triangleCount = 12u;
+    object->meshInstance.lockToBounds = true;
+    TEST_ASSERT(Layout_ObjectStore_ValidateObject(object));
+
+    TEST_ASSERT(Global_SetSpaceMode(SPACE_MODE_3D, false));
+    Vec3 visualCenter = {0};
+    TEST_ASSERT(Layout_Object3D_ComputeVisualCenter(object, &visualCenter));
+    state->freeViewCamera.enabled = true;
+    state->freeViewCamera.yawDeg = 35.0f;
+    state->freeViewCamera.pitchDeg = 20.0f;
+    state->freeViewCamera.target = visualCenter;
+    state->editor.selectedObject3DId = objectId;
+    state->editor.objectEditSelectionMode = OBJECT_EDIT_SELECTION_VERTEX;
+
+    Global_FlagHitboxesDirty();
+    Global_RebuildHitboxesIfDirty();
+    Vec3 corners[8] = {0};
+    TEST_ASSERT(Layout_Object3D_ComputeMeshInstanceCorners(object, corners));
+    float maxRadius = 0.0f;
+    for (int i = 0; i < 8; ++i) {
+        const float radius = Vec3_Length(Vec3_Sub(corners[i], visualCenter));
+        if (radius > maxRadius) maxRadius = radius;
+    }
+    const float axisWorldLen = fmaxf(fmaxf(layout->gridSize * 2.0f, 1.0f), maxRadius * 0.35f);
+    Vec3 tip = Vec3_Add(visualCenter,
+                        Vec3_Scale(GizmoAxisDirection_WorldVector(GIZMO_AXIS_DIR_POS_X),
+                                   axisWorldLen));
+    Vec2 tipView = Vec3_ProjectToView(tip, state->activePlane, &state->freeViewCamera);
+    Vec2 tipScreen = WorldToScreen(tipView, &state->grid);
+    Hitbox hit = HitboxSystem_GetHitAt((int)tipScreen.x, (int)tipScreen.y);
+    TEST_ASSERT(hit.type == HITBOX_OBJECT3D_GIZMO_AXIS);
+    TEST_ASSERT(hit.index == (int)objectId);
+
+    TEST_ASSERT(BeginObjectTranslateDragSession(state,
+                                                &state->editor,
+                                                objectId,
+                                                GIZMO_AXIS_DIR_POS_X,
+                                                (int)tipScreen.x,
+                                                (int)tipScreen.y));
+    TEST_ASSERT(BeginObjectRotateDragSession(state,
+                                             &state->editor,
+                                             objectId,
+                                             GIZMO_AXIS_DIR_POS_X,
+                                             (int)tipScreen.x,
+                                             (int)tipScreen.y));
 
     ld_test_shutdown_runtime();
     return true;
@@ -1110,6 +1236,9 @@ static bool test_hitbox_gizmo_axis_disabled_when_free_view_off(void) {
 bool test_layout_hitbox_run_tests(void) {
     const TestCase cases[] = {
         { "HitboxPlaneObjectIsSelectable", test_hitbox_plane_object_is_selectable },
+        { "HitboxMeshAssetInstanceIsSelectable", test_hitbox_mesh_asset_instance_is_selectable },
+        { "MeshAssetInstanceCenterGizmoDragCanBegin",
+          test_mesh_asset_instance_center_gizmo_drag_can_begin },
         { "HitboxPlaneResizeHandlesEmitForSelectedPlane", test_hitbox_plane_resize_handles_emit_for_selected_plane },
         { "HitboxPlaneGizmoAxesEmitForSelectedCornerInFreeView",
           test_hitbox_plane_gizmo_axes_emit_for_selected_corner_in_free_view },

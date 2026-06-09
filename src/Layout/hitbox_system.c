@@ -20,13 +20,15 @@ static int Hitbox_TypePriority(HitboxType type) {
         case HITBOX_OBJECT_FACE_SKETCH_HANDLE: return 3;
         case HITBOX_HANDLE: return 4;
         case HITBOX_OBJECT_FACE_SKETCH_BODY: return 5;
-        case HITBOX_OBJECT3D_PRISM_HANDLE: return 6;
-        case HITBOX_OBJECT3D_PLANE_CORNER: return 7;
-        case HITBOX_OBJECT3D_PLANE_EDGE: return 8;
-        case HITBOX_SCENE_BOUNDS_HANDLE: return 9;
-        case HITBOX_POINT: return 10;
-        case HITBOX_WALL: return 11;
-        case HITBOX_OBJECT3D: return 12;
+        case HITBOX_OBJECT_TOPOLOGY_VERTEX: return 6;
+        case HITBOX_OBJECT_TOPOLOGY_EDGE: return 7;
+        case HITBOX_OBJECT3D_PRISM_HANDLE: return 8;
+        case HITBOX_OBJECT3D_PLANE_CORNER: return 9;
+        case HITBOX_OBJECT3D_PLANE_EDGE: return 10;
+        case HITBOX_SCENE_BOUNDS_HANDLE: return 11;
+        case HITBOX_POINT: return 12;
+        case HITBOX_WALL: return 13;
+        case HITBOX_OBJECT3D: return 14;
         case HITBOX_NONE:
         default: return 10;
     }
@@ -116,6 +118,34 @@ static void Hitbox_AddSelectedAnchorGizmo(const Layout* layout,
     }
 }
 
+static float Object3D_CenterGizmoAxisWorldLen(const Object3D* object, float gridSize) {
+    float axisWorldLen = fmaxf(gridSize * 2.0f, 1.0f);
+    Vec3 corners[8];
+    Vec3 center = {0};
+    int cornerCount = 0;
+    if (!object) return axisWorldLen;
+    if (!Layout_Object3D_ComputeVisualCenter(object, &center)) return axisWorldLen;
+    if (object->kind == OBJECT3D_KIND_PLANE) {
+        if (!Layout_Object3D_ComputePlaneCorners(object, corners)) return axisWorldLen;
+        cornerCount = 4;
+    } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        if (!Layout_Object3D_ComputeRectPrismCorners(object, corners)) return axisWorldLen;
+        cornerCount = 8;
+    } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) return axisWorldLen;
+        cornerCount = 8;
+    } else {
+        return axisWorldLen;
+    }
+
+    float maxRadius = 0.0f;
+    for (int i = 0; i < cornerCount; ++i) {
+        const float radius = Vec3_Length(Vec3_Sub(corners[i], center));
+        if (radius > maxRadius) maxRadius = radius;
+    }
+    return fmaxf(axisWorldLen, maxRadius * 0.35f);
+}
+
 static void Hitbox_AddObject3DCenterGizmoAxes(const Object3D* object,
                                               float gridSize,
                                               float scale,
@@ -125,9 +155,10 @@ static void Hitbox_AddObject3DCenterGizmoAxes(const Object3D* object,
                                               const FreeViewCamera* camera) {
     if (!object) return;
 
-    const float axisWorldLen = fmaxf(gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, gridSize);
     const int gizmoRadius = SDL_max(6, (int)(gridSize * scale * 0.13f));
-    const Vec3 center = object->transform.position;
+    Vec3 center = object->transform.position;
+    (void)Layout_Object3D_ComputeVisualCenter(object, &center);
     const Vec2 centerView = Vec3_ProjectToView(center, plane, camera);
     const float centerX = (centerView.x - offsetX) * gridSize * scale;
     const float centerY = (centerView.y - offsetY) * gridSize * scale;
@@ -277,12 +308,76 @@ static void Hitbox_AddObjectFaceSketch(const ObjectFaceSketchHitboxState* sketch
                Hitbox_DepthDistance(plane, camera, sketch->frame.origin));
 }
 
+static void Hitbox_AddObjectTopology(const ObjectAuthoringDocument* topology,
+                                     float gridSize,
+                                     float scale,
+                                     float offsetX,
+                                     float offsetY,
+                                     ViewPlane plane,
+                                     const FreeViewCamera* camera) {
+    if (!topology) return;
+
+    const int vertexRadius = SDL_max(10, (int)(gridSize * scale * 0.16f));
+    const int edgeRadius = SDL_max(10, (int)(gridSize * scale * 0.16f));
+    for (size_t i = 0u; i < topology->edgeCount; ++i) {
+        const ObjectAuthoringEdge* edge = &topology->edges[i];
+        const ObjectAuthoringVertex* a = NULL;
+        const ObjectAuthoringVertex* b = NULL;
+        Vec2 av = {0};
+        Vec2 bv = {0};
+        int mx = 0;
+        int my = 0;
+        if (!edge->valid || edge->edgeId == 0u) continue;
+        a = ObjectAuthoringDocument_FindVertex(topology, edge->vertexIds[0]);
+        b = ObjectAuthoringDocument_FindVertex(topology, edge->vertexIds[1]);
+        if (!a || !b || !a->valid || !b->valid) continue;
+        av = Vec3_ProjectToView(a->position, plane, camera);
+        bv = Vec3_ProjectToView(b->position, plane, camera);
+        mx = (int)lroundf((((av.x + bv.x) * 0.5f) - offsetX) * gridSize * scale);
+        my = (int)lroundf((((av.y + bv.y) * 0.5f) - offsetY) * gridSize * scale);
+        Hitbox_Add(HITBOX_OBJECT_TOPOLOGY_EDGE,
+                   (int)edge->ref.bodyId,
+                   (int)edge->ref.primitiveEdgeIndex,
+                   (SDL_Rect){
+                       mx - edgeRadius,
+                       my - edgeRadius,
+                       edgeRadius * 2,
+                       edgeRadius * 2
+                   },
+                   0.5f * (Hitbox_DepthDistance(plane, camera, a->position) +
+                           Hitbox_DepthDistance(plane, camera, b->position)));
+    }
+
+    for (size_t i = 0u; i < topology->vertexCount; ++i) {
+        const ObjectAuthoringVertex* vertex = &topology->vertices[i];
+        Vec2 view = {0};
+        int sx = 0;
+        int sy = 0;
+        if (!vertex->valid || vertex->vertexId == 0u) continue;
+        view = Vec3_ProjectToView(vertex->position, plane, camera);
+        sx = (int)lroundf((view.x - offsetX) * gridSize * scale);
+        sy = (int)lroundf((view.y - offsetY) * gridSize * scale);
+        Hitbox_Add(HITBOX_OBJECT_TOPOLOGY_VERTEX,
+                   (int)vertex->ref.bodyId,
+                   (int)vertex->ref.primitiveVertexIndex,
+                   (SDL_Rect){
+                       sx - vertexRadius,
+                       sy - vertexRadius,
+                       vertexRadius * 2,
+                       vertexRadius * 2
+                   },
+                   Hitbox_DepthDistance(plane, camera, vertex->position));
+    }
+}
+
 static void Hitbox_AddObject3DPrimitives(const Layout* layout,
                                          float scale,
                                          float offsetX,
                                          float offsetY,
                                          ViewPlane plane,
                                          const FreeViewCamera* camera,
+                                         const ObjectAuthoringDocument* objectTopology,
+                                         bool objectTopologyEditMode,
                                          uint32_t selectedObject3DId,
                                          int selectedObject3DResizeHandle,
                                          int selectedObject3DPrismHandle,
@@ -336,30 +431,32 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
             if (object->objectId != selectedObject3DId) continue;
             if (suppressedHandleObjectId == object->objectId) continue;
 
-            const float handleDepth = Hitbox_DepthDistance(plane, camera, object->transform.position);
-            const int cornerRadius = SDL_max(5, (int)(gridSize * scale * 0.12f));
-            const int edgeRadius = SDL_max(4, (int)(gridSize * scale * 0.10f));
-            for (int c = 0; c < 4; ++c) {
-                Vec2 view = Vec3_ProjectToView(corners[c], plane, camera);
-                const int sx = (int)((view.x - offsetX) * gridSize * scale);
-                const int sy = (int)((view.y - offsetY) * gridSize * scale);
-                Hitbox_Add(HITBOX_OBJECT3D_PLANE_CORNER,
-                           (int)object->objectId,
-                           PLANE_RESIZE_HANDLE_CORNER_NEG_U_NEG_V + c,
-                           (SDL_Rect){ sx - cornerRadius, sy - cornerRadius, cornerRadius * 2, cornerRadius * 2 },
-                           handleDepth);
-            }
+            if (!objectTopologyEditMode) {
+                const float handleDepth = Hitbox_DepthDistance(plane, camera, object->transform.position);
+                const int cornerRadius = SDL_max(5, (int)(gridSize * scale * 0.12f));
+                const int edgeRadius = SDL_max(4, (int)(gridSize * scale * 0.10f));
+                for (int c = 0; c < 4; ++c) {
+                    Vec2 view = Vec3_ProjectToView(corners[c], plane, camera);
+                    const int sx = (int)((view.x - offsetX) * gridSize * scale);
+                    const int sy = (int)((view.y - offsetY) * gridSize * scale);
+                    Hitbox_Add(HITBOX_OBJECT3D_PLANE_CORNER,
+                               (int)object->objectId,
+                               PLANE_RESIZE_HANDLE_CORNER_NEG_U_NEG_V + c,
+                               (SDL_Rect){ sx - cornerRadius, sy - cornerRadius, cornerRadius * 2, cornerRadius * 2 },
+                               handleDepth);
+                }
 
-            for (int e = 0; e < 4; ++e) {
-                Vec3 midpoint3 = Vec3_Scale(Vec3_Add(corners[kEdgeCornerA[e]], corners[kEdgeCornerB[e]]), 0.5f);
-                Vec2 view = Vec3_ProjectToView(midpoint3, plane, camera);
-                const int sx = (int)((view.x - offsetX) * gridSize * scale);
-                const int sy = (int)((view.y - offsetY) * gridSize * scale);
-                Hitbox_Add(HITBOX_OBJECT3D_PLANE_EDGE,
-                           (int)object->objectId,
-                           (int)kEdgeHandle[e],
-                           (SDL_Rect){ sx - edgeRadius, sy - edgeRadius, edgeRadius * 2, edgeRadius * 2 },
-                           handleDepth);
+                for (int e = 0; e < 4; ++e) {
+                    Vec3 midpoint3 = Vec3_Scale(Vec3_Add(corners[kEdgeCornerA[e]], corners[kEdgeCornerB[e]]), 0.5f);
+                    Vec2 view = Vec3_ProjectToView(midpoint3, plane, camera);
+                    const int sx = (int)((view.x - offsetX) * gridSize * scale);
+                    const int sy = (int)((view.y - offsetY) * gridSize * scale);
+                    Hitbox_Add(HITBOX_OBJECT3D_PLANE_EDGE,
+                               (int)object->objectId,
+                               (int)kEdgeHandle[e],
+                               (SDL_Rect){ sx - edgeRadius, sy - edgeRadius, edgeRadius * 2, edgeRadius * 2 },
+                               handleDepth);
+                }
             }
             if (gizmoEnabled &&
                 camera && camera->enabled &&
@@ -383,15 +480,30 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
                 }
             }
             if (gizmoEnabled &&
+                camera && camera->enabled &&
                 selectedObject3DResizeHandle == PLANE_RESIZE_HANDLE_NONE &&
                 selectedObject3DPrismHandle == RECT_PRISM_RESIZE_HANDLE_NONE) {
-                Hitbox_AddObject3DCenterGizmoAxes(object,
-                                                  gridSize,
-                                                  scale,
-                                                  offsetX,
-                                                  offsetY,
-                                                  plane,
-                                                  camera);
+                ObjectHandleGizmoTarget target = ObjectHandleGizmoTarget_None();
+                if (ObjectHandleGizmoTarget_FromAuthoringSelection(object,
+                                                                   objectTopology,
+                                                                   &target)) {
+                    Hitbox_AddObjectHandleGizmoAxes(object,
+                                                    &target,
+                                                    gridSize,
+                                                    scale,
+                                                    offsetX,
+                                                    offsetY,
+                                                    plane,
+                                                    camera);
+                } else if (!objectTopologyEditMode) {
+                    Hitbox_AddObject3DCenterGizmoAxes(object,
+                                                      gridSize,
+                                                      scale,
+                                                      offsetX,
+                                                      offsetY,
+                                                      plane,
+                                                      camera);
+                }
             }
         } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
             Vec3 corners[8];
@@ -428,7 +540,7 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
             if (suppressedHandleObjectId == object->objectId) continue;
 
             const bool freeView = gizmoEnabled && camera && camera->enabled;
-            if (freeView) {
+            if (freeView && !objectTopologyEditMode) {
                 static const int kRectEdges[12][2] = {
                     {0, 1}, {1, 2}, {2, 3}, {3, 0},
                     {4, 5}, {5, 6}, {6, 7}, {7, 4},
@@ -458,7 +570,7 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
                                (SDL_Rect){ sx - edgeRadius, sy - edgeRadius, edgeRadius * 2, edgeRadius * 2 },
                                Hitbox_DepthDistance(plane, camera, midpoint3));
                 }
-            } else {
+            } else if (!objectTopologyEditMode) {
                 Vec3 bottomCenter = Vec3_Scale(Vec3_Add(Vec3_Add(corners[0], corners[1]),
                                                         Vec3_Add(corners[2], corners[3])), 0.25f);
                 Vec3 topCenter = Vec3_Scale(Vec3_Add(Vec3_Add(corners[4], corners[5]),
@@ -503,13 +615,27 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
             if (gizmoEnabled &&
                 selectedObject3DResizeHandle == PLANE_RESIZE_HANDLE_NONE &&
                 selectedObject3DPrismHandle == RECT_PRISM_RESIZE_HANDLE_NONE) {
-                Hitbox_AddObject3DCenterGizmoAxes(object,
-                                                  gridSize,
-                                                  scale,
-                                                  offsetX,
-                                                  offsetY,
-                                                  plane,
-                                                  camera);
+                ObjectHandleGizmoTarget target = ObjectHandleGizmoTarget_None();
+                if (ObjectHandleGizmoTarget_FromAuthoringSelection(object,
+                                                                   objectTopology,
+                                                                   &target)) {
+                    Hitbox_AddObjectHandleGizmoAxes(object,
+                                                    &target,
+                                                    gridSize,
+                                                    scale,
+                                                    offsetX,
+                                                    offsetY,
+                                                    plane,
+                                                    camera);
+                } else if (!objectTopologyEditMode) {
+                    Hitbox_AddObject3DCenterGizmoAxes(object,
+                                                      gridSize,
+                                                      scale,
+                                                      offsetX,
+                                                      offsetY,
+                                                      plane,
+                                                      camera);
+                }
             }
 
             if (gizmoEnabled && selectedObject3DPrismHandle != RECT_PRISM_RESIZE_HANDLE_NONE) {
@@ -529,6 +655,50 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
                                                     plane,
                                                     camera);
                 }
+            }
+        } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+            Vec3 corners[8];
+            if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) continue;
+
+            float minX = 0.0f, minY = 0.0f, maxX = 0.0f, maxY = 0.0f;
+            for (int c = 0; c < 8; ++c) {
+                Vec2 view = Vec3_ProjectToView(corners[c], plane, camera);
+                const float sx = (view.x - offsetX) * gridSize * scale;
+                const float sy = (view.y - offsetY) * gridSize * scale;
+                if (c == 0) {
+                    minX = maxX = sx;
+                    minY = maxY = sy;
+                } else {
+                    if (sx < minX) minX = sx;
+                    if (sx > maxX) maxX = sx;
+                    if (sy < minY) minY = sy;
+                    if (sy > maxY) maxY = sy;
+                }
+            }
+
+            const int pad = 8;
+            const int x = (int)floorf(minX) - pad;
+            const int y = (int)floorf(minY) - pad;
+            const int w = SDL_max(1, (int)ceilf(maxX - minX) + pad * 2);
+            const int h = SDL_max(1, (int)ceilf(maxY - minY) + pad * 2);
+            Hitbox_Add(HITBOX_OBJECT3D,
+                       (int)object->objectId,
+                       -1,
+                       (SDL_Rect){ x, y, w, h },
+                       Hitbox_DepthDistance(plane, camera, object->transform.position));
+
+            if (gizmoEnabled &&
+                camera && camera->enabled &&
+                object->objectId == selectedObject3DId &&
+                selectedObject3DResizeHandle == PLANE_RESIZE_HANDLE_NONE &&
+                selectedObject3DPrismHandle == RECT_PRISM_RESIZE_HANDLE_NONE) {
+                Hitbox_AddObject3DCenterGizmoAxes(object,
+                                                  gridSize,
+                                                  scale,
+                                                  offsetX,
+                                                  offsetY,
+                                                  plane,
+                                                  camera);
             }
         }
     }
@@ -634,6 +804,8 @@ void HitboxSystem_Rebuild(const Layout* layout,
                          uint32_t selectedObject3DId,
                          int selectedObject3DResizeHandle,
                          int selectedObject3DPrismHandle,
+                         const ObjectAuthoringDocument* objectTopology,
+                         bool objectTopologyEditMode,
                          const ObjectFaceSketchHitboxState* objectFaceSketch,
                          int selectedSceneBoundsHandle,
                          bool sceneBoundsHandlesVisible,
@@ -766,6 +938,8 @@ void HitboxSystem_Rebuild(const Layout* layout,
                                  offsetY,
                                  plane,
                                  camera,
+                                 objectTopology,
+                                 objectTopologyEditMode,
                                  selectedObject3DId,
                                  selectedObject3DResizeHandle,
                                  selectedObject3DPrismHandle,
@@ -773,6 +947,13 @@ void HitboxSystem_Rebuild(const Layout* layout,
                                      ? objectFaceSketch->bodyId
                                      : 0u,
                                  gizmoEnabled);
+    Hitbox_AddObjectTopology(objectTopology,
+                             gridSize,
+                             scale,
+                             offsetX,
+                             offsetY,
+                             plane,
+                             camera);
     Hitbox_AddObjectFaceSketch(objectFaceSketch,
                                layout->gridSize,
                                scale,
@@ -795,7 +976,7 @@ void HitboxSystem_Rebuild(const Layout* layout,
 }
 
 
-Hitbox HitboxSystem_GetHitAt(int mx, int my) {
+static Hitbox HitboxSystem_GetHitAtFiltered(int mx, int my, HitboxType onlyType) {
     int bestIdx = -1;
     int bestTypePriority = 0;
     float bestDepth = 0.0f;
@@ -803,6 +984,7 @@ Hitbox HitboxSystem_GetHitAt(int mx, int my) {
 
     for (int i = 0; i < (int)hitboxCount; ++i) {
         SDL_Rect r = hitboxes[i].bounds;
+        if (onlyType != HITBOX_NONE && hitboxes[i].type != onlyType) continue;
         if (mx >= r.x && mx <= r.x + r.w &&
             my >= r.y && my <= r.y + r.h) {
             int typePriority = Hitbox_TypePriority(hitboxes[i].type);
@@ -848,4 +1030,15 @@ Hitbox HitboxSystem_GetHitAt(int mx, int my) {
 
     if (bestIdx >= 0) return hitboxes[bestIdx];
     return (Hitbox){ .type = HITBOX_NONE, .index = -1, .subIndex = -1 };
+}
+
+Hitbox HitboxSystem_GetHitAt(int mx, int my) {
+    return HitboxSystem_GetHitAtFiltered(mx, my, HITBOX_NONE);
+}
+
+Hitbox HitboxSystem_GetHitAtOfType(int mx, int my, HitboxType type) {
+    if (type == HITBOX_NONE) {
+        return (Hitbox){ .type = HITBOX_NONE, .index = -1, .subIndex = -1 };
+    }
+    return HitboxSystem_GetHitAtFiltered(mx, my, type);
 }

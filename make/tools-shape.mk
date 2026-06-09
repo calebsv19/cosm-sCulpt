@@ -22,6 +22,53 @@ $(AGENT_SCENE_TOOL_BIN): $(AGENT_SCENE_TOOL_OBJS) $(AGENT_SCENE_TOOL_SHARED_OBJS
 agent_scene_tool: $(AGENT_SCENE_TOOL_BIN)
 	@echo "Built agent_scene_tool successfully."
 
+$(IMPORTED_MESH_HARNESS_CORE_BASE_DIR)/build/libcore_base.a:
+	$(MAKE) -C $(IMPORTED_MESH_HARNESS_CORE_BASE_DIR)
+
+$(IMPORTED_MESH_HARNESS_CORE_IO_DIR)/build/libcore_io.a:
+	$(MAKE) -C $(IMPORTED_MESH_HARNESS_CORE_IO_DIR)
+
+$(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)/build/libcore_object.a:
+	$(MAKE) -C $(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)
+
+$(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)/build/libcore_units.a:
+	$(MAKE) -C $(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)
+
+$(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)/build/libcore_mesh_asset.a:
+	$(MAKE) -C $(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)
+
+$(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)/build/libcore_mesh_compile.a:
+	$(MAKE) -C $(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)
+
+$(IMPORTED_MESH_HARNESS_BIN): src/Tools/imported_mesh_harness.c \
+		$(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)/build/libcore_mesh_compile.a \
+		$(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)/build/libcore_mesh_asset.a \
+		$(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)/build/libcore_object.a \
+		$(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)/build/libcore_units.a \
+		$(IMPORTED_MESH_HARNESS_CORE_IO_DIR)/build/libcore_io.a \
+		$(IMPORTED_MESH_HARNESS_CORE_BASE_DIR)/build/libcore_base.a
+	@mkdir -p $(dir $@)
+	$(CC) -I$(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)/include \
+		-I$(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)/include \
+		-I$(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)/include \
+		-I$(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)/include \
+		-I$(IMPORTED_MESH_HARNESS_CORE_IO_DIR)/include \
+		-I$(IMPORTED_MESH_HARNESS_CORE_BASE_DIR)/include \
+		$(CFLAGS) src/Tools/imported_mesh_harness.c external/cjson/cJSON.c \
+		$(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)/build/libcore_mesh_compile.a \
+		$(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)/build/libcore_mesh_asset.a \
+		$(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)/build/libcore_object.a \
+		$(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)/build/libcore_units.a \
+		$(IMPORTED_MESH_HARNESS_CORE_IO_DIR)/build/libcore_io.a \
+		$(IMPORTED_MESH_HARNESS_CORE_BASE_DIR)/build/libcore_base.a \
+		-o $@ $(LDFLAGS)
+
+imported_mesh_harness: $(IMPORTED_MESH_HARNESS_BIN)
+	@echo "Built imported_mesh_harness successfully."
+
+imported-mesh-harness-smoke: imported_mesh_harness
+	@bash ./tests/test_imported_mesh_harness.sh
+
 shape_pack_tool:
 	@mkdir -p $(PROGRAM_BIN_DIR)
 	$(CC) $(CFLAGS) -o $(SHAPE_PACK_TOOL_BIN) $(SHAPE_PACK_TOOL_SRCS) $(LDFLAGS)

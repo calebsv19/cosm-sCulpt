@@ -70,13 +70,19 @@ void UIPanel_FocusObjectInspectorTab(UIPanelState* ui) {
     UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_OBJECT);
 }
 
+void UIPanel_FocusObjectEditTab(UIPanelState* ui) {
+    if (!ui) return;
+    if (Global_GetWorkspaceMode() != LINE_DRAWING_WORKSPACE_MODE_OBJECT) return;
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_EDIT);
+}
+
 const char* UIPanel_LeftTabLabel(UIPanelLeftTab tab) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     switch (tab) {
-        case UI_PANEL_LEFT_TAB_SCENE: return object_mode ? "Object" : "Scene";
-        case UI_PANEL_LEFT_TAB_FILE: return "File";
+        case UI_PANEL_LEFT_TAB_SCENE: return object_mode ? "Model" : "Scene";
+        case UI_PANEL_LEFT_TAB_FILE: return object_mode ? "Assets" : "File";
         case UI_PANEL_LEFT_TAB_COUNT:
-        default: return object_mode ? "Object" : "Scene";
+        default: return object_mode ? "Model" : "Scene";
     }
 }
 
@@ -84,8 +90,9 @@ const char* UIPanel_RightTabLabel(UIPanelRightTab tab) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     switch (tab) {
         case UI_PANEL_RIGHT_TAB_VIEW: return "View";
-        case UI_PANEL_RIGHT_TAB_CREATE: return object_mode ? "Shape" : "Create";
-        case UI_PANEL_RIGHT_TAB_OBJECT: return object_mode ? "Asset" : "Object";
+        case UI_PANEL_RIGHT_TAB_CREATE: return object_mode ? "Tools" : "Create";
+        case UI_PANEL_RIGHT_TAB_OBJECT: return object_mode ? "Properties" : "Object";
+        case UI_PANEL_RIGHT_TAB_EDIT: return "Edit";
         case UI_PANEL_RIGHT_TAB_COUNT:
         default: return "View";
     }
@@ -130,6 +137,9 @@ void UIPanel_InitShellState(UIPanelState* ui) {
     ui->objectWorkspacePane.summaryRect = (SDL_Rect){0, 0, 0, 0};
     ui->objectWorkspacePane.browserRect = (SDL_Rect){0, 0, 0, 0};
     ui->createPane.operationsRect = (SDL_Rect){0, 0, 0, 0};
+    ui->editPane.summaryRect = (SDL_Rect){0, 0, 0, 0};
+    ui->editPane.workspaceRect = (SDL_Rect){0, 0, 0, 0};
+    ui->editPane.selectionModeRect = (SDL_Rect){0, 0, 0, 0};
     UIPanel_SyncWorkspaceTabState(ui);
 
     UIPanel_RefreshTabLabels(ui);
@@ -246,6 +256,8 @@ bool UIPanel_ShouldShowGroup(const UIPanelState* ui, UIPanelGroup group) {
             case UI_PANEL_GROUP_RIGHT_VIEW:
             case UI_PANEL_GROUP_RIGHT_MODES:
                 return ui->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW;
+            case UI_PANEL_GROUP_RIGHT_EDIT_SELECT:
+                return ui->activeRightTab == UI_PANEL_RIGHT_TAB_EDIT;
             case UI_PANEL_GROUP_NONE:
             default:
                 return false;
@@ -273,6 +285,9 @@ bool UIPanel_ShouldShowGroup(const UIPanelState* ui, UIPanelGroup group) {
         case UI_PANEL_GROUP_RIGHT_TRANSFORM:
         case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS:
             return ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT;
+
+        case UI_PANEL_GROUP_RIGHT_EDIT_SELECT:
+            return false;
 
         case UI_PANEL_GROUP_NONE:
         default:

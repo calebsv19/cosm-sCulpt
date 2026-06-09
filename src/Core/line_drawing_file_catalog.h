@@ -25,4 +25,10 @@ int LineDrawingFileCatalog_ScanLayoutEntries(LineDrawingFileCatalogEntry* entrie
 int LineDrawingFileCatalog_ScanSceneEntries(LineDrawingFileCatalogEntry* entries,
                                             int max_entries,
                                             const char* root_dir);
+int LineDrawingFileCatalog_ScanRuntimeMeshEntries(LineDrawingFileCatalogEntry* entries,
+                                                  int max_entries,
+                                                  const char* root_dir);
+int LineDrawingFileCatalog_ScanStlEntries(LineDrawingFileCatalogEntry* entries,
+                                          int max_entries,
+                                          const char* root_dir);
 void LineDrawingFileCatalog_SortEntries(LineDrawingFileCatalogEntry* entries, int count);

@@ -56,7 +56,7 @@ static bool test_layout_string_roundtrip(void) {
     TEST_ASSERT(snapshot != NULL);
 
     TEST_ASSERT(Layout_LoadFromString(layout, snapshot));
-    free(snapshot);
+    Layout_FreeString(snapshot);
 
     TEST_ASSERT(layout->wallCount == 1);
     TEST_ASSERT(layout->anchorCount == 2);
@@ -110,7 +110,7 @@ static bool test_layout_json_embeds_version(void) {
     TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION);
 
     cJSON_Delete(root);
-    free(json);
+    Layout_FreeString(json);
     ld_test_shutdown_runtime();
     return true;
 }
@@ -134,8 +134,8 @@ static bool test_layout_json_future_version_rejected(void) {
     TEST_ASSERT(after != NULL);
     TEST_ASSERT(strcmp(baseline, after) == 0);
 
-    free(baseline);
-    free(after);
+    Layout_FreeString(baseline);
+    Layout_FreeString(after);
     ld_test_shutdown_runtime();
     return true;
 }
@@ -386,7 +386,7 @@ static bool test_layout_json_v6_persists_scene_bounds(void) {
     cJSON_Delete(root);
 
     TEST_ASSERT(Layout_LoadFromString(layout, json));
-    free(json);
+    Layout_FreeString(json);
     TEST_ASSERT(layout->scene3d.bounds.enabled);
     TEST_ASSERT(layout->scene3d.bounds.clampOnEdit);
     TEST_ASSERT(ld_test_nearly_equal(layout->scene3d.bounds.min.x, -7.0f));
@@ -497,7 +497,7 @@ static bool test_layout_json_v6_persists_construction_plane_custom_frame(void) {
     cJSON_Delete(root);
 
     TEST_ASSERT(Layout_LoadFromString(layout, json));
-    free(json);
+    Layout_FreeString(json);
     TEST_ASSERT(layout->scene3d.constructionPlane.mode == CONSTRUCTION_PLANE_MODE_CUSTOM_FRAME);
     TEST_ASSERT(Layout_ConstructionPlane3D_IsValid(&layout->scene3d.constructionPlane));
     {
@@ -529,7 +529,7 @@ static bool test_layout_json_preserves_anchor_handles(void) {
     TEST_ASSERT(snapshot != NULL);
 
     TEST_ASSERT(Layout_LoadFromString(layout, snapshot));
-    free(snapshot);
+    Layout_FreeString(snapshot);
 
     TEST_ASSERT(layout->anchorCount == 1);
     Anchor* loaded = &layout->anchors[0];
@@ -556,7 +556,7 @@ static bool test_layout_json_v3_persists_anchor_z(void) {
     char* snapshot = Layout_SaveToString(layout);
     TEST_ASSERT(snapshot != NULL);
     TEST_ASSERT(Layout_LoadFromString(layout, snapshot));
-    free(snapshot);
+    Layout_FreeString(snapshot);
 
     TEST_ASSERT(layout->anchorCount == 1);
     TEST_ASSERT(ld_test_nearly_equal(layout->anchors[0].pos.x, 1.0f));

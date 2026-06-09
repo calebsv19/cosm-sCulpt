@@ -1,9 +1,11 @@
 #include "UI/info_overlay.h"
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
+#include "Input/input_viewport_pick.h"
 #include "Layout/layout.h"
 #include "Layout/scene/layout_object_faces.h"
 #include "Layout/Grid/grid.h"
+#include "ObjectAuthoring/object_authoring_document.h"
 #include "UI/text_draw.h"
 #include "UI/font_manager.h"
 #include "UI/ui_panel.h"
@@ -98,6 +100,7 @@ static const char* Object3DKind_Label(Object3DKind kind) {
     switch (kind) {
         case OBJECT3D_KIND_PLANE: return "Plane";
         case OBJECT3D_KIND_RECT_PRISM: return "RectPrism";
+        case OBJECT3D_KIND_MESH_ASSET_INSTANCE: return "MeshAsset";
         case OBJECT3D_KIND_UNKNOWN:
         default: return "Unknown";
     }
@@ -171,35 +174,54 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
 
     if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
         const size_t object_count = Layout_ObjectStore_LiveCount(&layout->objectStore);
+        const size_t operation_count = state->objectAuthoring.attached
+            ? state->objectAuthoring.document.operationCount
+            : 0u;
+        const size_t sketch_count = state->objectAuthoring.attached
+            ? state->objectAuthoring.document.sketchCount
+            : 0u;
         const bool has_rect = editor->objectFaceSketchHasRectangle;
         const bool sketch_selected = Editor_ObjectFaceSketchIsSelected(editor);
         const char* stage_label = Editor_ObjectAuthoringStageLabel(editor);
         const char* prompt_label = Editor_ObjectAuthoringPromptLabel(editor);
+        const ObjectAuthoringFaceId face_id =
+            editor->selectedObjectAssetBodyId != 0u &&
+                    editor->selectedObjectAssetFace != OBJECT3D_FACE_NONE
+                ? ObjectAuthoringFaceId_FromPrimitive(editor->selectedObjectAssetBodyId,
+                                                      editor->selectedObjectAssetFace)
+                : 0u;
         if (selectedObject) {
             snprintf(line1, sizeof(line1),
-                     "Object Workspace  Body #%u  Face:%s  Kind:%s",
+                     "Object Asset  Body #%u  %s  FaceID:%u  %s  Sketches:%zu  Ops:%zu",
                      editor->selectedObjectAssetBodyId != 0u
                          ? editor->selectedObjectAssetBodyId
                          : selectedObject->objectId,
+                     Object3DKind_Label(selectedObject->kind),
+                     face_id,
                      Layout_Object3DFaceKind_Label(editor->selectedObjectAssetFace),
-                     Object3DKind_Label(selectedObject->kind));
+                     sketch_count,
+                     operation_count);
             snprintf(line2, sizeof(line2),
-                     "Stage:%s  Sketch:%s%s  Prompt:%s",
+                     "%s  |  Sketch:%s%s  |  %s",
                      stage_label,
                      sketch_selected ? "Selected" : "Unselected",
                      has_rect ? "  RectSaved" : "",
                      prompt_label);
         } else if (object_count == 0u) {
             snprintf(line1, sizeof(line1),
-                     "Object Workspace  Empty viewport");
+                     "Object Asset  Empty model");
             snprintf(line2, sizeof(line2),
-                     "No scene object was seeded. Load an asset or create a primitive to begin authoring.");
+                     "Load an asset or create a primitive to begin authoring.");
         } else {
             snprintf(line1, sizeof(line1),
-                     "Object Workspace  %zu live bodies",
-                     object_count);
+                     "Object Asset  Bodies:%zu  Sketches:%zu  Ops:%zu",
+                     object_count,
+                     sketch_count,
+                     operation_count);
             snprintf(line2, sizeof(line2),
-                     "Viewport editing, asset save/load, and body-local authoring are routed through the object workspace.");
+                     "%s  |  %s",
+                     stage_label,
+                     prompt_label);
         }
     } else if (selectedObject) {
         snprintf(line1, sizeof(line1),
@@ -221,13 +243,15 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
                      heightText,
                      selectedObject->plane.lockToConstructionPlane ? "Yes" : "No",
                      selectedObject->plane.lockToBounds ? "Yes" : "No",
-                     editor->object3DRotateMode ? "Rotate" : "Move",
+                     UIPanel_ObjectGizmoModeLabel(),
                      selectedHandle,
                      editor->isResizingObject3D
                          ? (editor->isPreciseDrag ? "  Drag:Precise" : "  Drag:Snapped")
                          : "",
                      editor->isRotatingObject3D
                          ? (editor->isPreciseDrag ? "  Rotate:Free" : "  Rotate:Snapped")
+                         : editor->isScalingObject3D
+                         ? (editor->isPreciseDrag ? "  Scale:Axis" : "  Scale:Uniform")
                          : "");
         } else if (selectedObject->kind == OBJECT3D_KIND_RECT_PRISM) {
             const char* selectedHandle =
@@ -247,13 +271,15 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
                      depthText,
                      selectedObject->rectPrism.lockToConstructionPlane ? "Yes" : "No",
                      selectedObject->rectPrism.lockToBounds ? "Yes" : "No",
-                     editor->object3DRotateMode ? "Rotate" : "Move",
+                     UIPanel_ObjectGizmoModeLabel(),
                      selectedHandle,
                      editor->isResizingObject3D
                          ? (editor->isPreciseDrag ? "  Drag:Precise" : "  Drag:Snapped")
                          : "",
                      editor->isRotatingObject3D
                          ? (editor->isPreciseDrag ? "  Rotate:Free" : "  Rotate:Snapped")
+                         : editor->isScalingObject3D
+                         ? (editor->isPreciseDrag ? "  Scale:Axis" : "  Scale:Uniform")
                          : "");
         }
     } else if (editor->selectedAnchorIndex >= 0 &&
@@ -415,6 +441,7 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
     size_t objectCount = Layout_ObjectStore_LiveCount(&layout->objectStore);
 
     char statusLine[768];
+    char pickDebug[320];
     const char* modeLabel = Global_GetSpaceModeLabel(state->spaceMode);
     const char* workspaceLabel = Global_GetWorkspaceModeLabel(Global_GetWorkspaceMode());
     const char* viewLabel = SpaceAdapter_IsFreeViewEnabled(&viewCtx) ? "FREE" : "PLANE";
@@ -457,23 +484,43 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
                  bounds->clampOnEdit ? "On" : "Off",
                  bounds->min.x, bounds->min.y, bounds->min.z,
                  bounds->max.x, bounds->max.y, bounds->max.z);
-        snprintf(statusLine, sizeof(statusLine),
-             "File:%s%s  |  Workspace:%s  Mode:%s  View:%s  Plane:%s (%s=%.2f)  |  %s  |  %s  |  Gizmo:%s Obj3D:%zu Undo:%zu Redo:%zu Delete:%s",
-             base ? base : "(unsaved)",
-             dirty ? " *" : "",
-             workspaceLabel,
-             modeLabel,
-             viewLabel,
-             planeLabel,
-             planeCoordLabel,
-             plane.offset,
-             constructionPlaneSummary,
-             boundsSummary,
-             editor->object3DRotateMode ? "Rotate" : "Move",
-             objectCount,
-             undoCount,
-             redoCount,
-             editor->deleteMode == DELETE_MODE_SAFE ? "SAFE" : "AUTO_PRUNE");
+        pickDebug[0] = '\0';
+        (void)ViewportPick_FormatLastDebug(pickDebug, sizeof(pickDebug), state);
+        if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
+            snprintf(statusLine,
+                     sizeof(statusLine),
+                     "Asset:%s%s  |  %s  View:%s  Plane:%s %s=%.2f  |  Gizmo:%s  Bodies:%zu  Undo:%zu Redo:%zu  |  %s",
+                     base ? base : "(unsaved)",
+                     dirty ? " *" : "",
+                     modeLabel,
+                     viewLabel,
+                     planeLabel,
+                     planeCoordLabel,
+                     plane.offset,
+                     UIPanel_ObjectGizmoModeLabel(),
+                     objectCount,
+                     undoCount,
+                     redoCount,
+                     pickDebug[0] ? pickDebug : "Pick pending");
+        } else {
+            snprintf(statusLine, sizeof(statusLine),
+                 "File:%s%s  |  Workspace:%s  Mode:%s  View:%s  Plane:%s (%s=%.2f)  |  %s  |  %s  |  Gizmo:%s Obj3D:%zu Undo:%zu Redo:%zu Delete:%s",
+                 base ? base : "(unsaved)",
+                 dirty ? " *" : "",
+                 workspaceLabel,
+                 modeLabel,
+                 viewLabel,
+                 planeLabel,
+                 planeCoordLabel,
+                 plane.offset,
+                 constructionPlaneSummary,
+                 boundsSummary,
+                 UIPanel_ObjectGizmoModeLabel(),
+                 objectCount,
+                 undoCount,
+                 redoCount,
+                 editor->deleteMode == DELETE_MODE_SAFE ? "SAFE" : "AUTO_PRUNE");
+        }
     }
 
     SDL_Color textMain = has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 230, 255};

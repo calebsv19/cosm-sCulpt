@@ -19,6 +19,7 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
     SDL_Rect list_clip = {0};
     SDL_Rect track = {0};
     SDL_Rect thumb = {0};
+    SDL_Rect set_dir_button = {0};
     const char* title = NULL;
     const char* empty_label = NULL;
     SDL_Color active_fill = {58, 68, 84, 185};
@@ -43,6 +44,8 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
     title = (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON) ? "JSON Browser" :
             (ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE) ? "Scene Browser" :
             (ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT) ? "Asset Browser" :
+            (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) ? "Runtime Mesh Browser" :
+            (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) ? "STL Import Browser" :
             "Browser";
     if (!UIPanel_GetFileBrowserActionHintText(ui, helper_line, sizeof(helper_line))) {
         snprintf(helper_line,
@@ -53,7 +56,11 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
                       ? "No JSON files found in the current input root."
                       : (ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE)
                             ? "No scene entries found in the current input root."
-                            : "No object asset files found in the current asset root.";
+                            : (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH)
+                                  ? "No runtime mesh sidecars found in the current asset root."
+                                  : (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT)
+                                        ? "No STL files found in the current STL root."
+                                        : "No object asset files found in the current asset root.";
 
     if (UIPanelVisual_ResolvePalette(&palette)) {
         label_color = palette.text_muted;
@@ -93,16 +100,35 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
     font_h = TTF_FontHeight(font);
     if (font_h < 12) font_h = 12;
     chip_font_h = font_h;
-    snprintf(status_line,
-             sizeof(status_line),
-             "%d %s",
-             ui->loadMenu.count,
-             (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON)
-                 ? ((ui->loadMenu.count == 1) ? "JSON entry" : "JSON entries")
-                 : ((ui->loadMenu.count == 1) ? "scene entry" : "scene entries"));
+    {
+        const char* singular = "entry";
+        const char* plural = "entries";
+        if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON) {
+            singular = "JSON entry";
+            plural = "JSON entries";
+        } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE) {
+            singular = "scene entry";
+            plural = "scene entries";
+        } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT) {
+            singular = "asset entry";
+            plural = "asset entries";
+        } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
+            singular = "runtime mesh";
+            plural = "runtime meshes";
+        } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
+            singular = "STL";
+            plural = "STLs";
+        }
+        snprintf(status_line,
+                 sizeof(status_line),
+                 "%d %s",
+                 ui->loadMenu.count,
+                 ui->loadMenu.count == 1 ? singular : plural);
+    }
     list_clip = UIPanel_GetLoadMenuListClipRect(ui);
     track = UIPanel_GetLoadMenuScrollTrackRect(ui);
     thumb = UIPanel_GetLoadMenuScrollThumbRect(ui);
+    set_dir_button = UIPanel_GetLoadMenuSetDirectoryButtonRect(ui);
 
 #if !USE_VULKAN
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
@@ -114,13 +140,40 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
                             accent_color,
                             4);
 
-    UIPanelSummary_DrawText(renderer, font, title, rect.x + metrics.pad_x, rect.y + metrics.pad_y + 1, label_color);
+    {
+        const int header_text_w = set_dir_button.w > 0
+            ? set_dir_button.x - rect.x - (metrics.pad_x * 2) - 6
+            : rect.w - (metrics.pad_x * 2);
+        UIPanelSummary_DrawTextClipped(renderer,
+                                       font,
+                                       title,
+                                       rect.x + metrics.pad_x,
+                                       rect.y + metrics.pad_y + 1,
+                                       header_text_w,
+                                       font_h + 3,
+                                       label_color);
+        if (set_dir_button.w > 0 && set_dir_button.h > 0) {
+            SDL_Color button_fill = UIPanelVisual_AdjustColor(panel_fill, 12, 8);
+            SDL_Color button_border = panel_border;
+            UIPanelVisual_DrawFrame(renderer, set_dir_button, button_fill, button_border, 90);
+            UIPanelSummary_DrawTextClipped(renderer,
+                                           font,
+                                           "Set Directory",
+                                           set_dir_button.x + 6,
+                                           set_dir_button.y + ((set_dir_button.h - font_h) / 2),
+                                           set_dir_button.w - 12,
+                                           font_h + 2,
+                                           value_color);
+        }
+    }
     UIPanelSummary_DrawTextClipped(renderer,
                                    font,
                                    status_line,
                                    rect.x + metrics.pad_x,
                                    rect.y + metrics.pad_y + font_h + 3,
-                                   rect.w - (metrics.pad_x * 2),
+                                   set_dir_button.w > 0
+                                       ? set_dir_button.x - rect.x - (metrics.pad_x * 2) - 6
+                                       : rect.w - (metrics.pad_x * 2),
                                    font_h + 4,
                                    value_color);
     UIPanelSummary_DrawDivider(renderer,

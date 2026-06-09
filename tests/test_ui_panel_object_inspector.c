@@ -1,5 +1,7 @@
 #include "test_layout_internal.h"
 
+#include "UI/input_ui_panel.h"
+#include "UI/ui_panel_edit_layout.h"
 #include "UI/ui_panel_object_inspector.h"
 #include "UI/ui_panel_object_layout.h"
 
@@ -310,6 +312,66 @@ static bool test_object_buttons_use_uniform_grid_rows(void) {
     return true;
 }
 
+static bool test_object_edit_tab_exposes_selection_modes(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    SDL_Rect summary_rect = {0, 0, 0, 0};
+    SDL_Rect workspace_rect = {0, 0, 0, 0};
+    SDL_Rect selection_rect = {0, 0, 0, 0};
+    const UIButton* body_button = NULL;
+    const UIButton* edge_button = NULL;
+    const UIButton* vertex_button = NULL;
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_EDIT);
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+
+    TEST_ASSERT(UIPanel_GetEditPaneRects(ui,
+                                         &summary_rect,
+                                         &workspace_rect,
+                                         &selection_rect));
+    TEST_ASSERT(summary_rect.w > 0);
+    TEST_ASSERT(summary_rect.h > 0);
+    TEST_ASSERT(selection_rect.w > 0);
+    TEST_ASSERT(selection_rect.h > 0);
+    TEST_ASSERT(selection_rect.y >= workspace_rect.y + workspace_rect.h);
+
+    for (int i = 0; i < ui->count; ++i) {
+        if (ui->buttons[i].id == UI_BTN_OBJECT_EDIT_BODY_MODE) {
+            body_button = &ui->buttons[i];
+        } else if (ui->buttons[i].id == UI_BTN_OBJECT_EDIT_EDGE_MODE) {
+            edge_button = &ui->buttons[i];
+        } else if (ui->buttons[i].id == UI_BTN_OBJECT_EDIT_VERTEX_MODE) {
+            vertex_button = &ui->buttons[i];
+        }
+    }
+    TEST_ASSERT(body_button != NULL);
+    TEST_ASSERT(edge_button != NULL);
+    TEST_ASSERT(vertex_button != NULL);
+    TEST_ASSERT(body_button->bounds.x >= selection_rect.x);
+    TEST_ASSERT(vertex_button->bounds.x + vertex_button->bounds.w <=
+                selection_rect.x + selection_rect.w);
+    TEST_ASSERT(edge_button->bounds.y >= selection_rect.y);
+    TEST_ASSERT(edge_button->bounds.y + edge_button->bounds.h <=
+                selection_rect.y + selection_rect.h);
+
+    TEST_ASSERT(UIPanel_HandleClick(edge_button->bounds.x + edge_button->bounds.w / 2,
+                                    edge_button->bounds.y + edge_button->bounds.h / 2));
+    TEST_ASSERT(state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_EDGE);
+    TEST_ASSERT(UIPanel_HandleClick(vertex_button->bounds.x + vertex_button->bounds.w / 2,
+                                    vertex_button->bounds.y + vertex_button->bounds.h / 2));
+    TEST_ASSERT(state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_VERTEX);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 bool ui_panel_object_inspector_run_tests(void) {
     const TestCase cases[] = {
         { "object_inspector_reserves_space_for_selected_object",
@@ -322,6 +384,8 @@ bool ui_panel_object_inspector_run_tests(void) {
           test_object_inspector_lower_sections_anchor_to_bottom },
         { "object_buttons_use_uniform_grid_rows",
           test_object_buttons_use_uniform_grid_rows },
+        { "object_edit_tab_exposes_selection_modes",
+          test_object_edit_tab_exposes_selection_modes },
     };
     return run_test_cases("UIPanelObjectInspector", cases, sizeof(cases) / sizeof(cases[0]));
 }

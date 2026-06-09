@@ -41,3 +41,4 @@ SHAPE_PACK_TOOL_BIN := $(PROGRAM_BIN_DIR)/shape_pack_tool
 SHAPE_TRACE_TOOL_BIN := $(PROGRAM_BIN_DIR)/shape_trace_tool
 SHAPE_TOOL_BIN := $(PROGRAM_BIN_DIR)/shape_tool
 AGENT_SCENE_TOOL_BIN := $(PROGRAM_BIN_DIR)/agent_scene_tool
+IMPORTED_MESH_HARNESS_BIN := $(PROGRAM_BIN_DIR)/imported_mesh_harness

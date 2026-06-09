@@ -64,6 +64,20 @@ static inline char* ld_test_read_text_file(const char* path) {
     return buf;
 }
 
+static inline bool ld_test_write_text_file_basic(const char* path, const char* text) {
+    FILE* f = NULL;
+    size_t len = 0u;
+    if (!path || !text) return false;
+    f = fopen(path, "wb");
+    if (!f) return false;
+    len = strlen(text);
+    if (fwrite(text, 1u, len, f) != len) {
+        fclose(f);
+        return false;
+    }
+    return fclose(f) == 0;
+}
+
 static inline bool ld_test_json_vec3_matches(cJSON* node, Vec3 expected) {
     cJSON* x = NULL;
     cJSON* y = NULL;

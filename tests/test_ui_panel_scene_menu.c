@@ -1,5 +1,6 @@
 #include "test_layout_internal.h"
 #include "Editor/primitive_placement_preview.h"
+#include "Input/input_mouse.h"
 #include "UI/ui_panel_internal.h"
 #include "Tools/scene_export.h"
 
@@ -777,6 +778,120 @@ static bool test_fit_scene_bounds_to_selected_object_command(void) {
     return true;
 }
 
+static bool test_object_workspace_primitive_creation_syncs_topology_hitboxes(void) {
+    GlobalState* state = NULL;
+    const ObjectAuthoringDocument* doc = NULL;
+    const ObjectAuthoringVertex* vertex = NULL;
+    SpaceViewContext view_ctx = {0};
+    Vec2 screen = {0};
+    Hitbox hit = {0};
+    uint32_t object_id = 0u;
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    TEST_ASSERT(Global_SetSpaceMode(SPACE_MODE_3D, false));
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+    TEST_ASSERT(state->objectAuthoring.attached);
+
+    TEST_ASSERT(UIPanel_CreatePlanePrimitiveFromActiveContext(true));
+    object_id = state->editor.selectedObject3DId;
+    TEST_ASSERT(object_id != 0u);
+    TEST_ASSERT(state->editor.selectedObjectAssetBodyId == object_id);
+    TEST_ASSERT(state->editor.selectedObjectAssetFace == OBJECT3D_FACE_NONE);
+    TEST_ASSERT(state->editor.selectedObject3DResizeHandle == PLANE_RESIZE_HANDLE_NONE);
+    TEST_ASSERT(state->editor.selectedObject3DPrismHandle == RECT_PRISM_RESIZE_HANDLE_NONE);
+
+    doc = &state->objectAuthoring.document;
+    TEST_ASSERT(doc->bodyCount == Layout_ObjectStore_LiveCount(&state->layout.objectStore));
+    TEST_ASSERT(doc->vertexCount >= 4u);
+    TEST_ASSERT(doc->edgeCount >= 4u);
+    TEST_ASSERT(doc->selectionKind == OBJECT_AUTHORING_SELECTION_BODY);
+    TEST_ASSERT(doc->selectedFace.bodyId == object_id);
+
+    vertex = ObjectAuthoringDocument_FindVertex(
+        doc,
+        ObjectAuthoringVertexId_FromPrimitive(object_id, 0u));
+    TEST_ASSERT(vertex != NULL);
+
+    state->editor.objectEditSelectionMode = OBJECT_EDIT_SELECTION_VERTEX;
+    Global_FlagHitboxesDirty();
+    Global_RebuildHitboxesIfDirty();
+    view_ctx = SpaceAdapter_BuildViewContext(state);
+    screen = WorldToScreen(SpaceAdapter_ProjectToView(vertex->position, &view_ctx),
+                           &state->grid);
+    hit = HitboxSystem_GetHitAt((int)lroundf(screen.x), (int)lroundf(screen.y));
+    TEST_ASSERT(hit.type == HITBOX_OBJECT_TOPOLOGY_VERTEX);
+    TEST_ASSERT(hit.index == (int)object_id);
+    TEST_ASSERT(hit.subIndex == 0);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_center_click_places_primitive_preview_over_mesh_hitbox(void) {
+    GlobalState* state = NULL;
+    Transform3D transform = {0};
+    uint32_t mesh_id = 0u;
+    Object3D* mesh = NULL;
+    Vec2 center_view = {0};
+    Vec2 center_screen = {0};
+    Hitbox hit = {0};
+    SDL_Event click;
+    size_t before_count = 0u;
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    TEST_ASSERT(Global_SetSpaceMode(SPACE_MODE_3D, false));
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+
+    transform = Layout_Transform3D_Default();
+    mesh_id = Layout_ObjectStore_Create(&state->layout.objectStore,
+                                        OBJECT3D_KIND_MESH_ASSET_INSTANCE,
+                                        &transform,
+                                        "mesh_asset_instance",
+                                        CORE_OBJECT_DIMENSIONAL_MODE_FULL_3D,
+                                        CORE_OBJECT_PLANE_XY);
+    TEST_ASSERT(mesh_id != 0u);
+    mesh = Layout_ObjectStore_Find(&state->layout.objectStore, mesh_id);
+    TEST_ASSERT(mesh != NULL);
+    snprintf(mesh->meshInstance.assetId, sizeof(mesh->meshInstance.assetId), "mesh_under_preview");
+    snprintf(mesh->meshInstance.sourceAssetId, sizeof(mesh->meshInstance.sourceAssetId), "mesh_under_preview_src");
+    snprintf(mesh->meshInstance.runtimePath, sizeof(mesh->meshInstance.runtimePath), "/tmp/mesh_under_preview.runtime.json");
+    mesh->meshInstance.localBoundsMin = (Vec3){ -2.0f, -2.0f, -2.0f };
+    mesh->meshInstance.localBoundsMax = (Vec3){  2.0f,  2.0f,  2.0f };
+    mesh->meshInstance.vertexCount = 8u;
+    mesh->meshInstance.triangleCount = 12u;
+    TEST_ASSERT(Layout_ObjectStore_ValidateObject(mesh));
+
+    Global_FlagHitboxesDirty();
+    Global_RebuildHitboxesIfDirty();
+    center_view = Vec3_ProjectToView(mesh->transform.position, state->activePlane, &state->freeViewCamera);
+    center_screen = WorldToScreen(center_view, &state->grid);
+    hit = HitboxSystem_GetHitAt((int)center_screen.x, (int)center_screen.y);
+    TEST_ASSERT(hit.type == HITBOX_OBJECT3D);
+    TEST_ASSERT(hit.index == (int)mesh_id);
+
+    before_count = Layout_ObjectStore_LiveCount(&state->layout.objectStore);
+    state->editor.primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_PLANE;
+    memset(&click, 0, sizeof(click));
+    click.type = SDL_MOUSEBUTTONDOWN;
+    click.button.type = SDL_MOUSEBUTTONDOWN;
+    click.button.button = SDL_BUTTON_LEFT;
+    click.button.clicks = 1;
+    click.button.x = (int)center_screen.x;
+    click.button.y = (int)center_screen.y;
+    Input_MouseHandle(NULL, &click);
+
+    TEST_ASSERT(Layout_ObjectStore_LiveCount(&state->layout.objectStore) == before_count + 1u);
+    TEST_ASSERT(state->editor.primitivePlacementPreview == PRIMITIVE_PLACEMENT_PREVIEW_NONE);
+    TEST_ASSERT(state->editor.selectedObject3DId != mesh_id);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 bool ui_panel_scene_menu_run_tests(void) {
     const TestCase cases[] = {
         { "scene_menu_discovers_direct_and_grouped_scene_dirs",
@@ -807,6 +922,10 @@ bool ui_panel_scene_menu_run_tests(void) {
           test_primitive_create_button_hover_sets_placement_preview },
         { "fit_scene_bounds_to_selected_object_command",
           test_fit_scene_bounds_to_selected_object_command },
+        { "object_workspace_primitive_creation_syncs_topology_hitboxes",
+          test_object_workspace_primitive_creation_syncs_topology_hitboxes },
+        { "center_click_places_primitive_preview_over_mesh_hitbox",
+          test_center_click_places_primitive_preview_over_mesh_hitbox },
     };
     return run_test_cases("UIPanelSceneMenu", cases, sizeof(cases) / sizeof(cases[0]));
 }

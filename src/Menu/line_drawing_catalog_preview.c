@@ -106,7 +106,7 @@ static void line_drawing_catalog_preview_project_bounds(const Layout* layout,
 }
 
 static Vec2 line_drawing_catalog_preview_project_point(Vec3 point, const FreeViewCamera* camera) {
-    ViewPlane plane = {VIEW_PLANE_XY, 0.0f};
+    ViewPlane plane = { .axis = VIEW_PLANE_XY, .offset = 0.0f };
     return Vec3_ProjectToView(point, plane, camera);
 }
 

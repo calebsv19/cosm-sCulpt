@@ -1,5 +1,7 @@
 #include "Layout/asset/layout_object_asset_mesh_authoring.h"
 
+#include "ObjectAuthoring/object_authoring_eval.h"
+#include "ObjectAuthoring/object_authoring_persistence.h"
 #include "core_mesh_asset.h"
 
 #include <math.h>
@@ -363,5 +365,86 @@ bool LayoutObjectAssetMeshAuthoring_Load(Layout* layout,
     Layout_Free(layout);
     *layout = loaded_layout;
     core_mesh_asset_authoring_document_free(&document);
+    return true;
+}
+
+bool LayoutObjectAssetMeshAuthoring_SaveWithAuthoring(
+    const Layout* layout,
+    const ObjectAuthoringDocument* authoring_document,
+    const char* path,
+    char* diagnostics,
+    size_t diagnostics_size) {
+    if (!LayoutObjectAssetMeshAuthoring_Save(layout, path, diagnostics, diagnostics_size)) {
+        return false;
+    }
+    if (!authoring_document || authoring_document->operationCount == 0u) {
+        return true;
+    }
+    return ObjectAuthoringDocument_SaveExtensionToFile(authoring_document,
+                                                       path,
+                                                       diagnostics,
+                                                       diagnostics_size);
+}
+
+bool LayoutObjectAssetMeshAuthoring_LoadWithAuthoring(
+    Layout* layout,
+    ObjectAuthoringDocument* out_authoring_document,
+    bool* out_has_authoring_document,
+    const char* path,
+    char* diagnostics,
+    size_t diagnostics_size) {
+    ObjectAuthoringDocument loaded_authoring;
+    ObjectAuthoringDocument evaluated;
+    ObjectAuthoringEvalDiagnostics eval_diagnostics;
+    bool has_authoring = false;
+    bool ok = false;
+
+    if (out_has_authoring_document) {
+        *out_has_authoring_document = false;
+    }
+    if (!LayoutObjectAssetMeshAuthoring_Load(layout, path, diagnostics, diagnostics_size)) {
+        return false;
+    }
+    if (!out_authoring_document) {
+        return true;
+    }
+
+    ObjectAuthoringDocument_Init(&loaded_authoring);
+    ObjectAuthoringDocument_Init(&evaluated);
+    ok = ObjectAuthoringDocument_LoadExtensionFromFile(&loaded_authoring,
+                                                       path,
+                                                       &has_authoring,
+                                                       diagnostics,
+                                                       diagnostics_size);
+    if (!ok) {
+        ObjectAuthoringDocument_Free(&loaded_authoring);
+        ObjectAuthoringDocument_Free(&evaluated);
+        return false;
+    }
+    if (!has_authoring) {
+        ObjectAuthoringDocument_Free(&loaded_authoring);
+        ObjectAuthoringDocument_Free(&evaluated);
+        return true;
+    }
+    ok = ObjectAuthoring_EvaluateDocument(&loaded_authoring,
+                                          &evaluated,
+                                          &eval_diagnostics) &&
+         ObjectAuthoring_ApplyEvaluatedDocumentToLayout(&evaluated,
+                                                        layout,
+                                                        &eval_diagnostics) &&
+         ObjectAuthoringDocument_Copy(out_authoring_document, &loaded_authoring);
+    ObjectAuthoringDocument_Free(&loaded_authoring);
+    ObjectAuthoringDocument_Free(&evaluated);
+    if (!ok) {
+        LayoutObjectAsset_SetDiagnostics(diagnostics,
+                                         diagnostics_size,
+                                         eval_diagnostics.message[0]
+                                             ? eval_diagnostics.message
+                                             : "failed to evaluate object authoring document");
+        return false;
+    }
+    if (out_has_authoring_document) {
+        *out_has_authoring_document = true;
+    }
     return true;
 }

@@ -1,6 +1,6 @@
 # Agent Scene Authoring CLI
 
-Last updated: 2026-05-20
+Last updated: 2026-06-04
 
 `agent_scene_tool` is the first headless authoring entrypoint for LineDrawing. It converts a compact, agent-authored JSON request into the existing LineDrawing scene pipeline outputs without opening the SDL app.
 
@@ -58,6 +58,8 @@ The output directory contains:
 - `scene_authoring.json`: canonical `scene_authoring_v1` export.
 - `scene_runtime.json`: compiled `scene_runtime_v1` payload.
 - `scene_summary.json`: machine-readable scene summary and file index.
+- `assets/mesh_assets/<asset_id>.runtime.json`: copied runtime mesh assets
+  referenced by request-local `mesh_asset_instance` objects.
 
 When `--out` is `<run_dir>/line_drawing`, the tool also writes app-loadable
 convenience outputs beside that directory:
@@ -67,6 +69,8 @@ convenience outputs beside that directory:
   LineDrawing `Load Scene`.
 - `<run_dir>/line_drawing_app_load/scene_runtime.json`: paired runtime scene
   contract file for `Load Scene` discovery.
+- `<run_dir>/line_drawing_app_load/assets/mesh_assets/<asset_id>.runtime.json`:
+  copied runtime mesh asset sidecars for app-loadable scene folders.
 
 `scene_runtime.json` is compiled output. Do not select it directly in
 LineDrawing; use `Load Scene` on a folder that directly contains both
@@ -80,7 +84,7 @@ Required top-level fields:
 
 - `schema`: must be `line_drawing_agent_scene_request_v1`.
 - `scene_id`: stable scene identifier.
-- `objects`: array of `plane` and `rect_prism` entries.
+- `objects`: array of `plane`, `rect_prism`, and `mesh_asset_instance` entries.
 
 Optional top-level fields:
 
@@ -94,7 +98,7 @@ Optional top-level fields:
 Object fields:
 
 - `id`: stable scene object id. This becomes the canonical scene `object_id`.
-- `kind`: `plane` or `rect_prism`.
+- `kind`: `plane`, `rect_prism`, or `mesh_asset_instance`.
 - `axis`: primitive frame axis, one of `xy`, `yz`, `xz`.
 - `position`: object center `{ "x": n, "y": n, "z": n }`.
 - `width`, `height`: plane or prism frame extents.
@@ -102,6 +106,49 @@ Object fields:
 - `lock_to_construction_plane`: defaults to `false` for agent-authored free placement.
 - `lock_to_bounds`: defaults to `true`.
 - `physics_sim`: object-local shortcut appended to `extensions.physics_sim.object_overlays` with this object's `id`.
+
+Mesh asset instance fields:
+
+- `kind`: must be `mesh_asset_instance`.
+- `id`: stable authored object id.
+- `asset_id`: runtime mesh asset id. The generated canonical object receives
+  `geometry_ref = { "kind": "mesh_asset", "id": <asset_id>, "variant": ... }`.
+- `asset_source_path`: source `.runtime.json` mesh asset to copy. Relative
+  paths are resolved from the request JSON file.
+- `variant`: optional mesh variant string; defaults to `runtime_default`.
+- `position`: required 3D transform position.
+- `rotation`: optional 3D Euler rotation; defaults to `{ 0, 0, 0 }`.
+- `scale`: optional 3D scale; defaults to `{ 1, 1, 1 }`.
+- `material_id`: optional canonical scene material id. When supplied, the tool
+  ensures a matching flat-color material exists so `material_ref.id` resolves.
+- `visible`, `locked`, `selectable`: optional object flags.
+
+Mesh asset instance example:
+
+```json
+{
+  "id": "low_poly_sphere",
+  "kind": "mesh_asset_instance",
+  "asset_id": "asset_sphere_8x4",
+  "asset_source_path": "../../../ray_tracing/tests/fixtures/mesh_asset_runtime_spheres/assets/mesh_assets/asset_sphere_8x4.runtime.json",
+  "variant": "runtime_default",
+  "material_id": "mat_low_poly_sphere",
+  "position": { "x": 0.0, "y": 0.0, "z": 0.62 },
+  "rotation": { "x": 0.0, "y": 0.0, "z": 0.0 },
+  "scale": { "x": 0.52, "y": 0.52, "z": 0.52 }
+}
+```
+
+`agent_scene_tool` skips mesh instances while building the LineDrawing layout
+primitive store, then injects them into the exported canonical authoring scene
+as full-3D `mesh_asset_instance` objects before compiling `scene_runtime.json`.
+This keeps the current LineDrawing editor layout path stable while letting
+RayTracing consume the mesh object through the shared scene runtime contract.
+
+Current mesh-object fixtures include low-poly and high-quality sphere requests,
+plus a moving-light sphere request used by RayTracing worker-video proofs. For
+imported mesh validation, use the imported-mesh harness fixtures rather than
+hand-authoring runtime sidecars directly.
 
 PhysicsSim scene domain example:
 
@@ -147,7 +194,38 @@ The current detached review lane uses:
 - `authoring.light_path_depth`
 - `authoring.camera_path`
 - `authoring.camera_path_depth`
+- `authoring.lighting_policy`
+- `authoring.ambient_policy`
 - `authoring.object_materials`
+
+`authoring.lighting_policy` is the preferred way to describe generated-scene
+lighting intent. `line_drawing/tools/agent_scene_refine.py` expands it into
+deterministic `light_path` and `light_path_depth` points before the request is
+handed to RayTracing. Front-biased modes start camera-side of the subject by
+default and keep their sampled control points inside the requested front
+hemisphere unless `allow_backlight` or a full/backlight mode is explicit.
+
+Supported lighting policy fields:
+
+- `mode`: `front_key_orbit`, `front_corkscrew`, `front_vertical_sweep`,
+  `full_orbit`, `fixed_height_orbit`, `high_shadow_orbit`, `rim_light`, or
+  `transparent_review`
+- `front_reference`: `camera`, `object_forward`, or `explicit_vector`
+- `start_in_front`: boolean intent marker for generated requests
+- `front_hemisphere_degrees`: front arc width for front-biased paths
+- `height_mode`: `object_height`, `above_object`, `vertical_sweep`, or
+  `corkscrew`
+- `radius_scale`, `vertical_range`, and `revolutions`
+- `ambient_required_for_backlight` and `allow_backlight`
+- `subject_object_id`
+
+`authoring.ambient_policy` is also expanded by the refine step into the
+RayTracing bridge's existing `authoring.environment` object:
+
+- `mode`: `none`, `review_fill`, `transparent_fill`, or `studio`
+- `ambient_strength`
+- `top_fill_strength`
+- `environment_brightness`
 
 `object_materials` entries map authored object ids to RayTracing review-only
 material/color overlays such as:

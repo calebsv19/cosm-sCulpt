@@ -3,6 +3,7 @@
 #include "Core/space_mode_adapter.h"
 #include "Editor/object_face_sketch.h"
 #include "Layout/scene/layout_object_faces.h"
+#include "ObjectAuthoring/object_authoring_eval.h"
 
 #include <SDL2/SDL.h>
 #include <math.h>
@@ -171,6 +172,48 @@ static bool ObjectFaceExtrude_CreateRectPrism(GlobalState* state,
                                            &bounds_adjusted);
 }
 
+static ObjectAuthoringBody ObjectFaceExtrude_BuildRectPrismBody(uint32_t body_id,
+                                                                PlaneFrame3 frame,
+                                                                float width,
+                                                                float height,
+                                                                float depth) {
+    Transform3D transform = Layout_Transform3D_Default();
+    transform.position = frame.origin;
+    return (ObjectAuthoringBody){
+        .bodyId = body_id,
+        .sourceObjectId = body_id,
+        .authoringKind = OBJECT_AUTHORING_BODY_KIND_RECT_PRISM_PRIMITIVE,
+        .sourceKind = OBJECT3D_KIND_RECT_PRISM,
+        .transform = transform,
+        .rectPrism = {
+            .width = width,
+            .height = height,
+            .depth = depth,
+            .frame = frame,
+            .lockToConstructionPlane = false,
+            .lockToBounds = false
+        }
+    };
+}
+
+static bool ObjectFaceExtrude_ReplayAuthoringToLayout(GlobalState* state) {
+    ObjectAuthoringDocument evaluated;
+    ObjectAuthoringEvalDiagnostics diagnostics;
+    bool ok = false;
+    if (!state || !state->objectAuthoring.attached) return false;
+    ObjectAuthoringDocument_Init(&evaluated);
+    ok = ObjectAuthoring_EvaluateDocument(&state->objectAuthoring.document,
+                                          &evaluated,
+                                          &diagnostics) &&
+         ObjectAuthoring_ApplyEvaluatedDocumentToLayout(&evaluated,
+                                                        &state->layout,
+                                                        &diagnostics) &&
+         ObjectAuthoringSession_MirrorBodiesFromLayout(&state->objectAuthoring,
+                                                       &state->layout);
+    ObjectAuthoringDocument_Free(&evaluated);
+    return ok;
+}
+
 static bool ObjectFaceExtrude_BoxToWorldFrame(const PlaneFrame3* face_frame,
                                               const FaceLocalPrismBox* box,
                                               PlaneFrame3* out_frame,
@@ -245,14 +288,47 @@ static bool ObjectFaceExtrude_CommitAdd(GlobalState* state) {
     frame.normal = axis_n;
     frame.origin = center;
 
-    Editor_HistoryCapture(editor, &state->layout);
-    if (!ObjectFaceExtrude_CreateRectPrism(state,
-                                           frame,
-                                           width,
-                                           height,
-                                           editor->objectFaceExtrudeDepth,
-                                           &created_id)) {
-        return false;
+    if (state->objectAuthoring.attached) {
+        ObjectAuthoringSession prior_session;
+        ObjectAuthoringBody created_body;
+        ObjectAuthoringSession_Init(&prior_session);
+        if (!ObjectAuthoringSession_Copy(&prior_session, &state->objectAuthoring)) {
+            ObjectAuthoringSession_Free(&prior_session);
+            return false;
+        }
+        Editor_HistoryCapture(editor, &state->layout);
+        created_id = state->layout.objectStore.nextObjectId;
+        created_body = ObjectFaceExtrude_BuildRectPrismBody(created_id,
+                                                            frame,
+                                                            width,
+                                                            height,
+                                                            editor->objectFaceExtrudeDepth);
+        if (!ObjectAuthoringSession_RecordExtrudeWithSnapshots(
+                &state->objectAuthoring,
+                OBJECT_AUTHORING_OPERATION_EXTRUDE_ADD,
+                editor->objectFaceSketchBodyId,
+                editor->objectFaceSketchFace,
+                editor->objectFaceExtrudeDepth,
+                &created_id,
+                &created_body,
+                1u,
+                NULL) ||
+            !ObjectFaceExtrude_ReplayAuthoringToLayout(state)) {
+            (void)ObjectAuthoringSession_Copy(&state->objectAuthoring, &prior_session);
+            ObjectAuthoringSession_Free(&prior_session);
+            return false;
+        }
+        ObjectAuthoringSession_Free(&prior_session);
+    } else {
+        Editor_HistoryCapture(editor, &state->layout);
+        if (!ObjectFaceExtrude_CreateRectPrism(state,
+                                               frame,
+                                               width,
+                                               height,
+                                               editor->objectFaceExtrudeDepth,
+                                               &created_id)) {
+            return false;
+        }
     }
 
     editor->selectedObject3DId = editor->objectFaceSketchBodyId;
@@ -339,6 +415,9 @@ static size_t ObjectFaceExtrude_BuildCutBoxes(const Object3D* target,
 static bool ObjectFaceExtrude_CommitCut(GlobalState* state) {
     EditorState* editor = NULL;
     const Object3D* target = NULL;
+    uint32_t target_body_id = 0u;
+    Object3DFaceKind target_face = OBJECT3D_FACE_NONE;
+    float target_depth = 0.0f;
     FaceLocalPrismBox boxes[5];
     PlaneFrame3 frames[5];
     uint32_t created_ids[5] = {0u};
@@ -354,6 +433,9 @@ static bool ObjectFaceExtrude_CommitCut(GlobalState* state) {
 
     target = Layout_ObjectStore_FindConst(&state->layout.objectStore, editor->objectFaceSketchBodyId);
     if (!target || target->kind != OBJECT3D_KIND_RECT_PRISM) return false;
+    target_body_id = editor->objectFaceSketchBodyId;
+    target_face = editor->objectFaceSketchFace;
+    target_depth = editor->objectFaceExtrudeDepth;
 
     box_count = ObjectFaceExtrude_BuildCutBoxes(target,
                                                 editor->objectFaceSketchFace,
@@ -366,23 +448,62 @@ static bool ObjectFaceExtrude_CommitCut(GlobalState* state) {
                                                &frames[i],
                                                &widths[i],
                                                &heights[i],
-                                               &depths[i]) ||
-            !ObjectFaceExtrude_CreateRectPrism(state,
-                                               frames[i],
-                                               widths[i],
-                                               heights[i],
-                                               depths[i],
-                                               &created_ids[i])) {
+                                               &depths[i])) {
+            return false;
+        }
+        if (state->objectAuthoring.attached) {
+            created_ids[i] = state->layout.objectStore.nextObjectId + (uint32_t)i;
+        } else if (!ObjectFaceExtrude_CreateRectPrism(state,
+                                                      frames[i],
+                                                      widths[i],
+                                                      heights[i],
+                                                      depths[i],
+                                                      &created_ids[i])) {
             for (size_t created_index = 0; created_index < i; ++created_index) {
                 if (created_ids[created_index] != 0u) {
-                    (void)Layout_ObjectStore_Delete(&state->layout.objectStore, created_ids[created_index]);
+                    (void)Layout_ObjectStore_Delete(&state->layout.objectStore,
+                                                    created_ids[created_index]);
                 }
             }
             return false;
         }
     }
 
-    (void)Layout_ObjectStore_Delete(&state->layout.objectStore, target->objectId);
+    if (state->objectAuthoring.attached) {
+        ObjectAuthoringBody result_bodies[5];
+        ObjectAuthoringSession prior_session;
+        ObjectAuthoringSession_Init(&prior_session);
+        if (!ObjectAuthoringSession_Copy(&prior_session, &state->objectAuthoring)) {
+            ObjectAuthoringSession_Free(&prior_session);
+            return false;
+        }
+        for (size_t i = 0; i < box_count; ++i) {
+            result_bodies[i] = ObjectFaceExtrude_BuildRectPrismBody(created_ids[i],
+                                                                    frames[i],
+                                                                    widths[i],
+                                                                    heights[i],
+                                                                    depths[i]);
+        }
+        if (!ObjectAuthoringSession_RecordExtrudeWithSnapshots(
+                &state->objectAuthoring,
+                OBJECT_AUTHORING_OPERATION_EXTRUDE_CUT,
+                target_body_id,
+                target_face,
+                target_depth,
+                created_ids,
+                result_bodies,
+                box_count,
+                NULL) ||
+            !ObjectFaceExtrude_ReplayAuthoringToLayout(state)) {
+            (void)ObjectAuthoringSession_Copy(&state->objectAuthoring, &prior_session);
+            ObjectAuthoringSession_Free(&prior_session);
+            return false;
+        }
+        (void)ObjectAuthoringSession_ClearActiveSketch(&state->objectAuthoring);
+        ObjectAuthoringSession_Free(&prior_session);
+    } else {
+        (void)Layout_ObjectStore_Delete(&state->layout.objectStore, target_body_id);
+    }
     editor->selectedObject3DId = box_count > 0u ? created_ids[0] : 0u;
     editor->selectedObjectAssetBodyId = box_count > 0u ? created_ids[0] : 0u;
     editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
@@ -467,6 +588,38 @@ bool Editor_ObjectFaceExtrudeTrigger(GlobalState* state, ObjectFaceExtrudeMode m
     }
 
     return Editor_ObjectFaceExtrudeArm(state, mode);
+}
+
+bool Editor_ObjectFaceExtrudeSetDepth(GlobalState* state, float depth) {
+    EditorState* editor = NULL;
+    if (!state) return false;
+    editor = &state->editor;
+    if (!editor->objectFaceExtrudeToolArmed) return false;
+    if (editor->objectFaceExtrudeMode != OBJECT_FACE_EXTRUDE_MODE_ADD &&
+        editor->objectFaceExtrudeMode != OBJECT_FACE_EXTRUDE_MODE_CUT) {
+        return false;
+    }
+    if (!isfinite(depth) || depth <= kObjectFaceExtrudeMinDepth) return false;
+
+    editor->objectFaceExtrudeDepth = depth;
+    editor->objectFaceExtrudeHasPreview = depth > kObjectFaceExtrudePreviewDepth;
+    editor->objectAuthoringMode = OBJECT_AUTHORING_MODE_OPERATION_PREVIEW;
+    Global_FlagHitboxesDirty();
+    return true;
+}
+
+bool Editor_ObjectFaceExtrudeAdjustDepth(GlobalState* state, float delta_depth) {
+    EditorState* editor = NULL;
+    float next_depth = 0.0f;
+    if (!state || !isfinite(delta_depth)) return false;
+    editor = &state->editor;
+    if (!editor->objectFaceExtrudeToolArmed) return false;
+
+    next_depth = editor->objectFaceExtrudeDepth + delta_depth;
+    if (next_depth <= kObjectFaceExtrudeMinDepth) {
+        next_depth = kObjectFaceExtrudeMinDepth * 2.0f;
+    }
+    return Editor_ObjectFaceExtrudeSetDepth(state, next_depth);
 }
 
 bool Editor_ObjectFaceExtrudeHandleLeftMouseDown(GlobalState* state, int mouse_x, int mouse_y) {

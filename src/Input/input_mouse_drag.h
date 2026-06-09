@@ -9,6 +9,7 @@ void ResetObjectResizeDrag(EditorState* editor);
 void ResetObjectGizmoDrag(EditorState* editor);
 void ResetObjectTranslateDrag(EditorState* editor);
 void ResetObjectRotateDrag(EditorState* editor);
+void ResetObjectScaleDrag(EditorState* editor);
 void ResetSceneBoundsGizmoDrag(EditorState* editor);
 
 bool BeginGizmoDragSession(GlobalState* state,
@@ -53,6 +54,12 @@ bool BeginObjectRotateDragSession(GlobalState* state,
                                   GizmoAxisDirection axis,
                                   int mouseX,
                                   int mouseY);
+bool BeginObjectScaleDragSession(GlobalState* state,
+                                 EditorState* editor,
+                                 uint32_t objectId,
+                                 GizmoAxisDirection axis,
+                                 int mouseX,
+                                 int mouseY);
 bool BeginSceneBoundsGizmoDragSession(GlobalState* state,
                                       EditorState* editor,
                                       SceneBoundsHandleKind handle,

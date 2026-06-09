@@ -7,6 +7,8 @@
 
 bool Editor_ObjectFaceExtrudeArm(GlobalState* state, ObjectFaceExtrudeMode mode);
 bool Editor_ObjectFaceExtrudeTrigger(GlobalState* state, ObjectFaceExtrudeMode mode);
+bool Editor_ObjectFaceExtrudeSetDepth(GlobalState* state, float depth);
+bool Editor_ObjectFaceExtrudeAdjustDepth(GlobalState* state, float delta_depth);
 void Editor_ObjectFaceExtrudeClear(EditorState* editor);
 bool Editor_ObjectFaceExtrudeHandleLeftMouseDown(GlobalState* state, int mouse_x, int mouse_y);
 void Editor_ObjectFaceExtrudeHandleMouseMotion(GlobalState* state, int mouse_x, int mouse_y);

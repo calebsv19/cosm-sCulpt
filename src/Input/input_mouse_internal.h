@@ -18,6 +18,7 @@ LineDrawingPaneHost* ResolvePaneHostMutable(void);
 PointerPaneLane ResolvePointerPaneLane(int x, int y);
 void ClearHoverState(EditorState* editor);
 bool InputMouse_ObjectModeEnabled(void);
+bool InputMouse_ObjectEditTopologyModeActive(const GlobalState* state);
 bool InputMouse_IsObjectFaceAuthoringModal(const EditorState* editor);
 bool InputMouse_IsObjectFaceSketchDrawActive(const EditorState* editor);
 void ClearObjectAuthoringSelection(EditorState* editor);

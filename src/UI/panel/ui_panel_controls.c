@@ -2,6 +2,7 @@
 
 #include "Core/global_state.h"
 #include "Editor/editor.h"
+#include "Editor/object_face_extrude.h"
 
 #include <SDL2/SDL.h>
 
@@ -83,6 +84,26 @@ bool UIPanel_BeginConstructionPlaneOffsetDialog(void) {
     return UIPanel_BeginConstructionPlaneDialog(UI_CONSTRUCTION_PLANE_DIALOG_TARGET_OFFSET);
 }
 
+bool UIPanel_AdjustObjectExtrudeDepth(int direction) {
+    GlobalState* state = Global_Get();
+    float step = 0.0f;
+    if (!state || direction == 0) return false;
+    if (Global_GetWorkspaceMode() != LINE_DRAWING_WORKSPACE_MODE_OBJECT) return false;
+    if (!state->editor.objectFaceExtrudeToolArmed) {
+        SDL_Log("[UI] Extrude depth edit blocked: arm Extrude + or Extrude - first.");
+        return false;
+    }
+
+    step = state->grid.gridSize > 0.0f ? state->grid.gridSize : 1.0f;
+    if (direction < 0) step = -step;
+    if (!Editor_ObjectFaceExtrudeAdjustDepth(state, step)) {
+        SDL_Log("[UI] Extrude depth edit rejected.");
+        return false;
+    }
+    SDL_Log("[UI] Extrude depth adjusted to %.4f", state->editor.objectFaceExtrudeDepth);
+    return true;
+}
+
 bool UIPanel_BeginObjectPositionDialog(void) {
     return UIPanel_BeginObjectTransformDialog(UI_OBJECT_TRANSFORM_DIALOG_TARGET_POSITION);
 }
@@ -134,9 +155,19 @@ const char* UIPanel_GetDisplayUnitSymbol(void) {
 bool UIPanel_ToggleObjectGizmoRotateMode(void) {
     GlobalState* state = Global_Get();
     if (!state) return false;
-    state->editor.object3DRotateMode = !state->editor.object3DRotateMode;
+    if (!state->editor.object3DRotateMode && !state->editor.object3DSizeMode) {
+        state->editor.object3DRotateMode = true;
+        state->editor.object3DSizeMode = false;
+    } else if (state->editor.object3DRotateMode) {
+        state->editor.object3DRotateMode = false;
+        state->editor.object3DSizeMode = true;
+    } else {
+        state->editor.object3DRotateMode = false;
+        state->editor.object3DSizeMode = false;
+    }
     Global_FlagHitboxesDirty();
     SDL_Log("[UI] Object gizmo mode: %s",
+            state->editor.object3DSizeMode ? "SIZE" :
             state->editor.object3DRotateMode ? "ROTATE" : "MOVE");
     return true;
 }
@@ -144,7 +175,21 @@ bool UIPanel_ToggleObjectGizmoRotateMode(void) {
 bool UIPanel_IsObjectGizmoRotateMode(void) {
     GlobalState* state = Global_Get();
     if (!state) return false;
-    return state->editor.object3DRotateMode;
+    return state->editor.object3DRotateMode && !state->editor.object3DSizeMode;
+}
+
+bool UIPanel_IsObjectGizmoSizeMode(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    return state->editor.object3DSizeMode;
+}
+
+const char* UIPanel_ObjectGizmoModeLabel(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return "Move";
+    if (state->editor.object3DSizeMode) return "Size";
+    if (state->editor.object3DRotateMode) return "Rotate";
+    return "Move";
 }
 
 bool UIPanel_ToggleSceneBoundsEnabled(void) {

@@ -40,6 +40,8 @@ static const char* UIPanelFileSummary_ModeLabel(UILoadMenuMode mode) {
         case UI_LOAD_MENU_MODE_JSON: return "JSON";
         case UI_LOAD_MENU_MODE_SCENE: return "Scene";
         case UI_LOAD_MENU_MODE_OBJECT: return "Asset";
+        case UI_LOAD_MENU_MODE_RUNTIME_MESH: return "Mesh";
+        case UI_LOAD_MENU_MODE_STL_IMPORT: return "STL";
         case UI_LOAD_MENU_MODE_NONE:
         default: return "Idle";
     }
@@ -102,7 +104,7 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
 
     UIPanelSummary_DrawText(renderer,
                             font,
-                            object_mode ? "Asset File" : "File",
+                            object_mode ? "Asset Actions" : "File",
                             panel.x + metrics.pad_x,
                             y,
                             label_color);
@@ -149,7 +151,9 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     if (!UIPanel_GetFileBrowserActionHintText(ui, line_action_hint, sizeof(line_action_hint))) {
         snprintf(line_action_hint,
                  sizeof(line_action_hint),
-                 "Actions  Use Session targets the live row. Clear Last removes remembered fallback rows.");
+                 object_mode
+                     ? "Controls below save, load, create, export, and set roots."
+                     : "Actions  Use Session targets the live row. Clear Last removes remembered fallback rows.");
     }
     snprintf(line_browser_root,
              sizeof(line_browser_root),

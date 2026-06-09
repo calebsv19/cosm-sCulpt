@@ -191,6 +191,34 @@ void Render_Editor_GhostWall(EditorState* editor, AppContext* ctx) {
         (int)((to.y   - grid->offsetY) * gridSize * scale));
 }
 
+static float Object3D_CenterGizmoAxisWorldLen(const Object3D* object, float gridSize) {
+    float axisWorldLen = fmaxf(gridSize * 2.0f, 1.0f);
+    Vec3 corners[8];
+    Vec3 center = {0};
+    int cornerCount = 0;
+    if (!object) return axisWorldLen;
+    if (!Layout_Object3D_ComputeVisualCenter(object, &center)) return axisWorldLen;
+    if (object->kind == OBJECT3D_KIND_PLANE) {
+        if (!Layout_Object3D_ComputePlaneCorners(object, corners)) return axisWorldLen;
+        cornerCount = 4;
+    } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        if (!Layout_Object3D_ComputeRectPrismCorners(object, corners)) return axisWorldLen;
+        cornerCount = 8;
+    } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) return axisWorldLen;
+        cornerCount = 8;
+    } else {
+        return axisWorldLen;
+    }
+
+    float maxRadius = 0.0f;
+    for (int i = 0; i < cornerCount; ++i) {
+        const float radius = Vec3_Length(Vec3_Sub(corners[i], center));
+        if (radius > maxRadius) maxRadius = radius;
+    }
+    return fmaxf(axisWorldLen, maxRadius * 0.35f);
+}
+
 void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
     if (!editor || !ctx) return;
 
@@ -285,14 +313,33 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
             Layout_ObjectStore_FindConst(&state->layout.objectStore, editor->selectedObject3DId);
         if (selectedObject && Layout_ObjectStore_ValidateObject(selectedObject)) {
             ObjectHandleGizmoTarget handleTarget = ObjectHandleGizmoTarget_None();
-            const bool handleGizmoActive =
+            const bool topologyEditMode =
+                state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT &&
+                state->objectAuthoring.attached &&
+                (editor->objectEditSelectionMode == OBJECT_EDIT_SELECTION_EDGE ||
+                 editor->objectEditSelectionMode == OBJECT_EDIT_SELECTION_VERTEX);
+            bool handleGizmoActive =
                 ObjectHandleGizmoTarget_FromSelection(
                     selectedObject,
                     selectedObject->objectId,
                     (PlaneResizeHandleKind)editor->selectedObject3DResizeHandle,
                     (RectPrismResizeHandleKind)editor->selectedObject3DPrismHandle,
                     &handleTarget);
+            if (!handleGizmoActive &&
+                editor->selectedObject3DResizeHandle == PLANE_RESIZE_HANDLE_NONE &&
+                editor->selectedObject3DPrismHandle == RECT_PRISM_RESIZE_HANDLE_NONE &&
+                state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT &&
+                state->objectAuthoring.attached) {
+                handleGizmoActive =
+                    ObjectHandleGizmoTarget_FromAuthoringSelection(
+                        selectedObject,
+                        &state->objectAuthoring.document,
+                        &handleTarget);
+            }
             const bool centerGizmoActive =
+                !handleGizmoActive &&
+                (!topologyEditMode ||
+                 selectedObject->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) &&
                 (editor->selectedObject3DResizeHandle == PLANE_RESIZE_HANDLE_NONE) &&
                 (editor->selectedObject3DPrismHandle == RECT_PRISM_RESIZE_HANDLE_NONE);
 
@@ -361,13 +408,16 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
                     }
                 }
             } else if (centerGizmoActive) {
-                Vec2 centerView = SpaceAdapter_ProjectToView(selectedObject->transform.position, &viewCtx);
+                Vec3 centerWorld = selectedObject->transform.position;
+                (void)Layout_Object3D_ComputeVisualCenter(selectedObject, &centerWorld);
+                Vec2 centerView = SpaceAdapter_ProjectToView(centerWorld, &viewCtx);
                 Vec2 centerScreen = WorldToScreen(centerView, grid);
+                const float centerAxisWorldLen =
+                    Object3D_CenterGizmoAxisWorldLen(selectedObject, grid->gridSize);
 
                 for (int dir = GIZMO_AXIS_DIR_POS_X; dir <= GIZMO_AXIS_DIR_NEG_Z; ++dir) {
                     Vec3 axisDir = GizmoAxisDirection_WorldVector((GizmoAxisDirection)dir);
-                    Vec3 tipWorld = Vec3_Add(selectedObject->transform.position,
-                                             Vec3_Scale(axisDir, axisWorldLen));
+                    Vec3 tipWorld = Vec3_Add(centerWorld, Vec3_Scale(axisDir, centerAxisWorldLen));
                     Vec2 tipView = SpaceAdapter_ProjectToView(tipWorld, &viewCtx);
                     Vec2 tipScreen = WorldToScreen(tipView, grid);
 

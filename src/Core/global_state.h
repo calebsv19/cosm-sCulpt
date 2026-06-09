@@ -7,6 +7,7 @@
 #include "Layout/Grid/grid.h"
 #include "Layout/layout.h"
 #include "Editor/editor.h"
+#include "ObjectAuthoring/object_authoring_session.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_types.h"
 
 
@@ -37,6 +38,8 @@ typedef struct {
     char currentConfigPath[LINE_DRAWING_PATH_CAP];
     char currentSceneAuthoringPath[LINE_DRAWING_PATH_CAP];
     char currentObjectAssetPath[LINE_DRAWING_PATH_CAP];
+    ObjectAuthoringSession objectAuthoring;
+    bool hasObjectAuthoringState;
 } LineDrawingWorkspaceDocumentState;
 
 typedef struct GlobalState {
@@ -60,6 +63,8 @@ typedef struct GlobalState {
     char currentConfigPath[LINE_DRAWING_PATH_CAP];
     char currentSceneAuthoringPath[LINE_DRAWING_PATH_CAP];
     char currentObjectAssetPath[LINE_DRAWING_PATH_CAP];
+    char objectRuntimeMeshStatus[160];
+    char lastObjectRuntimeMeshPath[LINE_DRAWING_PATH_CAP];
     char lastLayoutPath[LINE_DRAWING_PATH_CAP];
     char lastSceneAuthoringPath[LINE_DRAWING_PATH_CAP];
     char lastObjectAssetPath[LINE_DRAWING_PATH_CAP];
@@ -67,6 +72,7 @@ typedef struct GlobalState {
     LineDrawingRecentContexts recentContexts;
     bool layoutDirtySinceSave;
     char* lastSavedSnapshot;
+    ObjectAuthoringSession objectAuthoring;
     LineDrawingWorkspaceDocumentState sceneWorkspaceDocument;
     LineDrawingWorkspaceDocumentState objectWorkspaceDocument;
 } GlobalState;

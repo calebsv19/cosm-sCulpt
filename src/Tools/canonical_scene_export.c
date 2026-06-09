@@ -50,6 +50,15 @@ static bool is_valid_token(const char* value) {
     return true;
 }
 
+static cJSON* vec3_to_json_object(Vec3 value) {
+    cJSON* node = cJSON_CreateObject();
+    if (!node) return NULL;
+    cJSON_AddNumberToObject(node, "x", value.x);
+    cJSON_AddNumberToObject(node, "y", value.y);
+    cJSON_AddNumberToObject(node, "z", value.z);
+    return node;
+}
+
 static bool is_allowed_material_type(const char* value) {
     return strcmp(value, "flat_color") == 0;
 }
@@ -215,7 +224,7 @@ static bool add_layout_snapshot_extension(cJSON* line_drawing_ext, const Layout*
     if (!layout_json) return false;
 
     layout_snapshot = cJSON_Parse(layout_json);
-    free(layout_json);
+    Layout_FreeString(layout_json);
     if (!cJSON_IsObject(layout_snapshot)) {
         cJSON_Delete(layout_snapshot);
         return false;
@@ -435,23 +444,72 @@ static bool append_primitive_scene_objects(cJSON* objects,
         if (object->isDeleted) continue;
         if (!object->coreMeta.object_id[0]) continue;
 
-        snprintf(geometry_id, sizeof(geometry_id), "shape_%s", object->coreMeta.object_id);
+        snprintf(geometry_id,
+                 sizeof(geometry_id),
+                 "%s",
+                 object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE
+                     ? object->meshInstance.assetId
+                     : object->coreMeta.object_id);
+        if (object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+            char shape_geometry_id[96];
+            snprintf(shape_geometry_id, sizeof(shape_geometry_id), "shape_%s", object->coreMeta.object_id);
+            snprintf(geometry_id, sizeof(geometry_id), "%s", shape_geometry_id);
+        }
         object_json = LineDrawingCanonicalScene_AppendSceneObjectFromCore(
             objects,
             &object->coreMeta,
             object->coreMeta.object_id,
             geometry_id,
             material_id,
-            "primitive",
-            object->kind == OBJECT3D_KIND_RECT_PRISM ? "rect_prism" : "plane");
+            object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE ? "asset_instance" : "primitive",
+            object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE
+                ? "mesh_asset"
+                : (object->kind == OBJECT3D_KIND_RECT_PRISM ? "rect_prism" : "plane"));
         if (!object_json) return false;
 
-        object_extensions = duplicate_or_empty_object(
-            find_existing_object_extensions_by_id(existing_root, object->coreMeta.object_id));
-        if (!object_extensions) return false;
-        cJSON_AddItemToObject(object_json, "extensions", object_extensions);
-        if (!LineDrawingCanonicalScene_AddCanonicalPrimitivePayload(object_json, object)) return false;
-        if (!LineDrawingCanonicalScene_AddPrimitiveExtensionPayload(object_extensions, object)) return false;
+        if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+            cJSON* geometry_ref = cJSON_GetObjectItemCaseSensitive(object_json, "geometry_ref");
+            cJSON* mesh_extensions = NULL;
+            cJSON* line_ext = NULL;
+            if (!cJSON_IsObject(geometry_ref)) return false;
+            cJSON_ReplaceItemInObjectCaseSensitive(geometry_ref, "kind", cJSON_CreateString("mesh_asset"));
+            cJSON_ReplaceItemInObjectCaseSensitive(geometry_ref, "id", cJSON_CreateString(object->meshInstance.assetId));
+
+            object_extensions = duplicate_or_empty_object(
+                find_existing_object_extensions_by_id(existing_root, object->coreMeta.object_id));
+            if (!object_extensions) return false;
+            cJSON_AddItemToObject(object_json, "extensions", object_extensions);
+            line_ext = duplicate_or_empty_object(cJSON_GetObjectItemCaseSensitive(object_extensions, "line_drawing"));
+            if (!line_ext) return false;
+            if (!upsert_object_item(object_extensions, "line_drawing", line_ext)) {
+                cJSON_Delete(line_ext);
+                return false;
+            }
+            cJSON_AddStringToObject(line_ext, "geometry_source", "mesh_asset_instance");
+            cJSON_AddStringToObject(line_ext, "source_lane", "objects3d");
+            cJSON_AddNumberToObject(line_ext, "layout_object_id", (double)object->objectId);
+            cJSON_AddStringToObject(line_ext, "mesh_asset_id", object->meshInstance.assetId);
+            cJSON_AddStringToObject(line_ext, "runtime_mesh_path", object->meshInstance.runtimePath);
+            cJSON_AddNumberToObject(line_ext, "runtime_vertex_count", (double)object->meshInstance.vertexCount);
+            cJSON_AddNumberToObject(line_ext, "runtime_triangle_count", (double)object->meshInstance.triangleCount);
+            mesh_extensions = cJSON_CreateObject();
+            if (!mesh_extensions) return false;
+            cJSON_AddItemToObject(line_ext, "local_bounds", mesh_extensions);
+            cJSON_AddItemToObject(mesh_extensions,
+                                  "min",
+                                  vec3_to_json_object(object->meshInstance.localBoundsMin));
+            cJSON_AddItemToObject(mesh_extensions,
+                                  "max",
+                                  vec3_to_json_object(object->meshInstance.localBoundsMax));
+        } else {
+
+            object_extensions = duplicate_or_empty_object(
+                find_existing_object_extensions_by_id(existing_root, object->coreMeta.object_id));
+            if (!object_extensions) return false;
+            cJSON_AddItemToObject(object_json, "extensions", object_extensions);
+            if (!LineDrawingCanonicalScene_AddCanonicalPrimitivePayload(object_json, object)) return false;
+            if (!LineDrawingCanonicalScene_AddPrimitiveExtensionPayload(object_extensions, object)) return false;
+        }
 
         hierarchy_item = cJSON_CreateObject();
         if (!hierarchy_item) return false;

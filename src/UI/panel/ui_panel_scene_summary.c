@@ -30,10 +30,12 @@ static int UIPanelSceneSummary_PanelPad(void) {
 static void UIPanelSceneSummary_CountKinds(const LayoutObjectStore* store,
                                            size_t* out_total,
                                            size_t* out_planes,
-                                           size_t* out_prisms) {
+                                           size_t* out_prisms,
+                                           size_t* out_meshes) {
     size_t total = 0u;
     size_t planes = 0u;
     size_t prisms = 0u;
+    size_t meshes = 0u;
     if (store) {
         for (size_t i = 0; i < store->count; ++i) {
             const Object3D* object = &store->items[i];
@@ -43,12 +45,15 @@ static void UIPanelSceneSummary_CountKinds(const LayoutObjectStore* store,
                 ++prisms;
             } else if (object->kind == OBJECT3D_KIND_PLANE) {
                 ++planes;
+            } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+                ++meshes;
             }
         }
     }
     if (out_total) *out_total = total;
     if (out_planes) *out_planes = planes;
     if (out_prisms) *out_prisms = prisms;
+    if (out_meshes) *out_meshes = meshes;
 }
 
 static size_t UIPanelSceneSummary_CountLiveAnchors(const Layout* layout) {
@@ -63,6 +68,7 @@ static size_t UIPanelSceneSummary_CountLiveAnchors(const Layout* layout) {
 static const char* UIPanelSceneSummary_KindLabel(Object3DKind kind) {
     switch (kind) {
         case OBJECT3D_KIND_RECT_PRISM: return "Prism";
+        case OBJECT3D_KIND_MESH_ASSET_INSTANCE: return "Mesh";
         case OBJECT3D_KIND_PLANE: return "Plane";
         case OBJECT3D_KIND_UNKNOWN:
         default: return "Unknown";
@@ -117,6 +123,7 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
     size_t total = 0u;
     size_t planes = 0u;
     size_t prisms = 0u;
+    size_t meshes = 0u;
     size_t anchors = 0u;
     size_t walls = 0u;
 
@@ -135,7 +142,7 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
     border_color.a = 210;
     UIPanelSummary_DrawCard(renderer, panel, fill_color, border_color, accent_color, metrics.accent_h);
 
-    UIPanelSceneSummary_CountKinds(&state->layout.objectStore, &total, &planes, &prisms);
+    UIPanelSceneSummary_CountKinds(&state->layout.objectStore, &total, &planes, &prisms, &meshes);
     anchors = UIPanelSceneSummary_CountLiveAnchors(&state->layout);
     walls = state->layout.wallCount;
     if (state->editor.selectedObject3DId != 0u) {
@@ -153,10 +160,11 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
 
     snprintf(line_counts,
              sizeof(line_counts),
-             "Objects  %zu total   %zu planes   %zu prisms",
+             "Objects  %zu total   %zu planes   %zu prisms   %zu meshes",
              total,
              planes,
-             prisms);
+             prisms,
+             meshes);
     UIPanelSummary_DrawTextClipped(renderer, font, line_counts, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), font_h + 4, accent_color);
     y += font_h + line_gap;
 
@@ -181,7 +189,20 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
                  "Selection  #%u  %s",
                  object->objectId,
                  UIPanelSceneSummary_KindLabel(object->kind));
-        if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+            UIPanelSceneSummary_FormatDimension(
+                object->meshInstance.localBoundsMax.x - object->meshInstance.localBoundsMin.x,
+                w_text,
+                sizeof(w_text));
+            UIPanelSceneSummary_FormatDimension(
+                object->meshInstance.localBoundsMax.y - object->meshInstance.localBoundsMin.y,
+                h_text,
+                sizeof(h_text));
+            UIPanelSceneSummary_FormatDimension(
+                object->meshInstance.localBoundsMax.z - object->meshInstance.localBoundsMin.z,
+                d_text,
+                sizeof(d_text));
+        } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
             UIPanelSceneSummary_FormatDimension(object->rectPrism.width, w_text, sizeof(w_text));
             UIPanelSceneSummary_FormatDimension(object->rectPrism.height, h_text, sizeof(h_text));
             UIPanelSceneSummary_FormatDimension(object->rectPrism.depth, d_text, sizeof(d_text));
@@ -214,7 +235,10 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
         char line_lock_state[192];
         bool lock_plane = false;
         bool lock_bounds = false;
-        if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+            lock_plane = false;
+            lock_bounds = object->meshInstance.lockToBounds;
+        } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
             lock_plane = object->rectPrism.lockToConstructionPlane;
             lock_bounds = object->rectPrism.lockToBounds;
         } else {

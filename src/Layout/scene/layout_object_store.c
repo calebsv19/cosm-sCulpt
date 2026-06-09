@@ -95,6 +95,18 @@ bool Layout_ObjectStore_ValidateObject(const Object3D* object) {
         if (Vec3_Distance(object->rectPrism.frame.origin, object->transform.position) > 1e-3f) {
             return false;
         }
+    } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        if (!object->meshInstance.assetId[0]) return false;
+        if (!object->meshInstance.runtimePath[0]) return false;
+        if (object->meshInstance.vertexCount == 0u ||
+            object->meshInstance.triangleCount == 0u) {
+            return false;
+        }
+        if (object->meshInstance.localBoundsMin.x > object->meshInstance.localBoundsMax.x ||
+            object->meshInstance.localBoundsMin.y > object->meshInstance.localBoundsMax.y ||
+            object->meshInstance.localBoundsMin.z > object->meshInstance.localBoundsMax.z) {
+            return false;
+        }
     }
     CoreResult validate = core_object_validate(&object->coreMeta);
     return validate.code == CORE_OK;
@@ -158,6 +170,59 @@ bool Layout_Object3D_ComputeRectPrismCorners(const Object3D* object, Vec3 outCor
     return true;
 }
 
+bool Layout_Object3D_ComputeMeshInstanceCorners(const Object3D* object, Vec3 outCorners[8]) {
+    if (!object || !outCorners) return false;
+    if (object->isDeleted || object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) return false;
+    if (!Layout_ObjectStore_ValidateObject(object)) return false;
+
+    const Vec3 min = object->meshInstance.localBoundsMin;
+    const Vec3 max = object->meshInstance.localBoundsMax;
+    const Vec3 scale = object->transform.scale;
+    const Vec3 position = object->transform.position;
+    const Vec3 local[8] = {
+        { min.x, min.y, min.z }, { max.x, min.y, min.z },
+        { max.x, max.y, min.z }, { min.x, max.y, min.z },
+        { min.x, min.y, max.z }, { max.x, min.y, max.z },
+        { max.x, max.y, max.z }, { min.x, max.y, max.z }
+    };
+    for (size_t i = 0u; i < 8u; ++i) {
+        outCorners[i] = (Vec3){
+            .x = position.x + (local[i].x * scale.x),
+            .y = position.y + (local[i].y * scale.y),
+            .z = position.z + (local[i].z * scale.z)
+        };
+    }
+    return true;
+}
+
+bool Layout_Object3D_ComputeVisualCenter(const Object3D* object, Vec3* outCenter) {
+    if (!object || !outCenter) return false;
+    if (object->isDeleted) return false;
+    if (!Layout_ObjectStore_ValidateObject(object)) return false;
+
+    if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        const Vec3 min = object->meshInstance.localBoundsMin;
+        const Vec3 max = object->meshInstance.localBoundsMax;
+        const Vec3 localCenter = Vec3_Scale(Vec3_Add(min, max), 0.5f);
+        const Vec3 scale = object->transform.scale;
+        const Vec3 position = object->transform.position;
+        *outCenter = (Vec3){
+            .x = position.x + (localCenter.x * scale.x),
+            .y = position.y + (localCenter.y * scale.y),
+            .z = position.z + (localCenter.z * scale.z)
+        };
+        return true;
+    }
+
+    if (object->kind == OBJECT3D_KIND_PLANE ||
+        object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        *outCenter = object->transform.position;
+        return true;
+    }
+
+    return false;
+}
+
 bool Layout_Object3D_ComputeWorldAABB(const Object3D* object, Vec3* outMin, Vec3* outMax) {
     if (!object || !outMin || !outMax) return false;
 
@@ -168,6 +233,9 @@ bool Layout_Object3D_ComputeWorldAABB(const Object3D* object, Vec3* outMin, Vec3
         cornerCount = 4u;
     } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
         if (!Layout_Object3D_ComputeRectPrismCorners(object, corners)) return false;
+        cornerCount = 8u;
+    } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) return false;
         cornerCount = 8u;
     } else {
         return false;

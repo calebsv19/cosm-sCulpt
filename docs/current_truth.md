@@ -1,6 +1,6 @@
 # sCulpt Current Truth
 
-Last updated: 2026-05-25
+Last updated: 2026-06-04
 
 ## Program Identity
 - Repository directory: `line_drawing/`
@@ -44,6 +44,99 @@ Last updated: 2026-05-25
     - `View`
     - `Create`
     - `Object`
+  - object workspace remaps the same shell into CAD authoring terms:
+    - left `Model`: object-asset status, body/sketch/operation counts, current
+      selection, and first-pass body/sketch/operation rows from
+      `ObjectAuthoring`; rows now select the matching body, sketch, or
+      operation context, and operation history uses a clipped scroll lane with
+      wheel/hover/scrollbar handling for long stacks. Its object-mode action
+      contract is selection and navigation, not command launching or asset I/O
+    - left `Assets`: object asset save/load/new/export actions plus asset
+      browser/path controls; it owns file/root actions, not model selection
+    - right `Tools`: face/sketch/extrude actions plus a static `Command
+      Actions` card and a separate `Active Command` card for current target,
+      sketch, selected-operation, and extrude-depth state; armed extrude
+      previews now expose `Depth -` / `Depth +` controls that adjust by the
+      current grid step. Its action contract is command selection,
+      arm/commit, and live command-parameter editing
+    - right `Properties`: selected object/entity details for operations,
+      sketches, bodies, and selected faces plus dimension, gizmo, and transform
+      controls; it owns selected-entity inspection and persistent body/object
+      edits, while command tools stay in `Tools`
+    - right `View`: viewport navigation, zoom, view-plane, and editing-mode
+      controls
+    - object-authoring refs now carry stable app-local face ids for the current
+      primitive/evaluated face model while preserving primitive face labels as
+      the UI compatibility adapter. Object-mode `Model`, `Tools`,
+      `Properties`, and the top status overlay now expose those stable
+      `FaceID` values beside the compatibility face labels
+    - face-ref diagnostics now classify unset, missing-body, missing-face, and
+      stale-adapter states. Replay/evaluation fails invalid sketch/extrude
+      refs explicitly, and object-mode `Model` / `Properties` rows show the
+      face-ref status
+    - Phase D editable topology now has its first base: object-authoring
+      documents rebuild deterministic evaluated vertex, edge, and face records
+      for plane and rectangular-prism bodies; faces bind to corner vertex ids
+      and boundary edge ids; edges retain bounded face adjacency; and explicit
+      vertex/edge selection refs are available for constrained-gizmo movement.
+      The object viewport now draws evaluated vertex/edge overlays in object
+      mode, emits topology hitboxes above generic object-body picks, and
+      preserves clicked/hovered vertex or edge refs in the authoring document.
+      Selected topology vertices/edges now resolve into the existing object
+      constrained-gizmo lane, rendering legal local axes at the selected
+      vertex or edge midpoint and emitting gizmo-axis hitboxes. Topology gizmo
+      drags are non-mutating until the next semantic topology-operation slice,
+      because the current evaluated topology is rebuilt from primitive bodies.
+      The object-mode `Model` summary reports evaluated body/vertex/edge/face
+      counts
+    - object-authoring runtime mesh compile now has a first Phase B baseline:
+      operation-backed documents evaluate into deterministic runtime mesh
+      arrays, current stable face ids become `face_<face_id>` surface groups,
+      bounds/triangles/group references validate before success, and saved
+      operation-backed assets can write `mesh_asset_runtime_v1` JSON through an
+      app-local carrier over the vendored shared
+      `CoreMeshAssetRuntimeContract`
+    - object-mode now exposes the first Phase B runtime export affordance:
+      `Export Mesh` compiles the attached operation-backed authoring document,
+      writes a `<asset>.runtime.json` runtime mesh sidecar beside the object
+      asset root, and reports export diagnostics plus the last runtime mesh
+      path in the object workspace summary
+    - imported STL metadata now has a bounded CLI/test harness:
+      `make -C line_drawing imported-mesh-harness-smoke` builds
+      `src/Tools/imported_mesh_harness.c`, feeds deterministic STL fixtures
+      through `third_party/codework_shared` `core_mesh_asset` +
+      `core_mesh_compile`, writes `mesh_asset_authoring_v1` imported-mesh
+      metadata, writes file-backed `mesh_asset_runtime_v1`, emits a one-object
+      `scene_runtime_v1` with a `mesh_asset_instance`, and records an
+      `import_summary.json`. The harness currently covers the ASCII
+      tetrahedron baseline plus the richer stepped-column fixture
+      (`16` vertices, `24` triangles) used by downstream RayTracing visual
+      proof. Through vendored `core_mesh_compile` `0.5.0`, the same harness now
+      supports bounded ASCII and binary STL import proofs, including direct
+      user-file binary imports, while keeping UI import work deferred. This is
+      not yet the in-app file picker/import UI; it is the first bounded input
+      harness that ties the shared imported-mesh path into LineDrawing.
+    - Phase C scene asset instance integration now has a complete app-local
+      reusable asset instance baseline:
+      scene mode can place the last exported object runtime mesh sidecar as a
+      transformable `mesh_asset_instance`, stores the sidecar asset id/path,
+      bounds, vertex count, and triangle count in layout JSON schema v9,
+      summarizes mesh instances in the Scene/Object panes, renders a bounds-box
+      proxy in the viewport, and exports the object as canonical
+      `geometry_ref.kind = "mesh_asset"` with LineDrawing mesh-instance
+      extension metadata. Scene mode also exposes a `Mesh Assets` file-browser
+      mode that scans `.runtime.json` sidecars under the object asset root
+      and places the selected sidecar through that same transformable instance
+      path. Switching a selected mesh asset instance into object mode now
+      derives the source object asset path from `<asset>.runtime.json`,
+      reloads `<asset>.json`, and attaches its authoring document when present.
+      Returning to scene mode refreshes every scene mesh instance that shares
+      the source runtime sidecar, preserving each scene object id and transform
+      while updating asset id, bounds, vertex count, and triangle count
+      metadata. Full mesh viewport rendering, material overrides, richer
+      imported-mesh picker UI, and deeper asset-library management remain
+      Phase D-adjacent follow-up work rather than blockers for the Phase C
+      reusable-instance lifecycle.
   - pane targets are now rebalanced:
     - the left side remains wider for the scene list and file controls
     - the right side is reduced more aggressively through the pane-host target
@@ -266,6 +359,36 @@ Last updated: 2026-05-25
     camera vectors and startup previews agree with headless runtime sampling
   - transparent tall-prism spacing cleanup
   - sampled RayTracing light-path clearance around object clusters
+  - first-class RayTracing lighting intent synthesis through
+    `extensions.ray_tracing.authoring.lighting_policy`
+  - front-biased generated review modes now start camera-side of the subject
+    by default and keep control points inside the requested front hemisphere
+    unless a full orbit, rim/backlight path, or `allow_backlight` is explicit
+  - supported generated-lighting intents include front key orbit, front
+    corkscrew, front vertical sweep, full/fixed-height object orbit, high
+    shadow orbit, rim light, and transparent-review lighting
+  - `extensions.ray_tracing.authoring.ambient_policy` now expands into the
+    RayTracing bridge's existing `authoring.environment` fill-light settings
+    for none/review-fill/transparent-fill/studio modes
+- `agent_scene_tool` now accepts first-class `mesh_asset_instance` request
+  objects for RayTracing-facing mesh probes:
+  - the request supplies a stable authored object id, `asset_id`,
+    request-relative `asset_source_path`, transform, variant, and optional
+    canonical `material_id`
+  - the tool skips mesh instances during Layout primitive-store creation, then
+    injects them into `scene_authoring.json` as full-3D
+    `object_type = mesh_asset_instance` objects with
+    `geometry_ref.kind = mesh_asset`
+  - referenced runtime mesh sidecars are copied into both
+    `<out>/assets/mesh_assets/` and the app-loadable
+    `<run_dir>/line_drawing_app_load/assets/mesh_assets/` folder
+  - the low-poly sphere fixture renders through RayTracing headless as 48 mesh
+    triangles plus a 2-triangle floor, proving the request schema, canonical
+    compile, asset sidecar lookup, and BVH render path are connected
+  - the same schema has been used for higher-fidelity moving-light mesh-sphere
+    worker proofs; the authored scene remains LineDrawing-owned while
+    RayTracing owns runtime mesh loading, native `3D` triangle build, BVH
+    traversal, shading, and publication
 - Scene export/compile path is wired and deterministic for canonical scene contract fixtures, and the desktop UI exports full scenes as stable per-scene directories through the configured output root.
 - The current scene-directory export contract is:
   - derive a scene stem from the current layout filename
@@ -314,6 +437,8 @@ Last updated: 2026-05-25
   - optionally run `line_drawing/tools/agent_scene_refine.py` to normalize
     camera placement, camera aim, prism spacing, and light-path clearance
   - compile/export through `agent_scene_tool`
+  - for mesh-object probes, include `mesh_asset_instance` entries with copied
+    runtime mesh sidecars rather than hand-editing `scene_runtime.json`
   - inspect with RayTracing headless preview/material-preview lanes
   - feed approved material/light/camera changes back into the source request
 - Default authoring guidance for current downstream compatibility:

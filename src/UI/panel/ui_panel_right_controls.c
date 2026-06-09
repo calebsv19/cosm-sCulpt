@@ -12,11 +12,19 @@ static bool UIPanel_RightControlButtonVisible(int button_id) {
     switch (button_id) {
         case UI_BTN_CREATE_RECT_PRISM:
             return !object_mode;
+        case UI_BTN_PLACE_MESH_INSTANCE:
+            return !object_mode;
         case UI_BTN_CREATE_PLANE:
             return true;
         case UI_BTN_OBJECT_FACE_SELECT:
         case UI_BTN_OBJECT_SKETCH_SELECT:
         case UI_BTN_OBJECT_SKETCH_CLEAR:
+        case UI_BTN_EXTRUDE_DEPTH_DEC:
+        case UI_BTN_EXTRUDE_DEPTH_INC:
+        case UI_BTN_OBJECT_EDIT_BODY_MODE:
+        case UI_BTN_OBJECT_EDIT_FACE_MODE:
+        case UI_BTN_OBJECT_EDIT_EDGE_MODE:
+        case UI_BTN_OBJECT_EDIT_VERTEX_MODE:
             return object_mode;
         default:
             return true;
@@ -42,11 +50,14 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
             : (UIPanelRightControlRowSpec){ 4, 2, 0 };
             break;
         case UI_BTN_CREATE_RECT_PRISM: spec = (UIPanelRightControlRowSpec){ 4, 2, 1 }; break;
+        case UI_BTN_PLACE_MESH_INSTANCE: spec = (UIPanelRightControlRowSpec){ 5, 1, 0 }; break;
         case UI_BTN_OBJECT_FACE_SELECT: spec = (UIPanelRightControlRowSpec){ 4, 2, 0 }; break;
         case UI_BTN_OBJECT_SKETCH_SELECT: spec = (UIPanelRightControlRowSpec){ 5, 2, 0 }; break;
         case UI_BTN_OBJECT_SKETCH_CLEAR: spec = (UIPanelRightControlRowSpec){ 5, 2, 1 }; break;
         case UI_BTN_EXTRUDE_ADD: spec = (UIPanelRightControlRowSpec){ 12, 2, 0 }; break;
         case UI_BTN_EXTRUDE_CUT: spec = (UIPanelRightControlRowSpec){ 12, 2, 1 }; break;
+        case UI_BTN_EXTRUDE_DEPTH_DEC: spec = (UIPanelRightControlRowSpec){ 13, 2, 0 }; break;
+        case UI_BTN_EXTRUDE_DEPTH_INC: spec = (UIPanelRightControlRowSpec){ 13, 2, 1 }; break;
 
         case UI_BTN_SET_CONSTRUCTION_PLANE_XY: spec = (UIPanelRightControlRowSpec){ 5, 3, 0 }; break;
         case UI_BTN_SET_CONSTRUCTION_PLANE_YZ: spec = (UIPanelRightControlRowSpec){ 5, 3, 1 }; break;
@@ -66,6 +77,10 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
         case UI_BTN_EDIT_OBJECT_ROTATION_X: spec = (UIPanelRightControlRowSpec){ 11, 3, 0 }; break;
         case UI_BTN_EDIT_OBJECT_ROTATION_Y: spec = (UIPanelRightControlRowSpec){ 11, 3, 1 }; break;
         case UI_BTN_EDIT_OBJECT_ROTATION_Z: spec = (UIPanelRightControlRowSpec){ 11, 3, 2 }; break;
+        case UI_BTN_OBJECT_EDIT_BODY_MODE: spec = (UIPanelRightControlRowSpec){ 14, 4, 0 }; break;
+        case UI_BTN_OBJECT_EDIT_FACE_MODE: spec = (UIPanelRightControlRowSpec){ 14, 4, 1 }; break;
+        case UI_BTN_OBJECT_EDIT_EDGE_MODE: spec = (UIPanelRightControlRowSpec){ 14, 4, 2 }; break;
+        case UI_BTN_OBJECT_EDIT_VERTEX_MODE: spec = (UIPanelRightControlRowSpec){ 14, 4, 3 }; break;
         default: return false;
     }
     if (out_spec) *out_spec = spec;
@@ -77,13 +92,14 @@ static int UIPanel_RightControlsRowCount(UIPanelGroup group) {
     switch (group) {
         case UI_PANEL_GROUP_RIGHT_VIEW: return 1;
         case UI_PANEL_GROUP_RIGHT_MODES: return 2;
-        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return object_mode ? 2 : 1;
-        case UI_PANEL_GROUP_RIGHT_OPERATIONS: return object_mode ? 1 : 1;
+        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return 2;
+        case UI_PANEL_GROUP_RIGHT_OPERATIONS: return object_mode ? 2 : 1;
         case UI_PANEL_GROUP_RIGHT_CONSTRUCTION: return 2;
         case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS: return 1;
         case UI_PANEL_GROUP_RIGHT_PRISM: return 1;
         case UI_PANEL_GROUP_RIGHT_GIZMO: return 1;
         case UI_PANEL_GROUP_RIGHT_TRANSFORM: return 2;
+        case UI_PANEL_GROUP_RIGHT_EDIT_SELECT: return object_mode ? 1 : 0;
         default: return 0;
     }
 }
@@ -101,6 +117,7 @@ static SDL_Rect UIPanel_RightControlsGroupRect(const UIPanelState* ui, UIPanelGr
         case UI_PANEL_GROUP_RIGHT_PRISM: return ui->objectPane.prismRect;
         case UI_PANEL_GROUP_RIGHT_GIZMO: return ui->objectPane.gizmoRect;
         case UI_PANEL_GROUP_RIGHT_TRANSFORM: return ui->objectPane.transformRect;
+        case UI_PANEL_GROUP_RIGHT_EDIT_SELECT: return ui->editPane.selectionModeRect;
         default: return zero;
     }
 }
@@ -222,6 +239,9 @@ void UIPanel_LayoutRightPaneButtons(UIPanelState* ui, const UIPanelLayoutMetrics
             UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_PRISM, metrics);
             UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_GIZMO, metrics);
             UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_TRANSFORM, metrics);
+            break;
+        case UI_PANEL_RIGHT_TAB_EDIT:
+            UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_EDIT_SELECT, metrics);
             break;
         default:
             break;

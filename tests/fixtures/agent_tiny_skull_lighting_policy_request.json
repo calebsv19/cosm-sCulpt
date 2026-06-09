@@ -1,0 +1,90 @@
+{
+  "schema": "line_drawing_agent_scene_request_v1",
+  "scene_id": "agent_tiny_skull_lighting_policy",
+  "scene_name": "Agent Tiny Skull Lighting Policy",
+  "grid_size": 0.5,
+  "bounds": {
+    "enabled": true,
+    "clamp_on_edit": true,
+    "min": { "x": -3.0, "y": -3.0, "z": -0.25 },
+    "max": { "x": 3.0, "y": 3.0, "z": 3.0 }
+  },
+  "construction_plane": {
+    "axis": "xy",
+    "offset": 0.0
+  },
+  "scene_options": {
+    "material_id": "mat_tiny_skull_default",
+    "material_type": "flat_color",
+    "light_id": "light_tiny_skull_key",
+    "light_type": "point",
+    "camera_id": "cam_tiny_skull_default",
+    "camera_type": "perspective"
+  },
+  "extensions": {
+    "ray_tracing": {
+      "authoring": {
+        "camera_focus_target": { "x": 0.0, "y": 0.0, "z": 0.72 },
+        "camera_path": {
+          "mode": "BEZIER_CUBIC",
+          "points": [
+            {
+              "x": 0.0,
+              "y": -4.0,
+              "rotation": 0.0,
+              "handleLink": false
+            }
+          ]
+        },
+        "lighting_policy": {
+          "mode": "front_key_orbit",
+          "front_reference": "camera",
+          "start_in_front": true,
+          "front_hemisphere_degrees": 150,
+          "height_mode": "object_height",
+          "radius_scale": 2.2,
+          "subject_object_id": "tiny_skull_proxy"
+        },
+        "ambient_policy": {
+          "mode": "none"
+        },
+        "object_materials": [
+          {
+            "object_id": "tiny_skull_proxy",
+            "material_id": 0,
+            "object_color": 11974326,
+            "roughness": 0.55,
+            "texture_id": "grime",
+            "texture_strength": 0.35,
+            "texture_scale": 1.1
+          }
+        ]
+      }
+    }
+  },
+  "objects": [
+    {
+      "id": "floor",
+      "kind": "plane",
+      "axis": "xy",
+      "position": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "width": 4.0,
+      "height": 4.0,
+      "lock_to_construction_plane": false,
+      "lock_to_bounds": true
+    },
+    {
+      "id": "tiny_skull_proxy",
+      "kind": "mesh_asset_instance",
+      "asset_id": "asset_tiny_skull_proxy",
+      "asset_source_path": "../../../ray_tracing/tests/fixtures/mesh_asset_runtime_imported_tetrahedron/assets/mesh_assets/asset_imported_tetrahedron_01.runtime.json",
+      "variant": "runtime_default",
+      "material_id": "mat_tiny_skull_proxy",
+      "material_prompt": "small skull proxy with grime texture",
+      "position": { "x": 0.0, "y": 0.0, "z": 0.72 },
+      "rotation": { "x": 0.0, "y": 0.0, "z": 0.0 },
+      "scale": { "x": 0.55, "y": 0.55, "z": 0.55 },
+      "lock_to_bounds": true
+    }
+  ]
+}

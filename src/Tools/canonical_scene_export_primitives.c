@@ -157,6 +157,9 @@ static void scene_bounds_include_object(SceneBounds3D* bounds, const Object3D* o
     } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
         if (!Layout_Object3D_ComputeRectPrismCorners(object, corners)) return;
         corner_count = 8u;
+    } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) return;
+        corner_count = 8u;
     } else {
         return;
     }

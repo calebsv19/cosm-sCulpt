@@ -4,6 +4,7 @@
 #include "Editor/editor.h"
 #include "Editor/object_face_sketch.h"
 #include "Layout/scene/layout_object_faces.h"
+#include "ObjectAuthoring/object_authoring_document.h"
 #include "Editor/primitive_placement_preview.h"
 #include "UI/font_manager.h"
 #include "UI/ui_panel_internal.h"
@@ -49,6 +50,26 @@ static void UIPanelCreateSummary_FormatDimension(float world_value,
         snprintf(out, out_size, "%.2f%s", display, symbol);
     } else {
         snprintf(out, out_size, "%.2f", world_value);
+    }
+}
+
+static const char* UIPanelCreateSummary_OperationLabel(ObjectAuthoringOperationKind kind) {
+    switch (kind) {
+        case OBJECT_AUTHORING_OPERATION_CREATE_PRIMITIVE: return "Create Primitive";
+        case OBJECT_AUTHORING_OPERATION_SKETCH_RECTANGLE: return "Sketch Rect";
+        case OBJECT_AUTHORING_OPERATION_EXTRUDE_ADD: return "Extrude Add";
+        case OBJECT_AUTHORING_OPERATION_EXTRUDE_CUT: return "Extrude Cut";
+        case OBJECT_AUTHORING_OPERATION_NONE:
+        default: return "None";
+    }
+}
+
+static const char* UIPanelCreateSummary_ExtrudeModeLabel(ObjectFaceExtrudeMode mode) {
+    switch (mode) {
+        case OBJECT_FACE_EXTRUDE_MODE_ADD: return "Extrude Add";
+        case OBJECT_FACE_EXTRUDE_MODE_CUT: return "Extrude Cut";
+        case OBJECT_FACE_EXTRUDE_MODE_NONE:
+        default: return "None";
     }
 }
 
@@ -195,40 +216,35 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
     active_preview = state->editor.primitivePlacementPreview;
 
     if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
-        const bool has_face_target =
-            state->editor.selectedObjectAssetBodyId != 0u &&
-            state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE;
         const bool tool_armed = state->editor.objectFaceSketchToolArmed;
         const bool dragging = state->editor.objectFaceSketchDragging;
         const bool has_rect = state->editor.objectFaceSketchHasRectangle;
         const bool sketch_selected = Editor_ObjectFaceSketchIsSelected(&state->editor);
         const char* stage_label = Editor_ObjectAuthoringStageLabel(&state->editor);
         const char* prompt_label = Editor_ObjectAuthoringPromptLabel(&state->editor);
+        const ObjectAuthoringDocument* doc =
+            state->objectAuthoring.attached ? &state->objectAuthoring.document : NULL;
+        const ObjectAuthoringOperation* selected_op =
+            doc ? ObjectAuthoringDocument_FindOperation(doc, doc->selectedOperationId) : NULL;
 
         snprintf(summary_space,
                  sizeof(summary_space),
-                 "Workspace  Object asset authoring");
+                 "Target  choose a face");
         snprintf(summary_plane,
                  sizeof(summary_plane),
-                 "Target  %s",
-                 has_face_target
-                     ? Layout_Object3DFaceKind_Label(state->editor.selectedObjectAssetFace)
-                     : "Select a body face");
-        {
+                 "Sketch  draw / select / clear");
         snprintf(summary_mode,
                  sizeof(summary_mode),
-                 "Mode  %s  |  Stage  %s",
-                 Editor_ObjectAuthoringModeLabel(state->editor.objectAuthoringMode),
-                 stage_label);
-        }
-        {
-            char grid_text[32];
-            UIPanelCreateSummary_FormatDimension(state->grid.gridSize, grid_text, sizeof(grid_text));
-            snprintf(summary_grid, sizeof(summary_grid), "Grid  %s step on face plane", grid_text);
-        }
+                 "Solid  Extrude + / Extrude -");
+        snprintf(summary_grid,
+                 sizeof(summary_grid),
+                 "Mode  %s",
+                 Editor_ObjectAuthoringModeLabel(state->editor.objectAuthoringMode));
         snprintf(summary_stage,
                  sizeof(summary_stage),
-                 "Sketch rectangles stay local to this object asset and operations require an active sketch selection");
+                 "%s  |  %zu ops",
+                 stage_label,
+                 doc ? doc->operationCount : 0u);
 
         summary_lines[0] = summary_space;
         summary_lines[1] = summary_plane;
@@ -245,7 +261,7 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
         UIPanelCreateSummary_DrawLines(renderer,
                                        font,
                                        summary_rect,
-                                       "Create",
+                                       "Command Actions",
                                        summary_lines,
                                        summary_colors,
                                        5,
@@ -257,35 +273,86 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
 
         snprintf(work_tool,
                  sizeof(work_tool),
-                 "Tool lane  Face -> Rect -> Select / Clear -> Operations");
-        snprintf(work_ready,
-                 sizeof(work_ready),
-                 "Ready now  %s",
+                 "Command  %s",
                  prompt_label);
+        if (state->editor.selectedObjectAssetBodyId != 0u &&
+            state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE) {
+            const ObjectAuthoringFaceId face_id =
+                ObjectAuthoringFaceId_FromPrimitive(
+                    state->editor.selectedObjectAssetBodyId,
+                    state->editor.selectedObjectAssetFace);
+            snprintf(work_ready,
+                     sizeof(work_ready),
+                     "Target  FaceID %u  Body #%u  %s",
+                     face_id,
+                     state->editor.selectedObjectAssetBodyId,
+                     state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE
+                         ? Layout_Object3DFaceKind_Label(state->editor.selectedObjectAssetFace)
+                         : "None");
+        } else if (state->editor.selectedObjectAssetBodyId != 0u) {
+            snprintf(work_ready,
+                     sizeof(work_ready),
+                     "Target  Body #%u  Face None",
+                     state->editor.selectedObjectAssetBodyId);
+        } else {
+            snprintf(work_ready, sizeof(work_ready), "Target  None");
+        }
         snprintf(work_plane,
                  sizeof(work_plane),
-                 "Face target  %s",
-                 state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE
-                     ? Layout_Object3DFaceKind_Label(state->editor.selectedObjectAssetFace)
-                     : "None");
-        snprintf(work_prism,
-                 sizeof(work_prism),
-                 "Sketch target  %s",
+                 "Sketch  %s",
                  sketch_selected
-                     ? "Committed rectangle selected for move/resize/operations"
+                     ? "Selected"
                      : has_rect
-                         ? "Committed rectangle present but not selected"
+                         ? "Present"
                          : dragging
-                             ? "Marquee rectangle is being placed"
+                             ? "Drawing"
                              : tool_armed
-                                 ? "Rectangle tool is armed on the active face"
-                                 : "No committed sketch yet");
-        snprintf(work_next,
-                 sizeof(work_next),
-                 "Operations lane  first press arms a visible preview, second press commits, and viewport drag adjusts depth");
-        snprintf(work_future,
-                 sizeof(work_future),
-                 "Face selection, sketch drawing, sketch editing, and operations now read as distinct workflow states");
+                                 ? "Armed"
+                                 : "None");
+        if (state->editor.objectFaceExtrudeToolArmed) {
+            char depth_text[32];
+            char step_text[32];
+            UIPanelCreateSummary_FormatDimension(state->editor.objectFaceExtrudeDepth,
+                                                 depth_text,
+                                                 sizeof(depth_text));
+            UIPanelCreateSummary_FormatDimension(state->grid.gridSize > 0.0f
+                                                     ? state->grid.gridSize
+                                                     : 1.0f,
+                                                 step_text,
+                                                 sizeof(step_text));
+            snprintf(work_prism,
+                     sizeof(work_prism),
+                     "Live Op  %s preview",
+                     UIPanelCreateSummary_ExtrudeModeLabel(state->editor.objectFaceExtrudeMode));
+            snprintf(work_next,
+                     sizeof(work_next),
+                     "Parameter  Depth %s  |  Step %s",
+                     depth_text,
+                     step_text);
+        } else if (selected_op) {
+            snprintf(work_prism,
+                     sizeof(work_prism),
+                     "Selected Op  #%u  %s",
+                     selected_op->operationId,
+                     UIPanelCreateSummary_OperationLabel(selected_op->kind));
+            snprintf(work_next,
+                     sizeof(work_next),
+                     "Parameters  no live command active");
+        } else {
+            snprintf(work_prism,
+                     sizeof(work_prism),
+                     "Selected Op  none");
+            snprintf(work_next,
+                     sizeof(work_next),
+                     "Parameters  choose a command first");
+        }
+        if (state->editor.objectFaceExtrudeToolArmed) {
+            snprintf(work_future,
+                     sizeof(work_future),
+                     "Commit  press Extrude +/- again");
+        } else {
+            work_future[0] = '\0';
+        }
 
         work_lines[0] = work_tool;
         work_lines[1] = work_ready;
@@ -306,7 +373,7 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
         UIPanelCreateSummary_DrawLines(renderer,
                                        font,
                                        workspace_rect,
-                                       "Authoring Workspace",
+                                       "Active Command",
                                        work_lines,
                                        work_colors,
                                        6,
@@ -415,10 +482,10 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
              "Switch mode/plane until staging becomes valid");
     snprintf(work_next,
              sizeof(work_next),
-             "Next lane  presets, reusable dimensions, and richer modeling tools");
+             "Presets and reusable dimensions can extend this pane later");
     snprintf(work_future,
              sizeof(work_future),
-             "This middle surface is reserved for future per-tool authoring widgets");
+             "Tool options appear here when a create tool is active");
 
     work_lines[0] = work_tool;
     work_lines[1] = work_ready;

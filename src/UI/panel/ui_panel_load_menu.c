@@ -2,6 +2,7 @@
 #include "UI/ui_panel_file_layout.h"
 #include "UI/panel/ui_panel_file_browser_internal.h"
 #include "UI/ui_panel_file_summary.h"
+#include "UI/ui_panel_object_workspace_summary.h"
 #include "UI/ui_panel_scene_list.h"
 #include "UI/ui_panel_shell.h"
 
@@ -27,9 +28,13 @@ static const char* k_runtime_file_browser_mode_path = "data/runtime/file_browser
 static const char* k_runtime_json_root_path = "data/runtime/file_browser_json_root.txt";
 static const char* k_runtime_scene_root_path = "data/runtime/file_browser_scene_root.txt";
 static const char* k_runtime_object_root_path = "data/runtime/file_browser_object_root.txt";
+static const char* k_runtime_mesh_root_path = "data/runtime/file_browser_mesh_root.txt";
+static const char* k_runtime_stl_root_path = "data/runtime/file_browser_stl_root.txt";
 static const char* k_runtime_last_json_entry_path = "data/runtime/file_browser_last_json_entry.txt";
 static const char* k_runtime_last_scene_entry_path = "data/runtime/file_browser_last_scene_entry.txt";
 static const char* k_runtime_last_object_entry_path = "data/runtime/file_browser_last_object_entry.txt";
+static const char* k_runtime_last_mesh_entry_path = "data/runtime/file_browser_last_mesh_entry.txt";
+static const char* k_runtime_last_stl_entry_path = "data/runtime/file_browser_last_stl_entry.txt";
 
 static bool UIPanel_PathIsDirectory(const char* path);
 static int UIPanel_FindLoadMenuIndexForPath(const UIPanelState* ui, const char* path);
@@ -76,6 +81,8 @@ static const char* UIPanel_FileBrowserModeToken(UILoadMenuMode mode) {
         case UI_LOAD_MENU_MODE_JSON: return "json";
         case UI_LOAD_MENU_MODE_SCENE: return "scene";
         case UI_LOAD_MENU_MODE_OBJECT: return "object";
+        case UI_LOAD_MENU_MODE_RUNTIME_MESH: return "runtime_mesh";
+        case UI_LOAD_MENU_MODE_STL_IMPORT: return "stl_import";
         case UI_LOAD_MENU_MODE_NONE:
         default: return "none";
     }
@@ -86,6 +93,12 @@ static UILoadMenuMode UIPanel_FileBrowserModeFromToken(const char* token) {
     if (strcasecmp(token, "json") == 0) return UI_LOAD_MENU_MODE_JSON;
     if (strcasecmp(token, "scene") == 0) return UI_LOAD_MENU_MODE_SCENE;
     if (strcasecmp(token, "object") == 0) return UI_LOAD_MENU_MODE_OBJECT;
+    if (strcasecmp(token, "runtime_mesh") == 0 || strcasecmp(token, "mesh") == 0) {
+        return UI_LOAD_MENU_MODE_RUNTIME_MESH;
+    }
+    if (strcasecmp(token, "stl_import") == 0 || strcasecmp(token, "stl") == 0) {
+        return UI_LOAD_MENU_MODE_STL_IMPORT;
+    }
     return UI_LOAD_MENU_MODE_NONE;
 }
 
@@ -110,6 +123,8 @@ static const char* UIPanel_FileBrowserEntryStatePath(UILoadMenuMode mode) {
         case UI_LOAD_MENU_MODE_JSON: return k_runtime_last_json_entry_path;
         case UI_LOAD_MENU_MODE_SCENE: return k_runtime_last_scene_entry_path;
         case UI_LOAD_MENU_MODE_OBJECT: return k_runtime_last_object_entry_path;
+        case UI_LOAD_MENU_MODE_RUNTIME_MESH: return k_runtime_last_mesh_entry_path;
+        case UI_LOAD_MENU_MODE_STL_IMPORT: return k_runtime_last_stl_entry_path;
         case UI_LOAD_MENU_MODE_NONE:
         default: return NULL;
     }
@@ -120,6 +135,8 @@ static const char* UIPanel_FileBrowserRootStatePath(UILoadMenuMode mode) {
         case UI_LOAD_MENU_MODE_JSON: return k_runtime_json_root_path;
         case UI_LOAD_MENU_MODE_SCENE: return k_runtime_scene_root_path;
         case UI_LOAD_MENU_MODE_OBJECT: return k_runtime_object_root_path;
+        case UI_LOAD_MENU_MODE_RUNTIME_MESH: return k_runtime_mesh_root_path;
+        case UI_LOAD_MENU_MODE_STL_IMPORT: return k_runtime_stl_root_path;
         case UI_LOAD_MENU_MODE_NONE:
         default: return NULL;
     }
@@ -199,7 +216,9 @@ static bool UIPanel_LoadBrowserRootPath(UILoadMenuMode mode, char* out_path, siz
 static bool UIPanel_ResolveBrowserRootForMode(UILoadMenuMode mode,
                                               char* out_path,
                                               size_t out_path_size) {
-    const char* current_root = (mode == UI_LOAD_MENU_MODE_OBJECT)
+    const char* current_root = (mode == UI_LOAD_MENU_MODE_OBJECT ||
+                                mode == UI_LOAD_MENU_MODE_RUNTIME_MESH ||
+                                mode == UI_LOAD_MENU_MODE_STL_IMPORT)
                                    ? Global_GetObjectAssetRoot()
                                    : Global_GetInputRoot();
     if (!out_path || out_path_size == 0u) return false;
@@ -328,6 +347,24 @@ static void UIPanel_ScanObjectAssetRoot(UIPanelState* ui, const char* root_dir) 
     UIPanel_AppendCatalogEntries(ui, entries, count);
 }
 
+static void UIPanel_ScanRuntimeMeshRoot(UIPanelState* ui, const char* root_dir) {
+    LineDrawingFileCatalogEntry entries[MAX_CONFIG_FILES];
+    int count = 0;
+    if (!ui || !root_dir || !root_dir[0]) return;
+    memset(entries, 0, sizeof(entries));
+    count = LineDrawingFileCatalog_ScanRuntimeMeshEntries(entries, MAX_CONFIG_FILES, root_dir);
+    UIPanel_AppendCatalogEntries(ui, entries, count);
+}
+
+static void UIPanel_ScanStlRoot(UIPanelState* ui, const char* root_dir) {
+    LineDrawingFileCatalogEntry entries[MAX_CONFIG_FILES];
+    int count = 0;
+    if (!ui || !root_dir || !root_dir[0]) return;
+    memset(entries, 0, sizeof(entries));
+    count = LineDrawingFileCatalog_ScanStlEntries(entries, MAX_CONFIG_FILES, root_dir);
+    UIPanel_AppendCatalogEntries(ui, entries, count);
+}
+
 static int UIPanel_FindActiveLoadMenuIndex(const UIPanelState* ui) {
     const char* active_path = NULL;
     if (!ui) return -1;
@@ -337,6 +374,11 @@ static int UIPanel_FindActiveLoadMenuIndex(const UIPanelState* ui) {
         active_path = Global_GetCurrentSceneAuthoringPath();
     } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT) {
         active_path = Global_GetCurrentObjectAssetPath();
+    } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
+        GlobalState* state = Global_Get();
+        active_path = state ? state->lastObjectRuntimeMeshPath : NULL;
+    } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
+        active_path = NULL;
     }
     if (!active_path || !active_path[0]) return -1;
     return UIPanel_FindLoadMenuIndexForPath(ui, active_path);
@@ -362,6 +404,13 @@ const char* UIPanel_GetActiveSessionPathForMode(const UIPanelState* ui) {
     }
     if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT) {
         return Global_GetCurrentObjectAssetPath();
+    }
+    if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
+        GlobalState* state = Global_Get();
+        return state ? state->lastObjectRuntimeMeshPath : NULL;
+    }
+    if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
+        return NULL;
     }
     return NULL;
 }
@@ -393,6 +442,21 @@ static const char* UIPanel_GetPreferredSessionPathForMode(const UIPanelState* ui
                    ? recents->object_assets.paths[0]
                    : NULL;
     }
+    if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
+        GlobalState* state = Global_Get();
+        return state && state->lastObjectRuntimeMeshPath[0]
+                   ? state->lastObjectRuntimeMeshPath
+                   : NULL;
+    }
+    if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
+        char remembered_path[MAX_CONFIG_PATH];
+        if (UIPanel_LoadRememberedEntryPath(UI_LOAD_MENU_MODE_STL_IMPORT,
+                                            remembered_path,
+                                            sizeof(remembered_path))) {
+            return NULL;
+        }
+        return NULL;
+    }
     return NULL;
 }
 
@@ -410,6 +474,10 @@ static bool UIPanel_DeriveBrowserRootFromActiveSession(const UIPanelState* ui,
     } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE) {
         levels = 2;
     } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT) {
+        levels = 1;
+    } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
+        levels = 1;
+    } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
         levels = 1;
     } else {
         return false;
@@ -437,6 +505,10 @@ static int UIPanel_CountEntriesForRoot(const char* root_path, UILoadMenuMode mod
         UIPanel_ScanSceneRoot(&probe, root_path);
     } else if (mode == UI_LOAD_MENU_MODE_OBJECT) {
         UIPanel_ScanObjectAssetRoot(&probe, root_path);
+    } else if (mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
+        UIPanel_ScanRuntimeMeshRoot(&probe, root_path);
+    } else if (mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
+        UIPanel_ScanStlRoot(&probe, root_path);
     }
     return probe.loadMenu.count;
 }
@@ -451,7 +523,9 @@ static bool UIPanel_ShowFileBrowserForCurrentRoot(UILoadMenuMode mode,
     ui->loadMenu.anchorButtonId = anchor_button_id;
     if (UIPanel_ResolveBrowserRootForMode(mode, resolved_root, sizeof(resolved_root))) {
         snprintf(ui->loadMenu.rootPath, sizeof(ui->loadMenu.rootPath), "%s", resolved_root);
-    } else if (mode == UI_LOAD_MENU_MODE_OBJECT &&
+    } else if ((mode == UI_LOAD_MENU_MODE_OBJECT ||
+                mode == UI_LOAD_MENU_MODE_RUNTIME_MESH ||
+                mode == UI_LOAD_MENU_MODE_STL_IMPORT) &&
                Global_GetObjectAssetRoot() &&
                Global_GetObjectAssetRoot()[0]) {
         snprintf(ui->loadMenu.rootPath,
@@ -499,6 +573,19 @@ static bool UIPanel_RestorePersistedEntryForMode(UILoadMenuMode mode) {
         path = Global_GetLastObjectAssetPath();
         if (!path || !path[0]) return false;
         return UIPanel_LoadObjectAssetFromPath(path);
+    }
+    if (mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
+        GlobalState* state = Global_Get();
+        path = state ? state->lastObjectRuntimeMeshPath : NULL;
+        if (!path || !path[0]) return false;
+        return UIPanel_PlaceRuntimeMeshAsSceneInstance(path);
+    }
+    if (mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
+        char remembered_path[MAX_CONFIG_PATH];
+        if (!UIPanel_LoadRememberedEntryPath(mode, remembered_path, sizeof(remembered_path))) {
+            return false;
+        }
+        return UIPanel_ImportStlAndPlaceFromPath(remembered_path);
     }
     return false;
 }
@@ -560,6 +647,27 @@ bool UIPanel_LoadObjectAssetFromFolderSelection(const char* selected_folder, boo
                                                  UI_BTN_LOAD_JSON);
 }
 
+bool UIPanel_LoadStlFromFolderSelection(const char* selected_folder, bool persist_root) {
+    if (!selected_folder || !selected_folder[0]) return false;
+    if (UIPanel_CountEntriesForRoot(selected_folder, UI_LOAD_MENU_MODE_STL_IMPORT) <= 0) {
+        UIPanelState* ui = UIPanel_Get();
+        if (ui) {
+            UIPanel_SetFileBrowserVisibleState(ui, false);
+        }
+        return false;
+    }
+    if (!UIPanel_ApplyBrowserRootForMode(UI_LOAD_MENU_MODE_STL_IMPORT,
+                                         selected_folder,
+                                         persist_root)) {
+        return false;
+    }
+    if (!Global_SetObjectAssetRoot(selected_folder, persist_root)) {
+        return false;
+    }
+    return UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_STL_IMPORT,
+                                                 UI_BTN_LOAD_STL);
+}
+
 void UIPanel_RefreshConfigList(void) {
     UIPanelState* ui = UIPanel_Get();
     const char* input_root = NULL;
@@ -572,7 +680,9 @@ void UIPanel_RefreshConfigList(void) {
     memset(ui->loadMenu.entryPaths, 0, sizeof(ui->loadMenu.entryPaths));
     input_root = ui->loadMenu.rootPath[0]
                      ? ui->loadMenu.rootPath
-                     : ((ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT)
+                     : ((ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT ||
+                         ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH ||
+                         ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT)
                             ? Global_GetObjectAssetRoot()
                             : Global_GetInputRoot());
     if (!ui->loadMenu.rootPath[0] && input_root && input_root[0]) {
@@ -585,6 +695,10 @@ void UIPanel_RefreshConfigList(void) {
         UIPanel_ScanSceneRoot(ui, input_root);
     } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT) {
         UIPanel_ScanObjectAssetRoot(ui, input_root);
+    } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
+        UIPanel_ScanRuntimeMeshRoot(ui, input_root);
+    } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
+        UIPanel_ScanStlRoot(ui, input_root);
     }
 
     for (int i = 0; i < ui->loadMenu.count - 1; ++i) {
@@ -648,6 +762,16 @@ void UIPanel_ActivateSceneBrowser(void) {
 
 void UIPanel_ActivateObjectAssetBrowser(void) {
     (void)UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_OBJECT, UI_BTN_LOAD_JSON);
+}
+
+void UIPanel_ActivateRuntimeMeshBrowser(void) {
+    (void)UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_RUNTIME_MESH,
+                                                UI_BTN_LOAD_MESH_ASSET);
+}
+
+void UIPanel_ActivateStlImportBrowser(void) {
+    (void)UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_STL_IMPORT,
+                                                UI_BTN_LOAD_STL);
 }
 
 bool UIPanel_RestorePersistedFileSession(void) {
@@ -745,16 +869,32 @@ bool UIPanel_LoadLayoutFromPath(const char* path) {
 
 bool UIPanel_LoadObjectAssetFromPath(const char* path) {
     GlobalState* state = Global_Get();
+    ObjectAuthoringDocument loaded_authoring;
+    bool has_authoring = false;
     char diagnostics[256];
     if (!state || !path || path[0] == '\0') return false;
 
     Editor_ClearHistory(&state->editor);
+    ObjectAuthoringDocument_Init(&loaded_authoring);
 
-    if (LayoutObjectAssetMeshAuthoring_Load(&state->layout,
-                                            path,
-                                            diagnostics,
-                                            sizeof(diagnostics))) {
+    if (LayoutObjectAssetMeshAuthoring_LoadWithAuthoring(&state->layout,
+                                                         &loaded_authoring,
+                                                         &has_authoring,
+                                                         path,
+                                                         diagnostics,
+                                                         sizeof(diagnostics))) {
         SDL_Log("[UI] Loaded object asset %s", path);
+        if (has_authoring) {
+            ObjectAuthoringSession_Clear(&state->objectAuthoring);
+            state->objectAuthoring.attached = true;
+            state->objectAuthoring.sourceSceneObjectId = 0u;
+            (void)ObjectAuthoringDocument_Copy(&state->objectAuthoring.document,
+                                               &loaded_authoring);
+        } else {
+            (void)ObjectAuthoringSession_ResetFromLayout(&state->objectAuthoring,
+                                                         &state->layout,
+                                                         0u);
+        }
         Global_OnObjectAssetLoaded(path);
         UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_OBJECT, path);
         UIPanel_RefreshConfigList();
@@ -774,9 +914,11 @@ bool UIPanel_LoadObjectAssetFromPath(const char* path) {
         state->editor.hoveredObject3DGizmoAxis = -1;
         state->editor.activeObject3DGizmoAxis = -1;
         Editor_HistoryCapture(&state->editor, &state->layout);
+        ObjectAuthoringDocument_Free(&loaded_authoring);
         return true;
     }
 
+    ObjectAuthoringDocument_Free(&loaded_authoring);
     SDL_Log("[UI] Failed to load object asset %s%s%s%s",
             path,
             diagnostics[0] ? " (" : "",
@@ -789,7 +931,10 @@ static bool UIPanel_LoadEntryByIndex(int index) {
     UIPanelState* ui = UIPanel_Get();
     bool loaded = false;
     if (!ui || index < 0 || index >= ui->loadMenu.count) return false;
-    if (ui->loadMenu.rootPath[0] != '\0' && ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT) {
+    if (ui->loadMenu.rootPath[0] != '\0' &&
+        (ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT ||
+         ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH ||
+         ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT)) {
         (void)Global_SetObjectAssetRoot(ui->loadMenu.rootPath, true);
     } else if (ui->loadMenu.rootPath[0] != '\0') {
         (void)Global_SetInputRoot(ui->loadMenu.rootPath, true);
@@ -800,6 +945,18 @@ static bool UIPanel_LoadEntryByIndex(int index) {
         loaded = UIPanel_LoadSceneFromPath(ui->loadMenu.entryPaths[index]);
     } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT) {
         loaded = UIPanel_LoadObjectAssetFromPath(ui->loadMenu.entryPaths[index]);
+    } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
+        loaded = UIPanel_PlaceRuntimeMeshAsSceneInstance(ui->loadMenu.entryPaths[index]);
+        if (loaded) {
+            UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_RUNTIME_MESH,
+                                        ui->loadMenu.entryPaths[index]);
+        }
+    } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
+        loaded = UIPanel_ImportStlAndPlaceFromPath(ui->loadMenu.entryPaths[index]);
+        if (loaded) {
+            UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_STL_IMPORT,
+                                        ui->loadMenu.entryPaths[index]);
+        }
     }
     return loaded;
 }
@@ -828,6 +985,14 @@ bool UIPanel_HandleLoadMenuClick(int mouseX, int mouseY) {
     rect = UIPanel_GetLoadMenuRect(ui);
     if (!SDL_PointInRect(&(SDL_Point){ mouseX, mouseY }, &rect)) {
         return false;
+    }
+
+    {
+        SDL_Rect set_dir_button = UIPanel_GetLoadMenuSetDirectoryButtonRect(ui);
+        if (set_dir_button.w > 0 &&
+            SDL_PointInRect(&(SDL_Point){ mouseX, mouseY }, &set_dir_button)) {
+            return UIPanel_OpenDirectoryDialogForActiveBrowser();
+        }
     }
 
     if (ui->loadMenu.count <= 0) {
@@ -900,6 +1065,7 @@ void UIPanel_HandleMouseMotion(int mouseX, int mouseY) {
     }
 
     UIPanel_HandleSceneListMouseMotion(mouseX, mouseY);
+    UIPanel_ObjectWorkspaceHandleModelTreeMouseMotion(mouseX, mouseY);
 
     if (!ui || !UIPanel_IsLoadMenuOpen()) {
         if (ui) ui->loadMenu.hoverIndex = -1;

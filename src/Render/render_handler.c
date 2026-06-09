@@ -4,7 +4,6 @@
 
 #include "UI/ui_panel.h"
 #include "UI/render_ui_panel.h"
-#include "UI/info_overlay.h"
 #include "UI/object_workspace_viewport_hud.h"
 #include "UI/shared_theme_font_adapter.h"
 #include "UI/topbar/line_drawing_editor_topbar.h"
@@ -401,12 +400,11 @@ void Render_SubmitFrame(AppContext* ctx,
     if (has_top_clip) {
         (void)SDL_RenderSetClipRect(ctx->renderer, &top_clip);
     }
-    Render_InfoOverlay(ctx->renderer);
     LineDrawingEditorTopbar_Render(ctx->renderer);
     if (has_top_clip) {
         (void)SDL_RenderSetClipRect(ctx->renderer, NULL);
     }
-    LogDrawCallDelta("Info overlay", should_log, vk, &before_draws);
+    LogDrawCallDelta("Topbar", should_log, vk, &before_draws);
 
     panel = UIPanel_Get();
     Render_UIPanel(panel, ctx->renderer);

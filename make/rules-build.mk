@@ -62,7 +62,7 @@ $(HOST_TEST_OBJ_DIR)/%.o: $(TEST_DIR)/%.c
 
 $(TEST_TARGET): $(NON_APP_OBJS) $(TEST_OBJS)
 	@mkdir -p $(dir $@)
-	$(CLANG_CC) $^ -o $@ $(LDFLAGS)
+	$(CLANG_CC) $^ -o $@ $(LDFLAGS) $(FISICS_MEMCHECK_LINK_LIBS)
 
 clean:
 	rm -rf $(BUILD_DIR)

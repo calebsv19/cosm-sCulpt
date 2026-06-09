@@ -1,4 +1,5 @@
 #include "Layout/layout.h"
+#include "Tools/agent_scene_material_flow.h"
 #include "Layout/layout_json.h"
 #include "Tools/canonical_scene_export.h"
 #include "core_scene_compile.h"
@@ -23,6 +24,8 @@ typedef struct AgentSceneOptions {
 typedef struct AgentSceneCounts {
     int planes;
     int rect_prisms;
+    int mesh_asset_instances;
+    int mesh_assets_copied;
     int bounds_adjusted;
 } AgentSceneCounts;
 
@@ -128,6 +131,10 @@ static bool join_path(char* out, size_t out_size, const char* dir, const char* n
     return snprintf(out, out_size, "%s/%s", dir, name) < (int)out_size;
 }
 
+static bool path_is_absolute(const char* path) {
+    return path && path[0] == '/';
+}
+
 static bool path_dirname(char* out, size_t out_size, const char* path) {
     const char* last_slash = NULL;
     size_t len = 0u;
@@ -139,6 +146,21 @@ static bool path_dirname(char* out, size_t out_size, const char* path) {
     memcpy(out, path, len);
     out[len] = '\0';
     return true;
+}
+
+static bool resolve_request_relative_path(char* out,
+                                          size_t out_size,
+                                          const char* request_path,
+                                          const char* source_path) {
+    char request_dir[AGENT_SCENE_PATH_MAX];
+    if (!out || out_size == 0u || !source_path || !source_path[0]) return false;
+    if (path_is_absolute(source_path)) {
+        return snprintf(out, out_size, "%s", source_path) < (int)out_size;
+    }
+    if (!path_dirname(request_dir, sizeof(request_dir), request_path)) {
+        snprintf(request_dir, sizeof(request_dir), ".");
+    }
+    return join_path(out, out_size, request_dir, source_path);
 }
 
 static const char* path_basename(const char* path) {
@@ -273,6 +295,97 @@ static bool parse_vec3_required(const cJSON* object, const char* key, Vec3* out)
     if (!cJSON_IsNumber(x) || !cJSON_IsNumber(y) || !cJSON_IsNumber(z)) return false;
     *out = (Vec3){ (float)x->valuedouble, (float)y->valuedouble, (float)z->valuedouble };
     return true;
+}
+
+static bool parse_vec3_optional(const cJSON* object, const char* key, Vec3 fallback, Vec3* out) {
+    const cJSON* item = cJSON_GetObjectItemCaseSensitive(object, key);
+    const cJSON* x = NULL;
+    const cJSON* y = NULL;
+    const cJSON* z = NULL;
+    if (!out) return false;
+    *out = fallback;
+    if (!item) return true;
+    if (!cJSON_IsObject(item)) return false;
+    x = cJSON_GetObjectItemCaseSensitive(item, "x");
+    y = cJSON_GetObjectItemCaseSensitive(item, "y");
+    z = cJSON_GetObjectItemCaseSensitive(item, "z");
+    if (!cJSON_IsNumber(x) || !cJSON_IsNumber(y) || !cJSON_IsNumber(z)) return false;
+    *out = (Vec3){ (float)x->valuedouble, (float)y->valuedouble, (float)z->valuedouble };
+    return true;
+}
+
+static bool add_vec3_json(cJSON* object, const char* key, Vec3 value) {
+    cJSON* vec = NULL;
+    if (!object || !key || !key[0]) return false;
+    vec = cJSON_CreateObject();
+    if (!vec) return false;
+    cJSON_AddItemToObject(object, key, vec);
+    cJSON_AddNumberToObject(vec, "x", value.x);
+    cJSON_AddNumberToObject(vec, "y", value.y);
+    cJSON_AddNumberToObject(vec, "z", value.z);
+    return true;
+}
+
+static const char* mesh_asset_id_from_request(const cJSON* item) {
+    const cJSON* geometry_ref = NULL;
+    const char* asset_id = NULL;
+    asset_id = json_string_or(item, "asset_id", NULL);
+    if (asset_id && asset_id[0]) return asset_id;
+    geometry_ref = cJSON_GetObjectItemCaseSensitive(item, "geometry_ref");
+    if (cJSON_IsObject(geometry_ref)) {
+        return json_string_or(geometry_ref, "id", NULL);
+    }
+    return NULL;
+}
+
+static bool material_id_exists(const cJSON* materials, const char* material_id) {
+    const cJSON* material = NULL;
+    if (!cJSON_IsArray(materials) || !material_id || !material_id[0]) return false;
+    cJSON_ArrayForEach(material, materials) {
+        if (strcmp(json_string_or(material, "material_id", ""), material_id) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool ensure_mesh_material(cJSON* authoring, const cJSON* item) {
+    const char* material_id = json_string_or(item, "material_id", NULL);
+    cJSON* materials = NULL;
+    cJSON* material = NULL;
+    cJSON* extensions = NULL;
+    cJSON* line_drawing = NULL;
+
+    if (!authoring || !item || !material_id || !material_id[0]) return true;
+    materials = ensure_array_member(authoring, "materials");
+    if (!materials) return false;
+    if (material_id_exists(materials, material_id)) return true;
+
+    material = cJSON_CreateObject();
+    extensions = cJSON_CreateObject();
+    line_drawing = cJSON_CreateObject();
+    if (!material || !extensions || !line_drawing) goto fail;
+
+    cJSON_AddStringToObject(material, "material_id", material_id);
+    cJSON_AddStringToObject(material, "material_type", json_string_or(item, "material_type", "flat_color"));
+    cJSON_AddItemToObject(material, "extensions", extensions);
+    extensions = NULL;
+    cJSON_AddItemToObject(cJSON_GetObjectItemCaseSensitive(material, "extensions"), "line_drawing", line_drawing);
+    line_drawing = NULL;
+    cJSON_AddStringToObject(cJSON_GetObjectItemCaseSensitive(
+                                cJSON_GetObjectItemCaseSensitive(material, "extensions"),
+                                "line_drawing"),
+                            "preset",
+                            "mesh_asset");
+
+    cJSON_AddItemToArray(materials, material);
+    return true;
+
+fail:
+    cJSON_Delete(material);
+    cJSON_Delete(extensions);
+    cJSON_Delete(line_drawing);
+    return false;
 }
 
 static bool apply_request_object_id(Object3D* object, const cJSON* item) {
@@ -490,6 +603,8 @@ static bool apply_request_extensions_to_authoring(const char* authoring_path, co
         }
     }
 
+    if (!AgentSceneMaterialFlow_ApplyObjectPrompts(authoring, request)) goto done;
+
     updated = cJSON_Print(authoring);
     if (!updated) goto done;
     ok = write_text_file(authoring_path, updated);
@@ -520,9 +635,184 @@ static bool build_layout_from_request(const cJSON* root, Layout* layout, AgentSc
             if (!add_plane(layout, item, counts)) return false;
         } else if (strcmp(kind, "rect_prism") == 0) {
             if (!add_rect_prism(layout, item, counts)) return false;
+        } else if (strcmp(kind, "mesh_asset_instance") == 0) {
+            if (counts) counts->mesh_asset_instances += 1;
         } else {
             return false;
         }
+    }
+    return true;
+}
+
+static cJSON* create_mesh_asset_authoring_object(const cJSON* item) {
+    const char* object_id = json_string_or(item, "id", NULL);
+    const char* asset_id = mesh_asset_id_from_request(item);
+    const char* variant = json_string_or(item, "variant", "runtime_default");
+    const char* material_id = json_string_or(item, "material_id", NULL);
+    Vec3 position = {0};
+    Vec3 rotation = {0.0f, 0.0f, 0.0f};
+    Vec3 scale = {1.0f, 1.0f, 1.0f};
+    cJSON* object_json = NULL;
+    cJSON* transform = NULL;
+    cJSON* geometry_ref = NULL;
+    cJSON* material_ref = NULL;
+    cJSON* flags = NULL;
+    cJSON* tags = NULL;
+
+    if (!object_id || !object_id[0] || !asset_id || !asset_id[0]) return NULL;
+    if (!parse_vec3_required(item, "position", &position)) return NULL;
+    if (!parse_vec3_optional(item, "rotation", rotation, &rotation)) return NULL;
+    if (!parse_vec3_optional(item, "scale", scale, &scale)) return NULL;
+
+    object_json = cJSON_CreateObject();
+    transform = cJSON_CreateObject();
+    geometry_ref = cJSON_CreateObject();
+    flags = cJSON_CreateObject();
+    tags = cJSON_CreateArray();
+    if (!object_json || !transform || !geometry_ref || !flags || !tags) goto fail;
+
+    cJSON_AddStringToObject(object_json, "object_id", object_id);
+    cJSON_AddStringToObject(object_json, "object_type", "mesh_asset_instance");
+    cJSON_AddStringToObject(object_json, "space_mode_intent", "3d");
+    cJSON_AddStringToObject(object_json, "dimensional_mode", "full_3d");
+    cJSON_AddItemToObject(object_json, "transform", transform);
+    transform = NULL;
+    if (!add_vec3_json(cJSON_GetObjectItemCaseSensitive(object_json, "transform"),
+                       "position",
+                       position) ||
+        !add_vec3_json(cJSON_GetObjectItemCaseSensitive(object_json, "transform"),
+                       "rotation",
+                       rotation) ||
+        !add_vec3_json(cJSON_GetObjectItemCaseSensitive(object_json, "transform"),
+                       "scale",
+                       scale)) {
+        goto fail;
+    }
+    cJSON_AddItemToObject(object_json, "geometry_ref", geometry_ref);
+    cJSON_AddStringToObject(geometry_ref, "kind", "mesh_asset");
+    cJSON_AddStringToObject(geometry_ref, "id", asset_id);
+    cJSON_AddStringToObject(geometry_ref, "variant", variant && variant[0] ? variant : "runtime_default");
+    geometry_ref = NULL;
+    if (material_id && material_id[0]) {
+        material_ref = cJSON_CreateObject();
+        if (!material_ref) goto fail;
+        cJSON_AddItemToObject(object_json, "material_ref", material_ref);
+        cJSON_AddStringToObject(material_ref, "id", material_id);
+        material_ref = NULL;
+    }
+    cJSON_AddItemToObject(object_json, "tags", tags);
+    cJSON_AddItemToArray(tags, cJSON_CreateString("authoring"));
+    cJSON_AddItemToArray(tags, cJSON_CreateString("line_drawing"));
+    cJSON_AddItemToArray(tags, cJSON_CreateString("mesh_asset"));
+    tags = NULL;
+    cJSON_AddItemToObject(object_json, "flags", flags);
+    cJSON_AddBoolToObject(flags, "visible", json_bool_or(item, "visible", true));
+    cJSON_AddBoolToObject(flags, "locked", json_bool_or(item, "locked", false));
+    cJSON_AddBoolToObject(flags, "selectable", json_bool_or(item, "selectable", true));
+    flags = NULL;
+    return object_json;
+
+fail:
+    cJSON_Delete(object_json);
+    cJSON_Delete(transform);
+    cJSON_Delete(geometry_ref);
+    cJSON_Delete(material_ref);
+    cJSON_Delete(flags);
+    cJSON_Delete(tags);
+    return NULL;
+}
+
+static bool apply_request_mesh_assets_to_authoring(const char* authoring_path, const cJSON* request) {
+    char* text = NULL;
+    char* updated = NULL;
+    cJSON* authoring = NULL;
+    cJSON* objects = NULL;
+    const cJSON* request_objects = NULL;
+    bool ok = false;
+
+    if (!authoring_path || !request) return false;
+    if (!read_text_file(authoring_path, &text)) goto done;
+    authoring = cJSON_Parse(text);
+    if (!cJSON_IsObject(authoring)) goto done;
+    objects = cJSON_GetObjectItemCaseSensitive(authoring, "objects");
+    if (!cJSON_IsArray(objects)) goto done;
+
+    request_objects = cJSON_GetObjectItemCaseSensitive(request, "objects");
+    if (cJSON_IsArray(request_objects)) {
+        const cJSON* item = NULL;
+        cJSON_ArrayForEach(item, request_objects) {
+            cJSON* mesh_object = NULL;
+            const char* kind = json_string_or(item, "kind", "");
+            if (strcmp(kind, "mesh_asset_instance") != 0) continue;
+            if (!ensure_mesh_material(authoring, item)) goto done;
+            mesh_object = create_mesh_asset_authoring_object(item);
+            if (!mesh_object) goto done;
+            cJSON_AddItemToArray(objects, mesh_object);
+        }
+    }
+
+    updated = cJSON_Print(authoring);
+    if (!updated) goto done;
+    ok = write_text_file(authoring_path, updated);
+
+done:
+    free(text);
+    free(updated);
+    cJSON_Delete(authoring);
+    return ok;
+}
+
+static bool copy_mesh_asset_to_scene_dir(const char* source_path,
+                                         const char* scene_dir,
+                                         const char* asset_id) {
+    char assets_dir[AGENT_SCENE_PATH_MAX];
+    char mesh_assets_dir[AGENT_SCENE_PATH_MAX];
+    char asset_filename[256];
+    char dest_path[AGENT_SCENE_PATH_MAX];
+    if (!source_path || !scene_dir || !asset_id || !asset_id[0]) return false;
+    if (snprintf(asset_filename, sizeof(asset_filename), "%s.runtime.json", asset_id) >=
+        (int)sizeof(asset_filename)) {
+        return false;
+    }
+    if (!join_path(assets_dir, sizeof(assets_dir), scene_dir, "assets")) return false;
+    if (!join_path(mesh_assets_dir, sizeof(mesh_assets_dir), assets_dir, "mesh_assets")) {
+        return false;
+    }
+    if (!ensure_dir(mesh_assets_dir)) return false;
+    if (!join_path(dest_path, sizeof(dest_path), mesh_assets_dir, asset_filename)) return false;
+    return copy_text_file(source_path, dest_path);
+}
+
+static bool copy_request_mesh_assets(const cJSON* request,
+                                     const char* request_path,
+                                     const char* output_dir,
+                                     const char* app_load_dir,
+                                     AgentSceneCounts* counts) {
+    const cJSON* request_objects = cJSON_GetObjectItemCaseSensitive(request, "objects");
+    const cJSON* item = NULL;
+    if (!cJSON_IsArray(request_objects)) return false;
+    cJSON_ArrayForEach(item, request_objects) {
+        const char* kind = json_string_or(item, "kind", "");
+        const char* asset_id = NULL;
+        const char* source_path = NULL;
+        char resolved_source[AGENT_SCENE_PATH_MAX];
+        if (strcmp(kind, "mesh_asset_instance") != 0) continue;
+        asset_id = mesh_asset_id_from_request(item);
+        source_path = json_string_or(item, "asset_source_path", NULL);
+        if (!source_path) source_path = json_string_or(item, "source_path", NULL);
+        if (!asset_id || !asset_id[0] || !source_path || !source_path[0]) return false;
+        if (!resolve_request_relative_path(resolved_source,
+                                           sizeof(resolved_source),
+                                           request_path,
+                                           source_path)) {
+            return false;
+        }
+        if (!copy_mesh_asset_to_scene_dir(resolved_source, output_dir, asset_id)) return false;
+        if (app_load_dir && app_load_dir[0] &&
+            !copy_mesh_asset_to_scene_dir(resolved_source, app_load_dir, asset_id)) {
+            return false;
+        }
+        if (counts) counts->mesh_assets_copied += 1;
     }
     return true;
 }
@@ -585,6 +875,8 @@ static bool write_summary(const char* path,
     files = NULL;
     cJSON_AddNumberToObject(object_counts, "planes", counts->planes);
     cJSON_AddNumberToObject(object_counts, "rect_prisms", counts->rect_prisms);
+    cJSON_AddNumberToObject(object_counts, "mesh_asset_instances", counts->mesh_asset_instances);
+    cJSON_AddNumberToObject(object_counts, "mesh_assets_copied", counts->mesh_assets_copied);
     cJSON_AddNumberToObject(object_counts, "bounds_adjusted", counts->bounds_adjusted);
     cJSON_AddItemToObject(root, "object_counts", object_counts);
     object_counts = NULL;
@@ -681,6 +973,10 @@ int main(int argc, char** argv) {
         fprintf(stderr, "[agent_scene_tool] ERROR: app-loadable output path too long\n");
         goto fail;
     }
+    if (!ensure_dir(app_load_dir)) {
+        fprintf(stderr, "[agent_scene_tool] ERROR: failed to create app-loadable scene directory: %s\n", app_load_dir);
+        goto fail;
+    }
 
     scene_options = cJSON_GetObjectItemCaseSensitive(request, "scene_options");
     LineDrawingSceneAuthoringOptions authoring_options = {
@@ -707,6 +1003,10 @@ int main(int argc, char** argv) {
         fprintf(stderr, "[agent_scene_tool] ERROR: failed to export authoring scene\n");
         goto fail;
     }
+    if (!apply_request_mesh_assets_to_authoring(authoring_path, request)) {
+        fprintf(stderr, "[agent_scene_tool] ERROR: failed to apply request mesh assets\n");
+        goto fail;
+    }
     if (!apply_request_extensions_to_authoring(authoring_path, request)) {
         fprintf(stderr, "[agent_scene_tool] ERROR: failed to apply request scene extensions\n");
         goto fail;
@@ -724,13 +1024,13 @@ int main(int argc, char** argv) {
         fprintf(stderr, "[agent_scene_tool] ERROR: failed to write app-loadable layout: %s\n", app_layout_path);
         goto fail;
     }
-    if (!ensure_dir(app_load_dir)) {
-        fprintf(stderr, "[agent_scene_tool] ERROR: failed to create app-loadable scene directory: %s\n", app_load_dir);
-        goto fail;
-    }
     if (!copy_text_file(authoring_path, app_authoring_path) ||
         !copy_text_file(runtime_path, app_runtime_path)) {
         fprintf(stderr, "[agent_scene_tool] ERROR: failed to write app-loadable scene files\n");
+        goto fail;
+    }
+    if (!copy_request_mesh_assets(request, opts.request_path, opts.output_dir, app_load_dir, &counts)) {
+        fprintf(stderr, "[agent_scene_tool] ERROR: failed to copy request mesh assets\n");
         goto fail;
     }
     if (!write_summary(summary_path,

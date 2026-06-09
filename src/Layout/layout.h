@@ -106,7 +106,8 @@ typedef struct {
 typedef enum {
     OBJECT3D_KIND_UNKNOWN = 0,
     OBJECT3D_KIND_PLANE = 1,
-    OBJECT3D_KIND_RECT_PRISM = 2
+    OBJECT3D_KIND_RECT_PRISM = 2,
+    OBJECT3D_KIND_MESH_ASSET_INSTANCE = 3
 } Object3DKind;
 
 typedef enum {
@@ -136,6 +137,17 @@ typedef struct {
     bool lockToConstructionPlane;
     bool lockToBounds;
 } RectPrismPrimitive3D;
+
+typedef struct {
+    char assetId[64];
+    char sourceAssetId[64];
+    char runtimePath[512];
+    Vec3 localBoundsMin;
+    Vec3 localBoundsMax;
+    size_t vertexCount;
+    size_t triangleCount;
+    bool lockToBounds;
+} MeshAssetInstance3D;
 
 typedef enum {
     PLANE_RESIZE_HANDLE_NONE = 0,
@@ -214,6 +226,7 @@ typedef struct {
     CoreObject coreMeta;
     PlanePrimitive3D plane;
     RectPrismPrimitive3D rectPrism;
+    MeshAssetInstance3D meshInstance;
     bool isDeleted;
 } Object3D;
 
@@ -285,6 +298,23 @@ bool Layout_CreateRectPrismPrimitive(Layout* layout,
                                      const RectPrismPrimitiveCreateParams* params,
                                      uint32_t* outObjectId,
                                      bool* outBoundsAdjusted);
+bool Layout_CreateMeshAssetInstanceFromRuntimeAsset(Layout* layout,
+                                                    const char* runtimeAssetPath,
+                                                    const Transform3D* transform,
+                                                    uint32_t* outObjectId,
+                                                    char* diagnostics,
+                                                    size_t diagnostics_size);
+bool Layout_RefreshMeshAssetInstanceFromRuntimeAsset(Layout* layout,
+                                                     uint32_t objectId,
+                                                     bool* outChanged,
+                                                     char* diagnostics,
+                                                     size_t diagnostics_size);
+bool Layout_RefreshMeshAssetInstancesFromRuntimeAsset(Layout* layout,
+                                                      const char* runtimeAssetPath,
+                                                      size_t* outRefreshedCount,
+                                                      size_t* outChangedCount,
+                                                      char* diagnostics,
+                                                      size_t diagnostics_size);
 float Layout_PlanePrimitiveMinSize(void);
 PlaneResizeHandleKind Layout_ResolvePlaneResizeHandleForDrag(const Object3D* object,
                                                              PlaneResizeHandleKind handle,
@@ -331,6 +361,11 @@ bool Layout_RotateObject3D(Layout* layout,
                            float angleDeg,
                            const Object3D* baselineObject,
                            bool* outBoundsAdjusted);
+bool Layout_ScaleObject3D(Layout* layout,
+                          uint32_t objectId,
+                          Vec3 scaleFactors,
+                          const Object3D* baselineObject,
+                          bool* outBoundsAdjusted);
 bool Layout_RectPrismHandleAxisMask(PlaneResizeHandleKind handle,
                                     RectPrismHandleAxisMask* outMask);
 bool Layout_RectPrismAxisDirection_IsValid(RectPrismAxisDirection direction);
@@ -367,6 +402,8 @@ bool Layout_ObjectStore_ValidateObject(const Object3D* object);
 size_t Layout_ObjectStore_LiveCount(const LayoutObjectStore* store);
 bool Layout_Object3D_ComputePlaneCorners(const Object3D* object, Vec3 outCorners[4]);
 bool Layout_Object3D_ComputeRectPrismCorners(const Object3D* object, Vec3 outCorners[8]);
+bool Layout_Object3D_ComputeMeshInstanceCorners(const Object3D* object, Vec3 outCorners[8]);
+bool Layout_Object3D_ComputeVisualCenter(const Object3D* object, Vec3* outCenter);
 bool Layout_Object3D_ComputeWorldAABB(const Object3D* object, Vec3* outMin, Vec3* outMax);
 
 

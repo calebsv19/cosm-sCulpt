@@ -6,6 +6,7 @@
 #include "Editor/object_face_sketch.h"
 #include "Layout/layout.h"
 #include "Layout/scene/layout_object_faces.h"
+#include "ObjectAuthoring/object_authoring_document.h"
 #include "UI/ui_panel_shell.h"
 
 #include <math.h>
@@ -51,7 +52,16 @@ static void ObjectWorkspaceView_SetCameraForward(FreeViewCamera* camera, Vec3 fo
 static bool ObjectWorkspaceView_HasCommittedSketchForFace(const GlobalState* state,
                                                           uint32_t object_id,
                                                           Object3DFaceKind face) {
+    const ObjectAuthoringSketch* sketch = NULL;
     if (!state || object_id == 0u || face == OBJECT3D_FACE_NONE) return false;
+    if (state->objectAuthoring.attached) {
+        sketch = ObjectAuthoringDocument_ActiveSketch(&state->objectAuthoring.document);
+        if (sketch) {
+            return ObjectAuthoringFaceRef_Matches(
+                sketch->faceRef,
+                ObjectAuthoringFaceRef_FromPrimitive(object_id, face));
+        }
+    }
     return state->editor.objectFaceSketchHasRectangle &&
            state->editor.objectFaceSketchBodyId == object_id &&
            state->editor.objectFaceSketchFace == face;
@@ -59,7 +69,14 @@ static bool ObjectWorkspaceView_HasCommittedSketchForFace(const GlobalState* sta
 
 static bool ObjectWorkspaceView_HasCommittedSketchForObject(const GlobalState* state,
                                                             uint32_t object_id) {
+    const ObjectAuthoringSketch* sketch = NULL;
     if (!state || object_id == 0u) return false;
+    if (state->objectAuthoring.attached) {
+        sketch = ObjectAuthoringDocument_ActiveSketch(&state->objectAuthoring.document);
+        if (sketch) {
+            return sketch->faceRef.bodyId == object_id;
+        }
+    }
     return state->editor.objectFaceSketchHasRectangle &&
            state->editor.objectFaceSketchBodyId == object_id;
 }
@@ -97,6 +114,8 @@ bool LineDrawingObjectWorkspaceView_EnterFreeView(GlobalState* state,
     Editor_ObjectFaceExtrudeClear(&state->editor);
     if (!preserve_committed_sketch) {
         Editor_ObjectFaceSketchClear(&state->editor);
+    } else {
+        (void)Editor_ObjectFaceSketchSyncFromAuthoring(state);
     }
     ObjectWorkspaceView_ResetFaceAuthoringChrome(state);
     Grid_init(&state->grid, grid_size, state->screenWidth, state->screenHeight);
@@ -109,6 +128,11 @@ bool LineDrawingObjectWorkspaceView_EnterFreeView(GlobalState* state,
     state->editor.selectedObjectAssetBodyId = object_id;
     state->editor.selectedObjectAssetFace = OBJECT3D_FACE_NONE;
     state->editor.objectAuthoringMode = OBJECT_AUTHORING_MODE_NONE;
+    if (state->objectAuthoring.attached) {
+        (void)ObjectAuthoringSession_SetSelection(&state->objectAuthoring,
+                                                  object_id,
+                                                  OBJECT3D_FACE_NONE);
+    }
     FreeView_NormalizeOrbitAngles(&state->freeViewCamera);
 
     view_ctx = SpaceAdapter_BuildViewContext(state);
@@ -139,12 +163,18 @@ bool LineDrawingObjectWorkspaceView_FocusFace(GlobalState* state,
     if (!preserve_committed_sketch) {
         Editor_ObjectFaceSketchClear(&state->editor);
     } else {
+        (void)Editor_ObjectFaceSketchSyncFromAuthoring(state);
         state->editor.objectFaceSketchFrame = frame;
     }
     ObjectWorkspaceView_ResetFaceAuthoringChrome(state);
     state->editor.selectedObject3DId = object_id;
     state->editor.selectedObjectAssetBodyId = object_id;
     state->editor.selectedObjectAssetFace = face;
+    if (state->objectAuthoring.attached) {
+        (void)ObjectAuthoringSession_SetSelection(&state->objectAuthoring,
+                                                  object_id,
+                                                  face);
+    }
     state->editor.objectAuthoringMode = preserve_committed_sketch
         ? OBJECT_AUTHORING_MODE_SKETCH_SELECT
         : OBJECT_AUTHORING_MODE_FACE_SELECT;

@@ -2,6 +2,7 @@
 
 #include "Editor/editor.h"
 #include "Layout/layout.h"
+#include "Layout/asset/layout_object_asset_mesh_authoring.h"
 #include "Layout/layout_json.h"
 #include "Layout/scene/layout_object_faces.h"
 #include "Core/workspace/line_drawing_object_workspace_view.h"
@@ -9,6 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
+#include <sys/stat.h>
 
 static char* WorkspaceHandoff_DupString(const char* text) {
     size_t len = 0u;
@@ -30,9 +33,76 @@ static void WorkspaceHandoff_SetPath(char* dst, size_t dst_size, const char* src
     snprintf(dst, dst_size, "%s", src);
 }
 
+static bool WorkspaceHandoff_PathIsRegularFile(const char* path) {
+    struct stat st = {0};
+    if (!path || !path[0]) return false;
+    if (stat(path, &st) != 0) return false;
+    return S_ISREG(st.st_mode);
+}
+
+static bool WorkspaceHandoff_CopyParentDirectoryPath(const char* path,
+                                                     char* out_dir,
+                                                     size_t out_dir_size) {
+    const char* slash = NULL;
+    size_t len = 0u;
+    if (!path || !path[0] || !out_dir || out_dir_size == 0u) return false;
+    slash = strrchr(path, '/');
+    if (!slash || slash == path) return false;
+    len = (size_t)(slash - path);
+    if (len >= out_dir_size) len = out_dir_size - 1u;
+    memcpy(out_dir, path, len);
+    out_dir[len] = '\0';
+    return out_dir[0] != '\0';
+}
+
+static bool WorkspaceHandoff_DeriveSourceAssetPathFromMeshInstance(
+    const MeshAssetInstance3D* mesh,
+    char* out_path,
+    size_t out_path_size) {
+    const char* runtime_suffix = ".runtime.json";
+    const size_t runtime_suffix_len = strlen(runtime_suffix);
+    size_t runtime_len = 0u;
+    char dir[LINE_DRAWING_PATH_CAP];
+    if (!mesh || !out_path || out_path_size == 0u) return false;
+    out_path[0] = '\0';
+
+    if (mesh->runtimePath[0]) {
+        runtime_len = strlen(mesh->runtimePath);
+        if (runtime_len > runtime_suffix_len &&
+            strcasecmp(mesh->runtimePath + runtime_len - runtime_suffix_len,
+                       runtime_suffix) == 0) {
+            const size_t prefix_len = runtime_len - runtime_suffix_len;
+            if (prefix_len + 5u < out_path_size) {
+                memcpy(out_path, mesh->runtimePath, prefix_len);
+                memcpy(out_path + prefix_len, ".json", 6u);
+                if (WorkspaceHandoff_PathIsRegularFile(out_path)) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    if (mesh->runtimePath[0] &&
+        mesh->sourceAssetId[0] &&
+        WorkspaceHandoff_CopyParentDirectoryPath(mesh->runtimePath,
+                                                 dir,
+                                                 sizeof(dir)) &&
+        snprintf(out_path,
+                 out_path_size,
+                 "%s/%s.json",
+                 dir,
+                 mesh->sourceAssetId) < (int)out_path_size &&
+        WorkspaceHandoff_PathIsRegularFile(out_path)) {
+        return true;
+    }
+
+    out_path[0] = '\0';
+    return false;
+}
+
 static void WorkspaceHandoff_DocumentStateFree(LineDrawingWorkspaceDocumentState* doc) {
     if (!doc) return;
-    free(doc->layoutSnapshot);
+    Layout_FreeString(doc->layoutSnapshot);
     doc->layoutSnapshot = NULL;
     free(doc->savedSnapshot);
     doc->savedSnapshot = NULL;
@@ -53,6 +123,8 @@ static void WorkspaceHandoff_DocumentStateFree(LineDrawingWorkspaceDocumentState
     doc->currentConfigPath[0] = '\0';
     doc->currentSceneAuthoringPath[0] = '\0';
     doc->currentObjectAssetPath[0] = '\0';
+    ObjectAuthoringSession_Clear(&doc->objectAuthoring);
+    doc->hasObjectAuthoringState = false;
 }
 
 static bool WorkspaceHandoff_Capture(GlobalState* state,
@@ -68,7 +140,7 @@ static bool WorkspaceHandoff_Capture(GlobalState* state,
     if (state->lastSavedSnapshot) {
         saved_snapshot = WorkspaceHandoff_DupString(state->lastSavedSnapshot);
         if (!saved_snapshot) {
-            free(layout_snapshot);
+            Layout_FreeString(layout_snapshot);
             return false;
         }
     }
@@ -90,6 +162,15 @@ static bool WorkspaceHandoff_Capture(GlobalState* state,
     out_doc->grid = state->grid;
     out_doc->activePlane = state->activePlane;
     out_doc->freeViewCamera = state->freeViewCamera;
+    if (state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT &&
+        state->objectAuthoring.attached) {
+        if (!ObjectAuthoringSession_Copy(&out_doc->objectAuthoring,
+                                         &state->objectAuthoring)) {
+            WorkspaceHandoff_DocumentStateFree(out_doc);
+            return false;
+        }
+        out_doc->hasObjectAuthoringState = true;
+    }
     WorkspaceHandoff_SetPath(out_doc->currentConfigPath,
                              sizeof(out_doc->currentConfigPath),
                              state->currentConfigPath);
@@ -104,7 +185,7 @@ static bool WorkspaceHandoff_Capture(GlobalState* state,
 
 static void WorkspaceHandoff_FreeGlobalSavedSnapshot(GlobalState* state) {
     if (!state) return;
-    free(state->lastSavedSnapshot);
+    Layout_FreeString(state->lastSavedSnapshot);
     state->lastSavedSnapshot = NULL;
 }
 
@@ -179,6 +260,11 @@ static void WorkspaceHandoff_ApplyEditorSelection(GlobalState* state,
     } else if (state->editor.selectedObject3DId != 0u) {
         state->editor.selectedObjectAssetBodyId = state->editor.selectedObject3DId;
     }
+    if (state->objectAuthoring.attached) {
+        (void)ObjectAuthoringSession_SetSelection(&state->objectAuthoring,
+                                                  state->editor.selectedObjectAssetBodyId,
+                                                  state->editor.selectedObjectAssetFace);
+    }
     Editor_HistoryCapture(&state->editor, &state->layout);
 }
 
@@ -200,6 +286,16 @@ static bool WorkspaceHandoff_Restore(GlobalState* state,
     state->layoutDirtySinceSave = doc->layoutDirtySinceSave;
     if (doc->savedSnapshot) {
         state->lastSavedSnapshot = WorkspaceHandoff_DupString(doc->savedSnapshot);
+    }
+    if (doc->hasObjectAuthoringState) {
+        if (!ObjectAuthoringSession_Copy(&state->objectAuthoring,
+                                         &doc->objectAuthoring)) {
+            return false;
+        }
+        (void)ObjectAuthoringSession_MirrorBodiesFromLayout(&state->objectAuthoring,
+                                                            &state->layout);
+    } else {
+        ObjectAuthoringSession_Clear(&state->objectAuthoring);
     }
     WorkspaceHandoff_ApplyEditorSelection(state,
                                           doc->selectedObjectId,
@@ -241,6 +337,89 @@ static void WorkspaceHandoff_SelectDefaultObjectFace(GlobalState* state,
         state->layout.scene3d.constructionPlane.mode = CONSTRUCTION_PLANE_MODE_CUSTOM_FRAME;
         state->layout.scene3d.constructionPlane.customFrame = frame;
     }
+    if (state->objectAuthoring.attached) {
+        (void)ObjectAuthoringSession_SetSelection(&state->objectAuthoring,
+                                                  selected_object_id,
+                                                  face);
+    }
+}
+
+static uint32_t WorkspaceHandoff_FirstLiveObjectId(const Layout* layout) {
+    if (!layout) return 0u;
+    for (size_t i = 0; i < layout->objectStore.count; ++i) {
+        const Object3D* object = &layout->objectStore.items[i];
+        if (!object->isDeleted && Layout_ObjectStore_ValidateObject(object)) {
+            return object->objectId;
+        }
+    }
+    return 0u;
+}
+
+static bool WorkspaceHandoff_SeedObjectWorkspaceFromMeshInstance(
+    GlobalState* state,
+    const Object3D* selected_scene_object,
+    uint32_t* out_selected_object_id) {
+    Layout seeded_layout;
+    ObjectAuthoringDocument loaded_authoring;
+    bool has_authoring = false;
+    uint32_t selected_object_id = 0u;
+    char source_asset_path[LINE_DRAWING_PATH_CAP];
+    char diagnostics[256];
+
+    if (out_selected_object_id) *out_selected_object_id = 0u;
+    if (!state || !selected_scene_object ||
+        selected_scene_object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        return false;
+    }
+    if (!WorkspaceHandoff_DeriveSourceAssetPathFromMeshInstance(
+            &selected_scene_object->meshInstance,
+            source_asset_path,
+            sizeof(source_asset_path))) {
+        return false;
+    }
+
+    diagnostics[0] = '\0';
+    Layout_Init(&seeded_layout, state->layout.gridSize);
+    ObjectAuthoringDocument_Init(&loaded_authoring);
+    if (!LayoutObjectAssetMeshAuthoring_LoadWithAuthoring(&seeded_layout,
+                                                          &loaded_authoring,
+                                                          &has_authoring,
+                                                          source_asset_path,
+                                                          diagnostics,
+                                                          sizeof(diagnostics))) {
+        ObjectAuthoringDocument_Free(&loaded_authoring);
+        Layout_Free(&seeded_layout);
+        fprintf(stderr,
+                "[workspace] Mesh source asset reopen failed for %s%s%s%s\n",
+                source_asset_path,
+                diagnostics[0] ? " (" : "",
+                diagnostics[0] ? diagnostics : "",
+                diagnostics[0] ? ")" : "");
+        return false;
+    }
+
+    selected_object_id = WorkspaceHandoff_FirstLiveObjectId(&seeded_layout);
+    Layout_Free(&state->layout);
+    state->layout = seeded_layout;
+    state->objectWorkspaceDocument.workspaceSourceSceneObjectId = selected_scene_object->objectId;
+    ObjectAuthoringSession_Clear(&state->objectAuthoring);
+    if (has_authoring) {
+        state->objectAuthoring.attached = true;
+        state->objectAuthoring.sourceSceneObjectId = selected_scene_object->objectId;
+        (void)ObjectAuthoringDocument_Copy(&state->objectAuthoring.document,
+                                           &loaded_authoring);
+    } else {
+        (void)ObjectAuthoringSession_ResetFromLayout(&state->objectAuthoring,
+                                                     &state->layout,
+                                                     selected_scene_object->objectId);
+    }
+    ObjectAuthoringDocument_Free(&loaded_authoring);
+    Global_OnObjectAssetLoaded(source_asset_path);
+    state->layoutDirtySinceSave = false;
+    state->layoutDirty = false;
+    state->hitboxDirty = true;
+    if (out_selected_object_id) *out_selected_object_id = selected_object_id;
+    return true;
 }
 
 static bool WorkspaceHandoff_SeedObjectWorkspace(GlobalState* state) {
@@ -258,6 +437,21 @@ static bool WorkspaceHandoff_SeedObjectWorkspace(GlobalState* state) {
         }
     }
 
+    if (selected_scene_object) {
+        if (selected_scene_object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
+            WorkspaceHandoff_SeedObjectWorkspaceFromMeshInstance(state,
+                                                                 selected_scene_object,
+                                                                 &selected_object_id)) {
+            WorkspaceHandoff_ApplyEditorSelection(state,
+                                                  selected_object_id,
+                                                  selected_object_id,
+                                                  OBJECT3D_FACE_NONE);
+            WorkspaceHandoff_SeedObjectWorkspaceViewport(state, selected_object_id);
+            WorkspaceHandoff_SelectDefaultObjectFace(state, selected_object_id);
+            return true;
+        }
+    }
+
     Layout_Init(&seeded_layout, state->layout.gridSize);
     if (selected_scene_object) {
         if (!WorkspaceHandoff_CopyObjectToObjectWorkspace(&seeded_layout,
@@ -271,6 +465,9 @@ static bool WorkspaceHandoff_SeedObjectWorkspace(GlobalState* state) {
     Layout_Free(&state->layout);
     state->layout = seeded_layout;
     state->objectWorkspaceDocument.workspaceSourceSceneObjectId = selected_scene_object_id;
+    (void)ObjectAuthoringSession_ResetFromLayout(&state->objectAuthoring,
+                                                 &state->layout,
+                                                 selected_scene_object_id);
     WorkspaceHandoff_ResetGlobalDocumentIdentity(state);
     state->layoutDirtySinceSave = selected_object_id != 0u;
     WorkspaceHandoff_ApplyEditorSelection(state,
@@ -302,6 +499,36 @@ static bool WorkspaceHandoff_ShouldReseedObjectWorkspace(const GlobalState* stat
     }
     return state->objectWorkspaceDocument.workspaceSourceSceneObjectId !=
            state->editor.selectedObject3DId;
+}
+
+static void WorkspaceHandoff_RefreshSceneMeshInstanceFromObjectWorkspace(
+    GlobalState* state) {
+    const uint32_t source_scene_object_id =
+        state ? state->objectWorkspaceDocument.workspaceSourceSceneObjectId : 0u;
+    Object3D* object = NULL;
+    char runtime_path[LINE_DRAWING_PATH_CAP];
+    char diagnostics[256] = {0};
+
+    if (!state || source_scene_object_id == 0u) return;
+    object = Layout_ObjectStore_Find(&state->layout.objectStore,
+                                     source_scene_object_id);
+    if (!object || object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) return;
+    snprintf(runtime_path,
+             sizeof(runtime_path),
+             "%s",
+             object->meshInstance.runtimePath);
+
+    if (!Layout_RefreshMeshAssetInstancesFromRuntimeAsset(&state->layout,
+                                                          runtime_path,
+                                                          NULL,
+                                                          NULL,
+                                                          diagnostics,
+                                                          sizeof(diagnostics)) &&
+        diagnostics[0]) {
+        fprintf(stderr,
+                "[Workspace] Mesh asset instance refresh skipped: %s\n",
+                diagnostics);
+    }
 }
 
 bool LineDrawingWorkspaceModeHandoff_Apply(GlobalState* state,
@@ -345,6 +572,7 @@ bool LineDrawingWorkspaceModeHandoff_Apply(GlobalState* state,
         if (!WorkspaceHandoff_Restore(state, &state->sceneWorkspaceDocument)) {
             return false;
         }
+        WorkspaceHandoff_RefreshSceneMeshInstanceFromObjectWorkspace(state);
     }
 
     state->workspaceMode = next_mode;

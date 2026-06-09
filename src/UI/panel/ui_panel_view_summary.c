@@ -180,6 +180,7 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     char work_future[128];
     const char* work_lines[6];
     SDL_Color work_colors[6];
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
 
     if (!ui || !renderer || !font || !state) return;
     if (ui->activeRightTab != UI_PANEL_RIGHT_TAB_VIEW) return;
@@ -236,7 +237,7 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     UIPanelViewSummary_DrawLines(renderer,
                                  font,
                                  summary_rect,
-                                 "View",
+                                 object_mode ? "View Actions" : "View",
                                  summary_lines,
                                  summary_colors,
                                  5,
@@ -248,10 +249,12 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
 
     snprintf(work_camera,
              sizeof(work_camera),
-             "Viewport  origin reset and zoom controls stay in the bottom lane");
+             object_mode
+                 ? "Buttons  O reset, + zoom in, - zoom out"
+                 : "Viewport  origin reset and zoom controls stay in the bottom lane");
     snprintf(work_mode,
              sizeof(work_mode),
-             "Editing mode  %s with %s space active",
+             object_mode ? "Mode  %s / %s" : "Editing mode  %s with %s space active",
              UIPanelViewSummary_DeleteModeLabel(state->editor.deleteMode),
              Global_GetSpaceModeLabel(state->spaceMode));
     snprintf(work_plane,
@@ -262,18 +265,23 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
              plane.offset);
     snprintf(work_delete,
              sizeof(work_delete),
-             "Grid  scale %.2fx with step %.2f",
+             object_mode ? "Grid  %.2fx / %.2f step" : "Grid  scale %.2fx with step %.2f",
              state->grid.scale,
              state->grid.gridSize);
-    snprintf(work_selection,
-             sizeof(work_selection),
-             "Selection context  %s",
-             (state->editor.selectedObject3DId != 0u) ? "object-local editing is available" :
-             (state->editor.selectedAnchorIndex >= 0 || state->editor.selectedWallIndex >= 0) ? "2D edit focus is active" :
-             "nothing selected");
-    snprintf(work_future,
-             sizeof(work_future),
-             "This middle surface is reserved for future display toggles, framing, and camera helpers");
+    if (object_mode) {
+        work_selection[0] = '\0';
+        work_future[0] = '\0';
+    } else {
+        snprintf(work_selection,
+                 sizeof(work_selection),
+                 "Selection context  %s",
+                 (state->editor.selectedObject3DId != 0u) ? "object-local editing is available" :
+                 (state->editor.selectedAnchorIndex >= 0 || state->editor.selectedWallIndex >= 0) ? "2D edit focus is active" :
+                 "nothing selected");
+        snprintf(work_future,
+                 sizeof(work_future),
+                 "Display toggles, framing, and camera helpers will live here");
+    }
 
     work_lines[0] = work_camera;
     work_lines[1] = work_mode;
@@ -294,7 +302,7 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     UIPanelViewSummary_DrawLines(renderer,
                                  font,
                                  workspace_rect,
-                                 "Viewport Workspace",
+                                 object_mode ? "Viewport Controls" : "Viewport Workspace",
                                  work_lines,
                                  work_colors,
                                  6,

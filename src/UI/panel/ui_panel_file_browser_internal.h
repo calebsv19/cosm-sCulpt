@@ -10,6 +10,7 @@ bool UIPanel_LoadMenuHasScrollableContent(const UIPanelState* ui);
 void UIPanel_LoadMenuClampScroll(UIPanelState* ui);
 void UIPanel_LoadMenuScrollIndexIntoView(UIPanelState* ui, int index);
 SDL_Rect UIPanel_GetLoadMenuScrollThumbRect(const UIPanelState* ui);
+SDL_Rect UIPanel_GetLoadMenuSetDirectoryButtonRect(const UIPanelState* ui);
 int UIPanel_LoadMenuIndexAtPoint(const UIPanelState* ui, int mouseX, int mouseY);
 
 SDL_Rect UIPanel_GetLoadMenuRect(const UIPanelState* ui);

@@ -135,7 +135,7 @@ static bool test_catalog_preview_loads_scene_authoring_snapshot(void) {
     TEST_ASSERT(preview.object_count == 2);
     TEST_ASSERT(preview.segment_count > 0);
 
-    free(layout_snapshot);
+    Layout_FreeString(layout_snapshot);
     free(authoring_json);
     return true;
 }

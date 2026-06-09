@@ -1,4 +1,9 @@
 #include "test_layout_internal.h"
+#include "Layout/asset/layout_object_asset_mesh_authoring.h"
+
+#include <errno.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 static bool test_object_store_id_stability_and_tombstone_delete(void) {
     ld_test_init_runtime();
@@ -272,8 +277,8 @@ static bool test_layout_json_v8_persists_plane_primitives_deterministically(void
         TEST_ASSERT(id3 == 3u);
     }
 
-    free(first);
-    free(second);
+    Layout_FreeString(first);
+    Layout_FreeString(second);
     ld_test_shutdown_runtime();
     return true;
 }
@@ -410,8 +415,89 @@ static bool test_layout_json_v8_persists_rect_prism_payload_deterministically(vo
     TEST_ASSERT(ld_test_nearly_equal(loaded2->rectPrism.depth, 0.75f));
     TEST_ASSERT(loaded2->rectPrism.lockToConstructionPlane);
 
-    free(first);
-    free(second);
+    Layout_FreeString(first);
+    Layout_FreeString(second);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_json_v9_persists_mesh_asset_instance_payload(void) {
+    const char* runtime_path = "/tmp/ld_mesh_asset_instance_store.runtime.json";
+    const char* runtime_json =
+        "{"
+        "\"schema_variant\":\"mesh_asset_runtime_v1\","
+        "\"asset_id\":\"asset_test_mesh\","
+        "\"source_asset_id\":\"source_test_mesh\","
+        "\"vertex_count\":4,"
+        "\"triangle_count\":2,"
+        "\"local_bounds\":{"
+            "\"min\":{\"x\":-1.0,\"y\":-2.0,\"z\":-3.0},"
+            "\"max\":{\"x\":1.0,\"y\":2.0,\"z\":3.0}"
+        "}"
+        "}";
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    Transform3D transform = Layout_Transform3D_Default();
+    uint32_t object_id = 0u;
+    char diagnostics[256] = {0};
+
+    transform.position = (Vec3){ 2.0f, 3.0f, 4.0f };
+    transform.scale = (Vec3){ 1.5f, 2.0f, 0.5f };
+    TEST_ASSERT(ld_test_write_text_file_basic(runtime_path, runtime_json));
+    TEST_ASSERT(Layout_CreateMeshAssetInstanceFromRuntimeAsset(layout,
+                                                              runtime_path,
+                                                              &transform,
+                                                              &object_id,
+                                                              diagnostics,
+                                                              sizeof(diagnostics)));
+    TEST_ASSERT(object_id == 1u);
+
+    const Object3D* object = Layout_ObjectStore_FindConst(&layout->objectStore, object_id);
+    TEST_ASSERT(object != NULL);
+    TEST_ASSERT(object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE);
+    TEST_ASSERT(strcmp(object->meshInstance.assetId, "asset_test_mesh") == 0);
+    TEST_ASSERT(strcmp(object->meshInstance.sourceAssetId, "source_test_mesh") == 0);
+    TEST_ASSERT(strcmp(object->meshInstance.runtimePath, runtime_path) == 0);
+    TEST_ASSERT(object->meshInstance.vertexCount == 4u);
+    TEST_ASSERT(object->meshInstance.triangleCount == 2u);
+    TEST_ASSERT(ld_test_vec3_nearly_equal(object->meshInstance.localBoundsMin,
+                                          (Vec3){ -1.0f, -2.0f, -3.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(object->meshInstance.localBoundsMax,
+                                          (Vec3){ 1.0f, 2.0f, 3.0f }));
+
+    char* first = Layout_SaveToString(layout);
+    TEST_ASSERT(first != NULL);
+    {
+        cJSON* root = cJSON_Parse(first);
+        TEST_ASSERT(root != NULL);
+        const cJSON* file = cJSON_GetObjectItem(root, "file");
+        const cJSON* version = cJSON_IsObject(file) ? cJSON_GetObjectItem(file, "schemaVersion") : NULL;
+        const cJSON* objects3d = cJSON_GetObjectItem(root, "objects3d");
+        const cJSON* obj0 = cJSON_GetArrayItem(objects3d, 0);
+        const cJSON* mesh = cJSON_IsObject(obj0) ? cJSON_GetObjectItem(obj0, "meshAssetInstance") : NULL;
+        TEST_ASSERT(cJSON_IsNumber(version));
+        TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION_OBJECT3D_MESH_INSTANCE);
+        TEST_ASSERT(cJSON_IsObject(mesh));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(mesh, "assetId")->valuestring, "asset_test_mesh") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(mesh, "runtimePath")->valuestring, runtime_path) == 0);
+        TEST_ASSERT(cJSON_GetObjectItem(mesh, "triangleCount")->valueint == 2);
+        cJSON_Delete(root);
+    }
+
+    TEST_ASSERT(Layout_LoadFromString(layout, first));
+    char* second = Layout_SaveToString(layout);
+    TEST_ASSERT(second != NULL);
+    TEST_ASSERT(strcmp(first, second) == 0);
+    object = Layout_ObjectStore_FindConst(&layout->objectStore, object_id);
+    TEST_ASSERT(object != NULL);
+    TEST_ASSERT(object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE);
+    TEST_ASSERT(strcmp(object->meshInstance.assetId, "asset_test_mesh") == 0);
+    TEST_ASSERT(ld_test_nearly_equal(object->transform.scale.y, 2.0f));
+
+    Layout_FreeString(first);
+    Layout_FreeString(second);
+    remove(runtime_path);
     ld_test_shutdown_runtime();
     return true;
 }
@@ -616,6 +702,269 @@ static bool test_workspace_mode_handoff_reseeds_object_workspace_when_scene_sele
     return true;
 }
 
+static bool test_workspace_mode_handoff_reopens_mesh_instance_source_asset(void) {
+    GlobalState* state = NULL;
+    Layout asset_layout;
+    ObjectAuthoringSession asset_authoring;
+    RectPrismPrimitiveCreateParams params;
+    uint32_t asset_body_id = 0u;
+    uint32_t scene_object_id = 0u;
+    bool adjusted = false;
+    char asset_root[LINE_DRAWING_PATH_CAP];
+    char source_asset_path[LINE_DRAWING_PATH_CAP];
+    char runtime_path[LINE_DRAWING_PATH_CAP];
+    char runtime_json[768];
+    char diagnostics[256] = {0};
+    const Object3D* selected_object = NULL;
+
+    snprintf(asset_root,
+             sizeof(asset_root),
+             "/tmp/ld_mesh_source_reopen_%u",
+             (unsigned)SDL_GetTicks());
+    TEST_ASSERT(mkdir(asset_root, 0755) == 0 || errno == EEXIST);
+    snprintf(source_asset_path, sizeof(source_asset_path), "%s/reopen_asset.json", asset_root);
+    snprintf(runtime_path, sizeof(runtime_path), "%s/reopen_asset.runtime.json", asset_root);
+
+    Layout_Init(&asset_layout, 1.0f);
+    ObjectAuthoringSession_Init(&asset_authoring);
+    params = (RectPrismPrimitiveCreateParams){
+        .width = 3.0f,
+        .height = 4.0f,
+        .depth = 5.0f,
+        .useExplicitFrame = true,
+        .explicitFrame = {
+            .origin = { 0.0f, 0.0f, 0.0f },
+            .axisU = { 1.0f, 0.0f, 0.0f },
+            .axisV = { 0.0f, 1.0f, 0.0f },
+            .normal = { 0.0f, 0.0f, 1.0f }
+        },
+        .lockToConstructionPlane = false,
+        .lockToBounds = false
+    };
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(&asset_layout, &params, &asset_body_id, &adjusted));
+    TEST_ASSERT(ObjectAuthoringSession_ResetFromLayout(&asset_authoring, &asset_layout, 0u));
+    TEST_ASSERT(LayoutObjectAssetMeshAuthoring_SaveWithAuthoring(&asset_layout,
+                                                                 &asset_authoring.document,
+                                                                 source_asset_path,
+                                                                 diagnostics,
+                                                                 sizeof(diagnostics)));
+    ObjectAuthoringSession_Free(&asset_authoring);
+    Layout_Free(&asset_layout);
+
+    snprintf(runtime_json,
+             sizeof(runtime_json),
+             "{"
+             "\"schema_variant\":\"mesh_asset_runtime_v1\","
+             "\"asset_id\":\"reopen_asset_runtime\","
+             "\"source_asset_id\":\"reopen_asset\","
+             "\"vertex_count\":8,"
+             "\"triangle_count\":12,"
+             "\"local_bounds\":{"
+             "\"min\":{\"x\":-1.5,\"y\":-2.0,\"z\":-2.5},"
+             "\"max\":{\"x\":1.5,\"y\":2.0,\"z\":2.5}"
+             "}"
+             "}\n");
+    TEST_ASSERT(ld_test_write_text_file_basic(runtime_path, runtime_json));
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    TEST_ASSERT(Global_SetObjectAssetRoot(asset_root, false));
+    TEST_ASSERT(Layout_CreateMeshAssetInstanceFromRuntimeAsset(&state->layout,
+                                                              runtime_path,
+                                                              NULL,
+                                                              &scene_object_id,
+                                                              diagnostics,
+                                                              sizeof(diagnostics)));
+    state->editor.selectedObject3DId = scene_object_id;
+
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+    TEST_ASSERT(state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT);
+    TEST_ASSERT(strcmp(Global_GetCurrentObjectAssetPath(), source_asset_path) == 0);
+    TEST_ASSERT(state->objectWorkspaceDocument.workspaceSourceSceneObjectId == scene_object_id);
+    TEST_ASSERT(Layout_ObjectStore_LiveCount(&state->layout.objectStore) == 1u);
+    TEST_ASSERT(state->editor.selectedObject3DId != 0u);
+    selected_object =
+        Layout_ObjectStore_FindConst(&state->layout.objectStore, state->editor.selectedObject3DId);
+    TEST_ASSERT(selected_object != NULL);
+    TEST_ASSERT(selected_object->kind == OBJECT3D_KIND_RECT_PRISM);
+    TEST_ASSERT(state->objectAuthoring.attached);
+    TEST_ASSERT(state->objectAuthoring.sourceSceneObjectId == scene_object_id);
+    TEST_ASSERT(state->objectAuthoring.document.bodyCount == 1u);
+    TEST_ASSERT(state->editor.selectedObjectAssetBodyId == selected_object->objectId);
+    TEST_ASSERT(state->editor.selectedObjectAssetFace != OBJECT3D_FACE_NONE);
+
+    ld_test_shutdown_runtime();
+    (void)unlink(source_asset_path);
+    (void)unlink(runtime_path);
+    (void)rmdir(asset_root);
+    return true;
+}
+
+static bool test_workspace_mode_handoff_refreshes_mesh_instance_runtime_sidecar(void) {
+    GlobalState* state = NULL;
+    Layout asset_layout;
+    ObjectAuthoringSession asset_authoring;
+    RectPrismPrimitiveCreateParams params;
+    Transform3D scene_transform;
+    Transform3D second_scene_transform;
+    uint32_t asset_body_id = 0u;
+    uint32_t scene_object_id = 0u;
+    uint32_t second_scene_object_id = 0u;
+    bool adjusted = false;
+    char asset_root[LINE_DRAWING_PATH_CAP];
+    char source_asset_path[LINE_DRAWING_PATH_CAP];
+    char runtime_path[LINE_DRAWING_PATH_CAP];
+    char runtime_json[768];
+    char diagnostics[256] = {0};
+    const Object3D* scene_object = NULL;
+    const Object3D* second_scene_object = NULL;
+
+    snprintf(asset_root,
+             sizeof(asset_root),
+             "/tmp/ld_mesh_sidecar_refresh_%u",
+             (unsigned)SDL_GetTicks());
+    TEST_ASSERT(mkdir(asset_root, 0755) == 0 || errno == EEXIST);
+    snprintf(source_asset_path, sizeof(source_asset_path), "%s/refresh_asset.json", asset_root);
+    snprintf(runtime_path, sizeof(runtime_path), "%s/refresh_asset.runtime.json", asset_root);
+
+    Layout_Init(&asset_layout, 1.0f);
+    ObjectAuthoringSession_Init(&asset_authoring);
+    params = (RectPrismPrimitiveCreateParams){
+        .width = 2.0f,
+        .height = 3.0f,
+        .depth = 4.0f,
+        .useExplicitFrame = true,
+        .explicitFrame = {
+            .origin = { 0.0f, 0.0f, 0.0f },
+            .axisU = { 1.0f, 0.0f, 0.0f },
+            .axisV = { 0.0f, 1.0f, 0.0f },
+            .normal = { 0.0f, 0.0f, 1.0f }
+        },
+        .lockToConstructionPlane = false,
+        .lockToBounds = false
+    };
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(&asset_layout, &params, &asset_body_id, &adjusted));
+    TEST_ASSERT(ObjectAuthoringSession_ResetFromLayout(&asset_authoring, &asset_layout, 0u));
+    TEST_ASSERT(LayoutObjectAssetMeshAuthoring_SaveWithAuthoring(&asset_layout,
+                                                                 &asset_authoring.document,
+                                                                 source_asset_path,
+                                                                 diagnostics,
+                                                                 sizeof(diagnostics)));
+    ObjectAuthoringSession_Free(&asset_authoring);
+    Layout_Free(&asset_layout);
+
+    snprintf(runtime_json,
+             sizeof(runtime_json),
+             "{"
+             "\"schema_variant\":\"mesh_asset_runtime_v1\","
+             "\"asset_id\":\"refresh_asset_runtime_v1\","
+             "\"source_asset_id\":\"refresh_asset\","
+             "\"vertex_count\":8,"
+             "\"triangle_count\":12,"
+             "\"local_bounds\":{"
+             "\"min\":{\"x\":-1.0,\"y\":-1.5,\"z\":-2.0},"
+             "\"max\":{\"x\":1.0,\"y\":1.5,\"z\":2.0}"
+             "}"
+             "}\n");
+    TEST_ASSERT(ld_test_write_text_file_basic(runtime_path, runtime_json));
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    TEST_ASSERT(Global_SetObjectAssetRoot(asset_root, false));
+    scene_transform = Layout_Transform3D_Default();
+    scene_transform.position = (Vec3){ 7.0f, -3.0f, 2.5f };
+    scene_transform.rotationDeg = (Vec3){ 0.0f, 45.0f, 0.0f };
+    scene_transform.scale = (Vec3){ 1.25f, 1.25f, 1.25f };
+    TEST_ASSERT(Layout_CreateMeshAssetInstanceFromRuntimeAsset(&state->layout,
+                                                              runtime_path,
+                                                              &scene_transform,
+                                                              &scene_object_id,
+                                                              diagnostics,
+                                                              sizeof(diagnostics)));
+    second_scene_transform = Layout_Transform3D_Default();
+    second_scene_transform.position = (Vec3){ -5.0f, 6.0f, -1.5f };
+    second_scene_transform.rotationDeg = (Vec3){ 15.0f, 0.0f, 30.0f };
+    second_scene_transform.scale = (Vec3){ 0.75f, 1.5f, 1.0f };
+    TEST_ASSERT(Layout_CreateMeshAssetInstanceFromRuntimeAsset(&state->layout,
+                                                              runtime_path,
+                                                              &second_scene_transform,
+                                                              &second_scene_object_id,
+                                                              diagnostics,
+                                                              sizeof(diagnostics)));
+    state->editor.selectedObject3DId = scene_object_id;
+    state->layoutDirtySinceSave = false;
+
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+    TEST_ASSERT(state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT);
+    TEST_ASSERT(strcmp(Global_GetCurrentObjectAssetPath(), source_asset_path) == 0);
+
+    snprintf(runtime_json,
+             sizeof(runtime_json),
+             "{"
+             "\"schema_variant\":\"mesh_asset_runtime_v1\","
+             "\"asset_id\":\"refresh_asset_runtime_v2\","
+             "\"source_asset_id\":\"refresh_asset\","
+             "\"vertex_count\":24,"
+             "\"triangle_count\":36,"
+             "\"local_bounds\":{"
+             "\"min\":{\"x\":-2.0,\"y\":-3.0,\"z\":-4.0},"
+             "\"max\":{\"x\":2.0,\"y\":3.0,\"z\":4.0}"
+             "}"
+             "}\n");
+    TEST_ASSERT(ld_test_write_text_file_basic(runtime_path, runtime_json));
+
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_SCENE));
+    TEST_ASSERT(state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_SCENE);
+    TEST_ASSERT(state->editor.selectedObject3DId == scene_object_id);
+    TEST_ASSERT(Layout_ObjectStore_LiveCount(&state->layout.objectStore) == 2u);
+    scene_object = Layout_ObjectStore_FindConst(&state->layout.objectStore, scene_object_id);
+    second_scene_object =
+        Layout_ObjectStore_FindConst(&state->layout.objectStore, second_scene_object_id);
+    TEST_ASSERT(scene_object != NULL);
+    TEST_ASSERT(second_scene_object != NULL);
+    TEST_ASSERT(scene_object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE);
+    TEST_ASSERT(second_scene_object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE);
+    TEST_ASSERT(strcmp(scene_object->meshInstance.assetId, "refresh_asset_runtime_v2") == 0);
+    TEST_ASSERT(strcmp(second_scene_object->meshInstance.assetId, "refresh_asset_runtime_v2") == 0);
+    TEST_ASSERT(strcmp(scene_object->meshInstance.sourceAssetId, "refresh_asset") == 0);
+    TEST_ASSERT(strcmp(second_scene_object->meshInstance.sourceAssetId, "refresh_asset") == 0);
+    TEST_ASSERT(strcmp(scene_object->meshInstance.runtimePath, runtime_path) == 0);
+    TEST_ASSERT(strcmp(second_scene_object->meshInstance.runtimePath, runtime_path) == 0);
+    TEST_ASSERT(scene_object->meshInstance.vertexCount == 24u);
+    TEST_ASSERT(second_scene_object->meshInstance.vertexCount == 24u);
+    TEST_ASSERT(scene_object->meshInstance.triangleCount == 36u);
+    TEST_ASSERT(second_scene_object->meshInstance.triangleCount == 36u);
+    TEST_ASSERT(ld_test_vec3_nearly_equal(scene_object->meshInstance.localBoundsMin,
+                                          (Vec3){ -2.0f, -3.0f, -4.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(second_scene_object->meshInstance.localBoundsMin,
+                                          (Vec3){ -2.0f, -3.0f, -4.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(scene_object->meshInstance.localBoundsMax,
+                                          (Vec3){ 2.0f, 3.0f, 4.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(second_scene_object->meshInstance.localBoundsMax,
+                                          (Vec3){ 2.0f, 3.0f, 4.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(scene_object->transform.position,
+                                          scene_transform.position));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(second_scene_object->transform.position,
+                                          second_scene_transform.position));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(scene_object->transform.rotationDeg,
+                                          scene_transform.rotationDeg));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(second_scene_object->transform.rotationDeg,
+                                          second_scene_transform.rotationDeg));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(scene_object->transform.scale,
+                                          scene_transform.scale));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(second_scene_object->transform.scale,
+                                          second_scene_transform.scale));
+    TEST_ASSERT(state->layoutDirtySinceSave);
+
+    ld_test_shutdown_runtime();
+    (void)unlink(source_asset_path);
+    (void)unlink(runtime_path);
+    (void)rmdir(asset_root);
+    return true;
+}
+
 bool test_layout_object3d_store_run_tests(void) {
     const TestCase cases[] = {
         { "ObjectStoreIdStabilityAndTombstoneDelete", test_object_store_id_stability_and_tombstone_delete },
@@ -628,10 +977,15 @@ bool test_layout_object3d_store_run_tests(void) {
         { "LayoutJsonV8PersistsPlanePrimitivesDeterministically", test_layout_json_v8_persists_plane_primitives_deterministically },
         { "ObjectStoreRectPrismPayloadValidation", test_object_store_rect_prism_payload_validation },
         { "LayoutJsonV8PersistsRectPrismPayloadDeterministically", test_layout_json_v8_persists_rect_prism_payload_deterministically },
+        { "LayoutJsonV9PersistsMeshAssetInstancePayload", test_layout_json_v9_persists_mesh_asset_instance_payload },
         { "WorkspaceModeHandoffSeedsObjectWorkspaceSelectionAndFocus", test_workspace_mode_handoff_seeds_object_workspace_selection_and_focus },
         { "WorkspaceModeHandoffRestoresSceneAndObjectViewports", test_workspace_mode_handoff_restores_scene_and_object_viewports },
         { "WorkspaceModeHandoffReseedsObjectWorkspaceWhenSceneSelectionChanges",
-          test_workspace_mode_handoff_reseeds_object_workspace_when_scene_selection_changes }
+          test_workspace_mode_handoff_reseeds_object_workspace_when_scene_selection_changes },
+        { "WorkspaceModeHandoffReopensMeshInstanceSourceAsset",
+          test_workspace_mode_handoff_reopens_mesh_instance_source_asset },
+        { "WorkspaceModeHandoffRefreshesMeshInstanceRuntimeSidecar",
+          test_workspace_mode_handoff_refreshes_mesh_instance_runtime_sidecar }
     };
 
     return run_test_cases("LayoutObject3DStore", cases, sizeof(cases) / sizeof(cases[0]));

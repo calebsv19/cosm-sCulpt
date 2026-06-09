@@ -17,6 +17,7 @@ static const char* Object3DKind_DefaultType(Object3DKind kind) {
     switch (kind) {
         case OBJECT3D_KIND_PLANE: return "plane_primitive";
         case OBJECT3D_KIND_RECT_PRISM: return "rect_prism_primitive";
+        case OBJECT3D_KIND_MESH_ASSET_INSTANCE: return "mesh_asset_instance";
         case OBJECT3D_KIND_UNKNOWN:
         default: return "unknown_primitive";
     }
@@ -278,6 +279,9 @@ uint32_t Layout_ObjectStore_Create(LayoutObjectStore* store,
     candidate.rectPrism.depth = kRectPrismPrimitiveDefaultSize;
     candidate.rectPrism.lockToConstructionPlane = false;
     candidate.rectPrism.lockToBounds = true;
+    candidate.meshInstance.localBoundsMin = (Vec3){ -0.5f, -0.5f, -0.5f };
+    candidate.meshInstance.localBoundsMax = (Vec3){ 0.5f, 0.5f, 0.5f };
+    candidate.meshInstance.lockToBounds = true;
     {
         const ViewPlane objectPlane = { .axis = VIEW_PLANE_XY, .offset = resolvedTransform.position.z };
         Plane3 p = Plane3_FromViewPlane(objectPlane);

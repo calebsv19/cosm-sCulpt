@@ -45,6 +45,18 @@ typedef struct {
 
 typedef struct {
     bool active;
+    uint32_t objectId;
+    GizmoAxisDirection axis;
+    Vec2 mouseStartScreen;
+    Vec3 centerStartWorld;
+    float worldUnitsPerPixel;
+    bool axisOnly;
+    bool historyCaptured;
+    Object3D baselineObject;
+} ObjectScaleDragState;
+
+typedef struct {
+    bool active;
     SceneBoundsHandleKind handle;
     RectPrismAxisDirection axisDirection;
     Vec2 mouseStartScreen;
@@ -61,6 +73,7 @@ extern bool draggingObjectResize;
 extern bool draggingObjectGizmo;
 extern bool draggingObjectTranslate;
 extern bool draggingObjectRotate;
+extern bool draggingObjectScale;
 extern bool draggingSceneBoundsGizmo;
 extern bool draggingSelectionBox;
 extern int draggingAnchorIndex;
@@ -73,4 +86,5 @@ extern ObjectResizeDragState objectResizeDrag;
 extern ObjectGizmoDragState objectGizmoDrag;
 extern ObjectTranslateDragState objectTranslateDrag;
 extern ObjectRotateDragState objectRotateDrag;
+extern ObjectScaleDragState objectScaleDrag;
 extern SceneBoundsGizmoDragState sceneBoundsGizmoDrag;

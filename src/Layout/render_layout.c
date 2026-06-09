@@ -5,7 +5,9 @@
 #include "Core/space_mode_adapter.h"
 #include "Editor/editor.h"
 #include "Editor/primitive_placement_preview.h"
+#include "Layout/scene/layout_mesh_runtime_preview.h"
 #include "Math/math_util.h"
+#include "ObjectAuthoring/object_authoring_document.h"
 #include <SDL2/SDL.h>
 #include <math.h>
 #include <stdlib.h>
@@ -301,6 +303,10 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                           SpaceAdapter_IsFreeViewEnabled(&viewCtx);
     const bool objectWorkspace =
         Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+    const bool objectTopologyEditMode =
+        objectWorkspace &&
+        (editor->objectEditSelectionMode == OBJECT_EDIT_SELECTION_EDGE ||
+         editor->objectEditSelectionMode == OBJECT_EDIT_SELECTION_VERTEX);
 
     for (size_t i = 0; i < layout->objectStore.count; ++i) {
         const Object3D* object = &layout->objectStore.items[i];
@@ -366,7 +372,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                 }
             }
 
-            if (isSelected) {
+            if (isSelected && !objectTopologyEditMode) {
                 const int hoveredHandle =
                     (editor->hoveredObject3DId == object->objectId)
                     ? editor->hoveredObject3DResizeHandle
@@ -414,10 +420,19 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
             }
 
             DrawObjectOriginMarker(renderer, originScreen, isSelected, isHovered);
-        } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        } else if (object->kind == OBJECT3D_KIND_RECT_PRISM ||
+                   object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
             Vec3 corners3[8];
-            Vec2 originScreen = WorldToScreen(SpaceAdapter_ProjectToView(object->transform.position, &viewCtx), grid);
-            if (!Layout_Object3D_ComputeRectPrismCorners(object, corners3)) continue;
+            Vec3 originWorld = object->transform.position;
+            if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+                (void)Layout_Object3D_ComputeVisualCenter(object, &originWorld);
+            }
+            Vec2 originScreen = WorldToScreen(SpaceAdapter_ProjectToView(originWorld, &viewCtx), grid);
+            if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+                if (!Layout_Object3D_ComputeRectPrismCorners(object, corners3)) continue;
+            } else {
+                if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners3)) continue;
+            }
             Vec2 corners2[8];
             for (int c = 0; c < 8; ++c) {
                 corners2[c] = WorldToScreen(SpaceAdapter_ProjectToView(corners3[c], &viewCtx), grid);
@@ -430,46 +445,69 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
             };
             if (!objectWorkspace) {
                 int thickness = 2;
+                const bool meshPreviewDrawn =
+                    object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
+                    Layout_RenderMeshAssetInstanceWireframe(renderer,
+                                                            object,
+                                                            &viewCtx,
+                                                            grid,
+                                                            isSelected,
+                                                            isHovered,
+                                                            depthFactor);
                 if (isSelected) {
                     SDL_SetRenderDrawColor(renderer, 255, 210, 80, 255);
-                    thickness = 3;
+                    thickness = meshPreviewDrawn ? 1 : 3;
                 } else if (isHovered) {
                     SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
-                    thickness = 2;
+                    thickness = meshPreviewDrawn ? 1 : 2;
                 } else {
-                    SDL_SetRenderDrawColor(renderer,
-                                           ApplyDepthToChannel(120, depthFactor),
-                                           ApplyDepthToChannel(165, depthFactor),
-                                           ApplyDepthToChannel(215, depthFactor),
-                                           255);
+                    if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+                        SDL_SetRenderDrawColor(renderer,
+                                               ApplyDepthToChannel(170, depthFactor),
+                                               ApplyDepthToChannel(140, depthFactor),
+                                               ApplyDepthToChannel(235, depthFactor),
+                                               meshPreviewDrawn ? 95 : 255);
+                    } else {
+                        SDL_SetRenderDrawColor(renderer,
+                                               ApplyDepthToChannel(120, depthFactor),
+                                               ApplyDepthToChannel(165, depthFactor),
+                                               ApplyDepthToChannel(215, depthFactor),
+                                               255);
+                    }
                     thickness = 2;
                 }
 
-                for (int e = 0; e < 12; ++e) {
-                    const Vec2 a = corners2[kRectEdges[e][0]];
-                    const Vec2 b = corners2[kRectEdges[e][1]];
-                    DrawLineWithThickness(renderer,
-                                          (int)a.x, (int)a.y,
-                                          (int)b.x, (int)b.y,
-                                          thickness);
+                if (object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE || !meshPreviewDrawn) {
+                    for (int e = 0; e < 12; ++e) {
+                        const Vec2 a = corners2[kRectEdges[e][0]];
+                        const Vec2 b = corners2[kRectEdges[e][1]];
+                        DrawLineWithThickness(renderer,
+                                              (int)a.x, (int)a.y,
+                                              (int)b.x, (int)b.y,
+                                              thickness);
+                    }
                 }
 
-                SDL_SetRenderDrawColor(renderer,
-                                       ApplyDepthToChannel(95, depthFactor),
-                                       ApplyDepthToChannel(140, depthFactor),
-                                       ApplyDepthToChannel(190, depthFactor),
-                                       isSelected ? 255 : 210);
-                DrawLineWithThickness(renderer, (int)corners2[0].x, (int)corners2[0].y,
-                                      (int)corners2[2].x, (int)corners2[2].y, 1);
-                DrawLineWithThickness(renderer, (int)corners2[1].x, (int)corners2[1].y,
-                                      (int)corners2[3].x, (int)corners2[3].y, 1);
-                DrawLineWithThickness(renderer, (int)corners2[4].x, (int)corners2[4].y,
-                                      (int)corners2[6].x, (int)corners2[6].y, 1);
-                DrawLineWithThickness(renderer, (int)corners2[5].x, (int)corners2[5].y,
-                                      (int)corners2[7].x, (int)corners2[7].y, 1);
+                if (!meshPreviewDrawn) {
+                    SDL_SetRenderDrawColor(renderer,
+                                           ApplyDepthToChannel(95, depthFactor),
+                                           ApplyDepthToChannel(140, depthFactor),
+                                           ApplyDepthToChannel(190, depthFactor),
+                                           isSelected ? 255 : 210);
+                    DrawLineWithThickness(renderer, (int)corners2[0].x, (int)corners2[0].y,
+                                          (int)corners2[2].x, (int)corners2[2].y, 1);
+                    DrawLineWithThickness(renderer, (int)corners2[1].x, (int)corners2[1].y,
+                                          (int)corners2[3].x, (int)corners2[3].y, 1);
+                    DrawLineWithThickness(renderer, (int)corners2[4].x, (int)corners2[4].y,
+                                          (int)corners2[6].x, (int)corners2[6].y, 1);
+                    DrawLineWithThickness(renderer, (int)corners2[5].x, (int)corners2[5].y,
+                                          (int)corners2[7].x, (int)corners2[7].y, 1);
+                }
             }
 
-            if (isSelected) {
+            if (isSelected &&
+                object->kind == OBJECT3D_KIND_RECT_PRISM &&
+                !objectTopologyEditMode) {
                 if (freeView) {
                     const int hoveredHandle =
                         (editor->hoveredObject3DId == object->objectId)
@@ -568,6 +606,85 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
 
             DrawObjectOriginMarker(renderer, originScreen, isSelected, isHovered);
         }
+    }
+}
+
+static void Layout_RenderObjectTopologyOverlay(SDL_Renderer* renderer,
+                                               const Grid* grid,
+                                               const SpaceViewContext* viewCtx,
+                                               const ObjectAuthoringDocument* doc,
+                                               const EditorState* editor) {
+    if (!renderer || !grid || !viewCtx || !doc) return;
+    const ObjectEditSelectionMode mode = editor
+        ? editor->objectEditSelectionMode
+        : OBJECT_EDIT_SELECTION_BODY;
+
+    for (size_t i = 0u; i < doc->edgeCount; ++i) {
+        const ObjectAuthoringEdge* edge = &doc->edges[i];
+        const ObjectAuthoringVertex* a = NULL;
+        const ObjectAuthoringVertex* b = NULL;
+        Vec2 as = {0};
+        Vec2 bs = {0};
+        Vec2 mid = {0};
+        const bool selected =
+            doc->selectionKind == OBJECT_AUTHORING_SELECTION_EDGE &&
+            doc->selectedEdge.edgeId == edge->edgeId;
+        const bool hovered =
+            editor &&
+            editor->hoveredObjectTopologyBodyId == edge->ref.bodyId &&
+            editor->hoveredObjectTopologyEdgeIndex == (int)edge->ref.primitiveEdgeIndex;
+        if (!edge->valid || edge->edgeId == 0u) continue;
+        a = ObjectAuthoringDocument_FindVertex(doc, edge->vertexIds[0]);
+        b = ObjectAuthoringDocument_FindVertex(doc, edge->vertexIds[1]);
+        if (!a || !b || !a->valid || !b->valid) continue;
+        as = WorldToScreen(SpaceAdapter_ProjectToView(a->position, viewCtx), grid);
+        bs = WorldToScreen(SpaceAdapter_ProjectToView(b->position, viewCtx), grid);
+        mid = (Vec2){ .x = 0.5f * (as.x + bs.x), .y = 0.5f * (as.y + bs.y) };
+        SDL_SetRenderDrawColor(renderer,
+                               selected ? 255 : (hovered ? 120 : (mode == OBJECT_EDIT_SELECTION_EDGE ? 125 : 80)),
+                               selected ? 190 : (hovered ? 255 : (mode == OBJECT_EDIT_SELECTION_EDGE ? 245 : 210)),
+                               selected ? 45 : (hovered ? 255 : (mode == OBJECT_EDIT_SELECTION_EDGE ? 255 : 230)),
+                               (selected || hovered || mode == OBJECT_EDIT_SELECTION_EDGE) ? 255 : 190);
+        DrawLineWithThickness(renderer,
+                              (int)as.x,
+                              (int)as.y,
+                              (int)bs.x,
+                              (int)bs.y,
+                              (selected || hovered || mode == OBJECT_EDIT_SELECTION_EDGE) ? 3 : 1);
+        if (mode == OBJECT_EDIT_SELECTION_EDGE || selected || hovered) {
+            SDL_SetRenderDrawColor(renderer,
+                                   selected ? 255 : (hovered ? 135 : 90),
+                                   selected ? 190 : (hovered ? 255 : 235),
+                                   selected ? 45 : 255,
+                                   255);
+            DrawFilledSquare(renderer,
+                             (int)mid.x,
+                             (int)mid.y,
+                             selected ? 5 : (hovered ? 5 : 4));
+        }
+    }
+
+    for (size_t i = 0u; i < doc->vertexCount; ++i) {
+        const ObjectAuthoringVertex* vertex = &doc->vertices[i];
+        Vec2 screen = {0};
+        const bool selected =
+            doc->selectionKind == OBJECT_AUTHORING_SELECTION_VERTEX &&
+            doc->selectedVertex.vertexId == vertex->vertexId;
+        const bool hovered =
+            editor &&
+            editor->hoveredObjectTopologyBodyId == vertex->ref.bodyId &&
+            editor->hoveredObjectTopologyVertexIndex == (int)vertex->ref.primitiveVertexIndex;
+        if (!vertex->valid || vertex->vertexId == 0u) continue;
+        screen = WorldToScreen(SpaceAdapter_ProjectToView(vertex->position, viewCtx), grid);
+        SDL_SetRenderDrawColor(renderer,
+                               selected ? 255 : (hovered ? 120 : (mode == OBJECT_EDIT_SELECTION_VERTEX ? 245 : 220)),
+                               selected ? 190 : (hovered ? 255 : (mode == OBJECT_EDIT_SELECTION_VERTEX ? 250 : 235)),
+                               selected ? 45 : 255,
+                               mode == OBJECT_EDIT_SELECTION_EDGE ? 185 : 255);
+        DrawFilledSquare(renderer,
+                         (int)screen.x,
+                         (int)screen.y,
+                         selected ? 5 : (hovered ? 5 : (mode == OBJECT_EDIT_SELECTION_VERTEX ? 4 : 3)));
     }
 }
 
@@ -784,11 +901,22 @@ static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
 // ======================================
 void Layout_Render(const Layout* layout, AppContext* ctx) {
     SDL_Renderer* renderer = ctx->renderer;
+    GlobalState* state = Global_Get();
 
     Layout_RenderSceneBounds3D(layout, renderer);
     Layout_RenderPrimitivePlacementPreview(renderer);
     Layout_RenderObjectSurfaces(layout, renderer);
     Layout_RenderObjects3D(layout, renderer);
+    if (state &&
+        state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT &&
+        state->objectAuthoring.attached) {
+        SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+        Layout_RenderObjectTopologyOverlay(renderer,
+                                           &state->grid,
+                                           &viewCtx,
+                                           &state->objectAuthoring.document,
+                                           &state->editor);
+    }
     Layout_RenderWalls(layout, renderer);
     Layout_RenderHandles(layout, renderer);
     Layout_RenderAnchors(layout, renderer);

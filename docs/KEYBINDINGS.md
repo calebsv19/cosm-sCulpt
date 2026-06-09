@@ -19,7 +19,7 @@ This file is the single reference for keyboard and mouse interactions in the edi
 
 ## View And Camera
 - `M`: Toggle space mode between `2D` and `3D`.
-- `V`: Toggle view mode between `PLANE_VIEW` and `FREE_VIEW`.
+- `V`: Toggle view mode between `PLANE_VIEW` and `FREE_VIEW`; from `2D`, first enters `3D` and then enables `FREE_VIEW`.
 - `1`: Set active edit plane to `XY`.
 - `2`: Set active edit plane to `YZ`.
 - `3`: Set active edit plane to `XZ`.
@@ -30,7 +30,8 @@ This file is the single reference for keyboard and mouse interactions in the edi
 - In `2D` mode:
   - active plane is locked to `XY (z=0)`,
   - free-view camera controls are disabled,
-  - `V`, `1/2/3`, and `[`/`]` plane controls are blocked.
+  - `1/2/3` and `[`/`]` plane controls are blocked,
+  - `V` is allowed as the direct enter-3D/free-view command.
 - In `3D` mode:
   - free-view and plane controls are enabled.
 
@@ -99,6 +100,8 @@ These controls apply when view mode is `FREE_VIEW`.
 - `Pin Anchor (P)`: Same action as `P`.
 - `Link Handles (L)`: Same action as `L`.
 - `Mode: <2D|3D> (M)`: Same action as `M`.
+- `View: <Plane|Free> (V)`: Same action as `V`.
+- `Gizmo: <Move|Rotate|Size> (X)`: Same action as `X`; in `Size`, center-gizmo drags scale uniformly, and `Shift` drag stretches along the matching object axis.
 
 ## Notes
 - Selection prefers: handles, then points, then walls.

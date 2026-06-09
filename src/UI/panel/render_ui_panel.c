@@ -1,4 +1,5 @@
 #include "UI/ui_panel_create_summary.h"
+#include "UI/ui_panel_edit_summary.h"
 #include "UI/render_ui_panel.h"
 #include "UI/ui_panel_file_summary.h"
 #include "UI/ui_panel_file_layout.h"
@@ -102,6 +103,7 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     const bool extrude_cut_active = state &&
         state->editor.objectFaceExtrudeToolArmed &&
         state->editor.objectFaceExtrudeMode == OBJECT_FACE_EXTRUDE_MODE_CUT;
+    const bool extrude_tool_active = extrude_add_active || extrude_cut_active;
     const Object3D* sketch_body = (state && state->editor.objectFaceSketchBodyId != 0u)
         ? Layout_ObjectStore_FindConst(&state->layout.objectStore,
                                        state->editor.objectFaceSketchBodyId)
@@ -112,14 +114,30 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         (selected_committed_sketch &&
          sketch_body &&
          sketch_body->kind == OBJECT3D_KIND_RECT_PRISM);
+    const bool place_mesh_disabled =
+        btn->id == UI_BTN_PLACE_MESH_INSTANCE &&
+        (!state || state->lastObjectRuntimeMeshPath[0] == '\0');
+    const bool edit_mode_active = object_mode && state &&
+        ((btn->id == UI_BTN_OBJECT_EDIT_BODY_MODE &&
+          state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_BODY) ||
+         (btn->id == UI_BTN_OBJECT_EDIT_FACE_MODE &&
+          state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_FACE) ||
+         (btn->id == UI_BTN_OBJECT_EDIT_EDGE_MODE &&
+          state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_EDGE) ||
+         (btn->id == UI_BTN_OBJECT_EDIT_VERTEX_MODE &&
+          state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_VERTEX));
     const bool render_disabled =
-        object_mode &&
-        (((btn->id == UI_BTN_CREATE_PLANE || btn->id == UI_BTN_OBJECT_FACE_SELECT) &&
-          !has_face_target && !has_committed_sketch && has_shape_bodies) ||
-         (btn->id == UI_BTN_OBJECT_SKETCH_SELECT && !has_committed_sketch) ||
-         (btn->id == UI_BTN_OBJECT_SKETCH_CLEAR && !sketch_active) ||
-         (btn->id == UI_BTN_EXTRUDE_ADD && !extrude_enabled) ||
-         (btn->id == UI_BTN_EXTRUDE_CUT && !extrude_cut_enabled));
+        place_mesh_disabled ||
+        (object_mode &&
+         (((btn->id == UI_BTN_CREATE_PLANE || btn->id == UI_BTN_OBJECT_FACE_SELECT) &&
+           !has_face_target && !has_committed_sketch && has_shape_bodies) ||
+          (btn->id == UI_BTN_OBJECT_SKETCH_SELECT && !has_committed_sketch) ||
+          (btn->id == UI_BTN_OBJECT_SKETCH_CLEAR && !sketch_active) ||
+          (btn->id == UI_BTN_EXTRUDE_ADD && !extrude_enabled) ||
+          (btn->id == UI_BTN_EXTRUDE_CUT && !extrude_cut_enabled) ||
+          ((btn->id == UI_BTN_EXTRUDE_DEPTH_DEC ||
+            btn->id == UI_BTN_EXTRUDE_DEPTH_INC) &&
+           !extrude_tool_active)));
 
     (void)UIPanelVisual_ResolvePalette(&palette);
     button_fill = palette.button_fill;
@@ -130,6 +148,10 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         button_fill.a = 150;
         button_border = UIPanelVisual_AdjustColor(button_border, -24, 0);
         textColor = palette.text_muted;
+    } else if (edit_mode_active) {
+        button_fill = UIPanelVisual_BlendColor(button_fill, palette.button_fill_active, 120);
+        button_border = UIPanelVisual_AdjustColor(palette.accent, 10, 0);
+        textColor = palette.text_primary;
     }
     if (btn->hovered) {
         button_fill = palette.button_fill_hover;
@@ -169,7 +191,9 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
                 btn->id == UI_BTN_OBJECT_SKETCH_SELECT ||
                 btn->id == UI_BTN_OBJECT_SKETCH_CLEAR ||
                 btn->id == UI_BTN_EXTRUDE_ADD ||
-                btn->id == UI_BTN_EXTRUDE_CUT)) {
+                btn->id == UI_BTN_EXTRUDE_CUT ||
+                btn->id == UI_BTN_EXTRUDE_DEPTH_DEC ||
+                btn->id == UI_BTN_EXTRUDE_DEPTH_INC)) {
         if (btn->id == UI_BTN_SAVE_JSON) {
             label = "Save Asset";
         } else if (btn->id == UI_BTN_LOAD_JSON) {
@@ -177,7 +201,7 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         } else if (btn->id == UI_BTN_LOAD_SCENE) {
             label = "New Asset";
         } else if (btn->id == UI_BTN_EXPORT_SCENE) {
-            label = "Mesh Export Soon";
+            label = "Export Mesh";
         } else if (btn->id == UI_BTN_INPUT_ROOT_EDIT) {
             label = "Asset Root Edit";
         } else if (btn->id == UI_BTN_INPUT_ROOT_FOLDER) {
@@ -197,14 +221,16 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         } else if (btn->id == UI_BTN_EXTRUDE_CUT) {
             label = extrude_cut_active ? "Commit -" :
                     extrude_cut_enabled ? "Extrude -" : "Cut Prism";
+        } else if (btn->id == UI_BTN_EXTRUDE_DEPTH_DEC) {
+            label = "Depth -";
+        } else if (btn->id == UI_BTN_EXTRUDE_DEPTH_INC) {
+            label = "Depth +";
         }
     } else if (btn->id == UI_BTN_TOGGLE_OBJECT_GIZMO_MODE) {
-        GlobalState* state = Global_Get();
-        const bool rotateMode = state ? state->editor.object3DRotateMode : false;
         snprintf(dynamicLabel,
                  sizeof(dynamicLabel),
                  "%s (X)",
-                 rotateMode ? "Rotate" : "Move");
+                 UIPanel_ObjectGizmoModeLabel());
         label = dynamicLabel;
     } else if (btn->id == UI_BTN_TOGGLE_SCENE_BOUNDS) {
         GlobalState* state = Global_Get();
@@ -375,17 +401,18 @@ static const char* UIPanel_GroupTitle(UIPanelGroup group, UIPanelSide side) {
     switch (group) {
         case UI_PANEL_GROUP_LEFT_SCENE_SELECTION: return "Selection";
         case UI_PANEL_GROUP_LEFT_SCENE_BOUNDS: return "Scene Bounds";
-        case UI_PANEL_GROUP_LEFT_FILE_IO: return "File / IO";
-        case UI_PANEL_GROUP_LEFT_ROOT_PATHS: return "Session Paths";
-        case UI_PANEL_GROUP_RIGHT_VIEW: return "View";
-        case UI_PANEL_GROUP_RIGHT_MODES: return "Modes";
-        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return object_mode ? "Seed / Sketch" : "Primitives";
-        case UI_PANEL_GROUP_RIGHT_OPERATIONS: return "Operations";
+        case UI_PANEL_GROUP_LEFT_FILE_IO: return object_mode ? "Asset Actions" : "File / IO";
+        case UI_PANEL_GROUP_LEFT_ROOT_PATHS: return object_mode ? "Asset Paths" : "Session Paths";
+        case UI_PANEL_GROUP_RIGHT_VIEW: return object_mode ? "Navigate" : "View";
+        case UI_PANEL_GROUP_RIGHT_MODES: return object_mode ? "Edit Modes" : "Modes";
+        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return object_mode ? "Target / Sketch" : "Primitives";
+        case UI_PANEL_GROUP_RIGHT_OPERATIONS: return object_mode ? "Solid Command" : "Operations";
         case UI_PANEL_GROUP_RIGHT_CONSTRUCTION: return "Construction";
-        case UI_PANEL_GROUP_RIGHT_PRISM: return "Prism";
-        case UI_PANEL_GROUP_RIGHT_GIZMO: return "Gizmo";
-        case UI_PANEL_GROUP_RIGHT_TRANSFORM: return "Transform";
-        case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS: return "Object Actions";
+        case UI_PANEL_GROUP_RIGHT_PRISM: return object_mode ? "Body Dimensions" : "Prism";
+        case UI_PANEL_GROUP_RIGHT_GIZMO: return object_mode ? "Object Gizmo" : "Gizmo";
+        case UI_PANEL_GROUP_RIGHT_TRANSFORM: return object_mode ? "Object Transform" : "Transform";
+        case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS: return object_mode ? "Selection Actions" : "Object Actions";
+        case UI_PANEL_GROUP_RIGHT_EDIT_SELECT: return "Selection Mode";
         case UI_PANEL_GROUP_NONE:
         default: return "Controls";
     }
@@ -430,6 +457,8 @@ static SDL_Rect UIPanel_GroupSectionRect(const UIPanelState* ui,
             return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) ? ui->objectPane.transformRect : zero;
         case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS:
             return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT) ? ui->objectPane.actionsRect : zero;
+        case UI_PANEL_GROUP_RIGHT_EDIT_SELECT:
+            return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_EDIT) ? ui->editPane.selectionModeRect : zero;
         default:
             return zero;
     }
@@ -510,7 +539,23 @@ static void DrawGroupSection(SDL_Renderer* renderer,
 
 void Render_UIPanelSide(const UIPanelState* ui, SDL_Renderer* renderer, UIPanelSide side) {
     int i = 0;
+    SDL_Rect clip_rect = {0, 0, 0, 0};
+    SDL_Rect previous_clip = {0, 0, 0, 0};
+    SDL_bool had_clip = SDL_FALSE;
     if (!ui || !renderer) return;
+    if (side == UI_PANEL_LEFT) {
+        clip_rect = ui->leftPaneRect;
+    } else {
+        clip_rect = ui->rightPaneRect;
+    }
+    if (clip_rect.w <= 0 || clip_rect.h <= 0) return;
+
+    had_clip = SDL_RenderIsClipEnabled(renderer);
+    if (had_clip) {
+        (void)SDL_RenderGetClipRect(renderer, &previous_clip);
+    }
+    (void)SDL_RenderSetClipRect(renderer, &clip_rect);
+
     if (side == UI_PANEL_LEFT) {
         DrawPaneSurface(renderer, &ui->leftPaneRect, &ui->leftBodyRect);
     } else {
@@ -546,6 +591,8 @@ void Render_UIPanelSide(const UIPanelState* ui, SDL_Renderer* renderer, UIPanelS
 
         i = last + 1;
     }
+
+    (void)SDL_RenderSetClipRect(renderer, had_clip ? &previous_clip : NULL);
 }
 
 void Render_UIPanelRootSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
@@ -565,6 +612,7 @@ static void Render_UIPanelRightTabSummary(const UIPanelState* ui, SDL_Renderer* 
     Render_UIPanelViewSummary(ui, renderer);
     Render_UIPanelCreateSummary(ui, renderer);
     Render_UIPanelObjectInspector(ui, renderer);
+    Render_UIPanelEditSummary(ui, renderer);
 }
 
 void Render_UIPanel(const UIPanelState* ui, SDL_Renderer* renderer) {

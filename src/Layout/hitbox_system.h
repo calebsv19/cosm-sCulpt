@@ -1,6 +1,7 @@
 #pragma once
 #include "Layout/layout.h"
 #include "Core/SDLApp/sdl_app_framework.h"
+#include "ObjectAuthoring/object_authoring_document.h"
 #include <stdbool.h>
 
 typedef enum {
@@ -13,6 +14,8 @@ typedef enum {
     HITBOX_OBJECT3D_PRISM_HANDLE,
     HITBOX_OBJECT3D_PLANE_CORNER,
     HITBOX_OBJECT3D_PLANE_EDGE,
+    HITBOX_OBJECT_TOPOLOGY_VERTEX,
+    HITBOX_OBJECT_TOPOLOGY_EDGE,
     HITBOX_SCENE_BOUNDS_HANDLE,
     HITBOX_WALL,
     HITBOX_POINT,
@@ -47,6 +50,8 @@ void HitboxSystem_Rebuild(const Layout* layout,
                          uint32_t selectedObject3DId,
                          int selectedObject3DResizeHandle,
                          int selectedObject3DPrismHandle,
+                         const ObjectAuthoringDocument* objectTopology,
+                         bool objectTopologyEditMode,
                          const ObjectFaceSketchHitboxState* objectFaceSketch,
                          int selectedSceneBoundsHandle,
                          bool sceneBoundsHandlesVisible,
@@ -54,3 +59,4 @@ void HitboxSystem_Rebuild(const Layout* layout,
 
 // Returns hitbox under screen-space mouse position
 Hitbox HitboxSystem_GetHitAt(int mouseX, int mouseY);
+Hitbox HitboxSystem_GetHitAtOfType(int mouseX, int mouseY, HitboxType type);

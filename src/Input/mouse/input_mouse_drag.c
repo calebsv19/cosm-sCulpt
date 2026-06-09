@@ -20,6 +20,7 @@ bool draggingObjectResize = false;
 bool draggingObjectGizmo = false;
 bool draggingObjectTranslate = false;
 bool draggingObjectRotate = false;
+bool draggingObjectScale = false;
 bool draggingSceneBoundsGizmo = false;
 bool draggingSelectionBox = false;
 int draggingAnchorIndex = -1;
@@ -73,6 +74,18 @@ ObjectRotateDragState objectRotateDrag = {
     .baselineObject = {0}
 };
 
+ObjectScaleDragState objectScaleDrag = {
+    .active = false,
+    .objectId = 0u,
+    .axis = GIZMO_AXIS_DIR_POS_X,
+    .mouseStartScreen = { 0.0f, 0.0f },
+    .centerStartWorld = { 0.0f, 0.0f, 0.0f },
+    .worldUnitsPerPixel = 0.0f,
+    .axisOnly = false,
+    .historyCaptured = false,
+    .baselineObject = {0}
+};
+
 SceneBoundsGizmoDragState sceneBoundsGizmoDrag = {
     .active = false,
     .handle = SCENE_BOUNDS_HANDLE_NONE,
@@ -82,6 +95,34 @@ SceneBoundsGizmoDragState sceneBoundsGizmoDrag = {
     .worldUnitsPerPixel = 0.0f,
     .historyCaptured = false
 };
+
+static float Object3D_CenterGizmoAxisWorldLen(const Object3D* object, float gridSize) {
+    float axisWorldLen = fmaxf(gridSize * 2.0f, 1.0f);
+    Vec3 corners[8];
+    Vec3 center = {0};
+    int cornerCount = 0;
+    if (!object) return axisWorldLen;
+    if (!Layout_Object3D_ComputeVisualCenter(object, &center)) return axisWorldLen;
+    if (object->kind == OBJECT3D_KIND_PLANE) {
+        if (!Layout_Object3D_ComputePlaneCorners(object, corners)) return axisWorldLen;
+        cornerCount = 4;
+    } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        if (!Layout_Object3D_ComputeRectPrismCorners(object, corners)) return axisWorldLen;
+        cornerCount = 8;
+    } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) return axisWorldLen;
+        cornerCount = 8;
+    } else {
+        return axisWorldLen;
+    }
+
+    float maxRadius = 0.0f;
+    for (int i = 0; i < cornerCount; ++i) {
+        const float radius = Vec3_Length(Vec3_Sub(corners[i], center));
+        if (radius > maxRadius) maxRadius = radius;
+    }
+    return fmaxf(axisWorldLen, maxRadius * 0.35f);
+}
 
 void ResetObjectResizeDrag(EditorState* editor) {
     objectResizeDrag.active = false;
@@ -130,6 +171,21 @@ void ResetObjectRotateDrag(EditorState* editor) {
     if (!editor) return;
     editor->activeObject3DGizmoAxis = -1;
     editor->isRotatingObject3D = false;
+}
+
+void ResetObjectScaleDrag(EditorState* editor) {
+    objectScaleDrag.active = false;
+    objectScaleDrag.objectId = 0u;
+    objectScaleDrag.axis = GIZMO_AXIS_DIR_POS_X;
+    objectScaleDrag.mouseStartScreen = (Vec2){ 0.0f, 0.0f };
+    objectScaleDrag.centerStartWorld = (Vec3){ 0.0f, 0.0f, 0.0f };
+    objectScaleDrag.worldUnitsPerPixel = 0.0f;
+    objectScaleDrag.axisOnly = false;
+    objectScaleDrag.historyCaptured = false;
+    memset(&objectScaleDrag.baselineObject, 0, sizeof(objectScaleDrag.baselineObject));
+    if (!editor) return;
+    editor->activeObject3DGizmoAxis = -1;
+    editor->isScalingObject3D = false;
 }
 
 void ResetSceneBoundsGizmoDrag(EditorState* editor) {
@@ -230,7 +286,8 @@ bool BeginObjectResizeDragSession(GlobalState* state,
     Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, objectId);
     if (!object) return false;
     if (object->kind != OBJECT3D_KIND_PLANE &&
-        object->kind != OBJECT3D_KIND_RECT_PRISM) {
+        object->kind != OBJECT3D_KIND_RECT_PRISM &&
+        object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
         return false;
     }
     if (!Layout_ObjectStore_ValidateObject(object)) return false;
@@ -256,6 +313,9 @@ static void ObjectHandleGizmo_ApplySelection(EditorState* editor,
     } else if (target->kind == OBJECT_HANDLE_GIZMO_TARGET_PRISM_RESIZE) {
         editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
         editor->selectedObject3DPrismHandle = (int)target->prismHandle;
+    } else if (ObjectHandleGizmoTarget_IsTopology(target)) {
+        editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+        editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     }
 }
 
@@ -376,6 +436,7 @@ bool BeginSceneBoundsGizmoDragSession(GlobalState* state,
     editor->isResizingSceneBounds = true;
     editor->isResizingObject3D = false;
     editor->isRotatingObject3D = false;
+    editor->isScalingObject3D = false;
     editor->isPreciseDrag = (SDL_GetModState() & KMOD_ALT) != 0;
     return true;
 }
@@ -392,7 +453,8 @@ bool BeginObjectTranslateDragSession(GlobalState* state,
     Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, objectId);
     if (!object) return false;
     if (object->kind != OBJECT3D_KIND_PLANE &&
-        object->kind != OBJECT3D_KIND_RECT_PRISM) {
+        object->kind != OBJECT3D_KIND_RECT_PRISM &&
+        object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
         return false;
     }
     if (!Layout_ObjectStore_ValidateObject(object)) return false;
@@ -400,12 +462,13 @@ bool BeginObjectTranslateDragSession(GlobalState* state,
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
 
-    const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, state->grid.gridSize);
+    Vec3 centerWorld = object->transform.position;
+    (void)Layout_Object3D_ComputeVisualCenter(object, &centerWorld);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(axis);
-    Vec3 tipWorld = Vec3_Add(object->transform.position, Vec3_Scale(axisWorldVec, axisWorldLen));
+    Vec3 tipWorld = Vec3_Add(centerWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
 
-    Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(object->transform.position, &viewCtx),
-                                     &state->grid);
+    Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(centerWorld, &viewCtx), &state->grid);
     Vec2 tipScreen = WorldToScreen(SpaceAdapter_ProjectToView(tipWorld, &viewCtx), &state->grid);
     float axisPixels = Vec2_Distance(startScreen, tipScreen);
     if (axisPixels <= 1e-4f) return false;
@@ -414,13 +477,14 @@ bool BeginObjectTranslateDragSession(GlobalState* state,
     objectTranslateDrag.objectId = objectId;
     objectTranslateDrag.axis = axis;
     objectTranslateDrag.mouseStartScreen = (Vec2){ (float)mouseX, (float)mouseY };
-    objectTranslateDrag.centerStartWorld = object->transform.position;
+    objectTranslateDrag.centerStartWorld = centerWorld;
     objectTranslateDrag.worldUnitsPerPixel = axisWorldLen / axisPixels;
     objectTranslateDrag.smooth = (SDL_GetModState() & KMOD_SHIFT) != 0;
     objectTranslateDrag.historyCaptured = false;
 
     editor->isResizingObject3D = false;
     editor->isRotatingObject3D = false;
+    editor->isScalingObject3D = false;
     editor->activeObject3DGizmoAxis = (int)axis;
     editor->isPreciseDrag = objectTranslateDrag.smooth;
     return true;
@@ -438,7 +502,8 @@ bool BeginObjectRotateDragSession(GlobalState* state,
     Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, objectId);
     if (!object) return false;
     if (object->kind != OBJECT3D_KIND_PLANE &&
-        object->kind != OBJECT3D_KIND_RECT_PRISM) {
+        object->kind != OBJECT3D_KIND_RECT_PRISM &&
+        object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
         return false;
     }
     if (!Layout_ObjectStore_ValidateObject(object)) return false;
@@ -446,12 +511,13 @@ bool BeginObjectRotateDragSession(GlobalState* state,
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
 
-    const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, state->grid.gridSize);
+    Vec3 centerWorld = object->transform.position;
+    (void)Layout_Object3D_ComputeVisualCenter(object, &centerWorld);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(axis);
-    Vec3 tipWorld = Vec3_Add(object->transform.position, Vec3_Scale(axisWorldVec, axisWorldLen));
+    Vec3 tipWorld = Vec3_Add(centerWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
 
-    Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(object->transform.position, &viewCtx),
-                                     &state->grid);
+    Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(centerWorld, &viewCtx), &state->grid);
     Vec2 tipScreen = WorldToScreen(SpaceAdapter_ProjectToView(tipWorld, &viewCtx), &state->grid);
     float axisPixels = Vec2_Distance(startScreen, tipScreen);
     if (axisPixels <= 1e-4f) return false;
@@ -460,7 +526,7 @@ bool BeginObjectRotateDragSession(GlobalState* state,
     objectRotateDrag.objectId = objectId;
     objectRotateDrag.axis = axis;
     objectRotateDrag.mouseStartScreen = (Vec2){ (float)mouseX, (float)mouseY };
-    objectRotateDrag.centerStartWorld = object->transform.position;
+    objectRotateDrag.centerStartWorld = centerWorld;
     objectRotateDrag.degreesPerPixel = 180.0f / axisPixels;
     objectRotateDrag.smooth = (SDL_GetModState() & KMOD_SHIFT) != 0;
     objectRotateDrag.historyCaptured = false;
@@ -468,8 +534,59 @@ bool BeginObjectRotateDragSession(GlobalState* state,
 
     editor->isResizingObject3D = false;
     editor->isRotatingObject3D = true;
+    editor->isScalingObject3D = false;
     editor->activeObject3DGizmoAxis = (int)axis;
     editor->isPreciseDrag = objectRotateDrag.smooth;
+    return true;
+}
+
+bool BeginObjectScaleDragSession(GlobalState* state,
+                                 EditorState* editor,
+                                 uint32_t objectId,
+                                 GizmoAxisDirection axis,
+                                 int mouseX,
+                                 int mouseY) {
+    if (!state || !editor) return false;
+    if (objectId == 0u || !GizmoAxisDirection_IsValid(axis)) return false;
+
+    Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, objectId);
+    if (!object) return false;
+    if (object->kind != OBJECT3D_KIND_PLANE &&
+        object->kind != OBJECT3D_KIND_RECT_PRISM &&
+        object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        return false;
+    }
+    if (!Layout_ObjectStore_ValidateObject(object)) return false;
+
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
+
+    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, state->grid.gridSize);
+    Vec3 centerWorld = object->transform.position;
+    (void)Layout_Object3D_ComputeVisualCenter(object, &centerWorld);
+    Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(axis);
+    Vec3 tipWorld = Vec3_Add(centerWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
+
+    Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(centerWorld, &viewCtx), &state->grid);
+    Vec2 tipScreen = WorldToScreen(SpaceAdapter_ProjectToView(tipWorld, &viewCtx), &state->grid);
+    float axisPixels = Vec2_Distance(startScreen, tipScreen);
+    if (axisPixels <= 1e-4f) return false;
+
+    objectScaleDrag.active = true;
+    objectScaleDrag.objectId = objectId;
+    objectScaleDrag.axis = axis;
+    objectScaleDrag.mouseStartScreen = (Vec2){ (float)mouseX, (float)mouseY };
+    objectScaleDrag.centerStartWorld = centerWorld;
+    objectScaleDrag.worldUnitsPerPixel = axisWorldLen / axisPixels;
+    objectScaleDrag.axisOnly = (SDL_GetModState() & KMOD_SHIFT) != 0;
+    objectScaleDrag.historyCaptured = false;
+    objectScaleDrag.baselineObject = *object;
+
+    editor->isResizingObject3D = false;
+    editor->isRotatingObject3D = false;
+    editor->isScalingObject3D = true;
+    editor->activeObject3DGizmoAxis = (int)axis;
+    editor->isPreciseDrag = objectScaleDrag.axisOnly;
     return true;
 }
 
@@ -670,7 +787,8 @@ static void UpdateObjectGizmoDragPosition(int mx, int my) {
                                                objectGizmoDrag.target.objectId);
     if (!ObjectHandleGizmoTarget_ValidateForObject(&objectGizmoDrag.target, object)) return;
 
-    if (!objectGizmoDrag.historyCaptured) {
+    const bool canMutate = ObjectHandleGizmoTarget_CanMutate(&objectGizmoDrag.target);
+    if (canMutate && !objectGizmoDrag.historyCaptured) {
         Editor_HistoryCapture(editor, &state->layout);
         objectGizmoDrag.historyCaptured = true;
     }
@@ -715,10 +833,12 @@ static void UpdateObjectGizmoDragPosition(int mx, int my) {
 
     (void)ObjectHandleGizmoTarget_ResolveForDrag(object, &objectGizmoDrag.target, dragPoint);
     ObjectHandleGizmo_ApplySelection(editor, &objectGizmoDrag.target);
-    (void)ObjectHandleGizmoTarget_ResizeFromDrag(&state->layout,
-                                                 &objectGizmoDrag.target,
-                                                 dragPoint,
-                                                 NULL);
+    if (canMutate) {
+        (void)ObjectHandleGizmoTarget_ResizeFromDrag(&state->layout,
+                                                     &objectGizmoDrag.target,
+                                                     dragPoint,
+                                                     NULL);
+    }
 }
 
 static void UpdateSceneBoundsGizmoDragPosition(int mx, int my) {
@@ -800,7 +920,8 @@ static void UpdateObjectTranslateDragPosition(int mx, int my) {
     Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, objectTranslateDrag.objectId);
     if (!object) return;
     if (object->kind != OBJECT3D_KIND_PLANE &&
-        object->kind != OBJECT3D_KIND_RECT_PRISM) {
+        object->kind != OBJECT3D_KIND_RECT_PRISM &&
+        object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
         return;
     }
     if (!Layout_ObjectStore_ValidateObject(object)) return;
@@ -813,7 +934,7 @@ static void UpdateObjectTranslateDragPosition(int mx, int my) {
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
 
-    const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, state->grid.gridSize);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(objectTranslateDrag.axis);
     Vec3 tipWorld = Vec3_Add(objectTranslateDrag.centerStartWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
     Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(objectTranslateDrag.centerStartWorld, &viewCtx),
@@ -864,7 +985,8 @@ static void UpdateObjectRotateDragPosition(int mx, int my) {
     Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, objectRotateDrag.objectId);
     if (!object) return;
     if (object->kind != OBJECT3D_KIND_PLANE &&
-        object->kind != OBJECT3D_KIND_RECT_PRISM) {
+        object->kind != OBJECT3D_KIND_RECT_PRISM &&
+        object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
         return;
     }
     if (!Layout_ObjectStore_ValidateObject(object)) return;
@@ -877,7 +999,7 @@ static void UpdateObjectRotateDragPosition(int mx, int my) {
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
 
-    const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, state->grid.gridSize);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(objectRotateDrag.axis);
     Vec3 tipWorld = Vec3_Add(objectRotateDrag.centerStartWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
     Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(objectRotateDrag.centerStartWorld, &viewCtx),
@@ -913,7 +1035,133 @@ static void UpdateObjectRotateDragPosition(int mx, int my) {
                                 NULL);
 }
 
+static Vec3 ObjectScale_FactorsForDrag(const Object3D* object,
+                                       GizmoAxisDirection axis,
+                                       float factor,
+                                       bool axisOnly) {
+    Vec3 factors = {factor, factor, factor};
+    if (!axisOnly || !object) return factors;
+
+    factors = (Vec3){1.0f, 1.0f, 1.0f};
+    if (object->kind == OBJECT3D_KIND_PLANE) {
+        Vec3 axisWorld = GizmoAxisDirection_WorldVector(axis);
+        const float dotU = fabsf(Vec3_Dot(Vec3_Normalize(axisWorld),
+                                          Vec3_Normalize(object->plane.frame.axisU)));
+        const float dotV = fabsf(Vec3_Dot(Vec3_Normalize(axisWorld),
+                                          Vec3_Normalize(object->plane.frame.axisV)));
+        if (dotU >= dotV) {
+            factors.x = factor;
+        } else {
+            factors.y = factor;
+        }
+        return factors;
+    }
+    if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        Vec3 axisWorld = GizmoAxisDirection_WorldVector(axis);
+        axisWorld = Vec3_Normalize(axisWorld);
+        const float dotU = fabsf(Vec3_Dot(axisWorld, Vec3_Normalize(object->rectPrism.frame.axisU)));
+        const float dotV = fabsf(Vec3_Dot(axisWorld, Vec3_Normalize(object->rectPrism.frame.axisV)));
+        const float dotN = fabsf(Vec3_Dot(axisWorld, Vec3_Normalize(object->rectPrism.frame.normal)));
+        if (dotU >= dotV && dotU >= dotN) {
+            factors.x = factor;
+        } else if (dotV >= dotU && dotV >= dotN) {
+            factors.y = factor;
+        } else {
+            factors.z = factor;
+        }
+        return factors;
+    }
+
+    switch (axis) {
+        case GIZMO_AXIS_DIR_POS_X:
+        case GIZMO_AXIS_DIR_NEG_X:
+            factors.x = factor;
+            break;
+        case GIZMO_AXIS_DIR_POS_Y:
+        case GIZMO_AXIS_DIR_NEG_Y:
+            factors.y = factor;
+            break;
+        case GIZMO_AXIS_DIR_POS_Z:
+        case GIZMO_AXIS_DIR_NEG_Z:
+            factors.z = factor;
+            break;
+    }
+    return factors;
+}
+
+static void UpdateObjectScaleDragPosition(int mx, int my) {
+    if (!draggingObjectScale || !objectScaleDrag.active) return;
+
+    GlobalState* state = Global_Get();
+    if (!state) return;
+    EditorState* editor = &state->editor;
+    if (objectScaleDrag.objectId == 0u ||
+        !GizmoAxisDirection_IsValid(objectScaleDrag.axis)) {
+        return;
+    }
+
+    Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, objectScaleDrag.objectId);
+    if (!object) return;
+    if (object->kind != OBJECT3D_KIND_PLANE &&
+        object->kind != OBJECT3D_KIND_RECT_PRISM &&
+        object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        return;
+    }
+    if (!Layout_ObjectStore_ValidateObject(object)) return;
+
+    if (!objectScaleDrag.historyCaptured) {
+        Editor_HistoryCapture(editor, &state->layout);
+        objectScaleDrag.historyCaptured = true;
+    }
+
+    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
+    if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
+
+    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(&objectScaleDrag.baselineObject,
+                                                               state->grid.gridSize);
+    Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(objectScaleDrag.axis);
+    Vec3 tipWorld = Vec3_Add(objectScaleDrag.centerStartWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
+    Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(objectScaleDrag.centerStartWorld, &viewCtx),
+                                     &state->grid);
+    Vec2 tipScreen = WorldToScreen(SpaceAdapter_ProjectToView(tipWorld, &viewCtx), &state->grid);
+    Vec2 axisScreenVector = Vec2_Sub(tipScreen, startScreen);
+    float axisPixels = Vec2_Distance(startScreen, tipScreen);
+    if (axisPixels > 1e-4f) {
+        objectScaleDrag.worldUnitsPerPixel = axisWorldLen / axisPixels;
+    }
+
+    objectScaleDrag.axisOnly = (SDL_GetModState() & KMOD_SHIFT) != 0;
+    editor->isPreciseDrag = objectScaleDrag.axisOnly;
+    editor->isResizingObject3D = false;
+    editor->isRotatingObject3D = false;
+    editor->isScalingObject3D = true;
+    editor->activeObject3DGizmoAxis = (int)objectScaleDrag.axis;
+
+    Vec2 mouseNow = { (float)mx, (float)my };
+    float signedPixels = GizmoDrag_SignedPixelsAlongAxis(objectScaleDrag.mouseStartScreen,
+                                                         mouseNow,
+                                                         axisScreenVector);
+    const float signedWorldDistance =
+        GizmoDrag_DistanceWorldFromPixels(signedPixels, objectScaleDrag.worldUnitsPerPixel);
+    float factor = 1.0f + (signedWorldDistance / fmaxf(axisWorldLen * 1.5f, 1e-4f));
+    factor = fmaxf(0.05f, fminf(factor, 20.0f));
+
+    Vec3 scaleFactors = ObjectScale_FactorsForDrag(&objectScaleDrag.baselineObject,
+                                                   objectScaleDrag.axis,
+                                                   factor,
+                                                   objectScaleDrag.axisOnly);
+    (void)Layout_ScaleObject3D(&state->layout,
+                               objectScaleDrag.objectId,
+                               scaleFactors,
+                               &objectScaleDrag.baselineObject,
+                               NULL);
+}
+
 void HandleMouseDrag(const SDL_MouseMotionEvent* motion) {
+    if (draggingObjectScale) {
+        UpdateObjectScaleDragPosition(motion->x, motion->y);
+        return;
+    }
     if (draggingObjectRotate) {
         UpdateObjectRotateDragPosition(motion->x, motion->y);
         return;

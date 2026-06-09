@@ -56,6 +56,7 @@ static const char* Object3DKind_ToString(Object3DKind kind) {
     switch (kind) {
         case OBJECT3D_KIND_PLANE: return "plane";
         case OBJECT3D_KIND_RECT_PRISM: return "rect_prism";
+        case OBJECT3D_KIND_MESH_ASSET_INSTANCE: return "mesh_asset_instance";
         case OBJECT3D_KIND_UNKNOWN:
         default: return "unknown";
     }
@@ -65,6 +66,9 @@ static Object3DKind Object3DKind_FromJson(const cJSON* node) {
     if (!cJSON_IsString(node) || !node->valuestring) return OBJECT3D_KIND_UNKNOWN;
     if (strcasecmp(node->valuestring, "plane") == 0) return OBJECT3D_KIND_PLANE;
     if (strcasecmp(node->valuestring, "rect_prism") == 0) return OBJECT3D_KIND_RECT_PRISM;
+    if (strcasecmp(node->valuestring, "mesh_asset_instance") == 0) {
+        return OBJECT3D_KIND_MESH_ASSET_INSTANCE;
+    }
     return OBJECT3D_KIND_UNKNOWN;
 }
 
@@ -223,6 +227,17 @@ static cJSON* Layout_CreateJson(const Layout* layout) {
             cJSON_AddItemToObject(frame, "axisU", Vec3_ToJsonObject(object->rectPrism.frame.axisU));
             cJSON_AddItemToObject(frame, "axisV", Vec3_ToJsonObject(object->rectPrism.frame.axisV));
             cJSON_AddItemToObject(frame, "normal", Vec3_ToJsonObject(object->rectPrism.frame.normal));
+        } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+            cJSON* mesh = cJSON_CreateObject();
+            cJSON_AddItemToObject(node, "meshAssetInstance", mesh);
+            cJSON_AddStringToObject(mesh, "assetId", object->meshInstance.assetId);
+            cJSON_AddStringToObject(mesh, "sourceAssetId", object->meshInstance.sourceAssetId);
+            cJSON_AddStringToObject(mesh, "runtimePath", object->meshInstance.runtimePath);
+            cJSON_AddItemToObject(mesh, "localBoundsMin", Vec3_ToJsonObject(object->meshInstance.localBoundsMin));
+            cJSON_AddItemToObject(mesh, "localBoundsMax", Vec3_ToJsonObject(object->meshInstance.localBoundsMax));
+            cJSON_AddNumberToObject(mesh, "vertexCount", (double)object->meshInstance.vertexCount);
+            cJSON_AddNumberToObject(mesh, "triangleCount", (double)object->meshInstance.triangleCount);
+            cJSON_AddBoolToObject(mesh, "lockToBounds", object->meshInstance.lockToBounds);
         }
     }
 
@@ -437,6 +452,10 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
 
                 const Object3DKind kind = Object3DKind_FromJson(cJSON_GetObjectItem(node, "kind"));
                 if (kind == OBJECT3D_KIND_UNKNOWN) continue;
+                if (kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
+                    schemaVersion < LAYOUT_JSON_SCHEMA_VERSION_OBJECT3D_MESH_INSTANCE) {
+                    continue;
+                }
 
                 const cJSON* transformNode = cJSON_GetObjectItem(node, "transform");
                 Transform3D transform = Layout_Transform3D_Default();
@@ -550,6 +569,47 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
                         }
                     }
                     object->rectPrism.frame.origin = object->transform.position;
+                } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+                    const cJSON* mesh = cJSON_GetObjectItem(node, "meshAssetInstance");
+                    if (cJSON_IsObject(mesh)) {
+                        const cJSON* assetId = cJSON_GetObjectItem(mesh, "assetId");
+                        const cJSON* sourceAssetId = cJSON_GetObjectItem(mesh, "sourceAssetId");
+                        const cJSON* runtimePath = cJSON_GetObjectItem(mesh, "runtimePath");
+                        const cJSON* vertexCount = cJSON_GetObjectItem(mesh, "vertexCount");
+                        const cJSON* triangleCount = cJSON_GetObjectItem(mesh, "triangleCount");
+                        const cJSON* lockToBounds = cJSON_GetObjectItem(mesh, "lockToBounds");
+                        if (cJSON_IsString(assetId) && assetId->valuestring) {
+                            snprintf(object->meshInstance.assetId,
+                                     sizeof(object->meshInstance.assetId),
+                                     "%s",
+                                     assetId->valuestring);
+                        }
+                        if (cJSON_IsString(sourceAssetId) && sourceAssetId->valuestring) {
+                            snprintf(object->meshInstance.sourceAssetId,
+                                     sizeof(object->meshInstance.sourceAssetId),
+                                     "%s",
+                                     sourceAssetId->valuestring);
+                        }
+                        if (cJSON_IsString(runtimePath) && runtimePath->valuestring) {
+                            snprintf(object->meshInstance.runtimePath,
+                                     sizeof(object->meshInstance.runtimePath),
+                                     "%s",
+                                     runtimePath->valuestring);
+                        }
+                        (void)Vec3_FromJsonObject(cJSON_GetObjectItem(mesh, "localBoundsMin"),
+                                                  &object->meshInstance.localBoundsMin);
+                        (void)Vec3_FromJsonObject(cJSON_GetObjectItem(mesh, "localBoundsMax"),
+                                                  &object->meshInstance.localBoundsMax);
+                        if (cJSON_IsNumber(vertexCount) && vertexCount->valuedouble > 0.0) {
+                            object->meshInstance.vertexCount = (size_t)vertexCount->valuedouble;
+                        }
+                        if (cJSON_IsNumber(triangleCount) && triangleCount->valuedouble > 0.0) {
+                            object->meshInstance.triangleCount = (size_t)triangleCount->valuedouble;
+                        }
+                        if (cJSON_IsBool(lockToBounds)) {
+                            object->meshInstance.lockToBounds = cJSON_IsTrue(lockToBounds);
+                        }
+                    }
                 }
 
                 if (!Layout_ObjectStore_ValidateObject(object)) {
@@ -585,7 +645,7 @@ bool Layout_SaveToFile(const Layout* layout, const char* path) {
     if (!out) return false;
 
     CoreResult write_result = core_io_write_all(path, out, strlen(out));
-    free(out);
+    Layout_FreeString(out);
     return write_result.code == CORE_OK;
 }
 
@@ -631,6 +691,10 @@ char* Layout_SaveToString(const Layout* layout) {
     char* out = cJSON_PrintBuffered(root, 512, cJSON_False);
     cJSON_Delete(root);
     return out;
+}
+
+void Layout_FreeString(char* text) {
+    cJSON_free(text);
 }
 
 bool Layout_LoadFromString(Layout* layout, const char* jsonData) {

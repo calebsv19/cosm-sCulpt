@@ -4,6 +4,7 @@
 #include "UI/ui_panel_file_controls.h"
 #include "UI/ui_panel_file_layout.h"
 #include "UI/ui_panel_create_layout.h"
+#include "UI/ui_panel_edit_layout.h"
 #include "UI/ui_panel_internal.h"
 #include "UI/ui_panel_object_inspector.h"
 #include "UI/ui_panel_object_layout.h"
@@ -23,6 +24,7 @@
 #include "Layout/layout_json.h"
 #include "Editor/editor.h"
 #include "Editor/primitive_placement_preview.h"
+#include "ObjectAuthoring/object_authoring_session.h"
 #include "Tools/shape_from_layout.h"
 #include "Tools/shape_export.h"
 #include "ShapeLib/shape_json.h"
@@ -190,6 +192,20 @@ ViewPlane UIPanel_CurrentConstructionViewPlane(const GlobalState* state) {
     return (ViewPlane){ .axis = VIEW_PLANE_XY, .offset = 0.0f };
 }
 
+static void UIPanel_SyncObjectAuthoringAfterPrimitiveCreate(GlobalState* state,
+                                                            uint32_t object_id) {
+    if (!state || object_id == 0u) return;
+    if (Global_GetWorkspaceMode() != LINE_DRAWING_WORKSPACE_MODE_OBJECT) return;
+    if (!ObjectAuthoringSession_MirrorBodiesFromLayout(&state->objectAuthoring,
+                                                       &state->layout)) {
+        SDL_Log("[UI] Object authoring sync failed after primitive creation.");
+        return;
+    }
+    (void)ObjectAuthoringSession_SetSelection(&state->objectAuthoring,
+                                              object_id,
+                                              OBJECT3D_FACE_NONE);
+}
+
 static int UIPanel_MaxWidthForLabels(const char* const* labels, size_t count) {
     int max_width = 0;
     for (size_t i = 0; i < count; ++i) {
@@ -206,6 +222,7 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         "Save JSON",
         "Load JSON",
         "Load Scene",
+        "Mesh Assets",
         "Export Shape",
         "Export Scene",
         "Session In Edit",
@@ -217,11 +234,15 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         "Selection",
         "Scene Bounds",
         "File / IO",
-        "Session Paths"
+        "Session Paths",
+        "Asset IO",
+        "Asset Paths"
     };
     static const char* k_left_tab_labels[] = {
         "Scene",
-        "File"
+        "File",
+        "Model",
+        "Assets"
     };
     static const char* k_right_button_labels[] = {
         "Toggle Delete (D)",
@@ -232,14 +253,24 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         "Sketch Rect",
         "Sketch Select",
         "Clear Sketch",
+        "Place Mesh",
         "Cut Prism",
-        "Gizmo: Rotate (X)",
+        "Gizmo: Mode (X)",
         "Clear Select",
         "Delete Object",
+        "Extrude +",
+        "Cut Prism",
+        "Save Asset",
+        "Load Asset",
+        "New Asset",
         "Bounds: Off",
         "Clamp: Off",
         "Edit BMin",
-        "Edit BMax"
+        "Edit BMax",
+        "Body",
+        "Face",
+        "Edge",
+        "Vertex"
     };
     static const char* k_right_group_titles[] = {
         "View",
@@ -247,14 +278,22 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         "Primitives",
         "Construction",
         "Prism",
+        "Dimensions",
         "Gizmo",
         "Transform",
-        "Object Actions"
+        "Object Actions",
+        "Target / Sketch",
+        "Solid Command",
+        "Selection Actions",
+        "Selection Mode"
     };
     static const char* k_right_tab_labels[] = {
         "View",
         "Create",
-        "Object"
+        "Object",
+        "Tools",
+        "Properties",
+        "Edit"
     };
     int font_h = 14;
     int text_pad_x = 9;
@@ -427,14 +466,22 @@ bool UIPanel_CreatePlanePrimitiveFromActiveContext(bool disable_bounds_lock) {
         return false;
     }
 
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     Editor_ClearAnchorSelection(&state->editor);
     state->editor.selectedObject3DId = objectId;
-    state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_CORNER_POS_U_POS_V;
+    state->editor.selectedObjectAssetBodyId = object_mode ? objectId : 0u;
+    state->editor.selectedObjectAssetFace = OBJECT3D_FACE_NONE;
+    state->editor.selectedObject3DResizeHandle =
+        object_mode ? PLANE_RESIZE_HANDLE_NONE : PLANE_RESIZE_HANDLE_CORNER_POS_U_POS_V;
     state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    state->editor.objectAuthoringMode = object_mode
+        ? OBJECT_AUTHORING_MODE_NONE
+        : state->editor.objectAuthoringMode;
     state->editor.primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
     state->editor.selectedWallIndex = -1;
     state->editor.selectedHandleAnchor = -1;
     state->editor.selectedHandleComponent = -1;
+    UIPanel_SyncObjectAuthoringAfterPrimitiveCreate(state, objectId);
     Global_FlagHitboxesDirty();
     SDL_Log("[UI] Plane primitive created (id=%u%s)",
             objectId,
@@ -475,14 +522,22 @@ bool UIPanel_CreateRectPrismPrimitiveFromActiveContext(bool disable_bounds_lock)
         return false;
     }
 
+    const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     Editor_ClearAnchorSelection(&state->editor);
     state->editor.selectedObject3DId = objectId;
+    state->editor.selectedObjectAssetBodyId = object_mode ? objectId : 0u;
+    state->editor.selectedObjectAssetFace = OBJECT3D_FACE_NONE;
     state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-    state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_CORNER_6;
+    state->editor.selectedObject3DPrismHandle =
+        object_mode ? RECT_PRISM_RESIZE_HANDLE_NONE : RECT_PRISM_RESIZE_HANDLE_CORNER_6;
+    state->editor.objectAuthoringMode = object_mode
+        ? OBJECT_AUTHORING_MODE_NONE
+        : state->editor.objectAuthoringMode;
     state->editor.primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
     state->editor.selectedWallIndex = -1;
     state->editor.selectedHandleAnchor = -1;
     state->editor.selectedHandleComponent = -1;
+    UIPanel_SyncObjectAuthoringAfterPrimitiveCreate(state, objectId);
     Global_FlagHitboxesDirty();
     SDL_Log("[UI] Rect prism primitive created (id=%u%s)",
             objectId,
@@ -591,6 +646,7 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
     UIPanel_UpdateViewPaneLayout(&g_uiPanel);
     UIPanel_UpdateCreatePaneLayout(&g_uiPanel);
     UIPanel_UpdateObjectPaneLayout(&g_uiPanel);
+    UIPanel_UpdateEditPaneLayout(&g_uiPanel);
     leftX = g_uiPanel.leftBodyRect.x;
     leftY = g_uiPanel.leftBodyRect.y;
     leftW = g_uiPanel.leftBodyRect.w;
@@ -673,6 +729,11 @@ void UIPanel_Init(int screenW, int screenH) {
     g_uiPanel.sceneList.scrollbarDragging = false;
     g_uiPanel.sceneList.scrollbarDragStartY = 0;
     g_uiPanel.sceneList.scrollbarDragStartOffsetPx = 0.0f;
+    g_uiPanel.objectModelTree.operationScrollOffsetPx = 0.0f;
+    g_uiPanel.objectModelTree.hoverOperationIndex = -1;
+    g_uiPanel.objectModelTree.operationScrollbarDragging = false;
+    g_uiPanel.objectModelTree.operationScrollbarDragStartY = 0;
+    g_uiPanel.objectModelTree.operationScrollbarDragStartOffsetPx = 0.0f;
     g_uiPanel.saveDialog.active = false;
     g_uiPanel.saveDialog.buffer[0] = '\0';
     g_uiPanel.saveDialog.length = 0;
@@ -742,6 +803,10 @@ void UIPanel_Init(int screenW, int screenH) {
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Load Scene", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_SCENE);
     yL += btnH + spacing;
+    AddButton(&g_uiPanel, "Load STL", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_STL);
+    yL += btnH + spacing;
+    AddButton(&g_uiPanel, "Mesh Assets", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_MESH_ASSET);
+    yL += btnH + spacing;
     AddButton(&g_uiPanel, "Export Shape", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_EXPORT_SHAPE);
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Export Scene", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_EXPORT_SCENE);
@@ -778,6 +843,8 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "+Prism", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_CREATE_RECT_PRISM);
     yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Place Mesh", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_PLACE_MESH_INSTANCE);
+    yR += btnH + spacing;
     AddButton(&g_uiPanel, "Face Select", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_OBJECT_FACE_SELECT);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Sketch Select", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_OBJECT_SKETCH_SELECT);
@@ -787,6 +854,10 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "Extrude +", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OPERATIONS, UI_BTN_EXTRUDE_ADD);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Extrude -", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OPERATIONS, UI_BTN_EXTRUDE_CUT);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Depth -", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OPERATIONS, UI_BTN_EXTRUDE_DEPTH_DEC);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Depth +", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OPERATIONS, UI_BTN_EXTRUDE_DEPTH_INC);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "XY", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CONSTRUCTION, UI_BTN_SET_CONSTRUCTION_PLANE_XY);
     yR += btnH + spacing;
@@ -812,7 +883,7 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Delete Object", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_OBJECT_DELETE_SELECTED);
     yR += btnH + spacing;
-    AddButton(&g_uiPanel, "Gizmo: Move (X)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_GIZMO, UI_BTN_TOGGLE_OBJECT_GIZMO_MODE);
+    AddButton(&g_uiPanel, "Gizmo: Mode (X)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_GIZMO, UI_BTN_TOGGLE_OBJECT_GIZMO_MODE);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Edit Pos", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_EDIT_OBJECT_POSITION);
     yR += btnH + spacing;
@@ -821,6 +892,14 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "Rot Y", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_EDIT_OBJECT_ROTATION_Y);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Rot Z", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_EDIT_OBJECT_ROTATION_Z);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Body", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_EDIT_SELECT, UI_BTN_OBJECT_EDIT_BODY_MODE);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Face", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_EDIT_SELECT, UI_BTN_OBJECT_EDIT_FACE_MODE);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Edge", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_EDIT_SELECT, UI_BTN_OBJECT_EDIT_EDGE_MODE);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Vertex", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_EDIT_SELECT, UI_BTN_OBJECT_EDIT_VERTEX_MODE);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Clear Select", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_SELECTION, UI_BTN_SCENE_CLEAR_SELECTION);
     AddButton(&g_uiPanel, "Delete Obj", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_SELECTION, UI_BTN_SCENE_DELETE_SELECTED);
@@ -886,6 +965,7 @@ void UIPanel_ResetTransientUiState(void) {
     ui->loadMenu.scrollOffsetPx = 0.0f;
     ui->loadMenu.scrollbarDragging = false;
     ui->sceneList.scrollbarDragging = false;
+    ui->objectModelTree.operationScrollbarDragging = false;
     UIPanel_CloseSaveDialog(ui);
     UIPanel_CloseRootDialog(ui);
     UIPanel_ClosePrismDimensionDialog(ui);

@@ -6,7 +6,10 @@
 #include "Editor/object_face_sketch_edit.h"
 #include "Input/input_keyboard.h"
 #include "Input/input_mouse.h"
+#include "UI/font_manager.h"
 #include "UI/input_ui_panel.h"
+#include "UI/ui_panel_object_workspace_summary.h"
+#include "UI/ui_panel_visual_style.h"
 
 #include <string.h>
 
@@ -79,6 +82,52 @@ static const UIButton* find_button_by_id(const UIPanelState* ui, int button_id) 
         if (ui->buttons[i].id == button_id) return &ui->buttons[i];
     }
     return NULL;
+}
+
+static int object_model_tree_body_row_center_y(const UIPanelState* ui) {
+    TTF_Font* font = FontManager_Get(FONT_DEFAULT);
+    UIPanelVisualMetrics metrics = UIPanelVisual_MakeMetrics(font);
+    int font_h = font && TTF_FontHeight(font) > 12 ? TTF_FontHeight(font) : 14;
+    int y = ui->objectWorkspacePane.browserRect.y + metrics.pad_y;
+    y += font_h + metrics.section_gap; /* title */
+    y += font_h + metrics.section_gap; /* counts */
+    y += font_h + metrics.section_gap; /* selection */
+    y += font_h + metrics.section_gap; /* bodies header */
+    return y + (font_h / 2);
+}
+
+static int object_model_tree_first_sketch_row_center_y(const UIPanelState* ui) {
+    TTF_Font* font = FontManager_Get(FONT_DEFAULT);
+    UIPanelVisualMetrics metrics = UIPanelVisual_MakeMetrics(font);
+    int font_h = font && TTF_FontHeight(font) > 12 ? TTF_FontHeight(font) : 14;
+    int y = ui->objectWorkspacePane.browserRect.y + metrics.pad_y;
+    y += font_h + metrics.section_gap; /* title */
+    y += font_h + metrics.section_gap; /* counts */
+    y += font_h + metrics.section_gap; /* selection */
+    y += font_h + metrics.section_gap; /* bodies header */
+    y += font_h + metrics.section_gap; /* first body */
+    y += metrics.section_gap;
+    y += font_h + metrics.section_gap; /* sketches header */
+    return y + (font_h / 2);
+}
+
+static int object_model_tree_first_operation_row_center_y(const UIPanelState* ui) {
+    TTF_Font* font = FontManager_Get(FONT_DEFAULT);
+    UIPanelVisualMetrics metrics = UIPanelVisual_MakeMetrics(font);
+    int font_h = font && TTF_FontHeight(font) > 12 ? TTF_FontHeight(font) : 14;
+    const int operation_row_step = (metrics.line_h * 2) + metrics.section_gap;
+    int y = ui->objectWorkspacePane.browserRect.y + metrics.pad_y;
+    y += font_h + metrics.section_gap; /* title */
+    y += font_h + metrics.section_gap; /* counts */
+    y += font_h + metrics.section_gap; /* selection */
+    y += font_h + metrics.section_gap; /* bodies header */
+    y += font_h + metrics.section_gap; /* first body */
+    y += metrics.section_gap;
+    y += font_h + metrics.section_gap; /* sketches header */
+    y += font_h + metrics.section_gap; /* first sketch */
+    y += metrics.section_gap;
+    y += font_h + metrics.section_gap; /* operations header */
+    return y + ((operation_row_step - 4) / 2);
 }
 
 static bool test_object_face_sketch_hitboxes_prioritize_committed_sketch(void) {
@@ -418,6 +467,104 @@ static bool test_object_face_sketch_panel_buttons_keep_shape_tab_and_mode_routin
     return true;
 }
 
+static bool test_object_face_sketch_model_tree_clicks_select_body_and_sketch(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    ObjectAuthoringSketchId sketch_id = 0u;
+    ObjectAuthoringOperationId operation_id = 0u;
+    int click_x = 0;
+
+    TEST_ASSERT(seed_object_face_sketch_state(&state));
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    TEST_ASSERT(state->objectAuthoring.attached);
+    TEST_ASSERT(state->objectAuthoring.document.sketchCount > 0u);
+    TEST_ASSERT(state->objectAuthoring.document.operationCount > 0u);
+    sketch_id = state->objectAuthoring.document.sketches[0].sketchId;
+    operation_id = state->objectAuthoring.document.operations[0].operationId;
+
+    UIPanel_SetActiveLeftTab(ui, UI_PANEL_LEFT_TAB_SCENE);
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    TEST_ASSERT(ui->objectWorkspacePane.browserRect.w > 0);
+    click_x = ui->objectWorkspacePane.browserRect.x + 20;
+
+    TEST_ASSERT(UIPanel_ObjectWorkspaceHandleModelTreeClick(
+        ui,
+        state,
+        click_x,
+        object_model_tree_body_row_center_y(ui)));
+    TEST_ASSERT(state->objectAuthoring.document.selectedSketchId == 0u);
+    TEST_ASSERT(state->objectAuthoring.document.selectedOperationId == 0u);
+    TEST_ASSERT(state->editor.selectedObjectAssetBodyId == state->editor.selectedObject3DId);
+    TEST_ASSERT(state->editor.selectedObjectAssetFace == OBJECT3D_FACE_NONE);
+
+    TEST_ASSERT(UIPanel_ObjectWorkspaceHandleModelTreeClick(
+        ui,
+        state,
+        click_x,
+        object_model_tree_first_operation_row_center_y(ui)));
+    TEST_ASSERT(state->objectAuthoring.document.selectedOperationId == operation_id);
+
+    TEST_ASSERT(UIPanel_ObjectWorkspaceHandleModelTreeClick(
+        ui,
+        state,
+        click_x,
+        object_model_tree_first_sketch_row_center_y(ui)));
+    TEST_ASSERT(state->objectAuthoring.document.selectedSketchId == sketch_id);
+    TEST_ASSERT(state->editor.objectAuthoringMode == OBJECT_AUTHORING_MODE_SKETCH_SELECT);
+    TEST_ASSERT(Editor_ObjectFaceSketchIsSelected(&state->editor));
+
+    shutdown_object_face_sketch_state();
+    return true;
+}
+
+static bool test_object_face_sketch_model_tree_scrolls_operation_history(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    ObjectAuthoringSketchId sketch_id = 0u;
+    ObjectAuthoringOperationId last_operation_id = 0u;
+    int click_x = 0;
+    int row_y = 0;
+    float before_scroll = 0.0f;
+
+    TEST_ASSERT(seed_object_face_sketch_state(&state));
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    TEST_ASSERT(state->objectAuthoring.attached);
+    TEST_ASSERT(state->objectAuthoring.document.sketchCount > 0u);
+    sketch_id = state->objectAuthoring.document.sketches[0].sketchId;
+
+    for (uint32_t i = 0u; i < 24u; ++i) {
+        ObjectAuthoringOperation operation = {0};
+        operation.operationId = state->objectAuthoring.document.nextOperationId + i;
+        operation.kind = OBJECT_AUTHORING_OPERATION_EXTRUDE_ADD;
+        operation.faceRef = state->objectAuthoring.document.selectedFace;
+        operation.sketchId = sketch_id;
+        operation.depth = 1.0f + (float)i;
+        operation.resultBodyIds[0] = state->editor.selectedObjectAssetBodyId;
+        operation.resultBodyCount = 1u;
+        TEST_ASSERT(ObjectAuthoringDocument_AppendOperationSnapshot(
+            &state->objectAuthoring.document,
+            &operation));
+        last_operation_id = operation.operationId;
+    }
+    TEST_ASSERT(state->objectAuthoring.document.operationCount > 20u);
+    TEST_ASSERT(state->objectAuthoring.document.selectedOperationId == last_operation_id);
+
+    UIPanel_SetActiveLeftTab(ui, UI_PANEL_LEFT_TAB_SCENE);
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    TEST_ASSERT(ui->objectWorkspacePane.browserRect.w > 0);
+    click_x = ui->objectWorkspacePane.browserRect.x + 20;
+    row_y = object_model_tree_first_operation_row_center_y(ui);
+
+    before_scroll = ui->objectModelTree.operationScrollOffsetPx;
+    TEST_ASSERT(UIPanel_ObjectWorkspaceHandleModelTreeWheel(click_x, row_y, -5.0f));
+    TEST_ASSERT(ui->objectModelTree.operationScrollOffsetPx > before_scroll);
+
+    shutdown_object_face_sketch_state();
+    return true;
+}
+
 static bool test_object_face_sketch_panel_extrude_button_requires_selected_sketch(void) {
     GlobalState* state = NULL;
     UIPanelState* ui = NULL;
@@ -448,6 +595,44 @@ static bool test_object_face_sketch_panel_extrude_button_requires_selected_sketc
     TEST_ASSERT(state->editor.objectAuthoringMode == OBJECT_AUTHORING_MODE_FACE_SELECT);
     TEST_ASSERT(UIPanel_GetActiveRightTab(ui) == UI_PANEL_RIGHT_TAB_CREATE);
     TEST_ASSERT(ui->objectActiveRightTab == UI_PANEL_RIGHT_TAB_OBJECT);
+
+    shutdown_object_face_sketch_state();
+    return true;
+}
+
+static bool test_object_face_sketch_tool_depth_buttons_adjust_preview(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    const UIButton* depth_dec = NULL;
+    const UIButton* depth_inc = NULL;
+    float initial_depth = 0.0f;
+    float incremented_depth = 0.0f;
+
+    TEST_ASSERT(seed_object_face_sketch_state(&state));
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_CREATE);
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    depth_dec = find_button_by_id(ui, UI_BTN_EXTRUDE_DEPTH_DEC);
+    depth_inc = find_button_by_id(ui, UI_BTN_EXTRUDE_DEPTH_INC);
+    TEST_ASSERT(depth_dec != NULL);
+    TEST_ASSERT(depth_inc != NULL);
+
+    TEST_ASSERT(Editor_ObjectFaceExtrudeTrigger(state, OBJECT_FACE_EXTRUDE_MODE_ADD));
+    TEST_ASSERT(state->editor.objectFaceExtrudeToolArmed);
+    initial_depth = state->editor.objectFaceExtrudeDepth;
+    TEST_ASSERT(initial_depth > 0.0f);
+
+    TEST_ASSERT(UIPanel_HandleClick(depth_inc->bounds.x + depth_inc->bounds.w / 2,
+                                    depth_inc->bounds.y + depth_inc->bounds.h / 2));
+    incremented_depth = state->editor.objectFaceExtrudeDepth;
+    TEST_ASSERT(incremented_depth > initial_depth);
+    TEST_ASSERT(state->editor.objectFaceExtrudeHasPreview);
+
+    TEST_ASSERT(UIPanel_HandleClick(depth_dec->bounds.x + depth_dec->bounds.w / 2,
+                                    depth_dec->bounds.y + depth_dec->bounds.h / 2));
+    TEST_ASSERT(state->editor.objectFaceExtrudeDepth < incremented_depth);
+    TEST_ASSERT(state->editor.objectFaceExtrudeDepth > 0.0f);
 
     shutdown_object_face_sketch_state();
     return true;
@@ -619,8 +804,14 @@ bool object_face_sketch_run_tests(void) {
           test_object_face_sketch_click_routes_shape_tab_visible },
         { "object_face_sketch_panel_buttons_keep_shape_tab_and_mode_routing",
           test_object_face_sketch_panel_buttons_keep_shape_tab_and_mode_routing },
+        { "object_face_sketch_model_tree_clicks_select_body_and_sketch",
+          test_object_face_sketch_model_tree_clicks_select_body_and_sketch },
+        { "object_face_sketch_model_tree_scrolls_operation_history",
+          test_object_face_sketch_model_tree_scrolls_operation_history },
         { "object_face_sketch_panel_extrude_button_requires_selected_sketch",
           test_object_face_sketch_panel_extrude_button_requires_selected_sketch },
+        { "object_face_sketch_tool_depth_buttons_adjust_preview",
+          test_object_face_sketch_tool_depth_buttons_adjust_preview },
         { "object_face_sketch_keyboard_plus_minus_arm_operations",
           test_object_face_sketch_keyboard_plus_minus_arm_operations },
         { "object_face_sketch_extrude_trigger_arms_default_preview",

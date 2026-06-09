@@ -1,4 +1,5 @@
 #include "Input/input_mouse_internal.h"
+#include "Input/input_viewport_pick.h"
 
 #include "Core/space_mode_adapter.h"
 #include "Core/workspace/line_drawing_object_workspace_view.h"
@@ -106,6 +107,9 @@ void ClearHoverState(EditorState* editor) {
     editor->hoveredObject3DId = 0u;
     editor->hoveredObjectAssetBodyId = 0u;
     editor->hoveredObjectAssetFace = OBJECT3D_FACE_NONE;
+    editor->hoveredObjectTopologyBodyId = 0u;
+    editor->hoveredObjectTopologyVertexIndex = -1;
+    editor->hoveredObjectTopologyEdgeIndex = -1;
     editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -115,6 +119,16 @@ void ClearHoverState(EditorState* editor) {
 
 bool InputMouse_ObjectModeEnabled(void) {
     return Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+}
+
+bool InputMouse_ObjectEditTopologyModeActive(const GlobalState* state) {
+    if (!state ||
+        state->workspaceMode != LINE_DRAWING_WORKSPACE_MODE_OBJECT ||
+        !state->objectAuthoring.attached) {
+        return false;
+    }
+    return state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_EDGE ||
+           state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_VERTEX;
 }
 
 bool InputMouse_IsObjectFaceAuthoringModal(const EditorState* editor) {
@@ -224,12 +238,14 @@ void UpdateHover(int mx, int my) {
     Hitbox hit = {0};
     if (!state) return;
     EditorState* editor = &state->editor;
+    ViewportPickResult pick = {0};
 
     if (UIPanel_IsCapturingKeyboard()) {
         ClearHoverState(editor);
         return;
     }
-    if (ResolvePointerPaneLane(mx, my) != POINTER_PANE_CENTER) {
+    pick = ViewportPick_ResolveObjectWorkspaceHit(state, mx, my, true);
+    if (pick.paneLane != POINTER_PANE_CENTER) {
         ClearHoverState(editor);
         return;
     }
@@ -242,12 +258,13 @@ void UpdateHover(int mx, int my) {
         return;
     }
 
-    Global_RebuildHitboxesIfDirty();
-    hit = HitboxSystem_GetHitAt(mx, my);
-    hit = ResolveViewportObjectBodyHit(state, mx, my, hit);
+    hit = pick.finalHit;
     editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
     editor->hoveredSceneBoundsGizmoAxis = -1;
     editor->hoveredObjectFaceSketchHandle = OBJECT_FACE_SKETCH_HANDLE_NONE;
+    editor->hoveredObjectTopologyBodyId = 0u;
+    editor->hoveredObjectTopologyVertexIndex = -1;
+    editor->hoveredObjectTopologyEdgeIndex = -1;
     if (hit.type == HITBOX_OBJECT_FACE_SKETCH_HANDLE ||
         hit.type == HITBOX_OBJECT_FACE_SKETCH_BODY) {
         editor->hoveredObjectFaceSketchHandle = hit.subIndex;
@@ -360,6 +377,27 @@ void UpdateHover(int mx, int my) {
         editor->hoveredHandleComponent = -1;
         editor->hoveredGizmoAxis = -1;
         editor->hoveredObject3DGizmoAxis = -1;
+    } else if (hit.type == HITBOX_OBJECT_TOPOLOGY_VERTEX ||
+               hit.type == HITBOX_OBJECT_TOPOLOGY_EDGE) {
+        editor->hoveredObject3DId = (uint32_t)hit.index;
+        editor->hoveredObjectAssetBodyId = (uint32_t)hit.index;
+        editor->hoveredObjectAssetFace = OBJECT3D_FACE_NONE;
+        editor->hoveredObjectTopologyBodyId = (uint32_t)hit.index;
+        if (hit.type == HITBOX_OBJECT_TOPOLOGY_VERTEX) {
+            editor->hoveredObjectTopologyVertexIndex = hit.subIndex;
+            editor->hoveredObjectTopologyEdgeIndex = -1;
+        } else {
+            editor->hoveredObjectTopologyVertexIndex = -1;
+            editor->hoveredObjectTopologyEdgeIndex = hit.subIndex;
+        }
+        editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+        editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+        editor->hoveredWallIndex = -1;
+        editor->hoveredAnchorIndex = -1;
+        editor->hoveredHandleAnchor = -1;
+        editor->hoveredHandleComponent = -1;
+        editor->hoveredGizmoAxis = -1;
+        editor->hoveredObject3DGizmoAxis = -1;
     } else if (hit.type == HITBOX_OBJECT3D_PLANE_CORNER ||
                hit.type == HITBOX_OBJECT3D_PLANE_EDGE) {
         editor->hoveredObject3DId = (uint32_t)hit.index;
@@ -379,13 +417,17 @@ void UpdateHover(int mx, int my) {
             const Object3D* object =
                 Layout_ObjectStore_FindConst(&state->layout.objectStore, (uint32_t)hit.index);
             editor->hoveredObjectAssetBodyId = (uint32_t)hit.index;
-            editor->hoveredObjectAssetFace =
-                ResolveObjectAuthoringFaceAtPointer(state, object, mx, my);
-            if (editor->hoveredObjectAssetFace == OBJECT3D_FACE_NONE &&
-                editor->selectedObjectAssetBodyId == (uint32_t)hit.index &&
-                Layout_Object3DFaceKind_IsValidForObject(object,
-                                                         editor->selectedObjectAssetFace)) {
-                editor->hoveredObjectAssetFace = editor->selectedObjectAssetFace;
+            if (editor->objectEditSelectionMode == OBJECT_EDIT_SELECTION_FACE) {
+                editor->hoveredObjectAssetFace =
+                    ResolveObjectAuthoringFaceAtPointer(state, object, mx, my);
+                if (editor->hoveredObjectAssetFace == OBJECT3D_FACE_NONE &&
+                    editor->selectedObjectAssetBodyId == (uint32_t)hit.index &&
+                    Layout_Object3DFaceKind_IsValidForObject(object,
+                                                             editor->selectedObjectAssetFace)) {
+                    editor->hoveredObjectAssetFace = editor->selectedObjectAssetFace;
+                }
+            } else {
+                editor->hoveredObjectAssetFace = OBJECT3D_FACE_NONE;
             }
         } else {
             editor->hoveredObjectAssetBodyId = 0u;

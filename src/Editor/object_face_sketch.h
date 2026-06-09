@@ -9,6 +9,7 @@ bool Editor_ObjectFaceSketchHasCommittedRectangle(const EditorState* editor);
 bool Editor_ObjectFaceSketchIsSelected(const EditorState* editor);
 bool Editor_ObjectFaceSketchSelect(EditorState* editor, ObjectFaceSketchHandleKind handle);
 void Editor_ObjectFaceSketchDeselect(EditorState* editor);
+bool Editor_ObjectFaceSketchSyncFromAuthoring(GlobalState* state);
 void Editor_ObjectFaceSketchGetRectangleUV(const EditorState* editor,
                                            Vec2* out_min_uv,
                                            Vec2* out_max_uv);

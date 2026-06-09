@@ -1,0 +1,18 @@
+{
+  "camera_position": {
+    "x": 0.0,
+    "y": -4.2,
+    "z": 1.55
+  },
+  "camera_look_at": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": 0.65
+  },
+  "camera_zoom": 1.0,
+  "environment_light_mode": "ambient",
+  "ambient_strength": 0.38,
+  "top_fill_strength": 1.4,
+  "light_intensity": 4.0,
+  "light_radius": 0.12
+}

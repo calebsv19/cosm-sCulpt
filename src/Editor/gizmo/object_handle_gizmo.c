@@ -5,7 +5,10 @@ ObjectHandleGizmoTarget ObjectHandleGizmoTarget_None(void) {
         .kind = OBJECT_HANDLE_GIZMO_TARGET_NONE,
         .objectId = 0u,
         .planeHandle = PLANE_RESIZE_HANDLE_NONE,
-        .prismHandle = RECT_PRISM_RESIZE_HANDLE_NONE
+        .prismHandle = RECT_PRISM_RESIZE_HANDLE_NONE,
+        .vertexRef = {0},
+        .edgeRef = {0},
+        .topologyWorldPoint = {0.0f, 0.0f, 0.0f}
     };
 }
 
@@ -17,7 +20,10 @@ bool ObjectHandleGizmoTarget_FromPlane(uint32_t objectId,
         .kind = OBJECT_HANDLE_GIZMO_TARGET_PLANE_RESIZE,
         .objectId = objectId,
         .planeHandle = handle,
-        .prismHandle = RECT_PRISM_RESIZE_HANDLE_NONE
+        .prismHandle = RECT_PRISM_RESIZE_HANDLE_NONE,
+        .vertexRef = {0},
+        .edgeRef = {0},
+        .topologyWorldPoint = {0.0f, 0.0f, 0.0f}
     };
     return true;
 }
@@ -30,7 +36,10 @@ bool ObjectHandleGizmoTarget_FromPrism(uint32_t objectId,
         .kind = OBJECT_HANDLE_GIZMO_TARGET_PRISM_RESIZE,
         .objectId = objectId,
         .planeHandle = PLANE_RESIZE_HANDLE_NONE,
-        .prismHandle = handle
+        .prismHandle = handle,
+        .vertexRef = {0},
+        .edgeRef = {0},
+        .topologyWorldPoint = {0.0f, 0.0f, 0.0f}
     };
     return true;
 }
@@ -57,8 +66,67 @@ bool ObjectHandleGizmoTarget_FromSelection(const Object3D* object,
     return false;
 }
 
+bool ObjectHandleGizmoTarget_FromAuthoringSelection(const Object3D* object,
+                                                    const ObjectAuthoringDocument* doc,
+                                                    ObjectHandleGizmoTarget* outTarget) {
+    ObjectHandleGizmoTarget target = ObjectHandleGizmoTarget_None();
+    if (!object || !doc || !outTarget) return false;
+    *outTarget = target;
+    if (!Layout_ObjectStore_ValidateObject(object)) return false;
+    if (object->kind != OBJECT3D_KIND_PLANE &&
+        object->kind != OBJECT3D_KIND_RECT_PRISM) {
+        return false;
+    }
+
+    if (doc->selectionKind == OBJECT_AUTHORING_SELECTION_VERTEX &&
+        doc->selectedVertex.bodyId == object->objectId &&
+        doc->selectedVertex.vertexId != 0u) {
+        const ObjectAuthoringVertex* vertex =
+            ObjectAuthoringDocument_FindVertex(doc, doc->selectedVertex.vertexId);
+        if (!vertex || !vertex->valid) return false;
+        target.kind = OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_VERTEX;
+        target.objectId = object->objectId;
+        target.vertexRef = doc->selectedVertex;
+        target.topologyWorldPoint = vertex->position;
+        *outTarget = target;
+        return true;
+    }
+
+    if (doc->selectionKind == OBJECT_AUTHORING_SELECTION_EDGE &&
+        doc->selectedEdge.bodyId == object->objectId &&
+        doc->selectedEdge.edgeId != 0u) {
+        const ObjectAuthoringEdge* edge =
+            ObjectAuthoringDocument_FindEdge(doc, doc->selectedEdge.edgeId);
+        const ObjectAuthoringVertex* a = NULL;
+        const ObjectAuthoringVertex* b = NULL;
+        if (!edge || !edge->valid) return false;
+        a = ObjectAuthoringDocument_FindVertex(doc, edge->vertexIds[0]);
+        b = ObjectAuthoringDocument_FindVertex(doc, edge->vertexIds[1]);
+        if (!a || !b || !a->valid || !b->valid) return false;
+        target.kind = OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_EDGE;
+        target.objectId = object->objectId;
+        target.edgeRef = doc->selectedEdge;
+        target.topologyWorldPoint = Vec3_Scale(Vec3_Add(a->position, b->position), 0.5f);
+        *outTarget = target;
+        return true;
+    }
+
+    return false;
+}
+
 bool ObjectHandleGizmoTarget_IsActive(const ObjectHandleGizmoTarget* target) {
     return target && target->kind != OBJECT_HANDLE_GIZMO_TARGET_NONE && target->objectId != 0u;
+}
+
+bool ObjectHandleGizmoTarget_IsTopology(const ObjectHandleGizmoTarget* target) {
+    return ObjectHandleGizmoTarget_IsActive(target) &&
+           (target->kind == OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_VERTEX ||
+            target->kind == OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_EDGE);
+}
+
+bool ObjectHandleGizmoTarget_CanMutate(const ObjectHandleGizmoTarget* target) {
+    return ObjectHandleGizmoTarget_IsActive(target) &&
+           !ObjectHandleGizmoTarget_IsTopology(target);
 }
 
 bool ObjectHandleGizmoTarget_ValidateForObject(const ObjectHandleGizmoTarget* target,
@@ -74,6 +142,16 @@ bool ObjectHandleGizmoTarget_ValidateForObject(const ObjectHandleGizmoTarget* ta
         case OBJECT_HANDLE_GIZMO_TARGET_PRISM_RESIZE:
             return object->kind == OBJECT3D_KIND_RECT_PRISM &&
                    target->prismHandle != RECT_PRISM_RESIZE_HANDLE_NONE;
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_VERTEX:
+            return (object->kind == OBJECT3D_KIND_PLANE ||
+                    object->kind == OBJECT3D_KIND_RECT_PRISM) &&
+                   target->vertexRef.bodyId == object->objectId &&
+                   target->vertexRef.vertexId != 0u;
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_EDGE:
+            return (object->kind == OBJECT3D_KIND_PLANE ||
+                    object->kind == OBJECT3D_KIND_RECT_PRISM) &&
+                   target->edgeRef.bodyId == object->objectId &&
+                   target->edgeRef.edgeId != 0u;
         case OBJECT_HANDLE_GIZMO_TARGET_NONE:
         default:
             return false;
@@ -89,6 +167,15 @@ bool ObjectHandleGizmoTarget_AxisMask(const ObjectHandleGizmoTarget* target,
             return Layout_PlaneResizeHandleAxisMask(target->planeHandle, outMask);
         case OBJECT_HANDLE_GIZMO_TARGET_PRISM_RESIZE:
             return Layout_RectPrismResizeHandleAxisMask(target->prismHandle, outMask);
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_VERTEX:
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_EDGE:
+            if (target->vertexRef.vertexId == 0u && target->edgeRef.edgeId == 0u) return false;
+            *outMask = (RectPrismHandleAxisMask){
+                .allowU = true,
+                .allowV = true,
+                .allowN = true
+            };
+            return true;
         case OBJECT_HANDLE_GIZMO_TARGET_NONE:
         default:
             return false;
@@ -120,6 +207,12 @@ Vec3 ObjectHandleGizmoTarget_AxisWorldVector(const ObjectHandleGizmoTarget* targ
             return Layout_PlaneAxisDirection_WorldVector(object, axisDirection);
         case OBJECT_HANDLE_GIZMO_TARGET_PRISM_RESIZE:
             return Layout_RectPrismAxisDirection_WorldVector(object, axisDirection);
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_VERTEX:
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_EDGE:
+            if (object->kind == OBJECT3D_KIND_PLANE) {
+                return Layout_PlaneAxisDirection_WorldVector(object, axisDirection);
+            }
+            return Layout_RectPrismAxisDirection_WorldVector(object, axisDirection);
         case OBJECT_HANDLE_GIZMO_TARGET_NONE:
         default:
             return zero;
@@ -136,6 +229,10 @@ bool ObjectHandleGizmoTarget_HandleWorldPoint(const ObjectHandleGizmoTarget* tar
             return Layout_PlaneResizeHandleWorldPoint(object, target->planeHandle, outPoint);
         case OBJECT_HANDLE_GIZMO_TARGET_PRISM_RESIZE:
             return Layout_RectPrismResizeHandleWorldPoint(object, target->prismHandle, outPoint);
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_VERTEX:
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_EDGE:
+            *outPoint = target->topologyWorldPoint;
+            return true;
         case OBJECT_HANDLE_GIZMO_TARGET_NONE:
         default:
             return false;
@@ -166,6 +263,10 @@ bool ObjectHandleGizmoTarget_ResolveForDrag(const Object3D* object,
             }
             return true;
         }
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_VERTEX:
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_EDGE:
+            (void)draggedWorldPoint;
+            return true;
         case OBJECT_HANDLE_GIZMO_TARGET_NONE:
         default:
             return false;
@@ -191,6 +292,11 @@ bool ObjectHandleGizmoTarget_ResizeFromDrag(Layout* layout,
                                                       target->prismHandle,
                                                       draggedWorldPoint,
                                                       outBoundsAdjusted);
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_VERTEX:
+        case OBJECT_HANDLE_GIZMO_TARGET_TOPOLOGY_EDGE:
+            (void)draggedWorldPoint;
+            if (outBoundsAdjusted) *outBoundsAdjusted = false;
+            return false;
         case OBJECT_HANDLE_GIZMO_TARGET_NONE:
         default:
             return false;

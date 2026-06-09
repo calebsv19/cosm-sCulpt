@@ -88,6 +88,7 @@ static bool Object3D_IsBoundsLocked(const Object3D* object) {
     switch (object->kind) {
         case OBJECT3D_KIND_PLANE: return object->plane.lockToBounds;
         case OBJECT3D_KIND_RECT_PRISM: return object->rectPrism.lockToBounds;
+        case OBJECT3D_KIND_MESH_ASSET_INSTANCE: return object->meshInstance.lockToBounds;
         case OBJECT3D_KIND_UNKNOWN:
         default: return false;
     }
@@ -126,6 +127,20 @@ static bool Object3D_ComputeTranslationHalfExtents(const Object3D* object, Vec3*
             halfU = object->rectPrism.width * 0.5f;
             halfV = object->rectPrism.height * 0.5f;
             halfN = object->rectPrism.depth * 0.5f;
+            break;
+        case OBJECT3D_KIND_MESH_ASSET_INSTANCE:
+            halfU = fabsf(object->meshInstance.localBoundsMax.x -
+                          object->meshInstance.localBoundsMin.x) *
+                    fabsf(object->transform.scale.x) * 0.5f;
+            halfV = fabsf(object->meshInstance.localBoundsMax.y -
+                          object->meshInstance.localBoundsMin.y) *
+                    fabsf(object->transform.scale.y) * 0.5f;
+            halfN = fabsf(object->meshInstance.localBoundsMax.z -
+                          object->meshInstance.localBoundsMin.z) *
+                    fabsf(object->transform.scale.z) * 0.5f;
+            axisU = (Vec3){ 1.0f, 0.0f, 0.0f };
+            axisV = (Vec3){ 0.0f, 1.0f, 0.0f };
+            axisN = (Vec3){ 0.0f, 0.0f, 1.0f };
             break;
         case OBJECT3D_KIND_UNKNOWN:
         default:
@@ -292,6 +307,17 @@ static bool SceneBounds_ObjectFits(const SceneBounds3D* bounds, const Object3D* 
     if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
         Vec3 corners[8] = {0};
         if (!Layout_Object3D_ComputeRectPrismCorners(object, corners)) return false;
+        for (size_t i = 0; i < 8; ++i) {
+            if (corners[i].x < bounds->min.x - 1e-4f || corners[i].x > bounds->max.x + 1e-4f) return false;
+            if (corners[i].y < bounds->min.y - 1e-4f || corners[i].y > bounds->max.y + 1e-4f) return false;
+            if (corners[i].z < bounds->min.z - 1e-4f || corners[i].z > bounds->max.z + 1e-4f) return false;
+        }
+        return true;
+    }
+
+    if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        Vec3 corners[8] = {0};
+        if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) return false;
         for (size_t i = 0; i < 8; ++i) {
             if (corners[i].x < bounds->min.x - 1e-4f || corners[i].x > bounds->max.x + 1e-4f) return false;
             if (corners[i].y < bounds->min.y - 1e-4f || corners[i].y > bounds->max.y + 1e-4f) return false;
@@ -660,7 +686,8 @@ bool Layout_SetObject3DPosition(Layout* layout,
     Object3D* object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
     if (!object) return false;
     if (object->kind != OBJECT3D_KIND_PLANE &&
-        object->kind != OBJECT3D_KIND_RECT_PRISM) {
+        object->kind != OBJECT3D_KIND_RECT_PRISM &&
+        object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
         return false;
     }
     if (!Layout_ObjectStore_ValidateObject(object)) return false;
@@ -677,11 +704,22 @@ bool Layout_SetObject3DPosition(Layout* layout,
     }
 
     Object3D snapshot = *object;
-    object->transform.position = nextCenter;
+    Vec3 nextTransformPosition = nextCenter;
+    if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        const Vec3 min = object->meshInstance.localBoundsMin;
+        const Vec3 max = object->meshInstance.localBoundsMax;
+        const Vec3 localCenter = Vec3_Scale(Vec3_Add(min, max), 0.5f);
+        nextTransformPosition = (Vec3){
+            .x = nextCenter.x - (localCenter.x * object->transform.scale.x),
+            .y = nextCenter.y - (localCenter.y * object->transform.scale.y),
+            .z = nextCenter.z - (localCenter.z * object->transform.scale.z)
+        };
+    }
+    object->transform.position = nextTransformPosition;
     if (object->kind == OBJECT3D_KIND_PLANE) {
-        object->plane.frame.origin = nextCenter;
+        object->plane.frame.origin = nextTransformPosition;
     } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
-        object->rectPrism.frame.origin = nextCenter;
+        object->rectPrism.frame.origin = nextTransformPosition;
     }
 
     if (!Object3D_ApplyCoreRules(object)) {
@@ -719,7 +757,8 @@ bool Layout_RotateObject3D(Layout* layout,
     Object3D* object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
     if (!object) return false;
     if (object->kind != OBJECT3D_KIND_PLANE &&
-        object->kind != OBJECT3D_KIND_RECT_PRISM) {
+        object->kind != OBJECT3D_KIND_RECT_PRISM &&
+        object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
         return false;
     }
     if (!Layout_ObjectStore_ValidateObject(object)) return false;
@@ -746,7 +785,7 @@ bool Layout_RotateObject3D(Layout* layout,
         }
         rotatedFrame.origin = next.transform.position;
         next.plane.frame = rotatedFrame;
-    } else {
+    } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
         PlaneFrame3 rotatedFrame = {0};
         if (!PlaneFrame3_RotateAroundAxis(&baseline->rectPrism.frame,
                                           axisWorld,
@@ -772,7 +811,7 @@ bool Layout_RotateObject3D(Layout* layout,
         next.transform.position = center;
         if (next.kind == OBJECT3D_KIND_PLANE) {
             next.plane.frame.origin = center;
-        } else {
+        } else if (next.kind == OBJECT3D_KIND_RECT_PRISM) {
             next.rectPrism.frame.origin = center;
         }
     }
@@ -785,7 +824,7 @@ bool Layout_RotateObject3D(Layout* layout,
 
     if (object->kind == OBJECT3D_KIND_PLANE) {
         object->plane.frame.origin = object->transform.position;
-    } else {
+    } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
         object->rectPrism.frame.origin = object->transform.position;
     }
 
@@ -800,6 +839,92 @@ bool Layout_RotateObject3D(Layout* layout,
     }
 
     if (outBoundsAdjusted) *outBoundsAdjusted = boundsAdjusted;
+    Global_FlagLayoutChanged();
+    return true;
+}
+
+bool Layout_ScaleObject3D(Layout* layout,
+                          uint32_t objectId,
+                          Vec3 scaleFactors,
+                          const Object3D* baselineObject,
+                          bool* outBoundsAdjusted) {
+    if (outBoundsAdjusted) *outBoundsAdjusted = false;
+    if (!layout || objectId == 0u) return false;
+    if (!isfinite(scaleFactors.x) || !isfinite(scaleFactors.y) || !isfinite(scaleFactors.z)) return false;
+
+    Object3D* object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    if (!object) return false;
+    if (object->kind != OBJECT3D_KIND_PLANE &&
+        object->kind != OBJECT3D_KIND_RECT_PRISM &&
+        object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        return false;
+    }
+    if (!Layout_ObjectStore_ValidateObject(object)) return false;
+
+    const Object3D* baseline = object;
+    if (baselineObject &&
+        baselineObject->objectId == object->objectId &&
+        baselineObject->kind == object->kind &&
+        !baselineObject->isDeleted) {
+        baseline = baselineObject;
+    }
+
+    scaleFactors.x = ClampFloat(scaleFactors.x, 0.05f, 20.0f);
+    scaleFactors.y = ClampFloat(scaleFactors.y, 0.05f, 20.0f);
+    scaleFactors.z = ClampFloat(scaleFactors.z, 0.05f, 20.0f);
+
+    Object3D snapshot = *object;
+    Object3D next = *baseline;
+
+    if (next.kind == OBJECT3D_KIND_PLANE) {
+        next.plane.width = fmaxf(baseline->plane.width * scaleFactors.x, kPlanePrimitiveMinSize);
+        next.plane.height = fmaxf(baseline->plane.height * scaleFactors.y, kPlanePrimitiveMinSize);
+        next.plane.frame.origin = baseline->transform.position;
+        next.transform.position = baseline->transform.position;
+    } else if (next.kind == OBJECT3D_KIND_RECT_PRISM) {
+        next.rectPrism.width = fmaxf(baseline->rectPrism.width * scaleFactors.x, kPlanePrimitiveMinSize);
+        next.rectPrism.height = fmaxf(baseline->rectPrism.height * scaleFactors.y, kPlanePrimitiveMinSize);
+        next.rectPrism.depth = fmaxf(baseline->rectPrism.depth * scaleFactors.z, 0.0f);
+        next.rectPrism.frame.origin = baseline->transform.position;
+        next.transform.position = baseline->transform.position;
+    } else if (next.kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        Vec3 visualCenter = {0};
+        const Vec3 min = baseline->meshInstance.localBoundsMin;
+        const Vec3 max = baseline->meshInstance.localBoundsMax;
+        const Vec3 localCenter = Vec3_Scale(Vec3_Add(min, max), 0.5f);
+        if (!Layout_Object3D_ComputeVisualCenter(baseline, &visualCenter)) return false;
+        next.transform.scale = (Vec3){
+            .x = baseline->transform.scale.x * scaleFactors.x,
+            .y = baseline->transform.scale.y * scaleFactors.y,
+            .z = baseline->transform.scale.z * scaleFactors.z
+        };
+        next.transform.position = (Vec3){
+            .x = visualCenter.x - (localCenter.x * next.transform.scale.x),
+            .y = visualCenter.y - (localCenter.y * next.transform.scale.y),
+            .z = visualCenter.z - (localCenter.z * next.transform.scale.z)
+        };
+    }
+
+    *object = next;
+    if (!Object3D_ApplyCoreRules(object)) {
+        *object = snapshot;
+        return false;
+    }
+    if (object->kind == OBJECT3D_KIND_PLANE) {
+        object->plane.frame.origin = object->transform.position;
+    } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+        object->rectPrism.frame.origin = object->transform.position;
+    }
+
+    if (!Layout_ObjectStore_ValidateObject(object)) {
+        *object = snapshot;
+        return false;
+    }
+    if (Object3D_IsBoundsLocked(object) && !SceneBounds_ObjectFits(&layout->scene3d.bounds, object)) {
+        *object = snapshot;
+        return false;
+    }
+
     Global_FlagLayoutChanged();
     return true;
 }

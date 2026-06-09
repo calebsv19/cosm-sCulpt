@@ -18,7 +18,7 @@ static void HistoryStack_Init(EditorHistoryStack* stack) {
 
 static void HistoryStack_Reset(EditorHistoryStack* stack) {
     for (size_t i = 0; i < stack->count; ++i) {
-        free(stack->entries[i]);
+        Layout_FreeString(stack->entries[i]);
     }
     stack->count = 0;
 }
@@ -44,14 +44,14 @@ static void HistoryStack_Push(EditorHistoryStack* stack, char* snapshot) {
     if (!snapshot) return;
     HistoryStack_EnsureCapacity(stack, stack->count + 1);
     if (!stack->entries) {
-        free(snapshot);
+        Layout_FreeString(snapshot);
         return;
     }
 
     stack->entries[stack->count++] = snapshot;
 
     if (stack->count > EDITOR_HISTORY_MAX) {
-        free(stack->entries[0]);
+        Layout_FreeString(stack->entries[0]);
         memmove(&stack->entries[0], &stack->entries[1], (stack->count - 1) * sizeof(char*));
         stack->count--;
     }
@@ -143,6 +143,9 @@ void Editor_Init(EditorState* editor) {
     editor->hoveredObject3DId = 0u;
     editor->hoveredObjectAssetBodyId = 0u;
     editor->hoveredObjectAssetFace = OBJECT3D_FACE_NONE;
+    editor->hoveredObjectTopologyBodyId = 0u;
+    editor->hoveredObjectTopologyVertexIndex = -1;
+    editor->hoveredObjectTopologyEdgeIndex = -1;
     editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -151,10 +154,14 @@ void Editor_Init(EditorState* editor) {
     editor->isResizingObject3D = false;
     editor->isResizingSceneBounds = false;
     editor->isRotatingObject3D = false;
+    editor->isScalingObject3D = false;
+    editor->isScalingObject3D = false;
     editor->object3DRotateMode = false;
+    editor->object3DSizeMode = false;
     editor->sceneBoundsHandlesVisible = true;
     editor->primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
     editor->objectAuthoringMode = OBJECT_AUTHORING_MODE_NONE;
+    editor->objectEditSelectionMode = OBJECT_EDIT_SELECTION_BODY;
     editor->objectFaceSketchToolArmed = false;
     editor->objectFaceSketchDragging = false;
     editor->objectFaceSketchHasRectangle = false;
@@ -209,6 +216,17 @@ const char* Editor_ObjectAuthoringModeLabel(ObjectAuthoringMode mode) {
         case OBJECT_AUTHORING_MODE_NONE:
         default:
             return "None";
+    }
+}
+
+const char* Editor_ObjectEditSelectionModeLabel(ObjectEditSelectionMode mode) {
+    switch (mode) {
+        case OBJECT_EDIT_SELECTION_FACE: return "Face";
+        case OBJECT_EDIT_SELECTION_EDGE: return "Edge";
+        case OBJECT_EDIT_SELECTION_VERTEX: return "Vertex";
+        case OBJECT_EDIT_SELECTION_BODY:
+        default:
+            return "Body";
     }
 }
 
@@ -302,6 +320,9 @@ static void Editor_ResetSelection(EditorState* editor) {
     editor->hoveredObject3DId = 0u;
     editor->hoveredObjectAssetBodyId = 0u;
     editor->hoveredObjectAssetFace = OBJECT3D_FACE_NONE;
+    editor->hoveredObjectTopologyBodyId = 0u;
+    editor->hoveredObjectTopologyVertexIndex = -1;
+    editor->hoveredObjectTopologyEdgeIndex = -1;
     editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -384,7 +405,7 @@ bool Editor_Undo(EditorState* editor, Layout* layout) {
     }
 
     bool ok = Layout_LoadFromString(layout, snapshot);
-    free(snapshot);
+    Layout_FreeString(snapshot);
 
     if (ok) {
         Editor_ResetSelection(editor);
@@ -404,7 +425,7 @@ bool Editor_Redo(EditorState* editor, Layout* layout) {
     }
 
     bool ok = Layout_LoadFromString(layout, snapshot);
-    free(snapshot);
+    Layout_FreeString(snapshot);
 
     if (ok) {
         Editor_ResetSelection(editor);
@@ -446,6 +467,9 @@ void Editor_ResetDocumentState(EditorState* editor) {
     editor->hoveredObject3DId = 0u;
     editor->hoveredObjectAssetBodyId = 0u;
     editor->hoveredObjectAssetFace = OBJECT3D_FACE_NONE;
+    editor->hoveredObjectTopologyBodyId = 0u;
+    editor->hoveredObjectTopologyVertexIndex = -1;
+    editor->hoveredObjectTopologyEdgeIndex = -1;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -470,6 +494,9 @@ void Editor_ClearAnchorSelection(EditorState* editor) {
     editor->hoveredObject3DId = 0u;
     editor->hoveredObjectAssetBodyId = 0u;
     editor->hoveredObjectAssetFace = OBJECT3D_FACE_NONE;
+    editor->hoveredObjectTopologyBodyId = 0u;
+    editor->hoveredObjectTopologyVertexIndex = -1;
+    editor->hoveredObjectTopologyEdgeIndex = -1;
     editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
@@ -482,6 +509,7 @@ void Editor_ClearAnchorSelection(EditorState* editor) {
     editor->isResizingObject3D = false;
     editor->isResizingSceneBounds = false;
     editor->isRotatingObject3D = false;
+    editor->isScalingObject3D = false;
     Editor_ResetGizmoDrag(editor);
 }
 

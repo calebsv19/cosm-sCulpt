@@ -46,6 +46,13 @@ typedef enum {
     OBJECT_AUTHORING_MODE_OPERATION_PREVIEW = 4
 } ObjectAuthoringMode;
 
+typedef enum {
+    OBJECT_EDIT_SELECTION_BODY = 0,
+    OBJECT_EDIT_SELECTION_FACE = 1,
+    OBJECT_EDIT_SELECTION_EDGE = 2,
+    OBJECT_EDIT_SELECTION_VERTEX = 3
+} ObjectEditSelectionMode;
+
 typedef struct {
     char** entries;
     size_t count;
@@ -89,6 +96,9 @@ typedef struct {
     uint32_t hoveredObject3DId;
     uint32_t hoveredObjectAssetBodyId;
     Object3DFaceKind hoveredObjectAssetFace;
+    uint32_t hoveredObjectTopologyBodyId;
+    int hoveredObjectTopologyVertexIndex;
+    int hoveredObjectTopologyEdgeIndex;
     int hoveredObject3DResizeHandle; // PlaneResizeHandleKind or PLANE_RESIZE_HANDLE_NONE
     int hoveredObject3DPrismHandle;  // RectPrismResizeHandleKind or RECT_PRISM_RESIZE_HANDLE_NONE
     int hoveredSceneBoundsHandle;    // SceneBoundsHandleKind or SCENE_BOUNDS_HANDLE_NONE
@@ -106,10 +116,13 @@ typedef struct {
     bool isResizingObject3D;
     bool isResizingSceneBounds;
     bool isRotatingObject3D;
+    bool isScalingObject3D;
     bool object3DRotateMode;
+    bool object3DSizeMode;
     bool sceneBoundsHandlesVisible;
     PrimitivePlacementPreviewKind primitivePlacementPreview;
     ObjectAuthoringMode objectAuthoringMode;
+    ObjectEditSelectionMode objectEditSelectionMode;
     bool objectFaceSketchToolArmed;
     bool objectFaceSketchDragging;
     bool objectFaceSketchHasRectangle;
@@ -161,6 +174,7 @@ void Editor_ClearHistory(EditorState* editor);
 void Editor_ResetDocumentState(EditorState* editor);
 ObjectAuthoringMode Editor_ObjectAuthoringIdleMode(const EditorState* editor);
 const char* Editor_ObjectAuthoringModeLabel(ObjectAuthoringMode mode);
+const char* Editor_ObjectEditSelectionModeLabel(ObjectEditSelectionMode mode);
 const char* Editor_ObjectAuthoringStageLabel(const EditorState* editor);
 const char* Editor_ObjectAuthoringPromptLabel(const EditorState* editor);
 

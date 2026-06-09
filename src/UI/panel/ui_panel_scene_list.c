@@ -570,14 +570,22 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
                      "%s #%u  %s",
                      isExpanded ? "v" : ">",
                      object->objectId,
-                     object->kind == OBJECT3D_KIND_RECT_PRISM ? "Prism" : "Plane");
+                     object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE
+                         ? "Mesh"
+                         : (object->kind == OBJECT3D_KIND_RECT_PRISM ? "Prism" : "Plane"));
             snprintf(line1,
                      sizeof(line1),
                      "Pos %.1f, %.1f, %.1f",
                      object->transform.position.x,
                      object->transform.position.y,
                      object->transform.position.z);
-            if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+            if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+                snprintf(line2,
+                         sizeof(line2),
+                         "Asset %s   %zu tris",
+                         object->meshInstance.assetId,
+                         object->meshInstance.triangleCount);
+            } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
                 snprintf(line2,
                          sizeof(line2),
                          "Size %.1f x %.1f x %.1f   Locks P:%s B:%s",
@@ -640,7 +648,18 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
                          "Core id %u   Selected %s   Click row again to collapse.",
                          object->objectId,
                          (state->editor.selectedObject3DId == object->objectId) ? "yes" : "no");
-                if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+                if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+                    snprintf(detail2,
+                             sizeof(detail2),
+                             "Runtime %s   Bounds %.1f..%.1f, %.1f..%.1f, %.1f..%.1f",
+                             object->meshInstance.runtimePath,
+                             object->meshInstance.localBoundsMin.x,
+                             object->meshInstance.localBoundsMax.x,
+                             object->meshInstance.localBoundsMin.y,
+                             object->meshInstance.localBoundsMax.y,
+                             object->meshInstance.localBoundsMin.z,
+                             object->meshInstance.localBoundsMax.z);
+                } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
                     snprintf(detail2,
                              sizeof(detail2),
                              "Frame origin %.1f, %.1f, %.1f   Construction lock %s   Bounds lock %s",
