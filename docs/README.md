@@ -13,7 +13,7 @@ Public identity:
 - `docs/future_intent.md`: planned scaffold convergence and remaining migration slices.
 - `docs/desktop_packaging.md`: `.app` packaging commands, launcher diagnostics, and Desktop refresh workflow.
 - `docs/memory_check_audit.md`: default-off fisiCs memory-check audit lane and
-  the current failing report for the instrumented test runner.
+  the current clean report for the instrumented test runner.
 
 Current verification contract:
 - `make -C line_drawing clean && make -C line_drawing`
@@ -31,8 +31,9 @@ Current verification contract:
 - `make -C line_drawing test-legacy`
 - `make -C line_drawing scene-pipeline-smoke`
 - `make -C line_drawing memory-check-audit`
-  - default-off fisiCs memory-check lane; currently failing with repeated
-    unknown-pointer frees/double-free reports before a final summary
+  - default-off fisiCs memory-check lane; currently reaches the final summary
+    with `active=0`, `double_free=0`, `unknown_free=0`, and
+    `tracker_failures=0`
 - `make -C line_drawing package-desktop`
 - `make -C line_drawing package-desktop-self-test`
 - `make -C line_drawing package-desktop-refresh`
