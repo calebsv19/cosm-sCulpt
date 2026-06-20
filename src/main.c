@@ -380,9 +380,67 @@ static void handleRender(AppContext *ctx) {
     g_line_drawing_pending_invalidation_bits = 0u;
 }
 
+static void LineDrawingRuntimeShutdown(AppContext* app) {
+    if (LineDrawingWorkspaceAuthoringHost_Active(Global_Get())) {
+        (void)LineDrawingWorkspaceAuthoringHost_Cancel(Global_Get());
+    }
+    line_drawing3d_shared_theme_save_persisted();
+    (void)FontManager_SavePersistedPrefs();
+    FontManager_Quit();
+    Global_Shutdown();
+    App_Shutdown(app);
+}
+
+static bool LineDrawingVisualArtifactModeIsEditor(const char* mode) {
+    return mode && strcmp(mode, "editor") == 0;
+}
+
+static int LineDrawingRunVisualArtifactProof(AppContext* app,
+                                             const char* artifact_path,
+                                             const char* proof_mode) {
+    VkResult capture_request = VK_ERROR_INITIALIZATION_FAILED;
+    bool rendered = false;
+    uint32_t draw_calls = 0u;
+
+    if (!app || !app->renderer || !artifact_path || !artifact_path[0]) {
+        fprintf(stderr, "line_drawing: visual-artifact missing renderer or output path\n");
+        return 1;
+    }
+
+    if (LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
+        LineDrawingHostEnterEditor();
+        handleUpdate(app);
+    }
+
+    capture_request = vk_renderer_request_capture(app->renderer, artifact_path);
+    if (capture_request != VK_SUCCESS) {
+        fprintf(stderr,
+                "line_drawing: visual-artifact capture request failed code=%d path=%s\n",
+                (int)capture_request,
+                artifact_path);
+        return 1;
+    }
+
+    rendered = App_RenderOnce(app, handleRender);
+    draw_calls = app->renderer ? app->renderer->draw_state.draw_call_count : 0u;
+    if (!rendered) {
+        fprintf(stderr, "line_drawing: visual-artifact render failed path=%s\n", artifact_path);
+        return 1;
+    }
+    if (draw_calls == 0u) {
+        fprintf(stderr, "line_drawing: visual-artifact produced zero draw calls path=%s\n",
+                artifact_path);
+        return 1;
+    }
+
+    return 0;
+}
+
 int line_drawing_app_main_legacy(int argc, char **argv) {
     (void)argc;
     (void)argv;
+    const char* visual_artifact_path = getenv("LINE_DRAWING_VISUAL_ARTIFACT");
+    const char* visual_artifact_mode = getenv("LINE_DRAWING_VISUAL_ARTIFACT_MODE");
     AppContext app;
     if (!App_Init(&app, "LineDrawing", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, true))
         return 1;
@@ -404,16 +462,16 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
         .handleRender = handleRender
     };
     App_SetRenderMode(&app, RENDER_THROTTLED, 1.0f / 60.0f);
+    if (visual_artifact_path && visual_artifact_path[0]) {
+        const int proof_result =
+            LineDrawingRunVisualArtifactProof(&app, visual_artifact_path, visual_artifact_mode);
+        LineDrawingRuntimeShutdown(&app);
+        return proof_result;
+    }
+
     App_Run(&app, &cbs);
 
-    if (LineDrawingWorkspaceAuthoringHost_Active(Global_Get())) {
-        (void)LineDrawingWorkspaceAuthoringHost_Cancel(Global_Get());
-    }
-    line_drawing3d_shared_theme_save_persisted();
-    (void)FontManager_SavePersistedPrefs();
-    FontManager_Quit();
-    Global_Shutdown();  // free layout memory, etc.
-    App_Shutdown(&app);
+    LineDrawingRuntimeShutdown(&app);
     return 0;
 }
 

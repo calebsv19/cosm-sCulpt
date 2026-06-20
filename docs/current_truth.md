@@ -1,6 +1,6 @@
 # sCulpt Current Truth
 
-Last updated: 2026-06-04
+Last updated: 2026-06-09
 
 ## Program Identity
 - Repository directory: `line_drawing/`
@@ -89,6 +89,16 @@ Last updated: 2026-06-04
       because the current evaluated topology is rebuilt from primitive bodies.
       The object-mode `Model` summary reports evaluated body/vertex/edge/face
       counts
+    - object center-gizmo work now has first-pass mode parity for scene
+      objects: `Move`, `Rotate`, and `Size` render with distinct endpoint
+      visuals, and active drags report move distance, rotate angle, or size
+      factor through the topbar. `Size` scales the selected object uniformly
+      from any center-gizmo axis, while `Shift` applies directional stretch
+      along the grabbed axis where the selected primitive supports it. Shift
+      also keeps move/rotate drags in the smooth/non-quantized path.
+    - selected-object exact dimension controls now support width/height edits
+      for both planes and rectangular prisms; exact depth remains
+      rectangular-prism-only
     - object-authoring runtime mesh compile now has a first Phase B baseline:
       operation-backed documents evaluate into deterministic runtime mesh
       arrays, current stable face ids become `face_<face_id>` surface groups,
@@ -116,6 +126,10 @@ Last updated: 2026-06-04
       user-file binary imports, while keeping UI import work deferred. This is
       not yet the in-app file picker/import UI; it is the first bounded input
       harness that ties the shared imported-mesh path into LineDrawing.
+      The in-app STL file browser now uses the shared file catalog with bounded
+      recursive STL discovery, so selecting a curated library root can surface
+      nested paths such as `curated/<asset>/source/<asset>.stl` instead of only
+      files in the selected directory or one child level.
     - Phase C scene asset instance integration now has a complete app-local
       reusable asset instance baseline:
       scene mode can place the last exported object runtime mesh sidecar as a
@@ -316,6 +330,16 @@ Last updated: 2026-06-04
     - invalid or empty candidate roots are rejected before mutating the
       current input root, so a failed folder pick does not clobber the prior
       working root
+    - `Export Scene` now writes scene directories under the configured output
+      root and uses the active layout/scene path only as a naming hint; it no
+      longer silently overwrites the active authoring directory just because a
+      scene is loaded
+    - successful scene export promotes the exported `scene_authoring.json` as
+      the active/recent scene session, while failed exports clean up newly
+      created incomplete scene directories
+    - export feedback is visible but temporary: the File summary and
+      `Export Scene` button briefly show success/failure state, then return to
+      the normal action label
     - strict authored-versus-compiled scene truth remains explicit:
       `scene_runtime.json` is still compiled output only, and the regression
       suite now directly checks that import rejects it as a load source
@@ -349,6 +373,20 @@ Last updated: 2026-06-04
       ad hoc per-pane overflow rules
   - future editor UI work can now return to smaller usage-driven follow-ups
     instead of continuing this structural shell migration
+- The editor topbar is now the production top-level menu/status lane rather
+  than an overlay diagnostic string:
+  - one renderer owns the top-pane surface and avoids stacked duplicate text
+    overlays
+  - it shows workspace mode, clipped selected-object context, file/dirty state,
+    mode, view, plane, construction-plane readout, bounds state, gizmo mode,
+    live operation, and undo/redo controls
+  - `Mode`, `View`, `Plane`, `Bounds`, `Gizmo`, `Undo`, and `Redo` are
+    clickable status chips wired to the same backend actions as their keyboard
+    shortcuts
+  - `CP` remains a readout until construction-plane picker/stepper behavior is
+    deliberately designed
+  - active center-gizmo drags update a separate `Op` chip and the primary
+    selection line with move, rotate, or size operation reports
 - Agent-authored room-review scenes now have an optional deterministic
   refinement lane through `line_drawing/tools/agent_scene_refine.py` for:
   - opposite-corner default camera placement in open corner rooms
@@ -454,7 +492,8 @@ Last updated: 2026-06-04
 - Required lanes: `docs/`, `src/`, `include/`, `tests/`, `build/`
 - Support lanes: `config/`, `data/`, `tmp/`, `external/`
 - Active source subsystems:
-  - `Core`, `Editor`, `Input`, `Layout`, `Math`, `Menu`, `Render`, `Tools`, `UI`, `app`
+  - `Core`, `Editor`, `Input`, `Layout`, `Math`, `Menu`,
+    `ObjectAuthoring`, `Render`, `Tools`, `UI`, `app`
 
 ## Runtime Contract
 - Default runtime ingress is the host menu, not the editor:
@@ -488,6 +527,11 @@ Last updated: 2026-06-04
 - Output-root export behavior is now user-visible and deterministic:
   - `Export Shape` still writes a single exported shape artifact
   - `Export Scene` writes a scene directory with both authoring and runtime scene files
+  - export destinations come from the configured output root; active scene
+    paths only influence the generated scene name
+  - stored full-3D plane primitive metadata is normalized to the plane-locked
+    scene contract during canonical export so older platform-plane layouts
+    still compile
 
 ## Verification Contract
 - Build/harness:
@@ -502,6 +546,20 @@ Last updated: 2026-06-04
   - currently routes through `test-stable` rather than a separate runtime-only lane
 - Build-only readiness:
   - `make -C line_drawing visual-harness`
+- Source visual proof:
+  - `make -C line_drawing visual-artifact`
+  - renders one menu-first source-runtime frame through SDL/Vulkan and writes
+    `line_drawing/visual_artifacts/line_drawing_first_frame.bmp`
+  - expected success line:
+    `visual-artifact: <absolute artifact path>`
+  - `make -C line_drawing visual-artifact-editor`
+  - enters the existing editor surface, renders one viewport/editor frame
+    through SDL/Vulkan, and writes
+    `line_drawing/visual_artifacts/line_drawing_editor_first_frame.bmp`
+  - expected success line:
+    `visual-artifact-editor: <absolute artifact path>`
+  - requires local display-session access; if SDL reports no displays, rerun
+    from a GUI-capable session rather than treating it as app logic failure
 - Scene pipeline smoke:
   - `make -C line_drawing scene-pipeline-smoke`
 - Packaging/release lanes:

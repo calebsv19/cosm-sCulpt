@@ -7,6 +7,7 @@ LineDrawing
 data/runtime/
 data/snapshots/
 tmp/
+visual_artifacts/
 ide_files/
 export/
 theme_preset.txt

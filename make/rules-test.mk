@@ -8,7 +8,7 @@ run-daw-theme: $(APP_TARGET)
 	LINE_DRAWING3D_USE_SHARED_THEME_FONT=1 LINE_DRAWING3D_USE_SHARED_THEME=1 LINE_DRAWING3D_USE_SHARED_FONT=1 LINE_DRAWING3D_THEME_PRESET=daw_default LINE_DRAWING3D_FONT_PRESET=daw_default $(APP_TARGET)
 
 test: $(TEST_TARGET)
-	$(TEST_TARGET)
+	$(TEST_TARGET) $(ARGS)
 
 run-headless-smoke:
 	@$(MAKE) test-stable
@@ -26,8 +26,28 @@ scene-pipeline-smoke:
 agent-scene-smoke: agent_scene_tool
 	@bash ./tests/test_agent_scene_tool.sh
 
+agent-scene-failure-smoke: agent_scene_tool
+	@bash ./tests/test_agent_scene_tool.sh failures
+
 visual-harness:
 	@$(MAKE) all
+
+VISUAL_ARTIFACT_PATH ?= $(CURDIR)/visual_artifacts/line_drawing_first_frame.bmp
+VISUAL_ARTIFACT_EDITOR_PATH ?= $(CURDIR)/visual_artifacts/line_drawing_editor_first_frame.bmp
+
+visual-artifact: $(APP_TARGET)
+	@mkdir -p "$(dir $(VISUAL_ARTIFACT_PATH))"
+	@rm -f "$(VISUAL_ARTIFACT_PATH)"
+	@LINE_DRAWING_VISUAL_ARTIFACT="$(VISUAL_ARTIFACT_PATH)" $(APP_TARGET)
+	@test -s "$(VISUAL_ARTIFACT_PATH)" || (echo "visual-artifact failed: missing or empty $(VISUAL_ARTIFACT_PATH)"; exit 1)
+	@printf 'visual-artifact: %s\n' "$(VISUAL_ARTIFACT_PATH)"
+
+visual-artifact-editor: $(APP_TARGET)
+	@mkdir -p "$(dir $(VISUAL_ARTIFACT_EDITOR_PATH))"
+	@rm -f "$(VISUAL_ARTIFACT_EDITOR_PATH)"
+	@LINE_DRAWING_VISUAL_ARTIFACT="$(VISUAL_ARTIFACT_EDITOR_PATH)" LINE_DRAWING_VISUAL_ARTIFACT_MODE=editor $(APP_TARGET)
+	@test -s "$(VISUAL_ARTIFACT_EDITOR_PATH)" || (echo "visual-artifact-editor failed: missing or empty $(VISUAL_ARTIFACT_EDITOR_PATH)"; exit 1)
+	@printf 'visual-artifact-editor: %s\n' "$(VISUAL_ARTIFACT_EDITOR_PATH)"
 
 test-stable: test
 

@@ -1,10 +1,11 @@
 # sCulpt (`line_drawing`)
 
 `sCulpt` is the packaged desktop product for the `line_drawing` program. It is
-an SDL2-based layout and 3D modeling workspace for geometry prototyping. It now
-supports snap-to-grid wall drafting, bezier-curved anchors (with editable
-handles), multi-anchor selection/dragging, JSON persistence, and an overlay UI
-that can host diagnostics or future sensor readouts.
+an SDL2-based geometry, scene-authoring, and object/CAD prototyping workspace.
+It supports snap-to-grid wall drafting, bezier-curved anchors, multi-anchor
+selection/dragging, JSON persistence, a menu-first host shell, a tabbed editor
+shell, scene export, reusable object authoring, and imported/runtime mesh asset
+workflows.
 
 ## Docs
 - docs index: `docs/README.md`
@@ -20,25 +21,46 @@ Identity note:
   identifiers where those are part of the current technical contract
 
 ## Run-time Flow
-1. `src/main.c` boots the SDL app framework, loads fonts, and initialises `GlobalState` (grid, layout, editor, UI).
-2. The custom SDL loop (`App_Run`) pumps events into the input system, calls `Global_TickSystems` to clean layout data, and triggers `Render_Frame`.
-3. Rendering draws the grid, layout geometry, editor overlays, and UI panel on each frame.
+1. `src/main.c` delegates into `line_drawing_app_main(...)` through the
+   scaffold wrapper in `src/app/`.
+2. The wrapper owns lifecycle stage sequencing, then hands off to the existing
+   SDL runtime session.
+3. Runtime starts menu-first: the host `MENU` surface owns high-level
+   launch/reopen/catalog flow, while the `EDITOR` surface owns the interactive
+   authoring workspace.
+4. The custom SDL loop (`App_Run`) pumps events into input routing, calls
+   `Global_TickSystems` for update/mutation processing, derives a
+   frame-visible render contract, and submits the frame through the render
+   pipeline.
 
 ## Module Map
 - `config/` — persisted layout JSON; provides the default anchors and walls and acts as the save file for edits.
-- `src/Core/` — wraps SDL initialisation and owns `GlobalState`, which other modules query via `Global_Get()`.
-- `src/Input/` — mouse/keyboard handlers that drive the grid camera, lasso or click selections, multi-anchor dragging, and wall placement.
-- `src/Layout/` — anchor/wall data model (including bezier handle metadata), JSON IO, hitbox rebuilds, and drawing logic.
+- `src/app/` — lifecycle wrapper shell behind `line_drawing_app_main(...)`.
+- `src/Core/` — owns `GlobalState`, data paths, recent contexts, file catalog,
+  pane host, workspace handoff, SDL loop helpers, and mode adapters.
+- `src/Input/` — mouse/keyboard handlers, input-policy seams, viewport picking,
+  hover policy, and drag-session plumbing.
+- `src/Layout/` — anchor/wall data model, 3D scene/object state, primitive and
+  imported mesh asset lanes, JSON IO, hitbox rebuilds, and drawing logic.
 - `src/Layout/Grid/` — camera-style pan/zoom state and grid rendering helpers.
+- `src/Menu/` — menu-first host shell, recents, root browsing, layout/scene
+  catalog previews, and high-level editor handoff.
+- `src/ObjectAuthoring/` — reusable object/CAD authoring documents, stable ids,
+  operation replay/evaluation, persistence, and runtime mesh compile.
 - `src/Render/` — frame compositor that orders grid, layout, editor, and UI drawing.
-- `src/UI/` — UI panel/buttons, top-of-screen info overlay, lasso/selection visuals, click handling, and the font manager.
+- `src/UI/` — topbar, editor panel shell, File pane/browser, scene/object/view/create panes, overlays, click routing, and font/theme support.
 - `src/Editor/` — wall placement workflow, multi-selection state (including undo/redo snapshots), bezier handle tracking, and editor overlays (ghost walls + selection marquee).
 - `src/Math/` — lightweight vector helpers used by layout, grid, and editor code.
 - `external/` — third-party libraries (currently cJSON) compiled in by the makefile.
-- `src/Tools/` — reusable tooling code; houses `ShapeLib/` (pure shape structs + bezier flattening + JSON IO), the Layout→Shape bridge, canonical scene export helpers, and the scene-directory export seam that writes authoring + runtime scene files through shared `core_scene_compile`.
+- `src/Tools/` — reusable tooling code; houses `ShapeLib/`, Layout→Shape
+  export, diagnostics pack/trace tooling, canonical scene export/import,
+  scene-directory export through shared `core_scene_compile`, imported mesh
+  harnesses, and agent-scene tooling.
 - `export/` — auto-created when exporting; stores Shape JSON assets that downstream tools can consume. Run `make export-assets` to convert everything under `export/` into canonical ShapeAssets inside the shared directory (defaults to `shared/assets/shapes`, override with `SHAPE_ASSET_DIR`).
 - `include/` — project assets such as fonts that the font manager loads.
-- `tests/` — lightweight C test harness and suites covering math and layout behaviour.
+- `tests/` — lightweight C/Python/shell test harnesses covering math, layout,
+  object authoring, scene export, host menu/catalogs, File pane/browser,
+  imported mesh harnesses, UI panels, and agent-scene tooling.
 
 ## Build & Run
 This project targets SDL2 + SDL2_ttf and is built with `make`.
@@ -64,6 +86,19 @@ make test       # builds host test objects and executes build/host/tests/bin/run
 ```
 
 The test harness links against the same objects as the runtime (minus `src/main.c`) so behavioural drift is caught quickly.
+
+For source-run first-frame visual proofs, run:
+
+```sh
+make visual-artifact          # menu-first source frame
+make visual-artifact-editor   # editor viewport/source frame
+```
+
+These targets launch the development runtime in a one-shot capture mode and
+write ignored BMPs under `visual_artifacts/`. The editor proof enters the
+existing editor surface before capture, so it includes the viewport, topbar,
+and panels without changing scene, CAD, STL, or export behavior. Both commands
+require access to the local display session.
 
 ### Shape Export Tooling
 
