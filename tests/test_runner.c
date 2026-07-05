@@ -10,6 +10,7 @@ bool test_layout_object3d_store_run_tests(void);
 bool test_layout_object3d_resize_run_tests(void);
 bool test_layout_hitbox_run_tests(void);
 bool test_layout_scene_export_run_tests(void);
+bool test_layout_scene_view_packet_consumer_run_tests(void);
 bool math_run_tests(void);
 bool shape_dataset_run_tests(void);
 bool scene_export_run_tests(void);
@@ -50,6 +51,7 @@ static const TestGroup kTestGroups[] = {
     {"LayoutObject3DResize", test_layout_object3d_resize_run_tests, false},
     {"LayoutHitbox", test_layout_hitbox_run_tests, false},
     {"LayoutSceneExport", test_layout_scene_export_run_tests, false},
+    {"LayoutSceneViewPacketConsumer", test_layout_scene_view_packet_consumer_run_tests, false},
     {"Math", math_run_tests, true},
     {"ShapeDataset", shape_dataset_run_tests, true},
     {"SceneExport", scene_export_run_tests, true},
