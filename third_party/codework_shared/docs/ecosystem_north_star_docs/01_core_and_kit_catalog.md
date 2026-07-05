@@ -105,6 +105,80 @@ This is not an implementation guide.
 
 ---
 
+### core_scene_view (BOOTSTRAP)
+**Role:** Shared renderer-free scene-view packet vocabulary and readback
+contract.
+**Responsibilities:**
+- Scene-view schema family and packet variant constants
+- Preview quality, degraded reason, display flag, and pick-id vocabulary
+- Compact JSON readback validation for packet metadata
+- Shared readback structs for producer/consumer fixture parity
+
+**Boundary:**
+- Owns packet meaning only
+- Does not own rendering, viewport input, picking policy, material sampling,
+  editor mutation, or app face/object mapping
+- Does not create, delete, move, resize, or rewrite scene objects
+- Producers and consumers keep app-local rendering/editor behavior until more
+  hosts prove the contract
+
+---
+
+### core_mesh_asset (BOOTSTRAP)
+**Role:** Shared reusable mesh-asset contract owner.
+**Responsibilities:**
+- `mesh_asset_authoring_v1` contract helpers
+- `mesh_asset_runtime_v1` contract helpers
+- Primitive-seed authoring payload validation
+- Imported-mesh/STL source metadata validation
+- Runtime vertex, triangle, surface-group, bounds, and topology validation
+- Runtime mesh asset JSON load/save helpers
+
+**Boundary:**
+- Owns reusable object and runtime mesh asset meaning
+- Does not own scene placement, editing UX, triangulation, render acceleration,
+  solver voxelization, collision proxies, or SDF generation
+
+---
+
+### core_mesh_compile (BOOTSTRAP)
+**Role:** Shared compile-boundary owner for mesh asset authoring to runtime mesh handoff.
+**Responsibilities:**
+- Staged `mesh_asset_instance` scene-reference helpers
+- Authored-source compile responsibility validation
+- Bounded ASCII and binary STL imported-mesh to runtime-mesh compile proof
+  with a `1000000` triangle proof-scale ceiling
+- File-backed runtime mesh output for bounded imported-mesh proofs
+- Runtime mesh emission contract flags
+- Surface-group preservation contract
+- Imported-mesh source metadata requirement checks
+
+**Boundary:**
+- Owns app-neutral compile responsibility semantics only
+- Owns bounded STL parsing, triangle-count rejection, and indexed weld lookup
+  for imported-mesh compile proofs
+- Does not own mesh repair, retopo, LOD/streaming, host import UX, scene
+  envelopes, render meshes, or solver runtime-form derivation
+
+---
+
+### core_mesh_preview (BOOTSTRAP)
+**Role:** Shared viewport-safe runtime mesh preview contract owner.
+**Responsibilities:**
+- `core_mesh_preview_runtime_v1` sidecar payload helpers
+- Bounded feature-edge preview generation from `mesh_asset_runtime_v1`
+- Runtime mesh preview metadata for source counts, local bounds, source asset
+  ids, preview mode, and sampled drawable edge payloads
+- File-backed preview save/load helpers
+
+**Boundary:**
+- Owns app-neutral preview data meaning and bounded payload generation
+- Does not own UI selection, hitboxes, camera projection, renderer state,
+  scene placement, mesh repair, retopo, GPU buffers, BVHs, solver proxies,
+  collision meshes, or SDF generation
+
+---
+
 ### core_space (ACTIVE)
 **Role:** Shared spatial conversion contract.
 **Responsibilities:**
@@ -157,6 +231,23 @@ This is not an implementation guide.
 - No full scene container ownership (`core_scene` owns scene envelope)
 - No app namespace overlay ownership
 - No solver/render runtime ownership
+
+---
+
+### core_authored_texture (BOOTSTRAP)
+**Role:** Shared authored-texture manifest contract owner for cross-app texture export/runtime handoff.
+**Responsibilities:**
+- Authored-texture schema-version vocabulary
+- Binding-kind and emitted-output-kind vocabulary
+- Supported primitive and face-role vocabulary
+- Primitive-specific face completeness rules
+- JSON-free manifest-contract validation helpers
+
+**Boundary:**
+- Owns authored-texture manifest meaning only
+- No JSON parsing or file/image IO
+- No scene-envelope ownership (`core_scene` owns scene/object semantics)
+- No renderer/editor/runtime UI behavior
 
 ---
 
@@ -229,6 +320,20 @@ This is not an implementation guide.
 - No schema graph modeling (`core_data` owns rich structures)
 - No file/persistence policy (`core_pack`/app policy own that)
 - No action routing semantics
+
+---
+
+### core_headless_job (BOOTSTRAP)
+**Role:** Shared outer headless job-envelope/report contract for cross-program worker bundles.
+**Responsibilities:**
+- Shared schema-family/schema-variant vocabulary for bundle/report roots
+- Typed outer-envelope, payload-ref, outputs, metadata, artifact, and report structs
+- JSON-free validation helpers for required identity/schema/path/output fields
+
+**Boundary:**
+- Owns only outer worker-job semantic meaning
+- No JSON parsing/writing, filesystem creation, or scheduler dispatch
+- No program-specific scene payload semantics
 
 ---
 
@@ -329,6 +434,46 @@ This is not an implementation guide.
 - Generic math primitives only
 - Scene contracts stay in `core_scene`
 - Import/world placement policy stays in `core_space`
+
+---
+
+### core_collision2d (BOOTSTRAP)
+**Role:** Shared UI-free 2D collision contract.
+**Responsibilities:**
+- Double-precision 2D vectors and AABBs
+- Circle, axis-aligned box, and convex polygon descriptors
+- Polygon geometry helpers
+- Contact manifold records
+- Primitive contact generation for circle/circle, axis-aligned box/box, and
+  convex polygon/polygon
+
+**Boundary:**
+- Owns app-neutral collision shape/query semantics only
+- Does not own rigid-body integration, impulse solving, mass/inertia, or
+  fixed-step cadence
+- Does not own room/floor/wall convenience contacts, named fixtures, summary
+  strings, CLI routes, visual review artifacts, workers, packages, or runtime
+  default policy
+
+---
+
+### core_rigid2d (BOOTSTRAP)
+**Role:** Shared UI-free 2D rigid-body contract layered on `core_collision2d`.
+**Responsibilities:**
+- Material records and rigid-body state descriptors
+- Shape-based mass and inertia helpers
+- Dynamic/static body initialization and validation
+- Minimal host-called body integration
+- Deterministic normal, angular, and friction contact solver primitives
+- Standalone typed parity harness over the first Ball Bounce rigid-body and
+  solver oracle values
+
+**Boundary:**
+- Owns rigid-body state and contact response primitives only
+- Depends on `core_collision2d` for vectors, shapes, and manifolds
+- Does not own fixed-step accumulation, broadphase/contact discovery, worlds,
+  scenarios, summary strings, CLI routes, visual review artifacts, workers,
+  packages, or runtime default policy
 
 ---
 
@@ -481,13 +626,25 @@ This is not an implementation guide.
 
 ### kit_render (ACTIVE)
 **Role:** Rendering abstraction (`vk_renderer` seed path).
+**Notes:**
+- Owns backend-agnostic command-frame recording/submission, backend attach/adopt
+  boundaries, shared theme/font text policy resolution, and renderer-adjacent
+  external text helpers.
+- Does not own widget behavior, app hit testing, event loops, persistence, or
+  optional plain-SDL UI bridge drawing.
 
 ### kit_ui (ACTIVE)
 **Role:** Shared UI primitives (`timer_hud` seed path).
 **Notes:**
 - Primary consumer of `core_theme` and `core_font` contracts.
-- Owns renderer adapters that convert theme/font tokens into backend-specific calls.
-- Current shared controls include buttons, checkboxes, sliders, scrollbars, and segmented selectors.
+- Owns immediate-mode layout, evaluation, and draw helpers layered onto
+  `kit_render`; it does not own renderer lifecycle.
+- Current shared controls include buttons, checkboxes, sliders, scrollbars,
+  segmented selectors, rounded/compact button appearances, HUD button-row
+  layout, alpha-aware HUD style fields, nested corner/inset math, and optional
+  SDL rounded-surface adapters for plain SDL hosts.
+- App-specific actions, playback/session behavior, active theme persistence,
+  and host text/cache ownership stay app-owned.
 
 ### kit_pane (BOOTSTRAP)
 **Role:** Shared pane-shell presentation kit for `core_pane`-driven workspaces.

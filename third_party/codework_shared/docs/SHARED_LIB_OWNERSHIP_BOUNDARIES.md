@@ -9,6 +9,8 @@ This document defines what each shared library owns so behavior does not overlap
 - `core_data`: structured in-memory data containers and typed table/object model.
 - `core_memdb`: durable memory database connection, query, and migration boundary (scaffolded).
 - `core_math`: generic numeric primitives and math helpers.
+- `core_collision2d`: UI-free 2D collision shape, geometry, AABB, manifold, bounded compound-descriptor and compound mass-property helpers, and primitive contact-generation semantics.
+- `core_rigid2d`: UI-free 2D rigid-body descriptors, mass/inertia helpers, integration helpers, and deterministic contact-solver primitives over `core_collision2d`.
 - `core_time`: monotonic time reads and duration arithmetic (no sleep/scheduler behavior).
 - `core_queue`: bounded queue primitives and queue ownership semantics.
 - `core_sched`: timer/deadline scheduling data structures and callbacks.
@@ -18,6 +20,8 @@ This document defines what each shared library owns so behavior does not overlap
 - `core_kernel`: runtime phase orchestration and module lifecycle policy.
 - `core_scene`: scene schema and scene-level object grouping/state metadata.
 - `core_scene_compile`: shared authoring-to-runtime scene compile and normalization boundary.
+- `core_scene_view`: renderer-free scene-view packet schema/readback vocabulary, including preview quality, degraded reason, display flags, pick ids, and compact JSON readback validation.
+- `core_mesh_preview`: viewport-safe runtime mesh preview sidecar contract, bounded feature-edge payload generation, local bounds/source-count metadata, and file-backed preview save/load helpers.
 - `core_space`: coordinate-space mapping, transforms, and grid/window/world conversion.
 - `core_viewport2d`: renderer-agnostic 2D viewport/camera state transitions for fit-to-window, screen/content transforms, drag pan, and cursor-anchor zoom.
 - `core_units`: unit vocabulary, unit conversions, and world-scale conversion primitives.
@@ -27,6 +31,7 @@ This document defines what each shared library owns so behavior does not overlap
 - `core_layout`: renderer-agnostic layout transaction state (runtime/authoring mode, apply/cancel, revision/rebuild flags).
 - `core_config`: lightweight typed runtime configuration table boundary.
 - `core_action`: action identity + trigger-binding registry boundary.
+- `core_headless_job`: shared outer headless job-envelope/report semantics and validation.
 - `core_pane_module`: renderer-agnostic pane-module descriptor registry and binding validation semantics.
 - `core_trace`: trace capture/ingest/export primitives.
 - `core_sim`: UI-free simulation control-plane semantics for fixed-step accumulation, pause/play/single-step state, max-tick clamping, ordered pass execution, and deterministic frame outcomes.
@@ -38,6 +43,7 @@ This document defines what each shared library owns so behavior does not overlap
 ## Kit Libs
 
 - `kit_render`: shared render command vocabulary, frame-recording/submission contract, backend attach/adopt boundary, shared theme/font/text policy resolution, and renderer-adjacent external text helpers. It does not own widget behavior, pane semantics, host event loops/window lifetimes, persistence, or app-local layout/cursor policy.
+- `kit_ui`: shared immediate-mode widget expression, reusable button/state/style semantics, HUD button-row/readout layout, alpha-aware floating HUD style fields, nested corner/inset math, and optional SDL rounded-surface draw adapters. It does not own app action dispatch, playback/session policy, active theme persistence, event loops, retained focus, pane topology, or renderer lifecycle.
 - `kit_viz`: visualization-specific helpers layered on top of core contracts.
 - `kit_workspace_authoring`: host-agnostic authoring interaction glue (entry chord checks, trigger mapping, callback-driven action/text-step adapters) plus host-attach contract guidance for theme/font state handoff and top-level shell parity expectations.
 
@@ -52,11 +58,16 @@ This document defines what each shared library owns so behavior does not overlap
 
 - Vector math:
   - Put generic vec/matrix numeric ops in `core_math`.
+  - Put collision-specific double-precision vectors, polygons, projections,
+    manifolds, bounded compound descriptors, compound descriptor mass-property
+    helpers, and primitive 2D contact queries in `core_collision2d`.
   - Put world/unit placement conversion in `core_space`.
   - Put generic 2D screen/content viewport-camera transforms in `core_viewport2d`.
 
 - Scene vs object ownership:
   - `core_scene` owns app-agnostic scene structure/schema.
+  - `core_scene_view` owns read-only scene preview packet vocabulary and
+    readback, not canonical scene mutation or live editor routing.
   - App-local object composition or editor-only transient state stays in app code.
   - `core_authored_texture` owns object-bound authored-texture manifest meaning layered above scene/object identity, while `core_scene` continues owning the scene/object envelope and primitive semantics.
 
