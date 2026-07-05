@@ -28,6 +28,38 @@ static int file_contains_all(const char *path, const char **needles, size_t need
     return 1;
 }
 
+static int file_exists(const char *path) {
+    struct stat st;
+    return path && stat(path, &st) == 0;
+}
+
+static int runtime_sphere_fixture_path(const char *filename, char *out, size_t out_size) {
+    const char *root = getenv("CODEWORK_ROOT");
+    static const char *candidates[] = {
+        "../../../ray_tracing/tests/fixtures/mesh_asset_runtime_spheres/assets/mesh_assets",
+        "../../../../../ray_tracing/tests/fixtures/mesh_asset_runtime_spheres/assets/mesh_assets"
+    };
+    size_t i;
+    if (!filename || !out || out_size == 0u) return 0;
+    if (root && root[0]) {
+        if (snprintf(out,
+                     out_size,
+                     "%s/ray_tracing/tests/fixtures/mesh_asset_runtime_spheres/assets/mesh_assets/%s",
+                     root,
+                     filename) < (int)out_size &&
+            file_exists(out)) {
+            return 1;
+        }
+    }
+    for (i = 0u; i < sizeof(candidates) / sizeof(candidates[0]); ++i) {
+        if (snprintf(out, out_size, "%s/%s", candidates[i], filename) < (int)out_size &&
+            file_exists(out)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static int test_parse_helpers(void) {
     CoreMeshAssetSchemaVariant variant = CORE_MESH_ASSET_SCHEMA_VARIANT_RUNTIME_V1;
     CoreMeshAssetType type = CORE_MESH_ASSET_TYPE_SOLID_MESH;
@@ -372,25 +404,25 @@ static int test_runtime_document_large_file_save_streams(void) {
 
 static int test_runtime_document_mrt0_sphere_fixtures(void) {
     static const struct {
-        const char *path;
+        const char *filename;
         const char *asset_id;
         size_t vertices;
         size_t triangles;
     } cases[] = {
         {
-            "../../../ray_tracing/tests/fixtures/mesh_asset_runtime_spheres/assets/mesh_assets/asset_sphere_8x4.runtime.json",
+            "asset_sphere_8x4.runtime.json",
             "asset_sphere_8x4",
             26u,
             48u
         },
         {
-            "../../../ray_tracing/tests/fixtures/mesh_asset_runtime_spheres/assets/mesh_assets/asset_sphere_16x8.runtime.json",
+            "asset_sphere_16x8.runtime.json",
             "asset_sphere_16x8",
             114u,
             224u
         },
         {
-            "../../../ray_tracing/tests/fixtures/mesh_asset_runtime_spheres/assets/mesh_assets/asset_sphere_32x16.runtime.json",
+            "asset_sphere_32x16.runtime.json",
             "asset_sphere_32x16",
             482u,
             960u
@@ -399,8 +431,10 @@ static int test_runtime_document_mrt0_sphere_fixtures(void) {
     size_t i;
     for (i = 0u; i < sizeof(cases) / sizeof(cases[0]); ++i) {
         CoreMeshAssetRuntimeDocument document;
+        char path[1024];
         core_mesh_asset_runtime_document_init(&document);
-        CHECK(core_mesh_asset_runtime_document_load_file(cases[i].path, &document).code == CORE_OK);
+        CHECK(runtime_sphere_fixture_path(cases[i].filename, path, sizeof(path)));
+        CHECK(core_mesh_asset_runtime_document_load_file(path, &document).code == CORE_OK);
         CHECK(strcmp(document.contract.asset_id, cases[i].asset_id) == 0);
         CHECK(document.vertex_count == cases[i].vertices);
         CHECK(document.triangle_count == cases[i].triangles);

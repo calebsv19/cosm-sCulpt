@@ -24,7 +24,7 @@ Shared compile-boundary helpers for the mesh-asset rollout.
 ## Boundaries
 - No JSON parsing or writing
 - STL import is bounded to the proof-scale path:
-  - max imported STL triangles: `250000`
+  - max imported STL triangles: `3000000`
   - larger inputs must be rejected before runtime mesh allocation
   - mesh repair, retopo, normals policy, LOD/streaming policy, and host import
     UX remain out of scope
@@ -32,7 +32,7 @@ Shared compile-boundary helpers for the mesh-asset rollout.
 - No long-term scene-envelope ownership (`core_scene` will absorb scene-instance semantics in the next rollout step)
 - No renderer/solver import behavior
 
-## Current Contract (v0.6.1)
+## Current Contract (v0.6.5)
 - Supported geometry-ref kind is exactly:
   - `mesh_asset`
 - Supported staged instance object type is exactly:
@@ -64,11 +64,29 @@ Shared compile-boundary helpers for the mesh-asset rollout.
     spatial hash index rather than a full linear scan
   - emits one validated `CoreMeshAssetRuntimeDocument`
   - assigns all triangles to the authored default surface group
+- `core_mesh_compile_imported_mesh_to_runtime_document_with_progress(...)`
+  mirrors the bounded compile proof while optionally reporting coarse progress
+  stages for preparing, source read, STL parse, runtime emission, and complete.
 - `core_mesh_compile_imported_mesh_to_runtime_file(...)` now saves the emitted
   runtime document as file-backed `mesh_asset_runtime_v1` JSON.
 
 ## Status
 - Bootstrap staging module created so fixtures and validation can land before `core_scene` integration.
+- v0.6.5 raises the bounded imported STL proof ceiling to `3000000`
+  triangles so the private high-triangle sidecar lane can run the x3 Stanford
+  Dragon upper-range proof while repair, retopo, LOD/streaming, and host UX
+  stay out of scope.
+- v0.6.4 raises the bounded imported STL proof ceiling to `2000000`
+  triangles so private high-triangle sidecar generation can cover the current
+  generated `1.74M` raw-triangle stress candidate while repair, retopo,
+  LOD/streaming, and host UX stay out of scope.
+- v0.6.3 raises the bounded imported STL proof ceiling to `1000000`
+  triangles so private high-triangle sidecar generation can cover sub-million
+  scan fixtures while repair, retopo, LOD/streaming, and host UX stay out of
+  scope.
+- v0.6.2 adds an optional progress-callback compile entry point for imported
+  STL work so app hosts can surface long-running parse/weld/runtime-emission
+  state without owning compiler internals.
 - v0.6.1 hardens dirty STL import by skipping zero-area/degenerate ASCII and
   binary STL triangles before runtime mesh validation while continuing to reject
   files that contain no valid triangle payload.

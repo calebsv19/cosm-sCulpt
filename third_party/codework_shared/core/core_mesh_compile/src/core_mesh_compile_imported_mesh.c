@@ -7,9 +7,10 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#define CORE_MESH_COMPILE_IMPORTED_STL_MAX_TRIANGLES 250000u
+#define CORE_MESH_COMPILE_IMPORTED_STL_MAX_TRIANGLES 3000000u
 
 typedef struct CoreMeshCompileParsedTriangle {
     size_t a;
@@ -34,6 +35,21 @@ typedef struct CoreMeshCompileWeldIndex {
     size_t entry_capacity;
     CoreMeshCompileWeldEntry *entries;
 } CoreMeshCompileWeldIndex;
+
+static void imported_mesh_emit_progress(CoreMeshCompileProgressCallback callback,
+                                        void *user_data,
+                                        CoreMeshCompileProgressStage stage,
+                                        size_t current,
+                                        size_t total,
+                                        const char *message) {
+    CoreMeshCompileProgress progress;
+    if (!callback) return;
+    progress.stage = stage;
+    progress.current = current;
+    progress.total = total;
+    progress.message = message;
+    callback(&progress, user_data);
+}
 
 static CoreResult imported_mesh_invalid_arg(const char *message) {
     CoreResult r = { CORE_ERR_INVALID_ARG, message };
@@ -278,6 +294,33 @@ static CoreResult imported_mesh_validate_triangle_count(size_t triangle_count) {
     return core_result_ok();
 }
 
+static bool imported_mesh_parse_ascii_vertex_line(const char *line,
+                                                  double *out_x,
+                                                  double *out_y,
+                                                  double *out_z) {
+    char *end = NULL;
+    double x;
+    double y;
+    double z;
+    if (!line || !out_x || !out_y || !out_z) return false;
+    if (strncmp(line, "vertex", 6u) != 0 || !isspace((unsigned char)line[6])) {
+        return false;
+    }
+    line = imported_mesh_skip_space(line + 6u);
+    x = strtod(line, &end);
+    if (end == line) return false;
+    line = imported_mesh_skip_space(end);
+    y = strtod(line, &end);
+    if (end == line) return false;
+    line = imported_mesh_skip_space(end);
+    z = strtod(line, &end);
+    if (end == line) return false;
+    *out_x = x;
+    *out_y = y;
+    *out_z = z;
+    return true;
+}
+
 static double imported_mesh_triangle_points_area_sq(CoreObjectVec3 va,
                                                     CoreObjectVec3 vb,
                                                     CoreObjectVec3 vc) {
@@ -311,6 +354,8 @@ static bool imported_mesh_triangle_indices_are_degenerate(const CoreObjectVec3 *
 
 static CoreResult imported_mesh_parse_ascii_stl(const char *path,
                                                 const CoreMeshAssetImportedMeshSource *source,
+                                                CoreMeshCompileProgressCallback progress_callback,
+                                                void *progress_user_data,
                                                 CoreObjectVec3 **out_vertices,
                                                 size_t *out_vertex_count,
                                                 CoreMeshCompileParsedTriangle **out_triangles,
@@ -322,6 +367,8 @@ static CoreResult imported_mesh_parse_ascii_stl(const char *path,
     size_t parsed_vertex_in_triangle = 0u;
     size_t vertex_count = 0u;
     size_t triangle_count = 0u;
+    size_t last_scan_progress_offset = 0u;
+    size_t last_parse_progress_offset = 0u;
     size_t current_triangle_indices[3] = {0u, 0u, 0u};
     CoreObjectVec3 current_triangle_vertices[3];
     CoreObjectVec3 *vertices = NULL;
@@ -341,6 +388,12 @@ static CoreResult imported_mesh_parse_ascii_stl(const char *path,
     *out_triangles = NULL;
     *out_triangle_count = 0u;
 
+    imported_mesh_emit_progress(progress_callback,
+                                progress_user_data,
+                                CORE_MESH_COMPILE_PROGRESS_STAGE_READING_SOURCE,
+                                0u,
+                                0u,
+                                "Reading ASCII STL");
     r = core_io_read_all(path, &file_data);
     if (r.code != CORE_OK) {
         return r;
@@ -361,6 +414,15 @@ static CoreResult imported_mesh_parse_ascii_stl(const char *path,
         const char *line = imported_mesh_skip_space(cursor);
         if (strncmp(line, "vertex", 6u) == 0 && isspace((unsigned char)line[6])) {
             ++vertex_line_count;
+        }
+        if ((size_t)(cursor - text) >= last_scan_progress_offset + 262144u) {
+            last_scan_progress_offset = (size_t)(cursor - text);
+            imported_mesh_emit_progress(progress_callback,
+                                        progress_user_data,
+                                        CORE_MESH_COMPILE_PROGRESS_STAGE_SCANNING_STL,
+                                        last_scan_progress_offset,
+                                        file_data.size,
+                                        "Scanning ASCII STL");
         }
         cursor = strchr(cursor, '\n');
         if (!cursor) {
@@ -403,7 +465,7 @@ static CoreResult imported_mesh_parse_ascii_stl(const char *path,
         double y;
         double z;
         const char *line = imported_mesh_skip_space(cursor);
-        if (sscanf(line, "vertex %lf %lf %lf", &x, &y, &z) == 3) {
+        if (imported_mesh_parse_ascii_vertex_line(line, &x, &y, &z)) {
             CoreObjectVec3 vertex;
             vertex.x = x * source->source_to_asset_scale;
             vertex.y = y * source->source_to_asset_scale;
@@ -445,6 +507,15 @@ static CoreResult imported_mesh_parse_ascii_stl(const char *path,
                         triangles[triangle_count].c = current_triangle_indices[2];
                         triangle_count += 1u;
                     }
+                }
+                if ((size_t)(cursor - text) >= last_parse_progress_offset + 262144u) {
+                    last_parse_progress_offset = (size_t)(cursor - text);
+                    imported_mesh_emit_progress(progress_callback,
+                                                progress_user_data,
+                                                CORE_MESH_COMPILE_PROGRESS_STAGE_PARSING_STL,
+                                                last_parse_progress_offset,
+                                                file_data.size,
+                                                "Parsing ASCII STL");
                 }
                 parsed_vertex_in_triangle = 0u;
             }
@@ -488,6 +559,8 @@ static bool imported_mesh_binary_stl_layout_valid(const CoreBuffer *file_data,
 
 static CoreResult imported_mesh_parse_binary_stl(const char *path,
                                                  const CoreMeshAssetImportedMeshSource *source,
+                                                 CoreMeshCompileProgressCallback progress_callback,
+                                                 void *progress_user_data,
                                                  CoreObjectVec3 **out_vertices,
                                                  size_t *out_vertex_count,
                                                  CoreMeshCompileParsedTriangle **out_triangles,
@@ -516,6 +589,12 @@ static CoreResult imported_mesh_parse_binary_stl(const char *path,
     if (sizeof(float) != 4u) {
         return imported_mesh_invalid_arg("binary STL requires 32-bit float support");
     }
+    imported_mesh_emit_progress(progress_callback,
+                                progress_user_data,
+                                CORE_MESH_COMPILE_PROGRESS_STAGE_READING_SOURCE,
+                                0u,
+                                0u,
+                                "Reading binary STL");
     r = core_io_read_all(path, &file_data);
     if (r.code != CORE_OK) {
         return r;
@@ -604,6 +683,14 @@ static CoreResult imported_mesh_parse_binary_stl(const char *path,
             triangles[triangle_count].c = triangle_indices[2];
             triangle_count += 1u;
         }
+        if ((i % 1024u) == 0u || i + 1u == (size_t)binary_triangle_count) {
+            imported_mesh_emit_progress(progress_callback,
+                                        progress_user_data,
+                                        CORE_MESH_COMPILE_PROGRESS_STAGE_PARSING_STL,
+                                        i + 1u,
+                                        (size_t)binary_triangle_count,
+                                        "Parsing binary STL");
+        }
     }
     if (triangle_count == 0u || vertex_count == 0u) {
         imported_mesh_weld_index_free(&weld_index);
@@ -624,6 +711,8 @@ static CoreResult imported_mesh_parse_binary_stl(const char *path,
 
 static CoreResult imported_mesh_parse_stl(const char *path,
                                           const CoreMeshAssetImportedMeshSource *source,
+                                          CoreMeshCompileProgressCallback progress_callback,
+                                          void *progress_user_data,
                                           CoreObjectVec3 **out_vertices,
                                           size_t *out_vertex_count,
                                           CoreMeshCompileParsedTriangle **out_triangles,
@@ -643,6 +732,8 @@ static CoreResult imported_mesh_parse_stl(const char *path,
         core_io_buffer_free(&file_data);
         return imported_mesh_parse_binary_stl(path,
                                               source,
+                                              progress_callback,
+                                              progress_user_data,
                                               out_vertices,
                                               out_vertex_count,
                                               out_triangles,
@@ -651,6 +742,8 @@ static CoreResult imported_mesh_parse_stl(const char *path,
     core_io_buffer_free(&file_data);
     return imported_mesh_parse_ascii_stl(path,
                                          source,
+                                         progress_callback,
+                                         progress_user_data,
                                          out_vertices,
                                          out_vertex_count,
                                          out_triangles,
@@ -673,11 +766,13 @@ static void imported_mesh_compute_bounds(const CoreObjectVec3 *vertices,
     }
 }
 
-CoreResult core_mesh_compile_imported_mesh_to_runtime_document(
+CoreResult core_mesh_compile_imported_mesh_to_runtime_document_with_progress(
     const CoreMeshAssetAuthoringDocument *document,
     const char *source_root,
     const char *runtime_asset_id,
-    CoreMeshAssetRuntimeDocument *out_document) {
+    CoreMeshAssetRuntimeDocument *out_document,
+    CoreMeshCompileProgressCallback progress_callback,
+    void *progress_user_data) {
     CoreMeshCompileAuthoringContract compile_contract;
     char source_path[512];
     CoreObjectVec3 *parsed_vertices = NULL;
@@ -690,6 +785,12 @@ CoreResult core_mesh_compile_imported_mesh_to_runtime_document(
     if (!document || !runtime_asset_id || !out_document) {
         return imported_mesh_invalid_arg("invalid argument");
     }
+    imported_mesh_emit_progress(progress_callback,
+                                progress_user_data,
+                                CORE_MESH_COMPILE_PROGRESS_STAGE_PREPARING,
+                                0u,
+                                0u,
+                                "Preparing imported mesh");
     if (document->contract.source_mode != CORE_MESH_ASSET_SOURCE_MODE_IMPORTED_MESH) {
         return imported_mesh_invalid_arg("document source_mode must be imported_mesh");
     }
@@ -713,6 +814,8 @@ CoreResult core_mesh_compile_imported_mesh_to_runtime_document(
     }
     r = imported_mesh_parse_stl(source_path,
                                 &document->imported_mesh_source,
+                                progress_callback,
+                                progress_user_data,
                                 &parsed_vertices,
                                 &parsed_vertex_count,
                                 &parsed_triangles,
@@ -721,6 +824,12 @@ CoreResult core_mesh_compile_imported_mesh_to_runtime_document(
         return r;
     }
 
+    imported_mesh_emit_progress(progress_callback,
+                                progress_user_data,
+                                CORE_MESH_COMPILE_PROGRESS_STAGE_EMITTING_RUNTIME,
+                                0u,
+                                parsed_triangle_count,
+                                "Emitting runtime mesh");
     core_mesh_asset_runtime_document_init(out_document);
     r = core_mesh_asset_runtime_contract_set_asset_id(&out_document->contract, runtime_asset_id);
     if (r.code != CORE_OK) goto fail;
@@ -757,6 +866,14 @@ CoreResult core_mesh_compile_imported_mesh_to_runtime_document(
                                     sizeof(out_document->triangles[i].surface_group_id),
                                     document->imported_mesh_source.default_surface_group_id);
         if (r.code != CORE_OK) goto fail;
+        if ((i % 4096u) == 0u || i + 1u == parsed_triangle_count) {
+            imported_mesh_emit_progress(progress_callback,
+                                        progress_user_data,
+                                        CORE_MESH_COMPILE_PROGRESS_STAGE_EMITTING_RUNTIME,
+                                        i + 1u,
+                                        parsed_triangle_count,
+                                        "Emitting runtime mesh");
+        }
     }
     r = imported_mesh_copy_text(out_document->surface_groups[0].group_id,
                                 sizeof(out_document->surface_groups[0].group_id),
@@ -770,6 +887,12 @@ CoreResult core_mesh_compile_imported_mesh_to_runtime_document(
 
     core_free(parsed_vertices);
     core_free(parsed_triangles);
+    imported_mesh_emit_progress(progress_callback,
+                                progress_user_data,
+                                CORE_MESH_COMPILE_PROGRESS_STAGE_COMPLETE,
+                                1u,
+                                1u,
+                                "Runtime mesh compiled");
     return core_result_ok();
 
 fail:
@@ -777,6 +900,19 @@ fail:
     core_free(parsed_triangles);
     core_mesh_asset_runtime_document_free(out_document);
     return r;
+}
+
+CoreResult core_mesh_compile_imported_mesh_to_runtime_document(
+    const CoreMeshAssetAuthoringDocument *document,
+    const char *source_root,
+    const char *runtime_asset_id,
+    CoreMeshAssetRuntimeDocument *out_document) {
+    return core_mesh_compile_imported_mesh_to_runtime_document_with_progress(document,
+                                                                            source_root,
+                                                                            runtime_asset_id,
+                                                                            out_document,
+                                                                            NULL,
+                                                                            NULL);
 }
 
 CoreResult core_mesh_compile_imported_mesh_to_runtime_file(
