@@ -407,6 +407,12 @@ static bool test_canonical_scene_export_includes_scene3d_and_primitive_payloads(
     plane_params.width = 4.0f;
     plane_params.height = 2.0f;
     TEST_ASSERT(Layout_CreatePlanePrimitive(layout, &plane_params, &plane_id, NULL));
+    {
+        Object3D* plane_object = Layout_ObjectStore_Find(&layout->objectStore, plane_id);
+        TEST_ASSERT(plane_object != NULL);
+        TEST_ASSERT(core_object_promote_to_full_3d(&plane_object->coreMeta).code == CORE_OK);
+        TEST_ASSERT(plane_object->coreMeta.dimensional_mode == CORE_OBJECT_DIMENSIONAL_MODE_FULL_3D);
+    }
 
     Layout_RectPrismPrimitiveCreateParams_SetDefaults(&prism_params);
     prism_params.width = 3.0f;
@@ -433,6 +439,9 @@ static bool test_canonical_scene_export_includes_scene3d_and_primitive_payloads(
         cJSON* line_drawing_ext = cJSON_IsObject(extensions)
             ? cJSON_GetObjectItem(extensions, "line_drawing")
             : NULL;
+        cJSON* physics_sim_ext = cJSON_IsObject(extensions)
+            ? cJSON_GetObjectItem(extensions, "physics_sim")
+            : NULL;
         cJSON* scene3d = cJSON_IsObject(line_drawing_ext)
             ? cJSON_GetObjectItem(line_drawing_ext, "scene3d")
             : NULL;
@@ -444,6 +453,9 @@ static bool test_canonical_scene_export_includes_scene3d_and_primitive_payloads(
             : NULL;
         cJSON* construction_plane = cJSON_IsObject(scene3d)
             ? cJSON_GetObjectItem(scene3d, "construction_plane")
+            : NULL;
+        cJSON* scene_domain = cJSON_IsObject(physics_sim_ext)
+            ? cJSON_GetObjectItem(physics_sim_ext, "scene_domain")
             : NULL;
         cJSON* plane_obj = NULL;
         cJSON* prism_obj = NULL;
@@ -467,7 +479,15 @@ static bool test_canonical_scene_export_includes_scene3d_and_primitive_payloads(
         TEST_ASSERT(cJSON_IsTrue(cJSON_GetObjectItem(bounds, "clamp_on_edit")));
         TEST_ASSERT(cJSON_IsObject(cJSON_GetObjectItem(bounds, "min")));
         TEST_ASSERT(cJSON_IsObject(cJSON_GetObjectItem(bounds, "max")));
+        TEST_ASSERT(ld_test_json_bounds_matches(bounds, layout->scene3d.bounds));
         TEST_ASSERT(ld_test_json_bounds_matches(authoring_bounds, layout->scene3d.bounds));
+        TEST_ASSERT(cJSON_IsObject(scene_domain));
+        TEST_ASSERT(cJSON_IsTrue(cJSON_GetObjectItem(scene_domain, "active")));
+        TEST_ASSERT(cJSON_IsFalse(cJSON_GetObjectItem(scene_domain, "seeded_from_retained_bounds")));
+        TEST_ASSERT(ld_test_json_vec3_matches(cJSON_GetObjectItem(scene_domain, "min"),
+                                              layout->scene3d.bounds.min));
+        TEST_ASSERT(ld_test_json_vec3_matches(cJSON_GetObjectItem(scene_domain, "max"),
+                                              layout->scene3d.bounds.max));
 
         TEST_ASSERT(cJSON_IsObject(construction_plane));
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(construction_plane, "mode")->valuestring, "axis_aligned") == 0);

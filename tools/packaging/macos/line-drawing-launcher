@@ -11,7 +11,7 @@ ensure_symlink_lane() {
     src="$1"
     dst="$2"
     if [ -L "$dst" ] || [ ! -e "$dst" ]; then
-        ln -sfn "$src" "$dst"
+        ln -sfn "$src" "$dst" 2>/dev/null || true
     fi
 }
 
@@ -22,23 +22,32 @@ seed_runtime_config() {
     fi
 }
 
-if ! mkdir -p "$RUNTIME_DIR" 2>/dev/null; then
+prepare_runtime_lanes() {
+    mkdir -p "$RUNTIME_DIR/data/runtime" "$RUNTIME_DIR/data/snapshots" "$RUNTIME_DIR/export" "$RUNTIME_DIR/vk" "$RUNTIME_DIR/config/shared/shaders" 2>/dev/null || true
+    seed_runtime_config
+    if [ -d "$RES_DIR/export" ] && [ -z "$(find "$RUNTIME_DIR/export" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]; then
+        cp -R "$RES_DIR/export/." "$RUNTIME_DIR/export/" 2>/dev/null || true
+    fi
+    ensure_symlink_lane "$RES_DIR/include" "$RUNTIME_DIR/include"
+    ensure_symlink_lane "$RES_DIR/shared" "$RUNTIME_DIR/shared"
+    ensure_symlink_lane "$RES_DIR/shaders" "$RUNTIME_DIR/shaders"
+    ensure_symlink_lane "$RES_DIR/vk_renderer" "$RUNTIME_DIR/vk_renderer"
+    ensure_symlink_lane "$RES_DIR/vk_renderer" "$RUNTIME_DIR/config/shared/shaders/vk_renderer"
+}
+
+use_tmp_runtime_dir() {
     RUNTIME_DIR="${TMPDIR:-/tmp}/LineDrawing/runtime"
     mkdir -p "$RUNTIME_DIR" 2>/dev/null || true
+}
+
+if ! mkdir -p "$RUNTIME_DIR" 2>/dev/null; then
+    use_tmp_runtime_dir
 fi
-mkdir -p "$RUNTIME_DIR/data/runtime" "$RUNTIME_DIR/data/snapshots" "$RUNTIME_DIR/export" "$RUNTIME_DIR/vk" "$RUNTIME_DIR/config/shared/shaders" 2>/dev/null || true
-seed_runtime_config
-if [ -d "$RES_DIR/export" ] && [ -z "$(find "$RUNTIME_DIR/export" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]; then
-    cp -R "$RES_DIR/export/." "$RUNTIME_DIR/export/" 2>/dev/null || true
-fi
-ensure_symlink_lane "$RES_DIR/include" "$RUNTIME_DIR/include"
-ensure_symlink_lane "$RES_DIR/shared" "$RUNTIME_DIR/shared"
-ensure_symlink_lane "$RES_DIR/shaders" "$RUNTIME_DIR/shaders"
-ensure_symlink_lane "$RES_DIR/vk_renderer" "$RUNTIME_DIR/vk_renderer"
-ensure_symlink_lane "$RES_DIR/vk_renderer" "$RUNTIME_DIR/config/shared/shaders/vk_renderer"
+prepare_runtime_lanes
 MOLTENVK_DYLIB="$APP_CONTENTS_DIR/Frameworks/libMoltenVK.dylib"
-ICD_FILE="$RUNTIME_DIR/vk/MoltenVK_icd.json"
-cat >"$ICD_FILE" <<EOF
+
+write_icd_file() {
+    cat >"$ICD_FILE" <<EOF
 {
   "file_format_version": "1.0.0",
   "ICD": {
@@ -47,6 +56,15 @@ cat >"$ICD_FILE" <<EOF
   }
 }
 EOF
+}
+
+ICD_FILE="$RUNTIME_DIR/vk/MoltenVK_icd.json"
+if ! write_icd_file 2>/dev/null; then
+    use_tmp_runtime_dir
+    prepare_runtime_lanes
+    ICD_FILE="$RUNTIME_DIR/vk/MoltenVK_icd.json"
+    write_icd_file
+fi
 LOG_DIR="${HOME}/Library/Logs/LineDrawing"
 LOG_FILE="$LOG_DIR/launcher.log"
 
@@ -67,7 +85,7 @@ export LINE_DRAWING3D_USE_SHARED_THEME_FONT="${LINE_DRAWING3D_USE_SHARED_THEME_F
 export LINE_DRAWING3D_USE_SHARED_FONT="${LINE_DRAWING3D_USE_SHARED_FONT:-1}"
 export LINE_DRAWING3D_FONT_PRESET="${LINE_DRAWING3D_FONT_PRESET:-ide}"
 
-if [ "${1:-}" = "--print-config" ]; then
+print_launcher_config() {
     echo "APP_CONTENTS_DIR=$APP_CONTENTS_DIR"
     echo "RES_DIR=$RES_DIR"
     echo "LOG_FILE=$LOG_FILE"
@@ -81,22 +99,33 @@ if [ "${1:-}" = "--print-config" ]; then
     echo "LINE_DRAWING3D_USE_SHARED_THEME_FONT=$LINE_DRAWING3D_USE_SHARED_THEME_FONT"
     echo "LINE_DRAWING3D_USE_SHARED_FONT=$LINE_DRAWING3D_USE_SHARED_FONT"
     echo "LINE_DRAWING3D_FONT_PRESET=$LINE_DRAWING3D_FONT_PRESET"
+}
+
+self_test_fail() {
+    echo "self-test: failed: $1" >&2
+    echo "self-test: diagnostic config follows" >&2
+    print_launcher_config >&2
+    exit 1
+}
+
+if [ "${1:-}" = "--print-config" ]; then
+    print_launcher_config
     exit 0
 fi
 
 if [ "${1:-}" = "--self-test" ]; then
-    [ -x "$SCRIPT_DIR/line-drawing-bin" ] || { echo "missing: line-drawing-bin" >&2; exit 1; }
-    [ -f "$APP_CONTENTS_DIR/Info.plist" ] || { echo "missing: Info.plist" >&2; exit 1; }
-    [ -f "$RUNTIME_DIR/config/layout_config.json" ] || { echo "missing: runtime config/layout_config.json" >&2; exit 1; }
-    [ -f "$RUNTIME_DIR/include/fonts/Lato/Lato-Regular.ttf" ] || { echo "missing: runtime include/fonts/Lato/Lato-Regular.ttf" >&2; exit 1; }
-    [ -f "$RUNTIME_DIR/shared/assets/fonts/Montserrat-Regular.ttf" ] || { echo "missing: runtime shared/assets/fonts/Montserrat-Regular.ttf" >&2; exit 1; }
-    [ -d "$RUNTIME_DIR/data/runtime" ] || { echo "missing: runtime data/runtime" >&2; exit 1; }
-    [ -d "$RUNTIME_DIR/data/snapshots" ] || { echo "missing: runtime data/snapshots" >&2; exit 1; }
-    [ -d "$RUNTIME_DIR/export" ] || { echo "missing: runtime export" >&2; exit 1; }
-    [ -f "$MOLTENVK_DYLIB" ] || { echo "missing: bundled MoltenVK dylib" >&2; exit 1; }
-    [ -f "$ICD_FILE" ] || { echo "missing: runtime MoltenVK ICD file" >&2; exit 1; }
-    [ -f "$RUNTIME_DIR/vk_renderer/shaders/textured.vert.spv" ] || { echo "missing: runtime vk shader" >&2; exit 1; }
-    [ -f "$RUNTIME_DIR/shaders/textured.vert.spv" ] || { echo "missing: runtime shader" >&2; exit 1; }
+    [ -x "$SCRIPT_DIR/line-drawing-bin" ] || self_test_fail "missing: line-drawing-bin"
+    [ -f "$APP_CONTENTS_DIR/Info.plist" ] || self_test_fail "missing: Info.plist"
+    [ -f "$RUNTIME_DIR/config/layout_config.json" ] || self_test_fail "missing: runtime config/layout_config.json"
+    [ -f "$RUNTIME_DIR/include/fonts/Lato/Lato-Regular.ttf" ] || self_test_fail "missing: runtime include/fonts/Lato/Lato-Regular.ttf"
+    [ -f "$RUNTIME_DIR/shared/assets/fonts/Montserrat-Regular.ttf" ] || self_test_fail "missing: runtime shared/assets/fonts/Montserrat-Regular.ttf"
+    [ -d "$RUNTIME_DIR/data/runtime" ] || self_test_fail "missing: runtime data/runtime"
+    [ -d "$RUNTIME_DIR/data/snapshots" ] || self_test_fail "missing: runtime data/snapshots"
+    [ -d "$RUNTIME_DIR/export" ] || self_test_fail "missing: runtime export"
+    [ -f "$MOLTENVK_DYLIB" ] || self_test_fail "missing: bundled MoltenVK dylib"
+    [ -f "$ICD_FILE" ] || self_test_fail "missing: runtime MoltenVK ICD file"
+    [ -f "$RUNTIME_DIR/vk_renderer/shaders/textured.vert.spv" ] || self_test_fail "missing: runtime vk shader"
+    [ -f "$RUNTIME_DIR/shaders/textured.vert.spv" ] || self_test_fail "missing: runtime shader"
     echo "self-test: ok"
     echo "LOG_FILE=$LOG_FILE"
     echo "LINE_DRAWING_RUNTIME_DIR=$LINE_DRAWING_RUNTIME_DIR"

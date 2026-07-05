@@ -1,7 +1,6 @@
 #include "Layout/scene/layout_mesh_runtime_preview.h"
 
 #include "Layout/scene/layout_mesh_preview_sidecar.h"
-#include "Math/math_util.h"
 #include "core_io.h"
 
 #include "cjson/cJSON.h"
@@ -33,6 +32,39 @@ static void MeshPreview_SetDiagnostics(char* diagnostics,
     snprintf(diagnostics, diagnosticsSize, "%s", message ? message : "");
 }
 
+static void MeshPreview_CopyMetadataToStats(const LayoutMeshPreviewSidecarMetadata* metadata,
+                                            LayoutMeshRuntimePreviewStats* stats,
+                                            bool metadataOnly) {
+    if (!metadata || !stats) return;
+    snprintf(stats->previewMode,
+             sizeof(stats->previewMode),
+             "%s",
+             metadata->previewMode[0] ? metadata->previewMode : "unknown");
+    snprintf(stats->sampleStrategy,
+             sizeof(stats->sampleStrategy),
+             "%s",
+             metadata->sampleStrategy[0] ? metadata->sampleStrategy : "unknown");
+    stats->sourceVertexCount = metadata->sourceVertexCount;
+    stats->sourceTriangleCount = metadata->sourceTriangleCount;
+    stats->previewVertexCount = metadata->previewVertexCount;
+    stats->previewEdgeCount = metadata->previewEdgeCount;
+    stats->previewTriangleCount = metadata->previewTriangleCount;
+    stats->maxBudget = metadata->maxBudget;
+    stats->edgeCount = metadata->edgeCount;
+    stats->coverageRatio = metadata->coverageRatio;
+    stats->maxSpan = metadata->maxSpan;
+    stats->boundingSphereRadius = metadata->boundingSphereRadius;
+    stats->localBoundsMin = metadata->localBoundsMin;
+    stats->localBoundsMax = metadata->localBoundsMax;
+    stats->boundsCenter = metadata->boundsCenter;
+    stats->boundsExtent = metadata->boundsExtent;
+    stats->hasDrawablePayload = metadata->hasDrawablePayload;
+    stats->metadataOnly = metadataOnly;
+    stats->loadedVertexCount = metadata->sourceVertexCount;
+    stats->vertexTruncated = metadata->sourceVertexCount > LD_MESH_PREVIEW_MAX_VERTICES;
+    stats->triangleSampled = metadata->previewTriangleCount < metadata->sourceTriangleCount;
+}
+
 static bool MeshPreview_Vec3FromJson(const cJSON* node, Vec3* out) {
     const cJSON* x = NULL;
     const cJSON* y = NULL;
@@ -60,12 +92,7 @@ static bool MeshPreview_TriangleIndexFromJson(const cJSON* node,
 }
 
 static Vec3 MeshPreview_TransformPoint(const Object3D* object, Vec3 local) {
-    const Transform3D* transform = &object->transform;
-    return (Vec3){
-        transform->position.x + (local.x * transform->scale.x),
-        transform->position.y + (local.y * transform->scale.y),
-        transform->position.z + (local.z * transform->scale.z)
-    };
+    return Layout_Transform3D_ApplyLocalPoint(object->transform, local);
 }
 
 static bool MeshPreview_LoadRuntimePath(const char* runtimePath,
@@ -100,16 +127,48 @@ static bool MeshPreview_LoadRuntimePath(const char* runtimePath,
                                            &cache->stats.edgeCount,
                                            &cache->stats.sourceVertexCount,
                                            &cache->stats.sourceTriangleCount,
-                                           &cache->stats.sampledTriangleCount,
+                                           &cache->stats.previewVertexCount,
+                                           &cache->stats.previewEdgeCount,
+                                           &cache->stats.previewTriangleCount,
+                                           &cache->stats.maxBudget,
+                                           &cache->stats.coverageRatio,
+                                           &cache->stats.maxSpan,
+                                           &cache->stats.boundingSphereRadius,
                                            diagnostics,
                                            diagnosticsSize)) {
+        LayoutMeshPreviewSidecarMetadata metadata = {0};
+        if (Layout_MeshPreviewSidecarReadMetadata(runtimePath, &metadata, NULL, 0u)) {
+            const size_t copiedEdgeCount = cache->stats.edgeCount;
+            MeshPreview_CopyMetadataToStats(&metadata, &cache->stats, false);
+            cache->stats.edgeCount = copiedEdgeCount;
+        } else {
+            snprintf(cache->stats.previewMode,
+                     sizeof(cache->stats.previewMode),
+                     "feature_edges_v1");
+            snprintf(cache->stats.sampleStrategy,
+                     sizeof(cache->stats.sampleStrategy),
+                     "feature_edge_stride_v1");
+            cache->stats.hasDrawablePayload = true;
+        }
         cache->stats.loadedVertexCount = cache->stats.sourceVertexCount;
         cache->stats.vertexTruncated =
             cache->stats.sourceVertexCount > LD_MESH_PREVIEW_MAX_VERTICES;
         cache->stats.triangleSampled =
-            cache->stats.sampledTriangleCount < cache->stats.sourceTriangleCount;
+            cache->stats.previewTriangleCount < cache->stats.sourceTriangleCount;
         cache->valid = true;
         return true;
+    }
+
+    {
+        LayoutMeshPreviewSidecarMetadata metadata = {0};
+        if (Layout_MeshPreviewSidecarReadMetadata(runtimePath,
+                                                  &metadata,
+                                                  diagnostics,
+                                                  diagnosticsSize)) {
+            MeshPreview_CopyMetadataToStats(&metadata, &cache->stats, true);
+            cache->valid = true;
+            return true;
+        }
     }
 
     {
@@ -170,6 +229,13 @@ static bool MeshPreview_LoadRuntimePath(const char* runtimePath,
     cache->stats.sourceTriangleCount = (size_t)triangleCount;
     cache->stats.vertexTruncated = (size_t)vertexCount > LD_MESH_PREVIEW_MAX_VERTICES;
     cache->stats.triangleSampled = (size_t)triangleCount > LD_MESH_PREVIEW_MAX_TRIANGLES;
+    cache->stats.maxBudget = LD_MESH_PREVIEW_MAX_EDGES;
+    snprintf(cache->stats.previewMode, sizeof(cache->stats.previewMode), "runtime_triangle_stride_v1");
+    snprintf(cache->stats.sampleStrategy,
+             sizeof(cache->stats.sampleStrategy),
+             "legacy_runtime_triangle_stride_v1");
+    cache->stats.localBoundsMin = (Vec3){0.0f, 0.0f, 0.0f};
+    cache->stats.localBoundsMax = (Vec3){0.0f, 0.0f, 0.0f};
 
     for (int i = 0; i < vertexCount && cache->stats.loadedVertexCount < LD_MESH_PREVIEW_MAX_VERTICES; ++i) {
         Vec3 vertex = {0};
@@ -204,7 +270,7 @@ static bool MeshPreview_LoadRuntimePath(const char* runtimePath,
         cache->edges[cache->stats.edgeCount++] = (LayoutMeshPreviewSidecarEdge){ cache->vertices[a], cache->vertices[b] };
         cache->edges[cache->stats.edgeCount++] = (LayoutMeshPreviewSidecarEdge){ cache->vertices[b], cache->vertices[c] };
         cache->edges[cache->stats.edgeCount++] = (LayoutMeshPreviewSidecarEdge){ cache->vertices[c], cache->vertices[a] };
-        cache->stats.sampledTriangleCount++;
+        cache->stats.previewTriangleCount++;
     }
 
     if (cache->stats.edgeCount == 0u) {
@@ -213,6 +279,16 @@ static bool MeshPreview_LoadRuntimePath(const char* runtimePath,
     }
 
     cache->valid = true;
+    cache->stats.previewEdgeCount = cache->stats.edgeCount;
+    cache->stats.previewVertexCount = cache->stats.edgeCount * 2u;
+    cache->stats.hasDrawablePayload = true;
+    cache->stats.metadataOnly = false;
+    if (cache->stats.sourceTriangleCount > 0u) {
+        cache->stats.coverageRatio =
+            (double)cache->stats.previewTriangleCount /
+            (double)cache->stats.sourceTriangleCount;
+        if (cache->stats.coverageRatio > 1.0) cache->stats.coverageRatio = 1.0;
+    }
     ok = true;
     MeshPreview_SetDiagnostics(diagnostics, diagnosticsSize, NULL);
 

@@ -2,19 +2,48 @@
 #include "UI/ui_panel_file_layout.h"
 
 #include <math.h>
+#include <string.h>
 
 enum {
     UI_LOAD_MENU_PADDING_PX = 8,
     UI_LOAD_MENU_HEADER_H = 28,
     UI_LOAD_MENU_FOOTER_H = 20,
     UI_LOAD_MENU_ROW_H = 24,
+    UI_LOAD_MENU_PROGRESS_EXTRA_H = 42,
     UI_LOAD_MENU_SCROLLBAR_W = 10,
     UI_LOAD_MENU_GUTTER_PX = 8
 };
 
+int UIPanel_FindLoadProgressIndex(const UIPanelState* ui) {
+    if (!ui ||
+        ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_NONE ||
+        ui->loadMenu.loadProgressPath[0] == '\0' ||
+        ui->loadMenu.loadProgressMode != ui->loadMenu.mode) {
+        return -1;
+    }
+    for (int i = 0; i < ui->loadMenu.count; ++i) {
+        if (strcmp(ui->loadMenu.entryPaths[i], ui->loadMenu.loadProgressPath) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int UIPanel_LoadMenuRowHeight(const UIPanelState* ui, int index) {
+    if (!ui || index < 0 || index >= ui->loadMenu.count) return UI_LOAD_MENU_ROW_H;
+    if (index == UIPanel_FindLoadProgressIndex(ui)) {
+        return UI_LOAD_MENU_ROW_H + UI_LOAD_MENU_PROGRESS_EXTRA_H;
+    }
+    return UI_LOAD_MENU_ROW_H;
+}
+
 float UIPanel_LoadMenuContentHeight(const UIPanelState* ui) {
+    float height = 0.0f;
     if (!ui) return 0.0f;
-    return (float)ui->loadMenu.count * (float)UI_LOAD_MENU_ROW_H;
+    for (int i = 0; i < ui->loadMenu.count; ++i) {
+        height += (float)UIPanel_LoadMenuRowHeight(ui, i);
+    }
+    return height;
 }
 
 SDL_Rect UIPanel_GetLoadMenuListClipRect(const UIPanelState* ui) {
@@ -67,8 +96,10 @@ void UIPanel_LoadMenuScrollIndexIntoView(UIPanelState* ui, int index) {
     if (!ui || index < 0 || index >= ui->loadMenu.count) return;
     clip = UIPanel_GetLoadMenuListClipRect(ui);
     if (clip.h <= 0) return;
-    row_top = (float)index * (float)UI_LOAD_MENU_ROW_H;
-    row_bottom = row_top + (float)UI_LOAD_MENU_ROW_H;
+    for (int i = 0; i < index; ++i) {
+        row_top += (float)UIPanel_LoadMenuRowHeight(ui, i);
+    }
+    row_bottom = row_top + (float)UIPanel_LoadMenuRowHeight(ui, index);
     if (row_top < ui->loadMenu.scrollOffsetPx) {
         ui->loadMenu.scrollOffsetPx = row_top;
     } else if (row_bottom > ui->loadMenu.scrollOffsetPx + (float)clip.h) {
@@ -139,9 +170,15 @@ int UIPanel_LoadMenuIndexAtPoint(const UIPanelState* ui, int mouseX, int mouseY)
     content_y = (mouseY - clip.y) + (int)floorf(ui->loadMenu.scrollOffsetPx);
     if (content_y < 0) return -1;
     {
-        const int index = content_y / UI_LOAD_MENU_ROW_H;
-        if (index < 0 || index >= ui->loadMenu.count) return -1;
-        return index;
+        int row_y = 0;
+        for (int index = 0; index < ui->loadMenu.count; ++index) {
+            const int row_h = UIPanel_LoadMenuRowHeight(ui, index);
+            if (content_y >= row_y && content_y < row_y + row_h) {
+                return index;
+            }
+            row_y += row_h;
+        }
+        return -1;
     }
 }
 

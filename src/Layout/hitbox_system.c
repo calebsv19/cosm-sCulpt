@@ -2,6 +2,7 @@
 #include "Editor/editor.h"
 #include "Editor/object_handle_gizmo.h"
 #include "Editor/space_gizmo_drag.h"
+#include "Layout/scene/layout_mesh_runtime_preview.h"
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <math.h>
@@ -144,6 +145,43 @@ static float Object3D_CenterGizmoAxisWorldLen(const Object3D* object, float grid
         if (radius > maxRadius) maxRadius = radius;
     }
     return fmaxf(axisWorldLen, maxRadius * 0.35f);
+}
+
+static bool Hitbox_MeshPreviewBoundsCorners(const Object3D* object, Vec3 outCorners[8]) {
+    LayoutMeshRuntimePreviewStats stats = {0};
+    const Vec3* min = NULL;
+    const Vec3* max = NULL;
+    Vec3 local[8];
+    if (!object || !outCorners || object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        return false;
+    }
+    if (Layout_MeshRuntimePreview_LoadStats(object->meshInstance.runtimePath, &stats, NULL, 0u) &&
+        stats.maxSpan > 0.0 &&
+        stats.localBoundsMin.x <= stats.localBoundsMax.x &&
+        stats.localBoundsMin.y <= stats.localBoundsMax.y &&
+        stats.localBoundsMin.z <= stats.localBoundsMax.z) {
+        min = &stats.localBoundsMin;
+        max = &stats.localBoundsMax;
+    } else {
+        min = &object->meshInstance.localBoundsMin;
+        max = &object->meshInstance.localBoundsMax;
+    }
+    local[0] = (Vec3){ min->x, min->y, min->z };
+    local[1] = (Vec3){ max->x, min->y, min->z };
+    local[2] = (Vec3){ max->x, max->y, min->z };
+    local[3] = (Vec3){ min->x, max->y, min->z };
+    local[4] = (Vec3){ min->x, min->y, max->z };
+    local[5] = (Vec3){ max->x, min->y, max->z };
+    local[6] = (Vec3){ max->x, max->y, max->z };
+    local[7] = (Vec3){ min->x, max->y, max->z };
+    for (size_t i = 0u; i < 8u; ++i) {
+        outCorners[i] = (Vec3){
+            object->transform.position.x + (local[i].x * object->transform.scale.x),
+            object->transform.position.y + (local[i].y * object->transform.scale.y),
+            object->transform.position.z + (local[i].z * object->transform.scale.z)
+        };
+    }
+    return true;
 }
 
 static void Hitbox_AddObject3DCenterGizmoAxes(const Object3D* object,
@@ -658,7 +696,7 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
             }
         } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
             Vec3 corners[8];
-            if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) continue;
+            if (!Hitbox_MeshPreviewBoundsCorners(object, corners)) continue;
 
             float minX = 0.0f, minY = 0.0f, maxX = 0.0f, maxY = 0.0f;
             for (int c = 0; c < 8; ++c) {

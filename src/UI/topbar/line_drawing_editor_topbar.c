@@ -1,9 +1,11 @@
 #include "UI/topbar/line_drawing_editor_topbar.h"
 
-#include "Core/space_mode_adapter.h"
 #include "Core/global_state.h"
+#include "Core/line_drawing_file_catalog.h"
+#include "Core/space_mode_adapter.h"
 #include "Editor/editor.h"
 #include "Input/input_editor_actions.h"
+#include "Input/input_mouse_drag.h"
 #include "Layout/layout.h"
 #include "Layout/scene/layout_object_faces.h"
 #include "UI/font_manager.h"
@@ -19,9 +21,12 @@ typedef struct {
     SDL_Rect pane_rect;
     SDL_Rect scene_button;
     SDL_Rect object_button;
+    SDL_Rect selection_chip;
     SDL_Rect primary_rect;
     SDL_Rect file_rect;
     SDL_Rect status_rect;
+    SDL_Rect undo_chip;
+    SDL_Rect redo_chip;
     SDL_Rect chips_row_rect;
     SDL_Rect mode_chip;
     SDL_Rect view_chip;
@@ -29,6 +34,7 @@ typedef struct {
     SDL_Rect cp_chip;
     SDL_Rect bounds_chip;
     SDL_Rect gizmo_chip;
+    SDL_Rect operation_chip;
     bool valid;
 } LineDrawingEditorTopbarLayout;
 
@@ -50,7 +56,12 @@ enum {
     TOPBAR_PLANE_CHIP_W = 118,
     TOPBAR_CP_CHIP_W = 150,
     TOPBAR_BOUNDS_CHIP_W = 142,
-    TOPBAR_GIZMO_CHIP_W = 96
+    TOPBAR_GIZMO_CHIP_W = 104,
+    TOPBAR_OPERATION_CHIP_W = 168,
+    TOPBAR_SELECTION_CHIP_W = 156,
+    TOPBAR_STATUS_CHIP_W = 78,
+    TOPBAR_UNDO_CHIP_W = 62,
+    TOPBAR_REDO_CHIP_W = 62
 };
 
 static bool Topbar_PointInRect(int x, int y, SDL_Rect rect) {
@@ -87,7 +98,10 @@ static LineDrawingEditorTopbarLayout Topbar_ResolveLayout(void) {
     const int pad = 10;
     const int gap = 6;
     const int button_w = 76;
-    const int status_w = 172;
+    const int status_w = TOPBAR_STATUS_CHIP_W +
+                         TOPBAR_UNDO_CHIP_W +
+                         TOPBAR_REDO_CHIP_W +
+                         (TOPBAR_CHIP_GAP * 2);
     int row_h = 24;
     int row1_y = 0;
     int row2_y = 0;
@@ -113,15 +127,43 @@ static LineDrawingEditorTopbarLayout Topbar_ResolveLayout(void) {
     layout.pane_rect = pane_rect;
     layout.scene_button = (SDL_Rect){left, row1_y, button_w, row_h};
     layout.object_button = (SDL_Rect){left + button_w - 1, row1_y, button_w, row_h};
-    layout.status_rect = (SDL_Rect){right - status_w, row1_y, status_w, row_h};
+    layout.status_rect = (SDL_Rect){right - status_w, row1_y, TOPBAR_STATUS_CHIP_W, row_h};
+    layout.undo_chip = (SDL_Rect){
+        layout.status_rect.x + layout.status_rect.w + TOPBAR_CHIP_GAP,
+        row1_y,
+        TOPBAR_UNDO_CHIP_W,
+        row_h
+    };
+    layout.redo_chip = (SDL_Rect){
+        layout.undo_chip.x + layout.undo_chip.w + TOPBAR_CHIP_GAP,
+        row1_y,
+        TOPBAR_REDO_CHIP_W,
+        row_h
+    };
     if (layout.status_rect.x < layout.object_button.x + layout.object_button.w + gap) {
         layout.status_rect.x = right;
         layout.status_rect.w = 0;
+        layout.undo_chip = (SDL_Rect){0, 0, 0, 0};
+        layout.redo_chip = (SDL_Rect){0, 0, 0, 0};
     }
-    layout.primary_rect = (SDL_Rect){
+    layout.selection_chip = (SDL_Rect){
         layout.object_button.x + layout.object_button.w + gap,
         row1_y,
-        layout.status_rect.x - (layout.object_button.x + layout.object_button.w + (gap * 2)),
+        TOPBAR_SELECTION_CHIP_W,
+        row_h
+    };
+    if (layout.selection_chip.x + layout.selection_chip.w + gap > layout.status_rect.x) {
+        layout.selection_chip = (SDL_Rect){0, 0, 0, 0};
+    }
+    layout.primary_rect = (SDL_Rect){
+        layout.selection_chip.w > 0
+            ? layout.selection_chip.x + layout.selection_chip.w + gap
+            : layout.object_button.x + layout.object_button.w + gap,
+        row1_y,
+        layout.status_rect.x -
+            ((layout.selection_chip.w > 0
+                  ? layout.selection_chip.x + layout.selection_chip.w + gap
+                  : layout.object_button.x + layout.object_button.w + gap) + gap),
         row_h
     };
     if (layout.primary_rect.w < 0) layout.primary_rect.w = 0;
@@ -166,6 +208,11 @@ static LineDrawingEditorTopbarLayout Topbar_ResolveLayout(void) {
         layout.gizmo_chip = (SDL_Rect){chip_x, row2_y, TOPBAR_GIZMO_CHIP_W, row_h};
         if (layout.gizmo_chip.x + layout.gizmo_chip.w > chip_right) {
             layout.gizmo_chip = (SDL_Rect){0, 0, 0, 0};
+        }
+        chip_x += TOPBAR_GIZMO_CHIP_W + TOPBAR_CHIP_GAP;
+        layout.operation_chip = (SDL_Rect){chip_x, row2_y, TOPBAR_OPERATION_CHIP_W, row_h};
+        if (layout.operation_chip.x + layout.operation_chip.w > chip_right) {
+            layout.operation_chip = (SDL_Rect){0, 0, 0, 0};
         }
     }
     layout.valid = true;
@@ -333,9 +380,7 @@ static const char* Topbar_ObjectKindLabel(Object3DKind kind) {
 }
 
 static const char* Topbar_BaseName(const char* path) {
-    const char* base = path ? strrchr(path, '/') : NULL;
-    if (base && base[1]) return base + 1;
-    if (path && path[0]) return path;
+    if (path && path[0]) return LineDrawingFileCatalog_PathBasename(path);
     return "(unsaved)";
 }
 
@@ -351,6 +396,10 @@ static void Topbar_FormatPrimary(GlobalState* state, char* out, size_t out_size)
         (void)snprintf(out, out_size, "Sculpts");
         return;
     }
+
+    char operation_report[64] = {0};
+    const bool has_operation_report =
+        ObjectCenterGizmoDrag_FormatLiveOperationReport(operation_report, sizeof(operation_report));
 
     editor = &state->editor;
     layout = &state->layout;
@@ -372,16 +421,27 @@ static void Topbar_FormatPrimary(GlobalState* state, char* out, size_t out_size)
             ? state->objectAuthoring.document.operationCount
             : 0u;
         if (selected_object) {
-            (void)snprintf(out,
-                           out_size,
-                           "Object Asset  Body #%u  %s  Face %s  Sketches %zu  Ops %zu",
-                           editor->selectedObjectAssetBodyId != 0u
-                               ? editor->selectedObjectAssetBodyId
-                               : selected_object->objectId,
-                           Topbar_ObjectKindLabel(selected_object->kind),
-                           Layout_Object3DFaceKind_Label(editor->selectedObjectAssetFace),
-                           sketch_count,
-                           op_count);
+            if (has_operation_report) {
+                (void)snprintf(out,
+                               out_size,
+                               "Object Asset  Body #%u  %s  %s",
+                               editor->selectedObjectAssetBodyId != 0u
+                                   ? editor->selectedObjectAssetBodyId
+                                   : selected_object->objectId,
+                               Topbar_ObjectKindLabel(selected_object->kind),
+                               operation_report);
+            } else {
+                (void)snprintf(out,
+                               out_size,
+                               "Object Asset  Body #%u  %s  Face %s  Sketches %zu  Ops %zu",
+                               editor->selectedObjectAssetBodyId != 0u
+                                   ? editor->selectedObjectAssetBodyId
+                                   : selected_object->objectId,
+                               Topbar_ObjectKindLabel(selected_object->kind),
+                               Layout_Object3DFaceKind_Label(editor->selectedObjectAssetFace),
+                               sketch_count,
+                               op_count);
+            }
         } else {
             (void)snprintf(out,
                            out_size,
@@ -394,14 +454,23 @@ static void Topbar_FormatPrimary(GlobalState* state, char* out, size_t out_size)
     }
 
     if (selected_object) {
-        (void)snprintf(out,
-                       out_size,
-                       "Selected  Object #%u  %s  Pos %.2f, %.2f, %.2f",
-                       selected_object->objectId,
-                       Topbar_ObjectKindLabel(selected_object->kind),
-                       selected_object->transform.position.x,
-                       selected_object->transform.position.y,
-                       selected_object->transform.position.z);
+        if (has_operation_report) {
+            (void)snprintf(out,
+                           out_size,
+                           "Selected  Object #%u  %s  %s",
+                           selected_object->objectId,
+                           Topbar_ObjectKindLabel(selected_object->kind),
+                           operation_report);
+        } else {
+            (void)snprintf(out,
+                           out_size,
+                           "Selected  Object #%u  %s  Pos %.2f, %.2f, %.2f",
+                           selected_object->objectId,
+                           Topbar_ObjectKindLabel(selected_object->kind),
+                           selected_object->transform.position.x,
+                           selected_object->transform.position.y,
+                           selected_object->transform.position.z);
+        }
     } else if (hovered_object) {
         (void)snprintf(out,
                        out_size,
@@ -498,6 +567,24 @@ static void Topbar_FormatBounds(GlobalState* state, char* out, size_t out_size) 
                    bounds->clampOnEdit ? "On" : "Off");
 }
 
+static bool Topbar_FormatSelectedObject(GlobalState* state, char* out, size_t out_size) {
+    const Object3D* selected_object = NULL;
+    uint32_t selected_id = 0u;
+    if (!out || out_size == 0u) return false;
+    out[0] = '\0';
+    if (!state) return false;
+    selected_id = state->editor.selectedObject3DId;
+    if (selected_id == 0u) return false;
+    selected_object = Layout_ObjectStore_FindConst(&state->layout.objectStore, selected_id);
+    if (!selected_object) return false;
+    (void)snprintf(out,
+                   out_size,
+                   "#%u %s",
+                   selected_object->objectId,
+                   Topbar_ObjectKindLabel(selected_object->kind));
+    return out[0] != '\0';
+}
+
 static void Topbar_DrawStatusChips(SDL_Renderer* renderer,
                                    TTF_Font* font,
                                    LineDrawingEditorTopbarLayout layout,
@@ -506,12 +593,16 @@ static void Topbar_DrawStatusChips(SDL_Renderer* renderer,
     char file_value[128] = {0};
     char primary_value[256] = {0};
     char status_value[128] = {0};
+    char undo_value[32] = {0};
+    char redo_value[32] = {0};
     char plane_value[64] = {0};
     char cp_value[80] = {0};
     char bounds_value[80] = {0};
     char mode_value[48] = {0};
     char view_value[48] = {0};
     char gizmo_value[48] = {0};
+    char operation_value[64] = {0};
+    char selection_value[64] = {0};
     SDL_Rect chip = layout.chips_row_rect;
     int x = layout.chips_row_rect.x;
     const int gap = 6;
@@ -540,15 +631,22 @@ static void Topbar_DrawStatusChips(SDL_Renderer* renderer,
                    sizeof(gizmo_value),
                    "%s",
                    state ? UIPanel_ObjectGizmoModeLabel() : "Move");
+    (void)ObjectCenterGizmoDrag_FormatLiveOperationReport(operation_value, sizeof(operation_value));
+    (void)Topbar_FormatSelectedObject(state, selection_value, sizeof(selection_value));
     (void)snprintf(status_value,
                    sizeof(status_value),
-                   "%s  Undo %zu  Redo %zu",
-                   dirty ? "Dirty" : "Saved",
-                   undo_count,
-                   redo_count);
+                   "%s",
+                   dirty ? "Dirty" : "Saved");
+    (void)snprintf(undo_value, sizeof(undo_value), "%zu", undo_count);
+    (void)snprintf(redo_value, sizeof(redo_value), "%zu", redo_count);
 
+    if (selection_value[0]) {
+        Topbar_DrawChip(renderer, font, layout.selection_chip, "Selected", selection_value, true, colors);
+    }
     Topbar_DrawChip(renderer, font, layout.primary_rect, NULL, primary_value, false, colors);
     Topbar_DrawChip(renderer, font, layout.status_rect, NULL, status_value, dirty, colors);
+    Topbar_DrawChip(renderer, font, layout.undo_chip, "Undo", undo_value, undo_count > 0u, colors);
+    Topbar_DrawChip(renderer, font, layout.redo_chip, "Redo", redo_value, redo_count > 0u, colors);
     Topbar_DrawChip(renderer, font, layout.file_rect, "File", file_value, dirty, colors);
 
 #define DRAW_NEXT_CHIP(width, label, value, active) \
@@ -579,6 +677,9 @@ static void Topbar_DrawStatusChips(SDL_Renderer* renderer,
                    "Gizmo",
                    gizmo_value,
                    state && (state->editor.object3DRotateMode || state->editor.object3DSizeMode));
+    if (operation_value[0]) {
+        DRAW_NEXT_CHIP(TOPBAR_OPERATION_CHIP_W, "Op", operation_value, true);
+    }
 
 #undef DRAW_NEXT_CHIP
 }
@@ -609,6 +710,11 @@ bool LineDrawingEditorTopbar_HandleClick(int mouse_x, int mouse_y) {
         (void)InputEditorAction_ToggleFreeView();
         return true;
     }
+    if (Topbar_PointInRect(mouse_x, mouse_y, layout.plane_chip)) {
+        UIPanel_ResetTransientUiState();
+        (void)InputEditorAction_CycleActivePlane();
+        return true;
+    }
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.bounds_chip)) {
         UIPanel_ResetTransientUiState();
         (void)UIPanel_ToggleSceneBoundsEnabled();
@@ -617,6 +723,16 @@ bool LineDrawingEditorTopbar_HandleClick(int mouse_x, int mouse_y) {
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.gizmo_chip)) {
         UIPanel_ResetTransientUiState();
         (void)InputEditorAction_ToggleObjectGizmoMode();
+        return true;
+    }
+    if (Topbar_PointInRect(mouse_x, mouse_y, layout.undo_chip)) {
+        UIPanel_ResetTransientUiState();
+        (void)InputEditorAction_Undo();
+        return true;
+    }
+    if (Topbar_PointInRect(mouse_x, mouse_y, layout.redo_chip)) {
+        UIPanel_ResetTransientUiState();
+        (void)InputEditorAction_Redo();
         return true;
     }
     return false;

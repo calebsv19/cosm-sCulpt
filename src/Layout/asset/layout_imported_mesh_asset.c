@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/stat.h>
 
 #ifndef PATH_MAX
 #define PATH_MAX 1024
@@ -119,6 +120,128 @@ static bool LayoutImportedMesh_BuildOutputPaths(const char* asset_root,
                                           filename);
 }
 
+bool LayoutImportedMeshAsset_ResolveStlOutputPaths(const char* stl_path,
+                                                   const char* asset_root,
+                                                   char* out_authoring_path,
+                                                   size_t out_authoring_path_size,
+                                                   char* out_runtime_path,
+                                                   size_t out_runtime_path_size,
+                                                   char* out_preview_path,
+                                                   size_t out_preview_path_size,
+                                                   char* diagnostics,
+                                                   size_t diagnostics_size) {
+    char asset_id[64];
+    char authoring_path[LINE_DRAWING_PATH_CAP];
+    char runtime_path[LINE_DRAWING_PATH_CAP];
+    char preview_path[LINE_DRAWING_PATH_CAP];
+    if (out_authoring_path && out_authoring_path_size > 0u) out_authoring_path[0] = '\0';
+    if (out_runtime_path && out_runtime_path_size > 0u) out_runtime_path[0] = '\0';
+    if (out_preview_path && out_preview_path_size > 0u) out_preview_path[0] = '\0';
+    LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, NULL);
+
+    if (!stl_path || !stl_path[0] || !asset_root || !asset_root[0]) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "missing STL path or asset root");
+        return false;
+    }
+    if (!LayoutImportedMesh_PathHasStlSuffix(stl_path)) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "selected file is not an STL");
+        return false;
+    }
+
+    LayoutImportedMesh_BuildAssetId(stl_path, asset_id, sizeof(asset_id));
+    if (!LayoutImportedMesh_BuildOutputPaths(asset_root,
+                                             asset_id,
+                                             authoring_path,
+                                             sizeof(authoring_path),
+                                             runtime_path,
+                                             sizeof(runtime_path))) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "failed to build import output paths");
+        return false;
+    }
+    if (!Layout_MeshPreviewSidecarPathFromRuntime(runtime_path,
+                                                  preview_path,
+                                                  sizeof(preview_path))) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "failed to build preview output path");
+        return false;
+    }
+
+    if (out_authoring_path && out_authoring_path_size > 0u) {
+        snprintf(out_authoring_path, out_authoring_path_size, "%s", authoring_path);
+    }
+    if (out_runtime_path && out_runtime_path_size > 0u) {
+        snprintf(out_runtime_path, out_runtime_path_size, "%s", runtime_path);
+    }
+    if (out_preview_path && out_preview_path_size > 0u) {
+        snprintf(out_preview_path, out_preview_path_size, "%s", preview_path);
+    }
+    return true;
+}
+
+LayoutImportedMeshStlCacheState LayoutImportedMeshAsset_GetStlCacheState(
+    const char* stl_path,
+    const char* asset_root,
+    char* out_authoring_path,
+    size_t out_authoring_path_size,
+    char* out_runtime_path,
+    size_t out_runtime_path_size,
+    char* out_preview_path,
+    size_t out_preview_path_size,
+    char* diagnostics,
+    size_t diagnostics_size) {
+    char authoring_path[LINE_DRAWING_PATH_CAP];
+    char runtime_path[LINE_DRAWING_PATH_CAP];
+    char preview_path[LINE_DRAWING_PATH_CAP];
+    struct stat stl_stat = {0};
+    struct stat authoring_stat = {0};
+    struct stat runtime_stat = {0};
+    struct stat preview_stat = {0};
+
+    if (!LayoutImportedMeshAsset_ResolveStlOutputPaths(stl_path,
+                                                       asset_root,
+                                                       authoring_path,
+                                                       sizeof(authoring_path),
+                                                       runtime_path,
+                                                       sizeof(runtime_path),
+                                                       preview_path,
+                                                       sizeof(preview_path),
+                                                       diagnostics,
+                                                       diagnostics_size)) {
+        return LAYOUT_IMPORTED_MESH_STL_CACHE_MISSING;
+    }
+    if (out_authoring_path && out_authoring_path_size > 0u) {
+        snprintf(out_authoring_path, out_authoring_path_size, "%s", authoring_path);
+    }
+    if (out_runtime_path && out_runtime_path_size > 0u) {
+        snprintf(out_runtime_path, out_runtime_path_size, "%s", runtime_path);
+    }
+    if (out_preview_path && out_preview_path_size > 0u) {
+        snprintf(out_preview_path, out_preview_path_size, "%s", preview_path);
+    }
+
+    if (stat(stl_path, &stl_stat) != 0 || !S_ISREG(stl_stat.st_mode)) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "STL source is missing");
+        return LAYOUT_IMPORTED_MESH_STL_CACHE_MISSING;
+    }
+    if (stat(authoring_path, &authoring_stat) != 0 ||
+        !S_ISREG(authoring_stat.st_mode) ||
+        stat(runtime_path, &runtime_stat) != 0 ||
+        !S_ISREG(runtime_stat.st_mode) ||
+        stat(preview_path, &preview_stat) != 0 ||
+        !S_ISREG(preview_stat.st_mode)) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "STL runtime cache is missing");
+        return LAYOUT_IMPORTED_MESH_STL_CACHE_MISSING;
+    }
+    if (authoring_stat.st_mtime < stl_stat.st_mtime ||
+        runtime_stat.st_mtime < stl_stat.st_mtime ||
+        preview_stat.st_mtime < stl_stat.st_mtime) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "STL runtime cache is stale");
+        return LAYOUT_IMPORTED_MESH_STL_CACHE_STALE;
+    }
+
+    LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, NULL);
+    return LAYOUT_IMPORTED_MESH_STL_CACHE_FRESH;
+}
+
 static bool LayoutImportedMesh_PopulateAuthoringDocument(
     const char* stl_path,
     const char* asset_id,
@@ -180,14 +303,17 @@ static bool LayoutImportedMesh_PopulateAuthoringDocument(
     return true;
 }
 
-bool LayoutImportedMeshAsset_ImportStlToRuntime(const char* stl_path,
-                                                const char* asset_root,
-                                                char* out_authoring_path,
-                                                size_t out_authoring_path_size,
-                                                char* out_runtime_path,
-                                                size_t out_runtime_path_size,
-                                                char* diagnostics,
-                                                size_t diagnostics_size) {
+bool LayoutImportedMeshAsset_ImportStlToRuntimeWithProgress(
+    const char* stl_path,
+    const char* asset_root,
+    char* out_authoring_path,
+    size_t out_authoring_path_size,
+    char* out_runtime_path,
+    size_t out_runtime_path_size,
+    char* diagnostics,
+    size_t diagnostics_size,
+    CoreMeshCompileProgressCallback progress_callback,
+    void* progress_user_data) {
     CoreMeshAssetAuthoringDocument document;
     CoreMeshAssetRuntimeDocument runtime_document;
     CoreResult result;
@@ -234,10 +360,12 @@ bool LayoutImportedMeshAsset_ImportStlToRuntime(const char* stl_path,
         LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, result.message);
         goto done;
     }
-    result = core_mesh_compile_imported_mesh_to_runtime_document(&document,
-                                                                 NULL,
-                                                                 asset_id,
-                                                                 &runtime_document);
+    result = core_mesh_compile_imported_mesh_to_runtime_document_with_progress(&document,
+                                                                              NULL,
+                                                                              asset_id,
+                                                                              &runtime_document,
+                                                                              progress_callback,
+                                                                              progress_user_data);
     if (result.code != CORE_OK) {
         LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, result.message);
         goto done;
@@ -267,4 +395,24 @@ done:
     core_mesh_asset_runtime_document_free(&runtime_document);
     core_mesh_asset_authoring_document_free(&document);
     return ok;
+}
+
+bool LayoutImportedMeshAsset_ImportStlToRuntime(const char* stl_path,
+                                                const char* asset_root,
+                                                char* out_authoring_path,
+                                                size_t out_authoring_path_size,
+                                                char* out_runtime_path,
+                                                size_t out_runtime_path_size,
+                                                char* diagnostics,
+                                                size_t diagnostics_size) {
+    return LayoutImportedMeshAsset_ImportStlToRuntimeWithProgress(stl_path,
+                                                                  asset_root,
+                                                                  out_authoring_path,
+                                                                  out_authoring_path_size,
+                                                                  out_runtime_path,
+                                                                  out_runtime_path_size,
+                                                                  diagnostics,
+                                                                  diagnostics_size,
+                                                                  NULL,
+                                                                  NULL);
 }

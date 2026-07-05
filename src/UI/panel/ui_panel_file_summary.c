@@ -2,6 +2,7 @@
 
 #include "Core/global_state.h"
 #include "UI/font_manager.h"
+#include "UI/panel/ui_panel_file_browser_internal.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_file_layout.h"
 #include "UI/ui_panel_summary_surface.h"
@@ -10,7 +11,6 @@
 
 #include <SDL2/SDL.h>
 #include <stdio.h>
-#include <string.h>
 
 static int UIPanelFileSummary_FontHeight(void) {
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
@@ -26,25 +26,6 @@ static int UIPanelFileSummary_LineGap(void) {
 
 static int UIPanelFileSummary_PanelPad(void) {
     return UIPanelVisual_MakeMetrics(FontManager_Get(FONT_DEFAULT)).pad_y;
-}
-
-static const char* UIPanelFileSummary_BaseName(const char* path) {
-    const char* base = NULL;
-    if (!path || !path[0]) return "(unset)";
-    base = strrchr(path, '/');
-    return base ? (base + 1) : path;
-}
-
-static const char* UIPanelFileSummary_ModeLabel(UILoadMenuMode mode) {
-    switch (mode) {
-        case UI_LOAD_MENU_MODE_JSON: return "JSON";
-        case UI_LOAD_MENU_MODE_SCENE: return "Scene";
-        case UI_LOAD_MENU_MODE_OBJECT: return "Asset";
-        case UI_LOAD_MENU_MODE_RUNTIME_MESH: return "Mesh";
-        case UI_LOAD_MENU_MODE_STL_IMPORT: return "STL";
-        case UI_LOAD_MENU_MODE_NONE:
-        default: return "Idle";
-    }
 }
 
 int UIPanel_FileSummaryReservedHeight(const UIPanelState* ui) {
@@ -114,13 +95,13 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
         snprintf(line_layout_scene,
                  sizeof(line_layout_scene),
                  "Asset %s",
-                 UIPanelFileSummary_BaseName(Global_GetCurrentObjectAssetPath()));
+                 UIPanel_FileStatusDisplayBaseName(Global_GetCurrentObjectAssetPath()));
     } else {
         snprintf(line_layout_scene,
                  sizeof(line_layout_scene),
                  "Layout %s   Scene %s",
-                 UIPanelFileSummary_BaseName(Global_GetCurrentConfigPath()),
-                 UIPanelFileSummary_BaseName(Global_GetCurrentSceneAuthoringPath()));
+                 UIPanel_FileStatusDisplayBaseName(Global_GetCurrentConfigPath()),
+                 UIPanel_FileStatusDisplayBaseName(Global_GetCurrentSceneAuthoringPath()));
     }
     snprintf(line_input,
              sizeof(line_input),
@@ -140,7 +121,11 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     {
         char browser_status_line[256];
         if (!UIPanel_GetFileBrowserStatusText(ui, browser_status_line, sizeof(browser_status_line))) {
-            snprintf(browser_status_line, sizeof(browser_status_line), "Browser  %s", UIPanelFileSummary_ModeLabel(ui->loadMenu.mode));
+            (void)UIPanel_FileStatusWriteMessage(browser_status_line,
+                                                 sizeof(browser_status_line),
+                                                 "Browser",
+                                                 "%s",
+                                                 UIPanel_FileStatusSummaryModeName(ui->loadMenu.mode));
         }
         snprintf(line_status_browser,
                  sizeof(line_status_browser),
@@ -149,11 +134,21 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
                  browser_status_line);
     }
     if (!UIPanel_GetFileBrowserActionHintText(ui, line_action_hint, sizeof(line_action_hint))) {
-        snprintf(line_action_hint,
-                 sizeof(line_action_hint),
-                 object_mode
-                     ? "Controls below save, load, create, export, and set roots."
-                     : "Actions  Use Session targets the live row. Clear Last removes remembered fallback rows.");
+        if (object_mode) {
+            snprintf(line_action_hint,
+                     sizeof(line_action_hint),
+                     "Controls below save, load, create, export, and set roots.");
+        } else {
+            (void)UIPanel_FileStatusWriteMessage(
+                line_action_hint,
+                sizeof(line_action_hint),
+                "Actions",
+                "%s",
+                "Use Session targets the live row. Clear Last removes remembered fallback rows.");
+        }
+    }
+    if (UIPanel_FilePaneActionStatusIsLive(ui)) {
+        snprintf(line_action_hint, sizeof(line_action_hint), "%s", ui->filePane.actionStatus);
     }
     snprintf(line_browser_root,
              sizeof(line_browser_root),

@@ -1,6 +1,8 @@
 #include "UI/ui_panel_object_workspace_summary.h"
 
 #include "Core/global_state.h"
+#include "Core/line_drawing_file_catalog.h"
+#include "Core/workspace/line_drawing_object_workspace_view.h"
 #include "Editor/editor.h"
 #include "Editor/object_face_extrude.h"
 #include "Editor/object_face_sketch.h"
@@ -25,10 +27,8 @@ enum {
 };
 
 static const char* UIPanelObjectWorkspace_BaseName(const char* path) {
-    const char* base = NULL;
     if (!path || !path[0]) return "(unset)";
-    base = strrchr(path, '/');
-    return base ? (base + 1) : path;
+    return LineDrawingFileCatalog_PathBasename(path);
 }
 
 static const char* UIPanelObjectWorkspace_BodyKindLabel(ObjectAuthoringBodyKind kind) {
@@ -331,24 +331,8 @@ static void UIPanelObjectWorkspace_DrawSelectedRow(SDL_Renderer* renderer,
 static void UIPanelObjectWorkspace_SelectBody(UIPanelState* ui,
                                               GlobalState* state,
                                               ObjectAuthoringBodyId body_id) {
-    ObjectAuthoringDocument* doc = NULL;
-    EditorState* editor = NULL;
-    if (!ui || !state || body_id == 0u || !state->objectAuthoring.attached) return;
-    doc = &state->objectAuthoring.document;
-    editor = &state->editor;
-
-    Editor_ObjectFaceExtrudeClear(editor);
-    Editor_ObjectFaceSketchDeselect(editor);
-    (void)ObjectAuthoringDocument_SetSelection(doc, body_id, OBJECT3D_FACE_NONE);
-    doc->selectedSketchId = 0u;
-    doc->selectedOperationId = 0u;
-
-    editor->selectedObject3DId = body_id;
-    editor->selectedObjectAssetBodyId = body_id;
-    editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
-    editor->objectAuthoringMode = Editor_ObjectAuthoringIdleMode(editor);
-    ui->loadMenu.open = false;
-    Global_FlagHitboxesDirty();
+    if (!ui || !LineDrawingObjectWorkspaceView_SelectBody(state, body_id)) return;
+    UIPanel_CloseFileBrowser(ui);
 }
 
 static void UIPanelObjectWorkspace_SelectSketch(UIPanelState* ui,
@@ -372,7 +356,7 @@ static void UIPanelObjectWorkspace_SelectSketch(UIPanelState* ui,
     } else {
         editor->objectAuthoringMode = Editor_ObjectAuthoringIdleMode(editor);
     }
-    ui->loadMenu.open = false;
+    UIPanel_CloseFileBrowser(ui);
     Global_FlagHitboxesDirty();
 }
 
@@ -424,7 +408,7 @@ static void UIPanelObjectWorkspace_SelectOperation(UIPanelState* ui,
                 ? OBJECT_AUTHORING_MODE_FACE_SELECT
                 : Editor_ObjectAuthoringIdleMode(editor);
     }
-    ui->loadMenu.open = false;
+    UIPanel_CloseFileBrowser(ui);
     Global_FlagHitboxesDirty();
 }
 
@@ -665,8 +649,8 @@ void Render_UIPanelObjectWorkspaceSummary(const UIPanelState* ui, SDL_Renderer* 
     snprintf(line_compile,
              sizeof(line_compile),
              "Compile  %s",
-             state->objectRuntimeMeshStatus[0]
-                 ? state->objectRuntimeMeshStatus
+             Global_GetObjectRuntimeMeshStatus() && Global_GetObjectRuntimeMeshStatus()[0]
+                 ? Global_GetObjectRuntimeMeshStatus()
                  : "Export Mesh to build runtime asset");
 
     UIPanelSummary_DrawCard(renderer, panel, fill_color, border_color, accent_color, metrics.accent_h);

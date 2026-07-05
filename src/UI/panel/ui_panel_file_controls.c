@@ -1,10 +1,5 @@
 #include "UI/ui_panel_file_controls.h"
 
-#include "UI/font_manager.h"
-
-#include <SDL2/SDL_ttf.h>
-#include <string.h>
-
 typedef struct UIPanelFileControlRowSpec {
     int row_key;
     int columns;
@@ -41,31 +36,12 @@ static int UIPanel_FileControlsRowCount(UIPanelGroup group) {
     }
 }
 
-static int UIPanel_FileControlsMeasureTextWidthPx(const char* text) {
-    TTF_Font* font = FontManager_GetUIPanelFont();
-    int width = 0;
-    if (!text || !text[0]) return 0;
-    if (font && TTF_SizeUTF8(font, text, &width, NULL) == 0 && width > 0) {
-        return width;
-    }
-    return (int)strlen(text) * 8;
-}
-
-static int UIPanel_FileControlsButtonWidthPx(const UIButton* button, int text_pad_x) {
-    int width = 0;
-    if (!button) return 22;
-    width = UIPanel_FileControlsMeasureTextWidthPx(button->label) + (text_pad_x * 2);
-    if (width < 22) width = 22;
-    return width;
-}
-
 static void UIPanel_FileControlsLayoutGroup(UIPanelState* ui,
                                             UIPanelGroup group,
                                             SDL_Rect group_rect,
                                             int button_height,
                                             int button_spacing,
-                                            int compact_gap,
-                                            int text_pad_x) {
+                                            int compact_gap) {
     int group_button_top = 0;
     int row_start = -1;
 
@@ -96,7 +72,6 @@ static void UIPanel_FileControlsLayoutGroup(UIPanelState* ui,
                 if (place_spec.row_key != row_spec.row_key) continue;
                 if (place_spec.column_index < 0 || place_spec.column_index >= 2) continue;
                 row_indices[place_spec.column_index] = j;
-                row_widths[place_spec.column_index] = UIPanel_FileControlsButtonWidthPx(place, text_pad_x);
             }
 
             if (row_spec.columns <= 1) {
@@ -113,14 +88,11 @@ static void UIPanel_FileControlsLayoutGroup(UIPanelState* ui,
                 continue;
             }
 
+            row_widths[0] = (group_rect.w - compact_gap) / 2;
+            row_widths[1] = row_widths[0];
+            if (row_widths[0] < 22) row_widths[0] = 22;
+            if (row_widths[1] < 22) row_widths[1] = 22;
             row_total_width = row_widths[0] + row_widths[1] + compact_gap;
-            if (row_total_width > group_rect.w) {
-                int cell_width = (group_rect.w - compact_gap) / 2;
-                if (cell_width < 22) cell_width = 22;
-                row_widths[0] = cell_width;
-                row_widths[1] = cell_width;
-                row_total_width = row_widths[0] + row_widths[1] + compact_gap;
-            }
             if (row_total_width < group_rect.w) {
                 row_x = group_rect.x + (group_rect.w - row_total_width) / 2;
             }
@@ -171,19 +143,18 @@ void UIPanel_LayoutFilePaneButtons(UIPanelState* ui,
                                    int text_pad_x) {
     if (!ui || !metrics) return;
     if (ui->activeLeftTab != UI_PANEL_LEFT_TAB_FILE) return;
+    (void)text_pad_x;
 
     UIPanel_FileControlsLayoutGroup(ui,
                                     UI_PANEL_GROUP_LEFT_FILE_IO,
                                     ui->filePane.fileActionsRect,
                                     UIPanel_FileControlsButtonHeightPx(metrics),
                                     metrics->button_spacing_px,
-                                    metrics->compact_row_gap_px,
-                                    text_pad_x);
+                                    metrics->compact_row_gap_px);
     UIPanel_FileControlsLayoutGroup(ui,
                                     UI_PANEL_GROUP_LEFT_ROOT_PATHS,
                                     ui->filePane.rootPathsRect,
                                     UIPanel_FileControlsButtonHeightPx(metrics),
                                     metrics->button_spacing_px,
-                                    metrics->compact_row_gap_px,
-                                    text_pad_x);
+                                    metrics->compact_row_gap_px);
 }

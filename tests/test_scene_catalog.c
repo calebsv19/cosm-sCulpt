@@ -1,31 +1,13 @@
 #include "test_framework.h"
 
 #include "Menu/line_drawing_scene_catalog.h"
+#include "test_artifact_helpers.h"
 
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
-
-static bool make_dir(const char* path) {
-    if (!path || !path[0]) return false;
-    return mkdir(path, 0700) == 0;
-}
-
-static bool write_file(const char* path, const char* contents) {
-    FILE* file = NULL;
-    if (!path) return false;
-    file = fopen(path, "wb");
-    if (!file) return false;
-    if (contents && contents[0]) {
-        (void)fputs(contents, file);
-    }
-    fclose(file);
-    return true;
-}
 
 static bool test_catalog_refresh_collects_sorted_layouts_and_scenes(void) {
     char temp_template[] = "/tmp/ld_host_catalog_XXXXXX";
@@ -41,28 +23,36 @@ static bool test_catalog_refresh_collects_sorted_layouts_and_scenes(void) {
     char root_runtime[PATH_MAX];
     LineDrawingSceneCatalog catalog;
 
-    root = mkdtemp(temp_template);
+    root = ld_test_artifact_make_temp_dir(temp_template);
     TEST_ASSERT(root != NULL);
 
     snprintf(alpha_json, sizeof(alpha_json), "%s/alpha.json", root);
     snprintf(beta_json, sizeof(beta_json), "%s/beta.json", root);
     snprintf(grouped_dir, sizeof(grouped_dir), "%s/group_a", root);
     snprintf(grouped_scene, sizeof(grouped_scene), "%s/scene_b", grouped_dir);
-    snprintf(grouped_authoring, sizeof(grouped_authoring), "%s/scene_authoring.json", grouped_scene);
-    snprintf(grouped_runtime, sizeof(grouped_runtime), "%s/scene_runtime.json", grouped_scene);
+    TEST_ASSERT(ld_test_artifact_scene_authoring_path(grouped_authoring,
+                                                      sizeof(grouped_authoring),
+                                                      grouped_scene));
+    TEST_ASSERT(ld_test_artifact_scene_runtime_path(grouped_runtime,
+                                                    sizeof(grouped_runtime),
+                                                    grouped_scene));
     snprintf(root_scene, sizeof(root_scene), "%s/root_scene", root);
-    snprintf(root_authoring, sizeof(root_authoring), "%s/scene_authoring.json", root_scene);
-    snprintf(root_runtime, sizeof(root_runtime), "%s/scene_runtime.json", root_scene);
+    TEST_ASSERT(ld_test_artifact_scene_authoring_path(root_authoring,
+                                                      sizeof(root_authoring),
+                                                      root_scene));
+    TEST_ASSERT(ld_test_artifact_scene_runtime_path(root_runtime,
+                                                    sizeof(root_runtime),
+                                                    root_scene));
 
-    TEST_ASSERT(write_file(alpha_json, "{}"));
-    TEST_ASSERT(write_file(beta_json, "{}"));
-    TEST_ASSERT(make_dir(grouped_dir));
-    TEST_ASSERT(make_dir(grouped_scene));
-    TEST_ASSERT(write_file(grouped_authoring, "{}"));
-    TEST_ASSERT(write_file(grouped_runtime, "{}"));
-    TEST_ASSERT(make_dir(root_scene));
-    TEST_ASSERT(write_file(root_authoring, "{}"));
-    TEST_ASSERT(write_file(root_runtime, "{}"));
+    TEST_ASSERT(ld_test_artifact_write_text_file(alpha_json, "{}"));
+    TEST_ASSERT(ld_test_artifact_write_text_file(beta_json, "{}"));
+    TEST_ASSERT(ld_test_artifact_make_dir(grouped_dir));
+    TEST_ASSERT(ld_test_artifact_make_dir(grouped_scene));
+    TEST_ASSERT(ld_test_artifact_write_text_file(grouped_authoring, "{}"));
+    TEST_ASSERT(ld_test_artifact_write_text_file(grouped_runtime, "{}"));
+    TEST_ASSERT(ld_test_artifact_make_dir(root_scene));
+    TEST_ASSERT(ld_test_artifact_write_text_file(root_authoring, "{}"));
+    TEST_ASSERT(ld_test_artifact_write_text_file(root_runtime, "{}"));
 
     LineDrawingSceneCatalog_Init(&catalog);
     LineDrawingSceneCatalog_Refresh(&catalog, root, beta_json, grouped_authoring);

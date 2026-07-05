@@ -1,13 +1,16 @@
 #include "test_layout_internal.h"
+#include "test_artifact_helpers.h"
 
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_internal.h"
+#include "UI/input_ui_panel.h"
 #include "UI/ui_panel_file_layout.h"
 #include "UI/panel/ui_panel_file_browser_internal.h"
 #include "Core/line_drawing_file_catalog.h"
 #include "Layout/asset/layout_imported_mesh_asset.h"
 #include "Layout/scene/layout_mesh_preview_sidecar.h"
 #include "Layout/scene/layout_mesh_runtime_preview.h"
+#include "core_mesh_preview.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -17,26 +20,7 @@
 #include <unistd.h>
 
 static void ld_test_remove_file_browser_runtime_state(void) {
-    (void)unlink("data/runtime/file_browser_mode.txt");
-    (void)unlink("data/runtime/file_browser_json_root.txt");
-    (void)unlink("data/runtime/file_browser_scene_root.txt");
-    (void)unlink("data/runtime/file_browser_object_root.txt");
-    (void)unlink("data/runtime/file_browser_mesh_root.txt");
-    (void)unlink("data/runtime/file_browser_stl_root.txt");
-    (void)unlink("data/runtime/file_browser_last_json_entry.txt");
-    (void)unlink("data/runtime/file_browser_last_scene_entry.txt");
-    (void)unlink("data/runtime/file_browser_last_object_entry.txt");
-    (void)unlink("data/runtime/file_browser_last_mesh_entry.txt");
-    (void)unlink("data/runtime/file_browser_last_stl_entry.txt");
-    (void)unlink("data/runtime/recent_layouts.txt");
-    (void)unlink("data/runtime/recent_scenes.txt");
-    (void)unlink("data/runtime/recent_object_assets.txt");
-    (void)unlink("data/runtime/recent_input_roots.txt");
-    (void)unlink("data/runtime/recent_output_roots.txt");
-    (void)unlink("data/runtime/input_root.txt");
-    (void)unlink("data/runtime/output_root.txt");
-    (void)unlink("data/runtime/layout_root.txt");
-    (void)unlink("data/runtime/object_asset_root.txt");
+    ld_test_artifact_clear_runtime_state_files();
 }
 
 static bool ld_test_write_layout_json(const char* path) {
@@ -53,23 +37,30 @@ static int ld_test_find_load_menu_index(const UIPanelState* ui, const char* labe
     return -1;
 }
 
+static const UIButton* ld_test_find_button_by_id(const UIPanelState* ui, int button_id) {
+    if (!ui) return NULL;
+    for (int i = 0; i < ui->count; ++i) {
+        if (ui->buttons[i].id == button_id) return &ui->buttons[i];
+    }
+    return NULL;
+}
+
+static bool ld_test_tick_until_stl_import_idle(UIPanelState* ui, Uint32 timeout_ms) {
+    const Uint32 start = SDL_GetTicks();
+    if (!ui) return false;
+    while (ui->loadMenu.asyncStlActive &&
+           (Uint32)(SDL_GetTicks() - start) < timeout_ms) {
+        UIPanel_TickLoadProgress();
+        SDL_Delay(1);
+    }
+    UIPanel_TickLoadProgress();
+    return !ui->loadMenu.asyncStlActive;
+}
+
 static bool ld_test_write_scene_contract(const char* scene_dir) {
-    char authoring_path[LINE_DRAWING_PATH_CAP];
-    char runtime_path[LINE_DRAWING_PATH_CAP];
-    FILE* file = NULL;
-    if (!scene_dir || !scene_dir[0]) return false;
-    if (mkdir(scene_dir, 0755) != 0 && errno != EEXIST) return false;
-    snprintf(authoring_path, sizeof(authoring_path), "%s/scene_authoring.json", scene_dir);
-    snprintf(runtime_path, sizeof(runtime_path), "%s/scene_runtime.json", scene_dir);
-    file = fopen(authoring_path, "wb");
-    if (!file) return false;
-    fputs("{\"schema\":\"scene_authoring_v1\"}\n", file);
-    fclose(file);
-    file = fopen(runtime_path, "wb");
-    if (!file) return false;
-    fputs("{\"schema\":\"scene_runtime_v1\"}\n", file);
-    fclose(file);
-    return true;
+    return ld_test_artifact_write_scene_contract(scene_dir,
+                                                 "{\"schema\":\"scene_authoring_v1\"}\n",
+                                                 "{\"schema\":\"scene_runtime_v1\"}\n");
 }
 
 static bool ld_test_write_runtime_mesh_sidecar(const char* path, const char* asset_id) {
@@ -280,322 +271,148 @@ static bool test_file_browser_switches_modes_and_uses_pane_rect(void) {
     return true;
 }
 
-static bool test_file_browser_restore_reopens_last_layout_for_json_mode(void) {
+static bool test_file_pane_action_buttons_use_equal_column_widths(void) {
+    const int rows[][2] = {
+        { UI_BTN_SAVE_JSON, UI_BTN_LOAD_JSON },
+        { UI_BTN_LOAD_SCENE, UI_BTN_LOAD_STL },
+        { UI_BTN_LOAD_MESH_ASSET, UI_BTN_EXPORT_SHAPE },
+        { UI_BTN_EXPORT_SCENE, UI_BTN_FILE_BROWSER_USE_ACTIVE },
+        { UI_BTN_INPUT_ROOT_EDIT, UI_BTN_INPUT_ROOT_FOLDER },
+        { UI_BTN_OUTPUT_ROOT_EDIT, UI_BTN_OUTPUT_ROOT_FOLDER }
+    };
+    GlobalState* state = NULL;
     UIPanelState* ui = NULL;
-    char temp_root[LINE_DRAWING_PATH_CAP];
-    char alpha_path[LINE_DRAWING_PATH_CAP];
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_restore_%u", (unsigned)SDL_GetTicks());
-    TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
-    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
-
     ld_test_init_runtime();
-    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
-    TEST_ASSERT(Global_SetInputRoot(temp_root, true));
-    UIPanel_ActivateJsonBrowser();
-    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
-    ld_test_shutdown_runtime();
-
-    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    TEST_ASSERT(ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON);
-    TEST_ASSERT(UIPanel_RestorePersistedFileSession());
-    TEST_ASSERT(strcmp(Global_GetInputRoot(), temp_root) == 0);
-    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), alpha_path) == 0);
-    TEST_ASSERT(ui->loadMenu.activeIndex == ld_test_find_load_menu_index(ui, "alpha.json"));
-    ld_test_shutdown_runtime();
-
-    ld_test_remove_file_browser_runtime_state();
-    (void)unlink(alpha_path);
-    (void)rmdir(temp_root);
-    return true;
-}
-
-static bool test_file_browser_remembers_last_browsed_entry_without_session_restore(void) {
-    UIPanelState* ui = NULL;
-    char temp_root[LINE_DRAWING_PATH_CAP];
-    char alpha_path[LINE_DRAWING_PATH_CAP];
-    char beta_path[LINE_DRAWING_PATH_CAP];
-    int beta_index = -1;
-
-    ld_test_remove_file_browser_runtime_state();
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_remember_%u", (unsigned)SDL_GetTicks());
-    TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
-    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
-    snprintf(beta_path, sizeof(beta_path), "%s/beta.json", temp_root);
-
-    ld_test_init_runtime();
-    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
-    TEST_ASSERT(ld_test_write_layout_json(beta_path));
-    TEST_ASSERT(Global_SetInputRoot(temp_root, true));
+    ui->activeLeftTab = UI_PANEL_LEFT_TAB_FILE;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     UIPanel_ActivateJsonBrowser();
-    TEST_ASSERT(UIPanel_LoadLayoutFromPath(beta_path));
-    ld_test_shutdown_runtime();
 
-    ld_test_init_runtime();
-    ui = UIPanel_Get();
-    TEST_ASSERT(ui != NULL);
-    TEST_ASSERT(ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON);
-    TEST_ASSERT(strcmp(Global_GetInputRoot(), temp_root) == 0);
-    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), beta_path) != 0);
-    UIPanel_ActivateJsonBrowser();
-    beta_index = ld_test_find_load_menu_index(ui, "beta.json");
-    TEST_ASSERT(beta_index >= 0);
-    TEST_ASSERT(ui->loadMenu.activeIndex == beta_index);
-    ld_test_shutdown_runtime();
-
-    ld_test_remove_file_browser_runtime_state();
-    (void)unlink(alpha_path);
-    (void)unlink(beta_path);
-    (void)rmdir(temp_root);
-    return true;
-}
-
-static bool test_file_browser_root_switch_clears_unmatched_highlight(void) {
-    UIPanelState* ui = NULL;
-    char root_a[LINE_DRAWING_PATH_CAP];
-    char root_b[LINE_DRAWING_PATH_CAP];
-    char alpha_path[LINE_DRAWING_PATH_CAP];
-    char gamma_path[LINE_DRAWING_PATH_CAP];
-    UILoadMenuSelectionState selection_state = UI_LOAD_MENU_SELECTION_NONE;
-    const char* selection_path = NULL;
-
-    ld_test_remove_file_browser_runtime_state();
-    snprintf(root_a, sizeof(root_a), "/tmp/ld_file_browser_root_a_%u", (unsigned)SDL_GetTicks());
-    snprintf(root_b, sizeof(root_b), "/tmp/ld_file_browser_root_b_%u", (unsigned)SDL_GetTicks() + 1u);
-    TEST_ASSERT(mkdir(root_a, 0755) == 0 || errno == EEXIST);
-    TEST_ASSERT(mkdir(root_b, 0755) == 0 || errno == EEXIST);
-    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", root_a);
-    snprintf(gamma_path, sizeof(gamma_path), "%s/gamma.json", root_b);
-
-    ld_test_init_runtime();
-    ui = UIPanel_Get();
-    TEST_ASSERT(ui != NULL);
-    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
-    TEST_ASSERT(ld_test_write_layout_json(gamma_path));
-    TEST_ASSERT(Global_SetInputRoot(root_a, true));
-    UIPanel_ActivateJsonBrowser();
-    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
-    TEST_ASSERT(ui->loadMenu.activeIndex == ld_test_find_load_menu_index(ui, "alpha.json"));
-    TEST_ASSERT(Global_SetInputRoot(root_b, true));
-    UIPanel_ActivateJsonBrowser();
-    TEST_ASSERT(ui->loadMenu.count == 1);
-    TEST_ASSERT(ui->loadMenu.activeIndex == -1);
-    TEST_ASSERT(!UIPanel_GetFileBrowserSelectionInfo(ui, &selection_state, &selection_path));
-    TEST_ASSERT(selection_state == UI_LOAD_MENU_SELECTION_NONE);
-    TEST_ASSERT(selection_path == NULL);
-    ld_test_shutdown_runtime();
-
-    ld_test_remove_file_browser_runtime_state();
-    (void)unlink(alpha_path);
-    (void)unlink(gamma_path);
-    (void)rmdir(root_a);
-    (void)rmdir(root_b);
-    return true;
-}
-
-static bool test_file_browser_mode_specific_roots_restore_on_activation(void) {
-    UIPanelState* ui = NULL;
-    char json_root[LINE_DRAWING_PATH_CAP];
-    char scene_root[LINE_DRAWING_PATH_CAP];
-    char alpha_path[LINE_DRAWING_PATH_CAP];
-    char scene_dir[LINE_DRAWING_PATH_CAP];
-
-    ld_test_remove_file_browser_runtime_state();
-    snprintf(json_root, sizeof(json_root), "/tmp/ld_file_browser_json_root_%u", (unsigned)SDL_GetTicks());
-    snprintf(scene_root, sizeof(scene_root), "/tmp/ld_file_browser_scene_root_%u", (unsigned)SDL_GetTicks() + 1u);
-    TEST_ASSERT(mkdir(json_root, 0755) == 0 || errno == EEXIST);
-    TEST_ASSERT(mkdir(scene_root, 0755) == 0 || errno == EEXIST);
-    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", json_root);
-    snprintf(scene_dir, sizeof(scene_dir), "%s/scene_one", scene_root);
-
-    ld_test_init_runtime();
-    ui = UIPanel_Get();
-    TEST_ASSERT(ui != NULL);
-    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
-    TEST_ASSERT(ld_test_write_scene_contract(scene_dir));
-
-    TEST_ASSERT(UIPanel_LoadJsonFromFolderSelection(json_root, true));
-    TEST_ASSERT(ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON);
-    TEST_ASSERT(strcmp(ui->loadMenu.rootPath, json_root) == 0);
-    TEST_ASSERT(ui->loadMenu.count == 1);
-
-    TEST_ASSERT(UIPanel_LoadSceneFromFolderSelection(scene_root, true));
-    TEST_ASSERT(ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE);
-    TEST_ASSERT(strcmp(ui->loadMenu.rootPath, scene_root) == 0);
-    TEST_ASSERT(ui->loadMenu.count == 1);
-
-    TEST_ASSERT(Global_SetInputRoot(json_root, true));
-    UIPanel_ActivateSceneBrowser();
-    TEST_ASSERT(ui->loadMenu.mode == UI_LOAD_MENU_MODE_SCENE);
-    TEST_ASSERT(strcmp(ui->loadMenu.rootPath, scene_root) == 0);
-    TEST_ASSERT(ui->loadMenu.count == 1);
-
-    UIPanel_ActivateJsonBrowser();
-    TEST_ASSERT(ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON);
-    TEST_ASSERT(strcmp(ui->loadMenu.rootPath, json_root) == 0);
-    TEST_ASSERT(ui->loadMenu.count == 1);
-
-    ld_test_shutdown_runtime();
-
-    ld_test_remove_file_browser_runtime_state();
-    (void)unlink(alpha_path);
-    {
-        char authoring_path[LINE_DRAWING_PATH_CAP];
-        char runtime_path[LINE_DRAWING_PATH_CAP];
-        snprintf(authoring_path, sizeof(authoring_path), "%s/scene_authoring.json", scene_dir);
-        snprintf(runtime_path, sizeof(runtime_path), "%s/scene_runtime.json", scene_dir);
-        (void)unlink(authoring_path);
-        (void)unlink(runtime_path);
+    for (size_t i = 0; i < sizeof(rows) / sizeof(rows[0]); ++i) {
+        const UIButton* left = ld_test_find_button_by_id(ui, rows[i][0]);
+        const UIButton* right = ld_test_find_button_by_id(ui, rows[i][1]);
+        TEST_ASSERT(left != NULL);
+        TEST_ASSERT(right != NULL);
+        TEST_ASSERT(left->bounds.w == right->bounds.w);
     }
-    (void)rmdir(scene_dir);
-    (void)rmdir(json_root);
-    (void)rmdir(scene_root);
+
+    ld_test_shutdown_runtime();
+    ld_test_remove_file_browser_runtime_state();
     return true;
 }
 
-static bool test_session_input_root_change_does_not_override_mode_browser_root(void) {
+static bool test_file_browser_close_api_synchronizes_open_and_visible(void) {
+    GlobalState* state = NULL;
     UIPanelState* ui = NULL;
-    char json_root[LINE_DRAWING_PATH_CAP];
-    char session_root[LINE_DRAWING_PATH_CAP];
-    char alpha_path[LINE_DRAWING_PATH_CAP];
-    char beta_path[LINE_DRAWING_PATH_CAP];
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(json_root, sizeof(json_root), "/tmp/ld_file_browser_mode_root_%u", (unsigned)SDL_GetTicks());
-    snprintf(session_root, sizeof(session_root), "/tmp/ld_file_browser_session_root_%u", (unsigned)SDL_GetTicks() + 1u);
-    TEST_ASSERT(mkdir(json_root, 0755) == 0 || errno == EEXIST);
-    TEST_ASSERT(mkdir(session_root, 0755) == 0 || errno == EEXIST);
-    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", json_root);
-    snprintf(beta_path, sizeof(beta_path), "%s/beta.json", session_root);
-
     ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
-    TEST_ASSERT(ld_test_write_layout_json(beta_path));
 
-    TEST_ASSERT(UIPanel_LoadJsonFromFolderSelection(json_root, true));
-    TEST_ASSERT(ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON);
-    TEST_ASSERT(strcmp(ui->loadMenu.rootPath, json_root) == 0);
-    TEST_ASSERT(ui->loadMenu.count == 1);
+    ui->activeLeftTab = UI_PANEL_LEFT_TAB_FILE;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    UIPanel_ActivateJsonBrowser();
+    TEST_ASSERT(ui->loadMenu.open);
+    TEST_ASSERT(ui->loadMenu.visible);
+    TEST_ASSERT(UIPanel_IsLoadMenuOpen());
 
-    TEST_ASSERT(Global_SetInputRoot(session_root, true));
-    TEST_ASSERT(strcmp(Global_GetInputRoot(), session_root) == 0);
-    TEST_ASSERT(strcmp(ui->loadMenu.rootPath, json_root) == 0);
-    TEST_ASSERT(ui->loadMenu.count == 1);
-    TEST_ASSERT(ld_test_find_load_menu_index(ui, "alpha.json") >= 0);
-    TEST_ASSERT(ld_test_find_load_menu_index(ui, "beta.json") < 0);
+    UIPanel_CloseFileBrowser(ui);
+    TEST_ASSERT(!ui->loadMenu.open);
+    TEST_ASSERT(!ui->loadMenu.visible);
+    TEST_ASSERT(!UIPanel_IsLoadMenuOpen());
+
+    UIPanel_SetFileBrowserVisible(ui, true);
+    TEST_ASSERT(ui->loadMenu.open);
+    TEST_ASSERT(ui->loadMenu.visible);
+    TEST_ASSERT(UIPanel_IsLoadMenuOpen());
+
+    UIPanel_ToggleLoadMenu();
+    TEST_ASSERT(!ui->loadMenu.open);
+    TEST_ASSERT(!ui->loadMenu.visible);
+    TEST_ASSERT(!UIPanel_IsLoadMenuOpen());
+
     ld_test_shutdown_runtime();
-
     ld_test_remove_file_browser_runtime_state();
-    (void)unlink(alpha_path);
-    (void)unlink(beta_path);
-    (void)rmdir(json_root);
-    (void)rmdir(session_root);
     return true;
 }
 
-static bool test_session_input_root_change_preserves_loaded_layout_identity(void) {
+static bool test_file_pane_export_scene_button_click_exports_and_sets_status(void) {
+    char root_template[] = "/tmp/ld_file_pane_export_click_XXXXXX";
+    char* root = NULL;
+    char expected_scene_dir[LINE_DRAWING_PATH_CAP];
+    char expected_authoring[LINE_DRAWING_PATH_CAP];
+    char expected_runtime[LINE_DRAWING_PATH_CAP];
+    GlobalState* state = NULL;
     UIPanelState* ui = NULL;
-    char layout_root[LINE_DRAWING_PATH_CAP];
-    char session_root[LINE_DRAWING_PATH_CAP];
-    char alpha_path[LINE_DRAWING_PATH_CAP];
+    const UIButton* export_button = NULL;
+    int click_x = 0;
+    int click_y = 0;
+
+    root = ld_test_artifact_make_temp_dir(root_template);
+    TEST_ASSERT(root != NULL);
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(layout_root, sizeof(layout_root), "/tmp/ld_input_root_identity_a_%u", (unsigned)SDL_GetTicks());
-    snprintf(session_root, sizeof(session_root), "/tmp/ld_input_root_identity_b_%u", (unsigned)SDL_GetTicks() + 1u);
-    TEST_ASSERT(mkdir(layout_root, 0755) == 0 || errno == EEXIST);
-    TEST_ASSERT(mkdir(session_root, 0755) == 0 || errno == EEXIST);
-    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", layout_root);
-
     ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
-    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
-    TEST_ASSERT(UIPanel_LoadJsonFromFolderSelection(layout_root, true));
-    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
-    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), alpha_path) == 0);
-    TEST_ASSERT(strcmp(Global_GetLastLayoutPath(), alpha_path) == 0);
+    TEST_ASSERT(Global_SetOutputRoot(root, false));
+    Global_OnLayoutLoaded("/tmp/ld_file_pane_export_click/source_layout.json");
+    TEST_ASSERT(Layout_AddAnchor3(&state->layout, (Vec3){0.0f, 0.0f, 0.0f}) >= 0);
+    TEST_ASSERT(Layout_AddAnchor3(&state->layout, (Vec3){1.0f, 0.0f, 1.0f}) >= 0);
+    Layout_AddWall3(&state->layout, (Vec3){0.0f, 0.0f, 0.0f}, (Vec3){1.0f, 0.0f, 1.0f});
 
-    TEST_ASSERT(Global_SetInputRoot(session_root, true));
-    TEST_ASSERT(strcmp(Global_GetInputRoot(), session_root) == 0);
-    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), alpha_path) == 0);
-    TEST_ASSERT(strcmp(Global_GetLastLayoutPath(), alpha_path) == 0);
+    ui->activeLeftTab = UI_PANEL_LEFT_TAB_FILE;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    UIPanel_ActivateJsonBrowser();
+    TEST_ASSERT(ui->loadMenu.open);
+    TEST_ASSERT(ui->loadMenu.visible);
+    export_button = ld_test_find_button_by_id(ui, UI_BTN_EXPORT_SCENE);
+    TEST_ASSERT(export_button != NULL);
+    TEST_ASSERT(export_button->bounds.w > 0 && export_button->bounds.h > 0);
+    click_x = export_button->bounds.x + export_button->bounds.w / 2;
+    click_y = export_button->bounds.y + export_button->bounds.h / 2;
+
+    TEST_ASSERT(UIPanel_HandleClick(click_x, click_y));
+    TEST_ASSERT(!ui->loadMenu.open);
+    TEST_ASSERT(!ui->loadMenu.visible);
+    TEST_ASSERT(!UIPanel_IsLoadMenuOpen());
+
+    TEST_ASSERT(snprintf(expected_scene_dir,
+                         sizeof(expected_scene_dir),
+                         "%s/source_layout",
+                         root) < (int)sizeof(expected_scene_dir));
+    TEST_ASSERT(snprintf(expected_authoring,
+                         sizeof(expected_authoring),
+                         "%s/scene_authoring.json",
+                         expected_scene_dir) < (int)sizeof(expected_authoring));
+    TEST_ASSERT(snprintf(expected_runtime,
+                         sizeof(expected_runtime),
+                         "%s/scene_runtime.json",
+                         expected_scene_dir) < (int)sizeof(expected_runtime));
+    TEST_ASSERT(access(expected_authoring, F_OK) == 0);
+    TEST_ASSERT(access(expected_runtime, F_OK) == 0);
+    TEST_ASSERT(strncmp(ui->filePane.actionStatus, "Export Scene OK", 15) == 0);
+    TEST_ASSERT(UIPanel_FilePaneActionStatusIsLive(ui));
+    ui->filePane.actionStatusSetTicks = SDL_GetTicks() - 100000u;
+    TEST_ASSERT(!UIPanel_FilePaneActionStatusIsLive(ui));
+    TEST_ASSERT(export_button->pressed);
+
     ld_test_shutdown_runtime();
-
     ld_test_remove_file_browser_runtime_state();
-    (void)unlink(alpha_path);
-    (void)rmdir(layout_root);
-    (void)rmdir(session_root);
-    return true;
-}
-
-static bool test_session_input_root_change_updates_default_layout_path_before_load(void) {
-    char root_a[LINE_DRAWING_PATH_CAP];
-    char root_b[LINE_DRAWING_PATH_CAP];
-    char expected_default_path[LINE_DRAWING_PATH_CAP];
-
-    ld_test_remove_file_browser_runtime_state();
-    snprintf(root_a, sizeof(root_a), "/tmp/ld_input_root_default_a_%u", (unsigned)SDL_GetTicks());
-    snprintf(root_b, sizeof(root_b), "/tmp/ld_input_root_default_b_%u", (unsigned)SDL_GetTicks() + 1u);
-    TEST_ASSERT(mkdir(root_a, 0755) == 0 || errno == EEXIST);
-    TEST_ASSERT(mkdir(root_b, 0755) == 0 || errno == EEXIST);
-
-    ld_test_init_runtime();
-    TEST_ASSERT(Global_SetInputRoot(root_a, true));
-    TEST_ASSERT(Global_SetInputRoot(root_b, true));
-    TEST_ASSERT(snprintf(expected_default_path,
-                         sizeof(expected_default_path),
-                         "%s/layout_config.json",
-                         root_b) < (int)sizeof(expected_default_path));
-    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), expected_default_path) == 0);
-    TEST_ASSERT(strcmp(Global_GetLastLayoutPath(), expected_default_path) == 0);
-    ld_test_shutdown_runtime();
-
-    ld_test_remove_file_browser_runtime_state();
-    (void)rmdir(root_a);
-    (void)rmdir(root_b);
-    return true;
-}
-
-static bool test_file_browser_status_text_marks_active_session_row(void) {
-    UIPanelState* ui = NULL;
-    char temp_root[LINE_DRAWING_PATH_CAP];
-    char alpha_path[LINE_DRAWING_PATH_CAP];
-    char status_text[256];
-    char action_text[320];
-    UILoadMenuSelectionState row_state = UI_LOAD_MENU_SELECTION_NONE;
-    int alpha_index = -1;
-
-    ld_test_remove_file_browser_runtime_state();
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_status_active_%u", (unsigned)SDL_GetTicks());
-    TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
-    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
-
-    ld_test_init_runtime();
-    ui = UIPanel_Get();
-    TEST_ASSERT(ui != NULL);
-    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
-    TEST_ASSERT(UIPanel_LoadJsonFromFolderSelection(temp_root, true));
-    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
-    alpha_index = ld_test_find_load_menu_index(ui, "alpha.json");
-    TEST_ASSERT(alpha_index >= 0);
-
-    TEST_ASSERT(UIPanel_GetFileBrowserStatusText(ui, status_text, sizeof(status_text)));
-    TEST_ASSERT(strstr(status_text, "Active row alpha.json") != NULL);
-    TEST_ASSERT(UIPanel_GetFileBrowserActionHintText(ui, action_text, sizeof(action_text)));
-    TEST_ASSERT(strstr(action_text, "re-centers the live row") != NULL);
-    TEST_ASSERT(strstr(action_text, "Clear Last is only for remembered fallback rows") != NULL);
-    TEST_ASSERT(UIPanel_GetFileBrowserRowSelectionState(ui, alpha_index, &row_state));
-    TEST_ASSERT(row_state == UI_LOAD_MENU_SELECTION_ACTIVE_SESSION);
-    ld_test_shutdown_runtime();
-
-    ld_test_remove_file_browser_runtime_state();
-    (void)unlink(alpha_path);
-    (void)rmdir(temp_root);
+    (void)unlink(expected_authoring);
+    (void)unlink(expected_runtime);
+    (void)rmdir(expected_scene_dir);
+    (void)rmdir(root);
     return true;
 }
 
@@ -619,202 +436,14 @@ static bool test_stl_browser_action_hint_surfaces_import_failure(void) {
     TEST_ASSERT(ui != NULL);
     TEST_ASSERT(Global_SetObjectAssetRoot(temp_root, false));
     UIPanel_ActivateStlImportBrowser();
-    snprintf(state->objectRuntimeMeshStatus,
-             sizeof(state->objectRuntimeMeshStatus),
-             "STL import failed: runtime mesh triangle is degenerate");
+    TEST_ASSERT(Global_SetObjectRuntimeMeshStatus(
+        "STL import failed: runtime mesh triangle is degenerate"));
     TEST_ASSERT(UIPanel_GetFileBrowserActionHintText(ui, action_text, sizeof(action_text)));
     TEST_ASSERT(strstr(action_text, "runtime mesh triangle is degenerate") != NULL);
     ld_test_shutdown_runtime();
 
     ld_test_remove_file_browser_runtime_state();
     (void)unlink(stl_path);
-    (void)rmdir(temp_root);
-    return true;
-}
-
-static bool test_file_browser_status_text_marks_remembered_fallback_row(void) {
-    UIPanelState* ui = NULL;
-    char temp_root[LINE_DRAWING_PATH_CAP];
-    char alpha_path[LINE_DRAWING_PATH_CAP];
-    char status_text[256];
-    char action_text[320];
-    UILoadMenuSelectionState row_state = UI_LOAD_MENU_SELECTION_NONE;
-    int alpha_index = -1;
-
-    ld_test_remove_file_browser_runtime_state();
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_status_remembered_%u", (unsigned)SDL_GetTicks());
-    TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
-    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
-
-    ld_test_init_runtime();
-    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
-    TEST_ASSERT(Global_SetInputRoot(temp_root, true));
-    UIPanel_ActivateJsonBrowser();
-    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
-    ld_test_shutdown_runtime();
-
-    ld_test_init_runtime();
-    ui = UIPanel_Get();
-    TEST_ASSERT(ui != NULL);
-    UIPanel_ActivateJsonBrowser();
-    alpha_index = ld_test_find_load_menu_index(ui, "alpha.json");
-    TEST_ASSERT(alpha_index >= 0);
-    TEST_ASSERT(UIPanel_GetFileBrowserStatusText(ui, status_text, sizeof(status_text)));
-    TEST_ASSERT(strstr(status_text, "Remembered row alpha.json") != NULL);
-    TEST_ASSERT(UIPanel_GetFileBrowserActionHintText(ui, action_text, sizeof(action_text)));
-    TEST_ASSERT(strstr(action_text, "restores the live session row") != NULL);
-    TEST_ASSERT(strstr(action_text, "removes this remembered fallback row") != NULL);
-    TEST_ASSERT(UIPanel_GetFileBrowserRowSelectionState(ui, alpha_index, &row_state));
-    TEST_ASSERT(row_state == UI_LOAD_MENU_SELECTION_REMEMBERED_ENTRY);
-    ld_test_shutdown_runtime();
-
-    ld_test_remove_file_browser_runtime_state();
-    (void)unlink(alpha_path);
-    (void)rmdir(temp_root);
-    return true;
-}
-
-static bool test_file_browser_status_text_marks_unmatched_root_state(void) {
-    UIPanelState* ui = NULL;
-    char root_a[LINE_DRAWING_PATH_CAP];
-    char root_b[LINE_DRAWING_PATH_CAP];
-    char alpha_path[LINE_DRAWING_PATH_CAP];
-    char gamma_path[LINE_DRAWING_PATH_CAP];
-    char status_text[256];
-    char action_text[320];
-    UILoadMenuSelectionState row_state = UI_LOAD_MENU_SELECTION_ACTIVE_SESSION;
-    int gamma_index = -1;
-
-    ld_test_remove_file_browser_runtime_state();
-    snprintf(root_a, sizeof(root_a), "/tmp/ld_file_browser_status_unmatched_a_%u", (unsigned)SDL_GetTicks());
-    snprintf(root_b, sizeof(root_b), "/tmp/ld_file_browser_status_unmatched_b_%u", (unsigned)SDL_GetTicks() + 1u);
-    TEST_ASSERT(mkdir(root_a, 0755) == 0 || errno == EEXIST);
-    TEST_ASSERT(mkdir(root_b, 0755) == 0 || errno == EEXIST);
-    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", root_a);
-    snprintf(gamma_path, sizeof(gamma_path), "%s/gamma.json", root_b);
-
-    ld_test_init_runtime();
-    ui = UIPanel_Get();
-    TEST_ASSERT(ui != NULL);
-    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
-    TEST_ASSERT(ld_test_write_layout_json(gamma_path));
-    TEST_ASSERT(Global_SetInputRoot(root_a, true));
-    UIPanel_ActivateJsonBrowser();
-    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
-    TEST_ASSERT(Global_SetInputRoot(root_b, true));
-    UIPanel_ActivateJsonBrowser();
-    gamma_index = ld_test_find_load_menu_index(ui, "gamma.json");
-    TEST_ASSERT(gamma_index >= 0);
-
-    TEST_ASSERT(UIPanel_GetFileBrowserStatusText(ui, status_text, sizeof(status_text)));
-    TEST_ASSERT(strstr(status_text, "JSON mode has entries but no active row") != NULL);
-    TEST_ASSERT(UIPanel_GetFileBrowserActionHintText(ui, action_text, sizeof(action_text)));
-    TEST_ASSERT(strstr(action_text, "Use Session targets the live session row") != NULL);
-    TEST_ASSERT(strstr(action_text, "stale remembered fallback") != NULL);
-    TEST_ASSERT(!UIPanel_GetFileBrowserRowSelectionState(ui, gamma_index, &row_state));
-    TEST_ASSERT(row_state == UI_LOAD_MENU_SELECTION_NONE);
-    ld_test_shutdown_runtime();
-
-    ld_test_remove_file_browser_runtime_state();
-    (void)unlink(alpha_path);
-    (void)unlink(gamma_path);
-    (void)rmdir(root_a);
-    (void)rmdir(root_b);
-    return true;
-}
-
-static bool test_file_browser_use_active_realigns_browser_root_and_highlight(void) {
-    UIPanelState* ui = NULL;
-    char root_a[LINE_DRAWING_PATH_CAP];
-    char root_b[LINE_DRAWING_PATH_CAP];
-    char alpha_path[LINE_DRAWING_PATH_CAP];
-    char gamma_path[LINE_DRAWING_PATH_CAP];
-    UILoadMenuSelectionState selection_state = UI_LOAD_MENU_SELECTION_NONE;
-    const char* selection_path = NULL;
-
-    ld_test_remove_file_browser_runtime_state();
-    snprintf(root_a, sizeof(root_a), "/tmp/ld_file_browser_use_active_a_%u", (unsigned)SDL_GetTicks());
-    snprintf(root_b, sizeof(root_b), "/tmp/ld_file_browser_use_active_b_%u", (unsigned)SDL_GetTicks() + 1u);
-    TEST_ASSERT(mkdir(root_a, 0755) == 0 || errno == EEXIST);
-    TEST_ASSERT(mkdir(root_b, 0755) == 0 || errno == EEXIST);
-    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", root_a);
-    snprintf(gamma_path, sizeof(gamma_path), "%s/gamma.json", root_b);
-
-    ld_test_init_runtime();
-    ui = UIPanel_Get();
-    TEST_ASSERT(ui != NULL);
-    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
-    TEST_ASSERT(ld_test_write_layout_json(gamma_path));
-    TEST_ASSERT(Global_SetInputRoot(root_a, true));
-    UIPanel_ActivateJsonBrowser();
-    TEST_ASSERT(UIPanel_LoadLayoutFromPath(alpha_path));
-    TEST_ASSERT(ui->loadMenu.activeIndex == ld_test_find_load_menu_index(ui, "alpha.json"));
-
-    TEST_ASSERT(UIPanel_LoadJsonFromFolderSelection(root_b, true));
-    TEST_ASSERT(strcmp(ui->loadMenu.rootPath, root_b) == 0);
-    TEST_ASSERT(ui->loadMenu.activeIndex == -1);
-
-    TEST_ASSERT(UIPanel_FocusFileBrowserOnActiveSession());
-    TEST_ASSERT(strcmp(ui->loadMenu.rootPath, root_a) == 0);
-    TEST_ASSERT(ui->loadMenu.activeIndex == ld_test_find_load_menu_index(ui, "alpha.json"));
-    TEST_ASSERT(UIPanel_GetFileBrowserSelectionInfo(ui, &selection_state, &selection_path));
-    TEST_ASSERT(selection_state == UI_LOAD_MENU_SELECTION_ACTIVE_SESSION);
-    TEST_ASSERT(selection_path != NULL && strcmp(selection_path, alpha_path) == 0);
-    ld_test_shutdown_runtime();
-
-    ld_test_remove_file_browser_runtime_state();
-    (void)unlink(alpha_path);
-    (void)unlink(gamma_path);
-    (void)rmdir(root_a);
-    (void)rmdir(root_b);
-    return true;
-}
-
-static bool test_file_browser_clear_last_removes_remembered_fallback(void) {
-    UIPanelState* ui = NULL;
-    char temp_root[LINE_DRAWING_PATH_CAP];
-    char alpha_path[LINE_DRAWING_PATH_CAP];
-    char beta_path[LINE_DRAWING_PATH_CAP];
-    int beta_index = -1;
-    UILoadMenuSelectionState selection_state = UI_LOAD_MENU_SELECTION_NONE;
-    const char* selection_path = NULL;
-
-    ld_test_remove_file_browser_runtime_state();
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_clear_last_%u", (unsigned)SDL_GetTicks());
-    TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
-    snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
-    snprintf(beta_path, sizeof(beta_path), "%s/beta.json", temp_root);
-
-    ld_test_init_runtime();
-    TEST_ASSERT(ld_test_write_layout_json(alpha_path));
-    TEST_ASSERT(ld_test_write_layout_json(beta_path));
-    TEST_ASSERT(Global_SetInputRoot(temp_root, true));
-    UIPanel_ActivateJsonBrowser();
-    TEST_ASSERT(UIPanel_LoadLayoutFromPath(beta_path));
-    ld_test_shutdown_runtime();
-
-    ld_test_init_runtime();
-    ui = UIPanel_Get();
-    TEST_ASSERT(ui != NULL);
-    TEST_ASSERT(ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON);
-    UIPanel_ActivateJsonBrowser();
-    beta_index = ld_test_find_load_menu_index(ui, "beta.json");
-    TEST_ASSERT(beta_index >= 0);
-    TEST_ASSERT(ui->loadMenu.activeIndex == beta_index);
-    TEST_ASSERT(UIPanel_GetFileBrowserSelectionInfo(ui, &selection_state, &selection_path));
-    TEST_ASSERT(selection_state == UI_LOAD_MENU_SELECTION_REMEMBERED_ENTRY);
-    TEST_ASSERT(selection_path != NULL && strcmp(selection_path, beta_path) == 0);
-
-    TEST_ASSERT(UIPanel_ClearRememberedFileBrowserEntry());
-    TEST_ASSERT(ui->loadMenu.activeIndex == -1);
-    TEST_ASSERT(!UIPanel_GetFileBrowserSelectionInfo(ui, &selection_state, &selection_path));
-    TEST_ASSERT(selection_state == UI_LOAD_MENU_SELECTION_NONE);
-    TEST_ASSERT(selection_path == NULL);
-    ld_test_shutdown_runtime();
-
-    ld_test_remove_file_browser_runtime_state();
-    (void)unlink(alpha_path);
-    (void)unlink(beta_path);
     (void)rmdir(temp_root);
     return true;
 }
@@ -872,8 +501,8 @@ static bool test_runtime_mesh_browser_places_scene_asset_instance(void) {
     TEST_ASSERT(UIPanel_HandleLoadMenuClick(list_clip.x + 4,
                                             list_clip.y + (alpha_index * 24) + 12));
 
-    TEST_ASSERT(strcmp(state->lastObjectRuntimeMeshPath, alpha_path) == 0);
-    TEST_ASSERT(strstr(state->objectRuntimeMeshStatus, "Mesh placed") != NULL);
+    TEST_ASSERT(strcmp(Global_GetLastObjectRuntimeMeshPath(), alpha_path) == 0);
+    TEST_ASSERT(strstr(Global_GetObjectRuntimeMeshStatus(), "Mesh placed") != NULL);
     TEST_ASSERT(Layout_ObjectStore_LiveCount(&state->layout.objectStore) == 1u);
     TEST_ASSERT(state->editor.selectedObject3DId != 0u);
     object = Layout_ObjectStore_FindConst(&state->layout.objectStore,
@@ -883,6 +512,12 @@ static bool test_runtime_mesh_browser_places_scene_asset_instance(void) {
     TEST_ASSERT(strcmp(object->meshInstance.assetId, "alpha_mesh") == 0);
     TEST_ASSERT(strcmp(object->meshInstance.runtimePath, alpha_path) == 0);
     TEST_ASSERT(ui->loadMenu.activeIndex == alpha_index);
+    TEST_ASSERT(ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_COMPLETE);
+    TEST_ASSERT(ui->loadMenu.loadProgressMode == UI_LOAD_MENU_MODE_RUNTIME_MESH);
+    TEST_ASSERT(strcmp(ui->loadMenu.loadProgressPath, alpha_path) == 0);
+    TEST_ASSERT(ui->loadMenu.loadProgressPermille == 1000);
+    TEST_ASSERT(UIPanel_FindLoadProgressIndex(ui) == alpha_index);
+    TEST_ASSERT(UIPanel_LoadMenuRowHeight(ui, alpha_index) > 24);
 
     ld_test_shutdown_runtime();
     ld_test_remove_file_browser_runtime_state();
@@ -891,6 +526,40 @@ static bool test_runtime_mesh_browser_places_scene_asset_instance(void) {
     (void)unlink(ignored_path);
     (void)rmdir(nested_root);
     (void)rmdir(asset_root);
+    return true;
+}
+
+static bool test_stl_catalog_recurses_into_curated_source_directories(void) {
+    char stl_root[LINE_DRAWING_PATH_CAP];
+    char curated_dir[LINE_DRAWING_PATH_CAP];
+    char asset_dir[LINE_DRAWING_PATH_CAP];
+    char source_dir[LINE_DRAWING_PATH_CAP];
+    char stl_path[LINE_DRAWING_PATH_CAP];
+    LineDrawingFileCatalogEntry entries[8];
+    int count = 0;
+
+    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_recursive_catalog_%u", (unsigned)SDL_GetTicks());
+    snprintf(curated_dir, sizeof(curated_dir), "%s/curated", stl_root);
+    snprintf(asset_dir, sizeof(asset_dir), "%s/generated_table", curated_dir);
+    snprintf(source_dir, sizeof(source_dir), "%s/source", asset_dir);
+    snprintf(stl_path, sizeof(stl_path), "%s/generated_table.stl", source_dir);
+
+    TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
+    TEST_ASSERT(mkdir(curated_dir, 0755) == 0 || errno == EEXIST);
+    TEST_ASSERT(mkdir(asset_dir, 0755) == 0 || errno == EEXIST);
+    TEST_ASSERT(mkdir(source_dir, 0755) == 0 || errno == EEXIST);
+    TEST_ASSERT(ld_test_write_tetrahedron_stl(stl_path));
+
+    count = LineDrawingFileCatalog_ScanStlEntries(entries, 8, stl_root);
+    TEST_ASSERT(count == 1);
+    TEST_ASSERT(strcmp(entries[0].label, "curated/generated_table/source/generated_table.stl") == 0);
+    TEST_ASSERT(strcmp(entries[0].path, stl_path) == 0);
+
+    (void)unlink(stl_path);
+    (void)rmdir(source_dir);
+    (void)rmdir(asset_dir);
+    (void)rmdir(curated_dir);
+    (void)rmdir(stl_root);
     return true;
 }
 
@@ -938,12 +607,17 @@ static bool test_stl_import_browser_imports_and_places_scene_asset_instance(void
     ui->loadMenu.scrollOffsetPx = 0.0f;
     TEST_ASSERT(UIPanel_HandleLoadMenuClick(list_clip.x + 4,
                                             list_clip.y + (stl_index * 24) + 12));
+    TEST_ASSERT(ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_LOADING);
+    TEST_ASSERT(ui->loadMenu.asyncStlActive);
+    TEST_ASSERT(UIPanel_FindLoadProgressIndex(ui) == stl_index);
+    TEST_ASSERT(UIPanel_LoadMenuContentHeight(ui) > 24.0f);
+    TEST_ASSERT(ld_test_tick_until_stl_import_idle(ui, 5000u));
 
     TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(authoring_path));
     TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(runtime_path));
     TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(preview_path));
-    TEST_ASSERT(strcmp(state->lastObjectRuntimeMeshPath, runtime_path) == 0);
-    TEST_ASSERT(strstr(state->objectRuntimeMeshStatus, "STL imported") != NULL);
+    TEST_ASSERT(strcmp(Global_GetLastObjectRuntimeMeshPath(), runtime_path) == 0);
+    TEST_ASSERT(strstr(Global_GetObjectRuntimeMeshStatus(), "STL imported") != NULL);
     TEST_ASSERT(Layout_ObjectStore_LiveCount(&state->layout.objectStore) == 1u);
     TEST_ASSERT(state->editor.selectedObject3DId != 0u);
     object = Layout_ObjectStore_FindConst(&state->layout.objectStore,
@@ -953,12 +627,37 @@ static bool test_stl_import_browser_imports_and_places_scene_asset_instance(void
     TEST_ASSERT(strcmp(object->meshInstance.assetId, "imported_tetra_sample") == 0);
     TEST_ASSERT(strcmp(object->meshInstance.runtimePath, runtime_path) == 0);
     TEST_ASSERT(object->meshInstance.triangleCount == 4u);
+    TEST_ASSERT(ld_test_nearly_equal(object->transform.position.x, 0.0f));
+    TEST_ASSERT(ld_test_nearly_equal(object->transform.position.y, 0.0f));
+    TEST_ASSERT(ld_test_nearly_equal(object->transform.position.z, 0.0f));
+    TEST_ASSERT(object->transform.scale.x > 1.0f);
+    TEST_ASSERT(ld_test_nearly_equal(object->transform.scale.x, object->transform.scale.y));
+    TEST_ASSERT(ld_test_nearly_equal(object->transform.scale.x, object->transform.scale.z));
     TEST_ASSERT(Layout_MeshRuntimePreview_LoadStats(runtime_path,
                                                     &preview_stats,
                                                     NULL,
                                                     0u));
     TEST_ASSERT(preview_stats.sourceTriangleCount == 4u);
     TEST_ASSERT(preview_stats.edgeCount == 6u);
+    TEST_ASSERT(ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_COMPLETE);
+    TEST_ASSERT(ui->loadMenu.loadProgressMode == UI_LOAD_MENU_MODE_STL_IMPORT);
+    TEST_ASSERT(strcmp(ui->loadMenu.loadProgressPath, stl_path) == 0);
+    TEST_ASSERT(ui->loadMenu.loadProgressPermille == 1000);
+    TEST_ASSERT(UIPanel_FindLoadProgressIndex(ui) == stl_index);
+    TEST_ASSERT(UIPanel_LoadMenuContentHeight(ui) > 24.0f);
+
+    TEST_ASSERT(UIPanel_HandleLoadMenuClick(list_clip.x + 4,
+                                            list_clip.y + (stl_index * 24) + 12));
+    TEST_ASSERT(!ui->loadMenu.asyncStlActive);
+    TEST_ASSERT(ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_COMPLETE);
+    TEST_ASSERT(strstr(ui->loadMenu.loadProgressDetail, "cached STL") != NULL);
+    TEST_ASSERT(Layout_ObjectStore_LiveCount(&state->layout.objectStore) == 2u);
+    TEST_ASSERT(strcmp(Global_GetLastObjectRuntimeMeshPath(), runtime_path) == 0);
+
+    ui->loadMenu.loadProgressFinishedTicks = SDL_GetTicks() - 2000u;
+    UIPanel_TickLoadProgress();
+    TEST_ASSERT(ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_NONE);
+    TEST_ASSERT(UIPanel_LoadMenuContentHeight(ui) == 24.0f);
 
     ld_test_shutdown_runtime();
     ld_test_remove_file_browser_runtime_state();
@@ -967,6 +666,174 @@ static bool test_stl_import_browser_imports_and_places_scene_asset_instance(void
     (void)unlink(runtime_path);
     (void)unlink(preview_path);
     (void)rmdir(stl_root);
+    return true;
+}
+
+static bool test_stl_import_browser_reimports_stale_cache(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    char stl_root[LINE_DRAWING_PATH_CAP];
+    char stl_path[LINE_DRAWING_PATH_CAP];
+    char authoring_path[LINE_DRAWING_PATH_CAP];
+    char runtime_path[LINE_DRAWING_PATH_CAP];
+    char preview_path[LINE_DRAWING_PATH_CAP];
+    int stl_index = -1;
+    SDL_Rect list_clip = {0};
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_stale_cache_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
+    snprintf(stl_path, sizeof(stl_path), "%s/tetra stale.stl", stl_root);
+    snprintf(authoring_path, sizeof(authoring_path), "%s/imported_tetra_stale.json", stl_root);
+    snprintf(runtime_path, sizeof(runtime_path), "%s/imported_tetra_stale.runtime.json", stl_root);
+    snprintf(preview_path, sizeof(preview_path), "%s/imported_tetra_stale.preview.json", stl_root);
+    TEST_ASSERT(ld_test_write_tetrahedron_stl(stl_path));
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    TEST_ASSERT(Global_SetObjectAssetRoot(stl_root, false));
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    ui->activeLeftTab = UI_PANEL_LEFT_TAB_FILE;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+
+    UIPanel_ActivateStlImportBrowser();
+    stl_index = ld_test_find_load_menu_index(ui, "tetra stale.stl");
+    TEST_ASSERT(stl_index >= 0);
+    list_clip = UIPanel_GetLoadMenuListClipRect(ui);
+    TEST_ASSERT(UIPanel_HandleLoadMenuClick(list_clip.x + 4,
+                                            list_clip.y + (stl_index * 24) + 12));
+    TEST_ASSERT(ld_test_tick_until_stl_import_idle(ui, 5000u));
+    TEST_ASSERT(Layout_ObjectStore_LiveCount(&state->layout.objectStore) == 1u);
+    TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(authoring_path));
+    TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(runtime_path));
+    TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(preview_path));
+
+    SDL_Delay(1100);
+    TEST_ASSERT(ld_test_write_oversized_tetrahedron_stl(stl_path));
+    TEST_ASSERT(UIPanel_HandleLoadMenuClick(list_clip.x + 4,
+                                            list_clip.y + (stl_index * 24) + 12));
+    TEST_ASSERT(ui->loadMenu.asyncStlActive);
+    TEST_ASSERT(ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_LOADING);
+    TEST_ASSERT(ld_test_tick_until_stl_import_idle(ui, 5000u));
+    TEST_ASSERT(Layout_ObjectStore_LiveCount(&state->layout.objectStore) == 2u);
+    TEST_ASSERT(strstr(ui->loadMenu.loadProgressDetail, "Import STL finished") != NULL);
+
+    ld_test_shutdown_runtime();
+    ld_test_remove_file_browser_runtime_state();
+    (void)unlink(stl_path);
+    (void)unlink(authoring_path);
+    (void)unlink(runtime_path);
+    (void)unlink(preview_path);
+    (void)rmdir(stl_root);
+    return true;
+}
+
+static bool test_stl_import_failure_updates_progress_and_runtime_status(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    char stl_root[LINE_DRAWING_PATH_CAP];
+    char stl_path[LINE_DRAWING_PATH_CAP];
+    int stl_index = -1;
+    SDL_Rect list_clip = {0};
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_failure_status_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
+    snprintf(stl_path, sizeof(stl_path), "%s/not_really.stl", stl_root);
+    TEST_ASSERT(ld_test_write_text_file_basic(stl_path, "not an stl\n"));
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    TEST_ASSERT(Global_SetObjectAssetRoot(stl_root, false));
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    ui->activeLeftTab = UI_PANEL_LEFT_TAB_FILE;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+
+    UIPanel_ActivateStlImportBrowser();
+    stl_index = ld_test_find_load_menu_index(ui, "not_really.stl");
+    TEST_ASSERT(stl_index >= 0);
+    list_clip = UIPanel_GetLoadMenuListClipRect(ui);
+    TEST_ASSERT(UIPanel_HandleLoadMenuClick(list_clip.x + 4,
+                                            list_clip.y + (stl_index * 24) + 12));
+    TEST_ASSERT(ld_test_tick_until_stl_import_idle(ui, 5000u));
+    TEST_ASSERT(ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_FAILED);
+    TEST_ASSERT(strstr(ui->loadMenu.loadProgressDetail, "STL import failed:") != NULL);
+    TEST_ASSERT(strstr(Global_GetObjectRuntimeMeshStatus(), "STL import failed:") != NULL);
+    TEST_ASSERT(strcmp(ui->loadMenu.loadProgressDetail,
+                       Global_GetObjectRuntimeMeshStatus()) == 0);
+
+    ld_test_shutdown_runtime();
+    ld_test_remove_file_browser_runtime_state();
+    (void)unlink(stl_path);
+    (void)rmdir(stl_root);
+    return true;
+}
+
+static bool test_stl_import_wrong_workspace_sets_failure_status(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    char stl_root[LINE_DRAWING_PATH_CAP];
+    char stl_path[LINE_DRAWING_PATH_CAP];
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_wrong_workspace_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
+    snprintf(stl_path, sizeof(stl_path), "%s/sample.stl", stl_root);
+    TEST_ASSERT(ld_test_write_tetrahedron_stl(stl_path));
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    TEST_ASSERT(Global_SetObjectAssetRoot(stl_root, false));
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+
+    TEST_ASSERT(!UIPanel_ImportStlAndPlaceFromPath(stl_path));
+    TEST_ASSERT(strstr(Global_GetObjectRuntimeMeshStatus(), "switch to scene mode") != NULL);
+    TEST_ASSERT(UIPanel_FilePaneActionStatusIsLive(ui));
+    TEST_ASSERT(strstr(ui->filePane.actionStatus, "switch to scene mode") != NULL);
+
+    ld_test_shutdown_runtime();
+    ld_test_remove_file_browser_runtime_state();
+    (void)unlink(stl_path);
+    (void)rmdir(stl_root);
+    return true;
+}
+
+static bool test_file_pane_failure_action_status_parity(void) {
+    UIPanelState* ui = NULL;
+    char missing_json[LINE_DRAWING_PATH_CAP];
+    char missing_scene[LINE_DRAWING_PATH_CAP];
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(missing_json, sizeof(missing_json), "/tmp/ld_missing_layout_%u.json", (unsigned)SDL_GetTicks());
+    snprintf(missing_scene, sizeof(missing_scene), "/tmp/ld_missing_scene_%u.json", (unsigned)SDL_GetTicks());
+
+    ld_test_init_runtime();
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+
+    TEST_ASSERT(!UIPanel_LoadLayoutFromPath(missing_json));
+    TEST_ASSERT(UIPanel_FilePaneActionStatusIsLive(ui));
+    TEST_ASSERT(strstr(ui->filePane.actionStatus, "Load JSON failed") != NULL);
+
+    UIPanel_SetFilePaneActionStatus("");
+    TEST_ASSERT(!UIPanel_LoadSceneFromPath(missing_scene));
+    TEST_ASSERT(UIPanel_FilePaneActionStatusIsLive(ui));
+    TEST_ASSERT(strstr(ui->filePane.actionStatus, "Load scene failed") != NULL);
+
+    UIPanel_SetFilePaneActionStatus("");
+    TEST_ASSERT(!UIPanel_ExportObjectRuntimeMesh());
+    TEST_ASSERT(UIPanel_FilePaneActionStatusIsLive(ui));
+    TEST_ASSERT(strstr(ui->filePane.actionStatus, "Mesh export failed") != NULL);
+
+    ld_test_shutdown_runtime();
+    ld_test_remove_file_browser_runtime_state();
     return true;
 }
 
@@ -1008,7 +875,12 @@ static bool test_stl_import_capacity_writes_bounded_preview_sidecar(void) {
                                                     diagnostics,
                                                     sizeof(diagnostics)));
     TEST_ASSERT(preview_stats.sourceTriangleCount == triangle_count);
-    TEST_ASSERT(preview_stats.sampledTriangleCount < preview_stats.sourceTriangleCount);
+    TEST_ASSERT(preview_stats.previewEdgeCount == preview_stats.edgeCount);
+    TEST_ASSERT(preview_stats.previewTriangleCount == 0u);
+    TEST_ASSERT(preview_stats.previewEdgeCount < preview_stats.sourceTriangleCount);
+    TEST_ASSERT(preview_stats.maxBudget == LD_MESH_PREVIEW_MAX_EDGES);
+    TEST_ASSERT(preview_stats.coverageRatio > 0.0);
+    TEST_ASSERT(preview_stats.coverageRatio <= 1.0);
     TEST_ASSERT(preview_stats.edgeCount <= LD_MESH_PREVIEW_MAX_EDGES);
 
     (void)unlink(stl_path);
@@ -1019,11 +891,14 @@ static bool test_stl_import_capacity_writes_bounded_preview_sidecar(void) {
     return true;
 }
 
-static bool test_stl_import_auto_scales_and_fits_scene_bounds(void) {
+static bool test_stl_import_auto_scales_and_preserves_scene_bounds(void) {
     GlobalState* state = NULL;
     const Object3D* object = NULL;
     Vec3 world_min = {0};
     Vec3 world_max = {0};
+    Vec3 bounds_min_before = {0};
+    Vec3 bounds_max_before = {0};
+    bool bounds_enabled_before = false;
     char stl_root[LINE_DRAWING_PATH_CAP];
     char stl_path[LINE_DRAWING_PATH_CAP];
     char authoring_path[LINE_DRAWING_PATH_CAP];
@@ -1042,6 +917,9 @@ static bool test_stl_import_auto_scales_and_fits_scene_bounds(void) {
     ld_test_init_runtime();
     state = Global_Get();
     TEST_ASSERT(state != NULL);
+    bounds_enabled_before = state->layout.scene3d.bounds.enabled;
+    bounds_min_before = state->layout.scene3d.bounds.min;
+    bounds_max_before = state->layout.scene3d.bounds.max;
     TEST_ASSERT(Global_SetObjectAssetRoot(stl_root, false));
     TEST_ASSERT(UIPanel_ImportStlAndPlaceFromPath(stl_path));
     TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(authoring_path));
@@ -1052,6 +930,9 @@ static bool test_stl_import_auto_scales_and_fits_scene_bounds(void) {
                                           state->editor.selectedObject3DId);
     TEST_ASSERT(object != NULL);
     TEST_ASSERT(object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE);
+    TEST_ASSERT(ld_test_nearly_equal(object->transform.position.x, 0.0f));
+    TEST_ASSERT(ld_test_nearly_equal(object->transform.position.y, 0.0f));
+    TEST_ASSERT(ld_test_nearly_equal(object->transform.position.z, 0.0f));
     TEST_ASSERT(object->transform.scale.x < 1.0f);
     TEST_ASSERT(ld_test_nearly_equal(object->transform.scale.x, object->transform.scale.y));
     TEST_ASSERT(ld_test_nearly_equal(object->transform.scale.x, object->transform.scale.z));
@@ -1059,13 +940,97 @@ static bool test_stl_import_auto_scales_and_fits_scene_bounds(void) {
     TEST_ASSERT((world_max.x - world_min.x) <= 48.1f);
     TEST_ASSERT((world_max.y - world_min.y) <= 48.1f);
     TEST_ASSERT((world_max.z - world_min.z) <= 48.1f);
-    TEST_ASSERT(state->layout.scene3d.bounds.enabled);
-    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.min.x, world_min.x - 4.0f));
-    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.max.x, world_max.x + 4.0f));
-    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.min.y, world_min.y - 4.0f));
-    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.max.y, world_max.y + 4.0f));
-    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.min.z, world_min.z - 4.0f));
-    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.max.z, world_max.z + 4.0f));
+    TEST_ASSERT(state->layout.scene3d.bounds.enabled == bounds_enabled_before);
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.min.x, bounds_min_before.x));
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.max.x, bounds_max_before.x));
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.min.y, bounds_min_before.y));
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.max.y, bounds_max_before.y));
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.min.z, bounds_min_before.z));
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.scene3d.bounds.max.z, bounds_max_before.z));
+
+    ld_test_shutdown_runtime();
+    ld_test_remove_file_browser_runtime_state();
+    (void)unlink(stl_path);
+    (void)unlink(authoring_path);
+    (void)unlink(runtime_path);
+    (void)unlink(preview_path);
+    (void)rmdir(stl_root);
+    return true;
+}
+
+static bool test_stl_import_bounds_proxy_preview_keeps_mesh_selectable(void) {
+    GlobalState* state = NULL;
+    const Object3D* object = NULL;
+    Hitbox hit = {0};
+    SpaceViewContext view_ctx = {0};
+    Vec3 center = {0};
+    Vec2 center_screen = {0};
+    char stl_root[LINE_DRAWING_PATH_CAP];
+    char stl_path[LINE_DRAWING_PATH_CAP];
+    char authoring_path[LINE_DRAWING_PATH_CAP];
+    char runtime_path[LINE_DRAWING_PATH_CAP];
+    char preview_path[LINE_DRAWING_PATH_CAP];
+    char generated_preview_path[LINE_DRAWING_PATH_CAP];
+    LayoutMeshRuntimePreviewStats preview_stats = {0};
+    CoreResult preview_result = {0};
+
+    ld_test_remove_file_browser_runtime_state();
+    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_bounds_proxy_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
+    snprintf(stl_path, sizeof(stl_path), "%s/degraded selectable.stl", stl_root);
+    snprintf(authoring_path, sizeof(authoring_path), "%s/imported_degraded_selectable.json", stl_root);
+    snprintf(runtime_path,
+             sizeof(runtime_path),
+             "%s/imported_degraded_selectable.runtime.json",
+             stl_root);
+    snprintf(preview_path,
+             sizeof(preview_path),
+             "%s/imported_degraded_selectable.preview.json",
+             stl_root);
+    TEST_ASSERT(ld_test_write_oversized_tetrahedron_stl(stl_path));
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    TEST_ASSERT(Global_SetObjectAssetRoot(stl_root, false));
+    TEST_ASSERT(UIPanel_ImportStlAndPlaceFromPath(stl_path));
+    TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(authoring_path));
+    TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(runtime_path));
+    TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(preview_path));
+
+    preview_result = core_mesh_preview_save_for_runtime_file(
+        runtime_path,
+        CORE_MESH_PREVIEW_MODE_BOUNDS_PROXY_V1,
+        0u,
+        generated_preview_path,
+        sizeof(generated_preview_path));
+    TEST_ASSERT(preview_result.code == CORE_OK);
+    TEST_ASSERT(strcmp(generated_preview_path, preview_path) == 0);
+    TEST_ASSERT(Layout_MeshRuntimePreview_LoadStats(runtime_path,
+                                                    &preview_stats,
+                                                    NULL,
+                                                    0u));
+    TEST_ASSERT(strcmp(preview_stats.previewMode, "bounds_proxy_v1") == 0);
+    TEST_ASSERT(preview_stats.metadataOnly);
+    TEST_ASSERT(preview_stats.edgeCount == 0u);
+    TEST_ASSERT(preview_stats.previewEdgeCount == 0u);
+    TEST_ASSERT(preview_stats.maxSpan > 0.0);
+    TEST_ASSERT(preview_stats.boundingSphereRadius > 0.0);
+
+    TEST_ASSERT(state->editor.selectedObject3DId != 0u);
+    object = Layout_ObjectStore_FindConst(&state->layout.objectStore,
+                                          state->editor.selectedObject3DId);
+    TEST_ASSERT(object != NULL);
+    TEST_ASSERT(object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE);
+    TEST_ASSERT(Layout_Object3D_ComputeVisualCenter(object, &center));
+    view_ctx = SpaceAdapter_BuildViewContext(state);
+    center_screen = WorldToScreen(SpaceAdapter_ProjectToView(center, &view_ctx), &state->grid);
+    Global_RebuildHitboxesIfDirty();
+    hit = HitboxSystem_GetHitAtOfType((int)lroundf(center_screen.x),
+                                      (int)lroundf(center_screen.y),
+                                      HITBOX_OBJECT3D);
+    TEST_ASSERT(hit.type == HITBOX_OBJECT3D);
+    TEST_ASSERT(hit.index == (int)object->objectId);
 
     ld_test_shutdown_runtime();
     ld_test_remove_file_browser_runtime_state();
@@ -1081,40 +1046,34 @@ bool ui_panel_file_browser_run_tests(void) {
     const TestCase cases[] = {
         { "file_browser_switches_modes_and_uses_pane_rect",
           test_file_browser_switches_modes_and_uses_pane_rect },
-        { "file_browser_restore_reopens_last_layout_for_json_mode",
-          test_file_browser_restore_reopens_last_layout_for_json_mode },
-        { "file_browser_remembers_last_browsed_entry_without_session_restore",
-          test_file_browser_remembers_last_browsed_entry_without_session_restore },
-        { "file_browser_root_switch_clears_unmatched_highlight",
-          test_file_browser_root_switch_clears_unmatched_highlight },
-        { "file_browser_mode_specific_roots_restore_on_activation",
-          test_file_browser_mode_specific_roots_restore_on_activation },
-        { "session_input_root_change_does_not_override_mode_browser_root",
-          test_session_input_root_change_does_not_override_mode_browser_root },
-        { "session_input_root_change_preserves_loaded_layout_identity",
-          test_session_input_root_change_preserves_loaded_layout_identity },
-        { "session_input_root_change_updates_default_layout_path_before_load",
-          test_session_input_root_change_updates_default_layout_path_before_load },
-        { "file_browser_status_text_marks_active_session_row",
-          test_file_browser_status_text_marks_active_session_row },
+        { "file_pane_action_buttons_use_equal_column_widths",
+          test_file_pane_action_buttons_use_equal_column_widths },
+        { "file_browser_close_api_synchronizes_open_and_visible",
+          test_file_browser_close_api_synchronizes_open_and_visible },
+        { "file_pane_export_scene_button_click_exports_and_sets_status",
+          test_file_pane_export_scene_button_click_exports_and_sets_status },
         { "stl_browser_action_hint_surfaces_import_failure",
           test_stl_browser_action_hint_surfaces_import_failure },
-        { "file_browser_status_text_marks_remembered_fallback_row",
-          test_file_browser_status_text_marks_remembered_fallback_row },
-        { "file_browser_status_text_marks_unmatched_root_state",
-          test_file_browser_status_text_marks_unmatched_root_state },
-        { "file_browser_use_active_realigns_browser_root_and_highlight",
-          test_file_browser_use_active_realigns_browser_root_and_highlight },
-        { "file_browser_clear_last_removes_remembered_fallback",
-          test_file_browser_clear_last_removes_remembered_fallback },
+        { "stl_catalog_recurses_into_curated_source_directories",
+          test_stl_catalog_recurses_into_curated_source_directories },
         { "runtime_mesh_browser_places_scene_asset_instance",
           test_runtime_mesh_browser_places_scene_asset_instance },
         { "stl_import_browser_imports_and_places_scene_asset_instance",
           test_stl_import_browser_imports_and_places_scene_asset_instance },
+        { "stl_import_browser_reimports_stale_cache",
+          test_stl_import_browser_reimports_stale_cache },
+        { "stl_import_failure_updates_progress_and_runtime_status",
+          test_stl_import_failure_updates_progress_and_runtime_status },
+        { "stl_import_wrong_workspace_sets_failure_status",
+          test_stl_import_wrong_workspace_sets_failure_status },
+        { "file_pane_failure_action_status_parity",
+          test_file_pane_failure_action_status_parity },
         { "stl_import_capacity_writes_bounded_preview_sidecar",
           test_stl_import_capacity_writes_bounded_preview_sidecar },
-        { "stl_import_auto_scales_and_fits_scene_bounds",
-          test_stl_import_auto_scales_and_fits_scene_bounds },
+        { "stl_import_auto_scales_and_preserves_scene_bounds",
+          test_stl_import_auto_scales_and_preserves_scene_bounds },
+        { "stl_import_bounds_proxy_preview_keeps_mesh_selectable",
+          test_stl_import_bounds_proxy_preview_keeps_mesh_selectable },
     };
     return run_test_cases("UIPanelFileBrowser", cases, sizeof(cases) / sizeof(cases[0]));
 }

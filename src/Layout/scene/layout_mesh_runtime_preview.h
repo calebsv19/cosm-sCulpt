@@ -8,11 +8,25 @@
 #include <stddef.h>
 
 typedef struct {
+    char previewMode[32];
+    char sampleStrategy[48];
     size_t sourceVertexCount;
     size_t loadedVertexCount;
     size_t sourceTriangleCount;
-    size_t sampledTriangleCount;
+    size_t previewVertexCount;
+    size_t previewEdgeCount;
+    size_t previewTriangleCount;
+    size_t maxBudget;
     size_t edgeCount;
+    double coverageRatio;
+    double maxSpan;
+    double boundingSphereRadius;
+    Vec3 localBoundsMin;
+    Vec3 localBoundsMax;
+    Vec3 boundsCenter;
+    Vec3 boundsExtent;
+    bool hasDrawablePayload;
+    bool metadataOnly;
     bool vertexTruncated;
     bool triangleSampled;
 } LayoutMeshRuntimePreviewStats;

@@ -702,6 +702,79 @@ static bool test_workspace_mode_handoff_reseeds_object_workspace_when_scene_sele
     return true;
 }
 
+static bool test_workspace_mode_handoff_preserves_document_identity_by_workspace(void) {
+    GlobalState* state = NULL;
+    Layout* layout = NULL;
+    PlanePrimitiveCreateParams params;
+    uint32_t scene_object_id = 0u;
+    bool adjusted = false;
+    const char* scene_authoring_path = "/tmp/ld_workspace_identity_scene/scene_authoring.json";
+    const char* scene_layout_path = "/tmp/ld_workspace_identity_scene/scene_runtime.json";
+    const char* object_asset_path = "/tmp/ld_workspace_identity_object/object_asset.json";
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    layout = &state->layout;
+
+    params = (PlanePrimitiveCreateParams){
+        .width = 5.0f,
+        .height = 3.0f,
+        .useExplicitFrame = true,
+        .explicitFrame = {
+            .origin = { 4.0f, -2.0f, 1.0f },
+            .axisU = { 1.0f, 0.0f, 0.0f },
+            .axisV = { 0.0f, 1.0f, 0.0f },
+            .normal = { 0.0f, 0.0f, 1.0f }
+        },
+        .lockToConstructionPlane = true,
+        .lockToBounds = false
+    };
+    TEST_ASSERT(Layout_CreatePlanePrimitive(layout, &params, &scene_object_id, &adjusted));
+    state->editor.selectedObject3DId = scene_object_id;
+    Global_OnSceneLoaded(scene_authoring_path, scene_layout_path);
+    state->layoutDirtySinceSave = true;
+    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), scene_layout_path) == 0);
+    TEST_ASSERT(strcmp(Global_GetCurrentSceneAuthoringPath(), scene_authoring_path) == 0);
+    TEST_ASSERT(Global_GetCurrentObjectAssetPath()[0] == '\0');
+
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+    TEST_ASSERT(state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT);
+    TEST_ASSERT(strcmp(state->sceneWorkspaceDocument.currentConfigPath, scene_layout_path) == 0);
+    TEST_ASSERT(strcmp(state->sceneWorkspaceDocument.currentSceneAuthoringPath,
+                       scene_authoring_path) == 0);
+    TEST_ASSERT(state->sceneWorkspaceDocument.currentObjectAssetPath[0] == '\0');
+    TEST_ASSERT(state->sceneWorkspaceDocument.layoutDirtySinceSave);
+
+    Global_OnObjectAssetLoaded(object_asset_path);
+    state->layoutDirtySinceSave = true;
+    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), object_asset_path) == 0);
+    TEST_ASSERT(Global_GetCurrentSceneAuthoringPath()[0] == '\0');
+    TEST_ASSERT(strcmp(Global_GetCurrentObjectAssetPath(), object_asset_path) == 0);
+
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_SCENE));
+    TEST_ASSERT(state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_SCENE);
+    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), scene_layout_path) == 0);
+    TEST_ASSERT(strcmp(Global_GetCurrentSceneAuthoringPath(), scene_authoring_path) == 0);
+    TEST_ASSERT(Global_GetCurrentObjectAssetPath()[0] == '\0');
+    TEST_ASSERT(state->layoutDirtySinceSave);
+    TEST_ASSERT(strcmp(state->objectWorkspaceDocument.currentConfigPath, object_asset_path) == 0);
+    TEST_ASSERT(strcmp(state->objectWorkspaceDocument.currentObjectAssetPath,
+                       object_asset_path) == 0);
+    TEST_ASSERT(state->objectWorkspaceDocument.currentSceneAuthoringPath[0] == '\0');
+    TEST_ASSERT(state->objectWorkspaceDocument.layoutDirtySinceSave);
+
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+    TEST_ASSERT(state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT);
+    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), object_asset_path) == 0);
+    TEST_ASSERT(Global_GetCurrentSceneAuthoringPath()[0] == '\0');
+    TEST_ASSERT(strcmp(Global_GetCurrentObjectAssetPath(), object_asset_path) == 0);
+    TEST_ASSERT(state->layoutDirtySinceSave);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_workspace_mode_handoff_reopens_mesh_instance_source_asset(void) {
     GlobalState* state = NULL;
     Layout asset_layout;
@@ -982,6 +1055,8 @@ bool test_layout_object3d_store_run_tests(void) {
         { "WorkspaceModeHandoffRestoresSceneAndObjectViewports", test_workspace_mode_handoff_restores_scene_and_object_viewports },
         { "WorkspaceModeHandoffReseedsObjectWorkspaceWhenSceneSelectionChanges",
           test_workspace_mode_handoff_reseeds_object_workspace_when_scene_selection_changes },
+        { "WorkspaceModeHandoffPreservesDocumentIdentityByWorkspace",
+          test_workspace_mode_handoff_preserves_document_identity_by_workspace },
         { "WorkspaceModeHandoffReopensMeshInstanceSourceAsset",
           test_workspace_mode_handoff_reopens_mesh_instance_source_asset },
         { "WorkspaceModeHandoffRefreshesMeshInstanceRuntimeSidecar",

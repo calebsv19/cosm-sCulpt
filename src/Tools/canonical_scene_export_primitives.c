@@ -225,6 +225,8 @@ bool LineDrawingCanonicalScene_AddCanonicalPrimitivePayload(cJSON* object_json, 
         float width [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->plane.width;
         float height [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->plane.height;
         contract.kind = CORE_SCENE_OBJECT_KIND_PLANE_PRIMITIVE;
+        contract.object.dimensional_mode = CORE_OBJECT_DIMENSIONAL_MODE_PLANE_LOCKED;
+        contract.object.locked_plane = object->coreMeta.locked_plane;
         contract.has_plane_primitive = true;
         contract.plane_primitive.width = width;
         contract.plane_primitive.height = height;
@@ -336,7 +338,12 @@ bool LineDrawingCanonicalScene_PopulateScene3DExtension(cJSON* line_drawing_ext,
     SceneBounds3D framing_bounds = {0};
 
     if (!line_drawing_ext || !layout) return false;
-    if (!LineDrawingCanonicalScene_ComputeFramingBounds(layout, &framing_bounds)) return false;
+    if (layout->scene3d.bounds.enabled &&
+        Layout_SceneBounds3D_IsValid(&layout->scene3d.bounds)) {
+        framing_bounds = layout->scene3d.bounds;
+    } else if (!LineDrawingCanonicalScene_ComputeFramingBounds(layout, &framing_bounds)) {
+        return false;
+    }
 
     scene3d = cJSON_Duplicate(cJSON_GetObjectItemCaseSensitive(line_drawing_ext, "scene3d"), 1);
     if (!scene3d) scene3d = cJSON_CreateObject();

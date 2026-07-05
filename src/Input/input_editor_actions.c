@@ -168,6 +168,31 @@ static void InputEditorAction_FocusFreeViewCamera(GlobalState* state) {
     InputEditorAction_RecenterFreeViewOnProjectedOrigin(state);
 }
 
+static const char* InputEditorAction_PlaneAxisLabel(ViewPlaneAxis axis) {
+    switch (axis) {
+        case VIEW_PLANE_YZ: return "YZ";
+        case VIEW_PLANE_XZ: return "XZ";
+        case VIEW_PLANE_XY:
+        default: return "XY";
+    }
+}
+
+static const char* InputEditorAction_PlaneCoordLabel(ViewPlaneAxis axis) {
+    switch (axis) {
+        case VIEW_PLANE_YZ: return "x";
+        case VIEW_PLANE_XZ: return "y";
+        case VIEW_PLANE_XY:
+        default: return "z";
+    }
+}
+
+static void InputEditorAction_SetActivePlane(GlobalState* state, ViewPlane plane) {
+    if (!state) return;
+    state->activePlane = plane;
+    Layout_ConstructionPlane3D_SetFromViewPlane(&state->layout.scene3d.constructionPlane, plane);
+    Global_FlagHitboxesDirty();
+}
+
 bool InputEditorAction_ToggleSpaceMode(bool persist) {
     GlobalState* state = Global_Get();
     if (!state) return false;
@@ -196,5 +221,50 @@ bool InputEditorAction_ToggleFreeView(void) {
 bool InputEditorAction_ToggleObjectGizmoMode(void) {
     if (!UIPanel_ToggleObjectGizmoRotateMode()) return false;
     printf("[Editor] Object gizmo mode: %s\n", UIPanel_ObjectGizmoModeLabel());
+    return true;
+}
+
+bool InputEditorAction_CycleActivePlane(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    if (state->spaceMode != SPACE_MODE_3D) {
+        printf("[Editor] Plane controls require SPACE_MODE_3D.\n");
+        return false;
+    }
+
+    ViewPlane plane = state->activePlane;
+    switch (plane.axis) {
+        case VIEW_PLANE_XY:
+            plane.axis = VIEW_PLANE_YZ;
+            break;
+        case VIEW_PLANE_YZ:
+            plane.axis = VIEW_PLANE_XZ;
+            break;
+        case VIEW_PLANE_XZ:
+        default:
+            plane.axis = VIEW_PLANE_XY;
+            break;
+    }
+    InputEditorAction_SetActivePlane(state, plane);
+    printf("[Editor] Active plane: %s (%s = %.2f)\n",
+           InputEditorAction_PlaneAxisLabel(state->activePlane.axis),
+           InputEditorAction_PlaneCoordLabel(state->activePlane.axis),
+           state->activePlane.offset);
+    return true;
+}
+
+bool InputEditorAction_Undo(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    if (!Editor_Undo(&state->editor, &state->layout)) return false;
+    Global_FlagHitboxesDirty();
+    return true;
+}
+
+bool InputEditorAction_Redo(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    if (!Editor_Redo(&state->editor, &state->layout)) return false;
+    Global_FlagHitboxesDirty();
     return true;
 }

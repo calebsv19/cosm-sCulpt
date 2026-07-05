@@ -10,6 +10,7 @@
 
 #include <SDL2/SDL.h>
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 bool draggingPan = false;
@@ -58,6 +59,7 @@ ObjectTranslateDragState objectTranslateDrag = {
     .mouseStartScreen = { 0.0f, 0.0f },
     .centerStartWorld = { 0.0f, 0.0f, 0.0f },
     .worldUnitsPerPixel = 0.0f,
+    .signedWorldDistance = 0.0f,
     .smooth = false,
     .historyCaptured = false
 };
@@ -69,6 +71,7 @@ ObjectRotateDragState objectRotateDrag = {
     .mouseStartScreen = { 0.0f, 0.0f },
     .centerStartWorld = { 0.0f, 0.0f, 0.0f },
     .degreesPerPixel = 0.0f,
+    .angleDeg = 0.0f,
     .smooth = false,
     .historyCaptured = false,
     .baselineObject = {0}
@@ -82,6 +85,8 @@ ObjectScaleDragState objectScaleDrag = {
     .centerStartWorld = { 0.0f, 0.0f, 0.0f },
     .worldUnitsPerPixel = 0.0f,
     .axisOnly = false,
+    .factor = 1.0f,
+    .scaleFactors = { 1.0f, 1.0f, 1.0f },
     .historyCaptured = false,
     .baselineObject = {0}
 };
@@ -152,6 +157,7 @@ void ResetObjectTranslateDrag(EditorState* editor) {
     objectTranslateDrag.mouseStartScreen = (Vec2){ 0.0f, 0.0f };
     objectTranslateDrag.centerStartWorld = (Vec3){ 0.0f, 0.0f, 0.0f };
     objectTranslateDrag.worldUnitsPerPixel = 0.0f;
+    objectTranslateDrag.signedWorldDistance = 0.0f;
     objectTranslateDrag.smooth = false;
     objectTranslateDrag.historyCaptured = false;
     if (!editor) return;
@@ -165,6 +171,7 @@ void ResetObjectRotateDrag(EditorState* editor) {
     objectRotateDrag.mouseStartScreen = (Vec2){ 0.0f, 0.0f };
     objectRotateDrag.centerStartWorld = (Vec3){ 0.0f, 0.0f, 0.0f };
     objectRotateDrag.degreesPerPixel = 0.0f;
+    objectRotateDrag.angleDeg = 0.0f;
     objectRotateDrag.smooth = false;
     objectRotateDrag.historyCaptured = false;
     memset(&objectRotateDrag.baselineObject, 0, sizeof(objectRotateDrag.baselineObject));
@@ -181,6 +188,8 @@ void ResetObjectScaleDrag(EditorState* editor) {
     objectScaleDrag.centerStartWorld = (Vec3){ 0.0f, 0.0f, 0.0f };
     objectScaleDrag.worldUnitsPerPixel = 0.0f;
     objectScaleDrag.axisOnly = false;
+    objectScaleDrag.factor = 1.0f;
+    objectScaleDrag.scaleFactors = (Vec3){ 1.0f, 1.0f, 1.0f };
     objectScaleDrag.historyCaptured = false;
     memset(&objectScaleDrag.baselineObject, 0, sizeof(objectScaleDrag.baselineObject));
     if (!editor) return;
@@ -479,6 +488,7 @@ bool BeginObjectTranslateDragSession(GlobalState* state,
     objectTranslateDrag.mouseStartScreen = (Vec2){ (float)mouseX, (float)mouseY };
     objectTranslateDrag.centerStartWorld = centerWorld;
     objectTranslateDrag.worldUnitsPerPixel = axisWorldLen / axisPixels;
+    objectTranslateDrag.signedWorldDistance = 0.0f;
     objectTranslateDrag.smooth = (SDL_GetModState() & KMOD_SHIFT) != 0;
     objectTranslateDrag.historyCaptured = false;
 
@@ -528,6 +538,7 @@ bool BeginObjectRotateDragSession(GlobalState* state,
     objectRotateDrag.mouseStartScreen = (Vec2){ (float)mouseX, (float)mouseY };
     objectRotateDrag.centerStartWorld = centerWorld;
     objectRotateDrag.degreesPerPixel = 180.0f / axisPixels;
+    objectRotateDrag.angleDeg = 0.0f;
     objectRotateDrag.smooth = (SDL_GetModState() & KMOD_SHIFT) != 0;
     objectRotateDrag.historyCaptured = false;
     objectRotateDrag.baselineObject = *object;
@@ -579,6 +590,8 @@ bool BeginObjectScaleDragSession(GlobalState* state,
     objectScaleDrag.centerStartWorld = centerWorld;
     objectScaleDrag.worldUnitsPerPixel = axisWorldLen / axisPixels;
     objectScaleDrag.axisOnly = (SDL_GetModState() & KMOD_SHIFT) != 0;
+    objectScaleDrag.factor = 1.0f;
+    objectScaleDrag.scaleFactors = (Vec3){ 1.0f, 1.0f, 1.0f };
     objectScaleDrag.historyCaptured = false;
     objectScaleDrag.baselineObject = *object;
 
@@ -961,6 +974,7 @@ static void UpdateObjectTranslateDragPosition(int mx, int my) {
                                                           objectTranslateDrag.worldUnitsPerPixel,
                                                           step,
                                                           objectTranslateDrag.smooth);
+    objectTranslateDrag.signedWorldDistance = signedWorldDistance;
     Vec3 nextCenter = GizmoDrag_ApplyAxisDistance(objectTranslateDrag.centerStartWorld,
                                                   objectTranslateDrag.axis,
                                                   signedWorldDistance);
@@ -1026,6 +1040,7 @@ static void UpdateObjectRotateDragPosition(int mx, int my) {
         const float snapDeg = 15.0f;
         angleDeg = roundf(angleDeg / snapDeg) * snapDeg;
     }
+    objectRotateDrag.angleDeg = angleDeg;
 
     (void)Layout_RotateObject3D(&state->layout,
                                 objectRotateDrag.objectId,
@@ -1089,6 +1104,18 @@ static Vec3 ObjectScale_FactorsForDrag(const Object3D* object,
     return factors;
 }
 
+static const char* ObjectDrag_AxisLabel(GizmoAxisDirection axis) {
+    switch (axis) {
+        case GIZMO_AXIS_DIR_POS_X: return "+X";
+        case GIZMO_AXIS_DIR_NEG_X: return "-X";
+        case GIZMO_AXIS_DIR_POS_Y: return "+Y";
+        case GIZMO_AXIS_DIR_NEG_Y: return "-Y";
+        case GIZMO_AXIS_DIR_POS_Z: return "+Z";
+        case GIZMO_AXIS_DIR_NEG_Z: return "-Z";
+    }
+    return "?";
+}
+
 static void UpdateObjectScaleDragPosition(int mx, int my) {
     if (!draggingObjectScale || !objectScaleDrag.active) return;
 
@@ -1150,11 +1177,53 @@ static void UpdateObjectScaleDragPosition(int mx, int my) {
                                                    objectScaleDrag.axis,
                                                    factor,
                                                    objectScaleDrag.axisOnly);
+    objectScaleDrag.factor = factor;
+    objectScaleDrag.scaleFactors = scaleFactors;
     (void)Layout_ScaleObject3D(&state->layout,
                                objectScaleDrag.objectId,
                                scaleFactors,
                                &objectScaleDrag.baselineObject,
                                NULL);
+}
+
+bool ObjectScaleDrag_FormatLiveReport(char* out, size_t out_size) {
+    if (!out || out_size == 0u) return false;
+    out[0] = '\0';
+    if (!draggingObjectScale || !objectScaleDrag.active) return false;
+    if (objectScaleDrag.axisOnly) {
+        (void)snprintf(out,
+                       out_size,
+                       "Axis x%.2f",
+                       objectScaleDrag.factor);
+    } else {
+        (void)snprintf(out,
+                       out_size,
+                       "Uniform x%.2f",
+                       objectScaleDrag.factor);
+    }
+    return out[0] != '\0';
+}
+
+bool ObjectCenterGizmoDrag_FormatLiveOperationReport(char* out, size_t out_size) {
+    if (!out || out_size == 0u) return false;
+    out[0] = '\0';
+    if (draggingObjectTranslate && objectTranslateDrag.active) {
+        (void)snprintf(out,
+                       out_size,
+                       "Move %s %+0.2f",
+                       ObjectDrag_AxisLabel(objectTranslateDrag.axis),
+                       objectTranslateDrag.signedWorldDistance);
+        return out[0] != '\0';
+    }
+    if (draggingObjectRotate && objectRotateDrag.active) {
+        (void)snprintf(out,
+                       out_size,
+                       "Rotate %s %+0.1f deg",
+                       ObjectDrag_AxisLabel(objectRotateDrag.axis),
+                       objectRotateDrag.angleDeg);
+        return out[0] != '\0';
+    }
+    return ObjectScaleDrag_FormatLiveReport(out, out_size);
 }
 
 void HandleMouseDrag(const SDL_MouseMotionEvent* motion) {

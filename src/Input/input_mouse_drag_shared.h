@@ -27,6 +27,7 @@ typedef struct {
     Vec2 mouseStartScreen;
     Vec3 centerStartWorld;
     float worldUnitsPerPixel;
+    float signedWorldDistance;
     bool smooth;
     bool historyCaptured;
 } ObjectTranslateDragState;
@@ -38,6 +39,7 @@ typedef struct {
     Vec2 mouseStartScreen;
     Vec3 centerStartWorld;
     float degreesPerPixel;
+    float angleDeg;
     bool smooth;
     bool historyCaptured;
     Object3D baselineObject;
@@ -51,6 +53,8 @@ typedef struct {
     Vec3 centerStartWorld;
     float worldUnitsPerPixel;
     bool axisOnly;
+    float factor;
+    Vec3 scaleFactors;
     bool historyCaptured;
     Object3D baselineObject;
 } ObjectScaleDragState;

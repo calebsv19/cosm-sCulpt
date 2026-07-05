@@ -410,6 +410,37 @@ static bool test_rect_prism_set_dimensions_preserves_center_and_updates_size(voi
     return true;
 }
 
+static bool test_plane_set_dimensions_preserves_center_and_updates_size(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    PlanePrimitiveCreateParams params;
+    Layout_PlanePrimitiveCreateParams_SetDefaults(&params);
+    params.width = 4.0f;
+    params.height = 3.0f;
+    params.lockToBounds = false;
+
+    uint32_t objectId = 0u;
+    TEST_ASSERT(Layout_CreatePlanePrimitive(layout, &params, &objectId, NULL));
+    Object3D* object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+    TEST_ASSERT(object->kind == OBJECT3D_KIND_PLANE);
+    Vec3 centerBefore = object->transform.position;
+
+    TEST_ASSERT(Layout_SetPlaneDimensions(layout, objectId, 9.0f, 8.0f, NULL));
+    object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+    TEST_ASSERT(ld_test_nearly_equal(object->plane.width, 9.0f));
+    TEST_ASSERT(ld_test_nearly_equal(object->plane.height, 8.0f));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(object->transform.position, centerBefore));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(object->plane.frame.origin, centerBefore));
+    TEST_ASSERT(Layout_ObjectStore_ValidateObject(object));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_rect_prism_set_dimensions_clamps_to_bounds_when_locked(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
@@ -549,6 +580,59 @@ static bool test_layout_set_mesh_position_uses_visual_bounds_center(void) {
     TEST_ASSERT(Layout_Object3D_ComputeVisualCenter(object, &visualCenter));
     TEST_ASSERT(ld_test_vec3_nearly_equal(visualCenter, desiredCenter));
     TEST_ASSERT(ld_test_vec3_nearly_equal(object->transform.position, (Vec3){ -6.0f, -15.0f, -19.0f }));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_mesh_world_bounds_and_center_apply_rotation(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    Transform3D transform = Layout_Transform3D_Default();
+    transform.position = (Vec3){ 10.0f, 20.0f, 30.0f };
+    transform.rotationDeg = (Vec3){ 0.0f, 0.0f, 90.0f };
+    transform.scale = (Vec3){ 2.0f, 3.0f, 1.0f };
+    uint32_t objectId = Layout_ObjectStore_Create(&layout->objectStore,
+                                                  OBJECT3D_KIND_MESH_ASSET_INSTANCE,
+                                                  &transform,
+                                                  "mesh_asset_instance",
+                                                  CORE_OBJECT_DIMENSIONAL_MODE_FULL_3D,
+                                                  CORE_OBJECT_PLANE_XY);
+    TEST_ASSERT(objectId != 0u);
+
+    Object3D* object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+    snprintf(object->meshInstance.assetId,
+             sizeof(object->meshInstance.assetId),
+             "mesh_rotated_bounds");
+    snprintf(object->meshInstance.sourceAssetId,
+             sizeof(object->meshInstance.sourceAssetId),
+             "mesh_rotated_bounds_source");
+    snprintf(object->meshInstance.runtimePath,
+             sizeof(object->meshInstance.runtimePath),
+             "/tmp/mesh_rotated_bounds.runtime.json");
+    object->meshInstance.localBoundsMin = (Vec3){ -1.0f, -2.0f, -3.0f };
+    object->meshInstance.localBoundsMax = (Vec3){  1.0f,  2.0f,  3.0f };
+    object->meshInstance.vertexCount = 8u;
+    object->meshInstance.triangleCount = 12u;
+    object->meshInstance.lockToBounds = true;
+    TEST_ASSERT(Layout_ObjectStore_ValidateObject(object));
+
+    Vec3 minPoint = {0};
+    Vec3 maxPoint = {0};
+    Vec3 visualCenter = {0};
+    TEST_ASSERT(Layout_Object3D_ComputeWorldAABB(object, &minPoint, &maxPoint));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(minPoint, (Vec3){ 4.0f, 18.0f, 27.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(maxPoint, (Vec3){ 16.0f, 22.0f, 33.0f }));
+    TEST_ASSERT(Layout_Object3D_ComputeVisualCenter(object, &visualCenter));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(visualCenter, (Vec3){ 10.0f, 20.0f, 30.0f }));
+
+    const Vec3 desiredCenter = { 1.0f, 2.0f, 3.0f };
+    TEST_ASSERT(Layout_SetObject3DPosition(layout, objectId, desiredCenter, NULL));
+    TEST_ASSERT(Layout_Object3D_ComputeVisualCenter(object, &visualCenter));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(visualCenter, desiredCenter));
 
     ld_test_shutdown_runtime();
     return true;
@@ -762,6 +846,112 @@ static bool test_layout_rotate_object3d_clamps_locked_bounds(void) {
     return true;
 }
 
+static bool test_layout_scale_object3d_uniform_plane_updates_dimensions(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    PlanePrimitiveCreateParams params;
+    Layout_PlanePrimitiveCreateParams_SetDefaults(&params);
+    params.width = 4.0f;
+    params.height = 2.0f;
+    params.lockToBounds = false;
+
+    uint32_t objectId = 0u;
+    TEST_ASSERT(Layout_CreatePlanePrimitive(layout, &params, &objectId, NULL));
+    Object3D* object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+    const Vec3 center = object->transform.position;
+    const Object3D baseline = *object;
+
+    TEST_ASSERT(Layout_ScaleObject3D(layout,
+                                     objectId,
+                                     (Vec3){2.0f, 2.0f, 2.0f},
+                                     &baseline,
+                                     NULL));
+
+    object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+    TEST_ASSERT(ld_test_nearly_equal(object->plane.width, 8.0f));
+    TEST_ASSERT(ld_test_nearly_equal(object->plane.height, 4.0f));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(object->transform.position, center));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_scale_object3d_axis_prism_stretches_single_dimension(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    RectPrismPrimitiveCreateParams params;
+    Layout_RectPrismPrimitiveCreateParams_SetDefaults(&params);
+    params.width = 4.0f;
+    params.height = 2.0f;
+    params.depth = 3.0f;
+    params.lockToBounds = false;
+
+    uint32_t objectId = 0u;
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(layout, &params, &objectId, NULL));
+    Object3D* object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+    const Object3D baseline = *object;
+
+    TEST_ASSERT(Layout_ScaleObject3D(layout,
+                                     objectId,
+                                     (Vec3){1.0f, 3.0f, 1.0f},
+                                     &baseline,
+                                     NULL));
+
+    object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+    TEST_ASSERT(ld_test_nearly_equal(object->rectPrism.width, 4.0f));
+    TEST_ASSERT(ld_test_nearly_equal(object->rectPrism.height, 6.0f));
+    TEST_ASSERT(ld_test_nearly_equal(object->rectPrism.depth, 3.0f));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_scale_object3d_rejects_locked_bounds_overflow(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    layout->scene3d.bounds.enabled = true;
+    layout->scene3d.bounds.min = (Vec3){-2.0f, -2.0f, -2.0f};
+    layout->scene3d.bounds.max = (Vec3){ 2.0f,  2.0f,  2.0f};
+
+    RectPrismPrimitiveCreateParams params;
+    Layout_RectPrismPrimitiveCreateParams_SetDefaults(&params);
+    params.width = 2.0f;
+    params.height = 2.0f;
+    params.depth = 2.0f;
+    params.lockToBounds = true;
+
+    uint32_t objectId = 0u;
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(layout, &params, &objectId, NULL));
+    Object3D* object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+    const Object3D baseline = *object;
+
+    TEST_ASSERT(!Layout_ScaleObject3D(layout,
+                                      objectId,
+                                      (Vec3){3.0f, 3.0f, 3.0f},
+                                      &baseline,
+                                      NULL));
+
+    object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    TEST_ASSERT(object != NULL);
+    TEST_ASSERT(ld_test_nearly_equal(object->rectPrism.width, 2.0f));
+    TEST_ASSERT(ld_test_nearly_equal(object->rectPrism.height, 2.0f));
+    TEST_ASSERT(ld_test_nearly_equal(object->rectPrism.depth, 2.0f));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_ui_panel_display_unit_conversion_roundtrip(void) {
     ld_test_init_runtime();
 
@@ -825,14 +1015,19 @@ bool test_layout_object3d_resize_run_tests(void) {
         { "RectPrismResizeHandleResolutionFlipsCornerAxes", test_rect_prism_resize_handle_resolution_flips_corner_axes },
         { "RectPrismDepthResizeFromFaceHandleUpdatesDepthAndCenter", test_rect_prism_depth_resize_from_face_handle_updates_depth_and_center },
         { "RectPrismSetDimensionsPreservesCenterAndUpdatesSize", test_rect_prism_set_dimensions_preserves_center_and_updates_size },
+        { "PlaneSetDimensionsPreservesCenterAndUpdatesSize", test_plane_set_dimensions_preserves_center_and_updates_size },
         { "RectPrismSetDimensionsClampsToBoundsWhenLocked", test_rect_prism_set_dimensions_clamps_to_bounds_when_locked },
         { "RectPrismSetDimensionsRejectsInvalidValues", test_rect_prism_set_dimensions_rejects_invalid_values },
         { "LayoutSetObject3DPositionMovesPlaneAndPreservesDimensions", test_layout_set_object3d_position_moves_plane_and_preserves_dimensions },
         { "LayoutSetMeshPositionUsesVisualBoundsCenter", test_layout_set_mesh_position_uses_visual_bounds_center },
+        { "MeshWorldBoundsAndCenterApplyRotation", test_mesh_world_bounds_and_center_apply_rotation },
         { "LayoutSetObject3DPositionClampsLockedPrismToBounds", test_layout_set_object3d_position_clamps_locked_prism_to_bounds },
         { "LayoutRotateObject3DRotatesPlaneFrameAndPreservesDimensions", test_layout_rotate_object3d_rotates_plane_frame_and_preserves_dimensions },
         { "LayoutRotateObject3DBaselineCompositionIsDeterministic", test_layout_rotate_object3d_baseline_composition_is_deterministic },
         { "LayoutRotateObject3DClampsLockedBounds", test_layout_rotate_object3d_clamps_locked_bounds },
+        { "LayoutScaleObject3DUniformPlaneUpdatesDimensions", test_layout_scale_object3d_uniform_plane_updates_dimensions },
+        { "LayoutScaleObject3DAxisPrismStretchesSingleDimension", test_layout_scale_object3d_axis_prism_stretches_single_dimension },
+        { "LayoutScaleObject3DRejectsLockedBoundsOverflow", test_layout_scale_object3d_rejects_locked_bounds_overflow },
         { "UIPanelDisplayUnitConversionRoundtrip", test_ui_panel_display_unit_conversion_roundtrip },
         { "UIPanelDisplayUnitRoundingDeterminism", test_ui_panel_display_unit_rounding_determinism }
     };

@@ -5,6 +5,8 @@
 #include "Editor/editor.h"
 #include "Editor/object_handle_gizmo.h"
 
+#include <stddef.h>
+
 void ResetObjectResizeDrag(EditorState* editor);
 void ResetObjectGizmoDrag(EditorState* editor);
 void ResetObjectTranslateDrag(EditorState* editor);
@@ -60,6 +62,8 @@ bool BeginObjectScaleDragSession(GlobalState* state,
                                  GizmoAxisDirection axis,
                                  int mouseX,
                                  int mouseY);
+bool ObjectScaleDrag_FormatLiveReport(char* out, size_t out_size);
+bool ObjectCenterGizmoDrag_FormatLiveOperationReport(char* out, size_t out_size);
 bool BeginSceneBoundsGizmoDragSession(GlobalState* state,
                                       EditorState* editor,
                                       SceneBoundsHandleKind handle,

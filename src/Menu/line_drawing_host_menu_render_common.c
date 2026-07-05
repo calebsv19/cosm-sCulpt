@@ -1,5 +1,6 @@
 #include "Menu/line_drawing_host_menu_render_internal.h"
 
+#include "Core/line_drawing_file_catalog.h"
 #include "UI/text_draw.h"
 
 #include <SDL2/SDL.h>
@@ -51,13 +52,6 @@ const char* line_drawing_host_menu_section_label(LineDrawingHostMenuSection sect
         default:
             return "";
     }
-}
-
-static const char* line_drawing_host_menu_path_basename(const char* path) {
-    const char* slash = NULL;
-    if (!path || !path[0]) return "";
-    slash = strrchr(path, '/');
-    return slash ? slash + 1 : path;
 }
 
 static const char* line_drawing_host_menu_browse_action_label(LineDrawingHostMenuBrowseAction action) {
@@ -511,7 +505,7 @@ void line_drawing_host_menu_draw_catalog_row(SDL_Renderer* renderer,
                                              muted_color);
     line_drawing_host_menu_draw_text_clipped(renderer,
                                              font,
-                                             extents[0] ? extents : line_drawing_host_menu_path_basename(entry->path),
+                                             extents[0] ? extents : LineDrawingFileCatalog_PathBasename(entry->path),
                                              text_x,
                                              rect.y + 42,
                                              text_width,

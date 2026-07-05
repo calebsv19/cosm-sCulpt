@@ -77,6 +77,7 @@ static const char* UIPanel_RenderPlaneCoordinateLabel(ViewPlaneAxis axis) {
 }
 
 static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
+    static const Uint32 kButtonPressedTtlMs = 220u;
     UIPanelVisualPalette palette = {0};
     SDL_Color button_fill = {70, 70, 70, 200};
     SDL_Color button_border = {180, 180, 180, 255};
@@ -84,6 +85,12 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     TTF_Font* font = FontManager_GetUIPanelFont();
     UIPanelVisualMetrics metrics = UIPanelVisual_MakeMetrics(font);
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+    const UIPanelState* ui_state = UIPanel_Get();
+    const Uint32 now_ticks = SDL_GetTicks();
+    const bool pressed_live =
+        btn->pressed &&
+        btn->pressedTicks != 0u &&
+        (Uint32)(now_ticks - btn->pressedTicks) < kButtonPressedTtlMs;
     const GlobalState* state = Global_Get();
     const bool has_face_target = state &&
         state->editor.selectedObjectAssetBodyId != 0u &&
@@ -116,7 +123,8 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
          sketch_body->kind == OBJECT3D_KIND_RECT_PRISM);
     const bool place_mesh_disabled =
         btn->id == UI_BTN_PLACE_MESH_INSTANCE &&
-        (!state || state->lastObjectRuntimeMeshPath[0] == '\0');
+        (!Global_GetLastObjectRuntimeMeshPath() ||
+         Global_GetLastObjectRuntimeMeshPath()[0] == '\0');
     const bool edit_mode_active = object_mode && state &&
         ((btn->id == UI_BTN_OBJECT_EDIT_BODY_MODE &&
           state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_BODY) ||
@@ -148,7 +156,7 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         button_fill.a = 150;
         button_border = UIPanelVisual_AdjustColor(button_border, -24, 0);
         textColor = palette.text_muted;
-    } else if (edit_mode_active) {
+    } else if (pressed_live || edit_mode_active) {
         button_fill = UIPanelVisual_BlendColor(button_fill, palette.button_fill_active, 120);
         button_border = UIPanelVisual_AdjustColor(palette.accent, 10, 0);
         textColor = palette.text_primary;
@@ -178,6 +186,15 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         const char* modeLabel = state ? Global_GetSpaceModeLabel(state->spaceMode) : "3D";
         snprintf(dynamicLabel, sizeof(dynamicLabel), "%s (M)", modeLabel);
         label = dynamicLabel;
+    } else if (!object_mode &&
+               btn->id == UI_BTN_EXPORT_SCENE &&
+               ui_state &&
+               UIPanel_FilePaneActionStatusIsLive(ui_state)) {
+        if (strncmp(ui_state->filePane.actionStatus, "Export Scene OK", 15) == 0) {
+            label = "Export OK";
+        } else if (strncmp(ui_state->filePane.actionStatus, "Export Scene failed", 19) == 0) {
+            label = "Export Failed";
+        }
     } else if (object_mode &&
                (btn->id == UI_BTN_SAVE_JSON ||
                 btn->id == UI_BTN_LOAD_JSON ||

@@ -123,14 +123,6 @@ void UIPanel_CloseObjectTransformDialog(UIPanelState* ui) {
     UIPanel_StopTextInputIfIdle(ui);
 }
 
-static Object3D* UIPanel_FindEditableRectPrism(GlobalState* state, uint32_t objectId) {
-    if (!state || objectId == 0u) return NULL;
-    Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, objectId);
-    if (!object || object->kind != OBJECT3D_KIND_RECT_PRISM) return NULL;
-    if (!Layout_ObjectStore_ValidateObject(object)) return NULL;
-    return object;
-}
-
 static Object3D* UIPanel_FindEditableObject3D(GlobalState* state, uint32_t objectId) {
     if (!state || objectId == 0u) return NULL;
     Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, objectId);
@@ -239,15 +231,25 @@ bool UIPanel_BeginPrismDimensionDialog(UIPrismDimensionDialogTarget target) {
 
     if (!state) return false;
     if (target == UI_PRISM_DIMENSION_TARGET_NONE) return false;
-    object = UIPanel_FindEditableRectPrism(state, state->editor.selectedObject3DId);
+    object = UIPanel_FindEditableObject3D(state, state->editor.selectedObject3DId);
     if (!object) {
-        SDL_Log("[UI] Prism dimension edit blocked: select a valid rect prism first.");
+        SDL_Log("[UI] Dimension edit blocked: select a valid plane or rect prism first.");
+        return false;
+    }
+    if (target == UI_PRISM_DIMENSION_TARGET_DEPTH &&
+        object->kind != OBJECT3D_KIND_RECT_PRISM) {
+        SDL_Log("[UI] Depth edit blocked: selected object has no depth dimension.");
         return false;
     }
 
-    if (target == UI_PRISM_DIMENSION_TARGET_WIDTH) worldValue = (double)object->rectPrism.width;
-    else if (target == UI_PRISM_DIMENSION_TARGET_HEIGHT) worldValue = (double)object->rectPrism.height;
-    else worldValue = (double)object->rectPrism.depth;
+    if (object->kind == OBJECT3D_KIND_PLANE) {
+        if (target == UI_PRISM_DIMENSION_TARGET_WIDTH) worldValue = (double)object->plane.width;
+        else worldValue = (double)object->plane.height;
+    } else {
+        if (target == UI_PRISM_DIMENSION_TARGET_WIDTH) worldValue = (double)object->rectPrism.width;
+        else if (target == UI_PRISM_DIMENSION_TARGET_HEIGHT) worldValue = (double)object->rectPrism.height;
+        else worldValue = (double)object->rectPrism.depth;
+    }
     if (!UIPanelDialog_ConvertWorldToDisplayWithUnit(ui->displayUnit, worldValue, &displayValue)) {
         displayValue = worldValue;
     }
@@ -263,7 +265,7 @@ bool UIPanel_BeginPrismDimensionDialog(UIPrismDimensionDialogTarget target) {
     ui->prismDimensionDialog.length = strlen(ui->prismDimensionDialog.buffer);
     ui->prismDimensionDialog.cursor = ui->prismDimensionDialog.length;
 
-    ui->loadMenu.open = false;
+    UIPanel_CloseFileBrowser(ui);
     UIPanel_CloseSaveDialog(ui);
     UIPanel_CloseRootDialog(ui);
     UIPanel_CloseSceneBoundsDialog(ui);
@@ -320,9 +322,14 @@ bool UIPanel_ApplyPrismDimensionDialog(UIPanelState* ui) {
     if (!ui || !ui->prismDimensionDialog.active) return false;
     state = Global_Get();
     if (!state) return false;
-    object = UIPanel_FindEditableRectPrism(state, ui->prismDimensionDialog.objectId);
+    object = UIPanel_FindEditableObject3D(state, ui->prismDimensionDialog.objectId);
     if (!object) {
-        SDL_Log("[UI] Prism dimension edit failed: selected prism is unavailable.");
+        SDL_Log("[UI] Dimension edit failed: selected object is unavailable.");
+        return false;
+    }
+    if (ui->prismDimensionDialog.target == UI_PRISM_DIMENSION_TARGET_DEPTH &&
+        object->kind != OBJECT3D_KIND_RECT_PRISM) {
+        SDL_Log("[UI] Depth edit failed: selected object has no depth dimension.");
         return false;
     }
 
@@ -348,32 +355,52 @@ bool UIPanel_ApplyPrismDimensionDialog(UIPanelState* ui) {
         return false;
     }
 
-    nextWidth = object->rectPrism.width;
-    nextHeight = object->rectPrism.height;
-    nextDepth = object->rectPrism.depth;
-    switch (ui->prismDimensionDialog.target) {
-        case UI_PRISM_DIMENSION_TARGET_WIDTH: nextWidth = (float)worldValue; break;
-        case UI_PRISM_DIMENSION_TARGET_HEIGHT: nextHeight = (float)worldValue; break;
-        case UI_PRISM_DIMENSION_TARGET_DEPTH: nextDepth = (float)worldValue; break;
-        case UI_PRISM_DIMENSION_TARGET_NONE:
-        default: return false;
-    }
-
     Editor_HistoryCapture(&state->editor, &state->layout);
-    if (!Layout_SetRectPrismDimensions(&state->layout,
+    if (object->kind == OBJECT3D_KIND_PLANE) {
+        nextWidth = object->plane.width;
+        nextHeight = object->plane.height;
+        switch (ui->prismDimensionDialog.target) {
+            case UI_PRISM_DIMENSION_TARGET_WIDTH: nextWidth = (float)worldValue; break;
+            case UI_PRISM_DIMENSION_TARGET_HEIGHT: nextHeight = (float)worldValue; break;
+            case UI_PRISM_DIMENSION_TARGET_DEPTH:
+            case UI_PRISM_DIMENSION_TARGET_NONE:
+            default: return false;
+        }
+        if (!Layout_SetPlaneDimensions(&state->layout,
                                        object->objectId,
                                        nextWidth,
                                        nextHeight,
-                                       nextDepth,
                                        &boundsAdjusted)) {
-        SDL_Log("[UI] Prism %s edit rejected by layout bounds/validation policy.",
-                UIPanel_PrismDimensionTargetLabel(ui->prismDimensionDialog.target));
-        return false;
+            SDL_Log("[UI] Plane %s edit rejected by layout bounds/validation policy.",
+                    UIPanel_PrismDimensionTargetLabel(ui->prismDimensionDialog.target));
+            return false;
+        }
+    } else {
+        nextWidth = object->rectPrism.width;
+        nextHeight = object->rectPrism.height;
+        nextDepth = object->rectPrism.depth;
+        switch (ui->prismDimensionDialog.target) {
+            case UI_PRISM_DIMENSION_TARGET_WIDTH: nextWidth = (float)worldValue; break;
+            case UI_PRISM_DIMENSION_TARGET_HEIGHT: nextHeight = (float)worldValue; break;
+            case UI_PRISM_DIMENSION_TARGET_DEPTH: nextDepth = (float)worldValue; break;
+            case UI_PRISM_DIMENSION_TARGET_NONE:
+            default: return false;
+        }
+        if (!Layout_SetRectPrismDimensions(&state->layout,
+                                           object->objectId,
+                                           nextWidth,
+                                           nextHeight,
+                                           nextDepth,
+                                           &boundsAdjusted)) {
+            SDL_Log("[UI] Prism %s edit rejected by layout bounds/validation policy.",
+                    UIPanel_PrismDimensionTargetLabel(ui->prismDimensionDialog.target));
+            return false;
+        }
     }
 
     state->editor.selectedObject3DId = object->objectId;
     Global_FlagHitboxesDirty();
-    SDL_Log("[UI] Prism #%u %s updated to %.4f%s (%.4f m)%s",
+    SDL_Log("[UI] Object #%u %s updated to %.4f%s (%.4f m)%s",
             object->objectId,
             UIPanel_PrismDimensionTargetLabel(ui->prismDimensionDialog.target),
             typedValue,
@@ -410,7 +437,7 @@ bool UIPanel_BeginSceneBoundsDialog(UISceneBoundsDialogTarget target) {
     ui->sceneBoundsDialog.length = strlen(ui->sceneBoundsDialog.buffer);
     ui->sceneBoundsDialog.cursor = ui->sceneBoundsDialog.length;
 
-    ui->loadMenu.open = false;
+    UIPanel_CloseFileBrowser(ui);
     UIPanel_CloseSaveDialog(ui);
     UIPanel_CloseRootDialog(ui);
     UIPanel_ClosePrismDimensionDialog(ui);
@@ -497,7 +524,7 @@ bool UIPanel_BeginConstructionPlaneDialog(UIConstructionPlaneDialogTarget target
         displayOffset = (double)plane.offset;
     }
 
-    ui->loadMenu.open = false;
+    UIPanel_CloseFileBrowser(ui);
     UIPanel_CloseSaveDialog(ui);
     UIPanel_CloseRootDialog(ui);
     UIPanel_ClosePrismDimensionDialog(ui);
@@ -535,7 +562,7 @@ bool UIPanel_BeginObjectTransformDialog(UIObjectTransformDialogTarget target) {
         return false;
     }
 
-    ui->loadMenu.open = false;
+    UIPanel_CloseFileBrowser(ui);
     UIPanel_CloseSaveDialog(ui);
     UIPanel_CloseRootDialog(ui);
     UIPanel_ClosePrismDimensionDialog(ui);

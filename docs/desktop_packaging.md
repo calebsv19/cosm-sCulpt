@@ -5,6 +5,7 @@ Last updated: 2026-04-25
 ## Standard Targets
 - `make -C line_drawing package-desktop`
 - `make -C line_drawing package-desktop-smoke`
+- `make -C line_drawing package-desktop-print-config`
 - `make -C line_drawing package-desktop-self-test`
 - `make -C line_drawing package-desktop-copy-desktop`
 - `make -C line_drawing package-desktop-sync`
@@ -47,6 +48,7 @@ Launcher path:
 Diagnostics commands:
 - `.../line-drawing-launcher --print-config`
 - `.../line-drawing-launcher --self-test`
+- `make -C line_drawing package-desktop-print-config`
 
 Log lane:
 - `~/Library/Logs/LineDrawing/launcher.log`
@@ -65,7 +67,7 @@ The package bundles and validates:
 
 Runtime env defaults set by launcher:
 - `LINE_DRAWING_RUNTIME_DIR=$HOME/Library/Application Support/LineDrawing/runtime`
-- `VK_RENDERER_SHADER_ROOT=$LINE_DRAWING_RUNTIME_DIR/data/runtime/vk_renderer`
+- `VK_RENDERER_SHADER_ROOT=$LINE_DRAWING_RUNTIME_DIR/vk_renderer`
 - `SHAPE_ASSET_DIR=$LINE_DRAWING_RUNTIME_DIR/export`
 - `VK_ICD_FILENAMES=$LINE_DRAWING_RUNTIME_DIR/vk/MoltenVK_icd.json`
 - `VK_DRIVER_FILES=$LINE_DRAWING_RUNTIME_DIR/vk/MoltenVK_icd.json`
@@ -77,6 +79,15 @@ Bundled framework contract:
   - `libMoltenVK.dylib`
   - `libvulkan.1.dylib`
 - package step applies ad-hoc signing after install-name rewrites for local launch safety
+
+Failure diagnostics:
+- `package-desktop-smoke` prints the package app and resource roots before
+  validation, and missing-resource failures include the expected package path
+- launcher `--self-test` prints the resolved launcher config when a packaged
+  runtime resource check fails
+- `package-desktop-self-test` also prints `--print-config` output on launcher
+  self-test failure, so failed make logs include the runtime dir, log file, ICD
+  file, shader root, shape asset root, and bundled MoltenVK path
 
 ## Release Readiness Targets
 - `make -C line_drawing release-contract`

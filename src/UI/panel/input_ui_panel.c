@@ -173,18 +173,18 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
     }
 
     if (UIPanel_HandleTabClick(ui, mouseX, mouseY)) {
-        ui->loadMenu.open = false;
+        UIPanel_CloseFileBrowser(ui);
         UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
         return true;
     }
 
     if (UIPanel_HandleSceneListClick(mouseX, mouseY)) {
-        ui->loadMenu.open = false;
+        UIPanel_CloseFileBrowser(ui);
         return true;
     }
 
     if (UIPanel_ObjectWorkspaceHandleModelTreeClick(ui, state, mouseX, mouseY)) {
-        ui->loadMenu.open = false;
+        UIPanel_CloseFileBrowser(ui);
         return true;
     }
 
@@ -198,7 +198,12 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
         if (mouseX >= r.x && mouseX <= r.x + r.w &&
             mouseY >= r.y && mouseY <= r.y + r.h) {
 
+            for (int j = 0; j < ui->count; ++j) {
+                ui->buttons[j].pressed = false;
+                ui->buttons[j].pressedTicks = 0u;
+            }
             btn->pressed = true;
+            btn->pressedTicks = SDL_GetTicks();
             if (!UIPanel_IsFileBrowserModeButton(btn->id)) {
                 ui->loadMenu.lastModeButtonId = -1;
                 ui->loadMenu.lastModeButtonClickTicks = 0u;
@@ -207,7 +212,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
             switch (btn->id) {
 		    // ─── LEFT PANEL ACTIONS ─────────────────────
                 case UI_BTN_SAVE_JSON: { // Save JSON
-                ui->loadMenu.open = false;
+                UIPanel_CloseFileBrowser(ui);
                 UIPanel_BeginSaveDialog();
                 break;
 	}
@@ -233,42 +238,42 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
             }
 
 	case UI_BTN_EXPORT_SHAPE: { // Export Shape
-                ui->loadMenu.open = false;
+                UIPanel_CloseFileBrowser(ui);
                 UIPanel_ExportShape();
                 break;
             }
                 case UI_BTN_EXPORT_SCENE: { // Export Scene
-                    ui->loadMenu.open = false;
                     if (object_mode) {
                         (void)UIPanel_ExportObjectRuntimeMesh();
                     } else {
                         UIPanel_ExportScene();
                     }
+                    UIPanel_CloseFileBrowser(ui);
                     break;
                 }
                 case UI_BTN_FILE_BROWSER_USE_ACTIVE: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_FocusFileBrowserOnActiveSession();
                     break;
                 }
                 case UI_BTN_FILE_BROWSER_CLEAR_REMEMBERED: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_ClearRememberedFileBrowserEntry();
                     break;
                 }
                 case UI_BTN_SCENE_CLEAR_SELECTION: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     UIPanel_SceneListClearSelection();
                     break;
                 }
                 case UI_BTN_SCENE_DELETE_SELECTED: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_SceneListDeleteSelectedObject();
                     break;
                 }
 
                 case UI_BTN_INPUT_ROOT_EDIT: { // Edit input root
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (object_mode) {
                         UIPanel_BeginObjectAssetRootDialog();
                     } else {
@@ -277,7 +282,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_INPUT_ROOT_FOLDER: { // Pick input root via folder chooser
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (object_mode) {
                         UIPanel_OpenObjectAssetFolderDialog();
                     } else {
@@ -286,12 +291,12 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_OUTPUT_ROOT_EDIT: { // Edit output root
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     UIPanel_BeginOutputRootDialog();
                     break;
                 }
                 case UI_BTN_OUTPUT_ROOT_FOLDER: { // Pick output root via folder chooser
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     UIPanel_OpenOutputRootFolderDialog();
                     break;
                 }
@@ -299,7 +304,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 
 		// ───RIGHT PANEL ACTIONS  ─────────────────────
                 case UI_BTN_RESET_ORIGIN: { // Reset Origin
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     int sel = editor->selectedAnchorIndex;
                     if (sel >= 0) {
                         float centerX = (float)state->screenWidth * 0.5f;
@@ -311,7 +316,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_ZOOM_IN: { // Zoom In
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     float centerX = (float)state->screenWidth * 0.5f;
                     float centerY = (float)state->screenHeight * 0.5f;
                     (void)LineDrawingPaneHost_GetViewportCenter(&state->paneHost, &centerX, &centerY);
@@ -321,7 +326,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_ZOOM_OUT: { // Zoom Out
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     float centerX = (float)state->screenWidth * 0.5f;
                     float centerY = (float)state->screenHeight * 0.5f;
                     (void)LineDrawingPaneHost_GetViewportCenter(&state->paneHost, &centerX, &centerY);
@@ -331,7 +336,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_TOGGLE_DELETE: { // Toggle Delete Mode
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (editor->deleteMode == DELETE_MODE_SAFE)
                         editor->deleteMode = DELETE_MODE_AUTO_PRUNE;
                     else
@@ -339,7 +344,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_PIN_ANCHOR: { // Pin Anchor
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     int sel = editor->selectedAnchorIndex;
                     if (sel >= 0 && sel < (int)state->layout.anchorCount) {
                         Editor_HistoryCapture(editor, &state->layout);
@@ -350,7 +355,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_LINK_HANDLES: { // Toggle handle linking
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     int sel = editor->selectedAnchorIndex;
                     if (sel >= 0 && sel < (int)state->layout.anchorCount) {
                         Anchor* a = &state->layout.anchors[sel];
@@ -363,7 +368,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_CREATE_PLANE: { // Add plane primitive
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (object_mode) {
                         if (has_face_target || has_committed_sketch) {
                             (void)Editor_ObjectFaceSketchArmRectangle(state);
@@ -377,21 +382,21 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_CREATE_RECT_PRISM: { // Add rectangular prism primitive
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (!object_mode) {
                         (void)UIPanel_CreateRectPrismPrimitiveFromActiveContext(false);
                     }
                     break;
                 }
                 case UI_BTN_PLACE_MESH_INSTANCE: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (!object_mode) {
                         (void)UIPanel_PlaceLastRuntimeMeshAsSceneInstance();
                     }
                     break;
                 }
                 case UI_BTN_OBJECT_FACE_SELECT: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (object_mode) {
                         editor->objectEditSelectionMode = OBJECT_EDIT_SELECTION_FACE;
                         UIPanel_ObjectAuthoringSetFaceSelect(state);
@@ -400,7 +405,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_OBJECT_SKETCH_SELECT: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (object_mode && has_committed_sketch) {
                         UIPanel_ObjectAuthoringSelectCommittedSketch(state);
                         UIPanel_FocusObjectAuthoringTab(ui);
@@ -408,7 +413,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_OBJECT_SKETCH_CLEAR: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (object_mode && sketch_active) {
                         UIPanel_ObjectAuthoringClearSketch(state);
                         UIPanel_FocusObjectAuthoringTab(ui);
@@ -417,7 +422,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 }
                 case UI_BTN_EXTRUDE_ADD:
                 case UI_BTN_EXTRUDE_CUT: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (Editor_ObjectFaceExtrudeTrigger(
                         state,
                         btn->id == UI_BTN_EXTRUDE_ADD
@@ -429,7 +434,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 }
                 case UI_BTN_EXTRUDE_DEPTH_DEC:
                 case UI_BTN_EXTRUDE_DEPTH_INC: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (object_mode) {
                         (void)UIPanel_AdjustObjectExtrudeDepth(
                             btn->id == UI_BTN_EXTRUDE_DEPTH_INC ? 1 : -1);
@@ -438,62 +443,62 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_EDIT_PRISM_WIDTH: { // Edit selected prism width
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginPrismWidthDialog();
                     break;
                 }
                 case UI_BTN_EDIT_PRISM_HEIGHT: { // Edit selected prism height
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginPrismHeightDialog();
                     break;
                 }
                 case UI_BTN_EDIT_PRISM_DEPTH: { // Edit selected prism depth
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginPrismDepthDialog();
                     break;
                 }
                 case UI_BTN_CYCLE_DISPLAY_UNITS: { // Cycle display units
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     UIPanel_CycleDisplayUnit();
                     break;
                 }
                 case UI_BTN_OBJECT_CLEAR_SELECTION: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     UIPanel_SceneListClearSelection();
                     break;
                 }
                 case UI_BTN_OBJECT_DELETE_SELECTED: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_SceneListDeleteSelectedObject();
                     break;
                 }
                 case UI_BTN_TOGGLE_OBJECT_GIZMO_MODE: { // Toggle object gizmo move/rotate mode
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_ToggleObjectGizmoRotateMode();
                     break;
                 }
                 case UI_BTN_EDIT_OBJECT_POSITION: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginObjectPositionDialog();
                     break;
                 }
                 case UI_BTN_EDIT_OBJECT_ROTATION_X: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginObjectRotationXDialog();
                     break;
                 }
                 case UI_BTN_EDIT_OBJECT_ROTATION_Y: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginObjectRotationYDialog();
                     break;
                 }
                 case UI_BTN_EDIT_OBJECT_ROTATION_Z: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginObjectRotationZDialog();
                     break;
                 }
                 case UI_BTN_OBJECT_EDIT_BODY_MODE: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (object_mode) {
                         UIPanel_ObjectEditSetSelectionMode(state, OBJECT_EDIT_SELECTION_BODY);
                         UIPanel_FocusObjectEditTab(ui);
@@ -501,7 +506,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_OBJECT_EDIT_FACE_MODE: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (object_mode) {
                         UIPanel_ObjectEditSetSelectionMode(state, OBJECT_EDIT_SELECTION_FACE);
                         UIPanel_FocusObjectEditTab(ui);
@@ -509,7 +514,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_OBJECT_EDIT_EDGE_MODE: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (object_mode) {
                         UIPanel_ObjectEditSetSelectionMode(state, OBJECT_EDIT_SELECTION_EDGE);
                         UIPanel_FocusObjectEditTab(ui);
@@ -517,7 +522,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_OBJECT_EDIT_VERTEX_MODE: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (object_mode) {
                         UIPanel_ObjectEditSetSelectionMode(state, OBJECT_EDIT_SELECTION_VERTEX);
                         UIPanel_FocusObjectEditTab(ui);
@@ -525,62 +530,62 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 }
                 case UI_BTN_TOGGLE_SCENE_BOUNDS: { // Toggle scene bounds enabled
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_ToggleSceneBoundsEnabled();
                     break;
                 }
                 case UI_BTN_TOGGLE_SCENE_BOUNDS_CLAMP: { // Toggle scene bounds clamp-on-edit
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_ToggleSceneBoundsClampOnEdit();
                     break;
                 }
                 case UI_BTN_EDIT_SCENE_BOUNDS_MIN: { // Edit scene bounds min vector
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginSceneBoundsMinDialog();
                     break;
                 }
                 case UI_BTN_EDIT_SCENE_BOUNDS_MAX: { // Edit scene bounds max vector
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginSceneBoundsMaxDialog();
                     break;
                 }
                 case UI_BTN_FIT_SCENE_BOUNDS_TO_OBJECT: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_FitSceneBoundsToSelectedObject();
                     break;
                 }
                 case UI_BTN_SET_CONSTRUCTION_PLANE_XY: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_SetConstructionPlaneAxis(VIEW_PLANE_XY);
                     break;
                 }
                 case UI_BTN_SET_CONSTRUCTION_PLANE_YZ: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_SetConstructionPlaneAxis(VIEW_PLANE_YZ);
                     break;
                 }
                 case UI_BTN_SET_CONSTRUCTION_PLANE_XZ: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_SetConstructionPlaneAxis(VIEW_PLANE_XZ);
                     break;
                 }
                 case UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_NEG: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_AdjustConstructionPlaneOffset(-state->grid.gridSize);
                     break;
                 }
                 case UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_POS: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_AdjustConstructionPlaneOffset(state->grid.gridSize);
                     break;
                 }
                 case UI_BTN_EDIT_CONSTRUCTION_PLANE_OFFSET: {
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginConstructionPlaneOffsetDialog();
                     break;
                 }
                 case UI_BTN_TOGGLE_SPACE_MODE: { // Toggle 2D/3D mode
-                    ui->loadMenu.open = false;
+                    UIPanel_CloseFileBrowser(ui);
                     if (Global_ToggleSpaceMode(true)) {
                         SDL_Log("[UI] Space mode: %s", Global_GetSpaceModeLabel(state->spaceMode));
                     }

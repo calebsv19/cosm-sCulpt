@@ -190,6 +190,50 @@ static bool test_object_authoring_face_ref_diagnostics_classify_invalid_refs(voi
     return true;
 }
 
+static bool test_object_authoring_body_selection_syncs_editor_mirrors(void) {
+    GlobalState* state = NULL;
+    ObjectAuthoringDocument* doc = NULL;
+    ObjectAuthoringBodyId body_id = 0u;
+
+    TEST_ASSERT(seed_object_authoring_state(&state));
+    doc = &state->objectAuthoring.document;
+    body_id = state->editor.selectedObjectAssetBodyId;
+    TEST_ASSERT(body_id != 0u);
+    TEST_ASSERT(doc->selectionKind == OBJECT_AUTHORING_SELECTION_FACE);
+    TEST_ASSERT(doc->selectedFace.primitiveFace != OBJECT3D_FACE_NONE);
+
+    doc->selectedSketchId = 77u;
+    doc->selectedOperationId = 88u;
+    state->editor.objectAuthoringMode = OBJECT_AUTHORING_MODE_SKETCH_SELECT;
+    state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_CORNER_NEG_U_NEG_V;
+    state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_CORNER_0;
+    state->editor.selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_MAX_X;
+    state->editor.hoveredObject3DGizmoAxis = 2;
+    state->editor.activeObject3DGizmoAxis = 3;
+
+    TEST_ASSERT(LineDrawingObjectWorkspaceView_SelectBody(state, body_id));
+    TEST_ASSERT(doc->selectionKind == OBJECT_AUTHORING_SELECTION_BODY);
+    TEST_ASSERT(doc->selectedFace.bodyId == body_id);
+    TEST_ASSERT(doc->selectedFace.primitiveFace == OBJECT3D_FACE_NONE);
+    TEST_ASSERT(doc->selectedVertex.vertexId == 0u);
+    TEST_ASSERT(doc->selectedEdge.edgeId == 0u);
+    TEST_ASSERT(doc->selectedSketchId == 0u);
+    TEST_ASSERT(doc->selectedOperationId == 0u);
+    TEST_ASSERT(state->editor.selectedObject3DId == body_id);
+    TEST_ASSERT(state->editor.selectedObjectAssetBodyId == body_id);
+    TEST_ASSERT(state->editor.selectedObjectAssetFace == OBJECT3D_FACE_NONE);
+    TEST_ASSERT(state->editor.objectAuthoringMode == Editor_ObjectAuthoringIdleMode(&state->editor));
+    TEST_ASSERT(state->editor.selectedObject3DResizeHandle == PLANE_RESIZE_HANDLE_NONE);
+    TEST_ASSERT(state->editor.selectedObject3DPrismHandle == RECT_PRISM_RESIZE_HANDLE_NONE);
+    TEST_ASSERT(state->editor.selectedSceneBoundsHandle == SCENE_BOUNDS_HANDLE_NONE);
+    TEST_ASSERT(state->editor.hoveredObject3DGizmoAxis == -1);
+    TEST_ASSERT(state->editor.activeObject3DGizmoAxis == -1);
+    TEST_ASSERT(state->hitboxDirty);
+
+    shutdown_object_authoring_state();
+    return true;
+}
+
 static bool test_object_authoring_rebuilds_stable_vertex_edge_topology(void) {
     GlobalState* state = NULL;
     const ObjectAuthoringDocument* doc = NULL;
@@ -1441,8 +1485,8 @@ static bool test_object_authoring_ui_export_writes_runtime_mesh_sidecar(void) {
     TEST_ASSERT(UIPanel_ExportObjectRuntimeMesh());
     TEST_ASSERT(stat(runtime_path, &st) == 0);
     TEST_ASSERT(st.st_size > 0);
-    TEST_ASSERT(strcmp(state->lastObjectRuntimeMeshPath, runtime_path) == 0);
-    TEST_ASSERT(strstr(state->objectRuntimeMeshStatus, "Mesh exported") != NULL);
+    TEST_ASSERT(strcmp(Global_GetLastObjectRuntimeMeshPath(), runtime_path) == 0);
+    TEST_ASSERT(strstr(Global_GetObjectRuntimeMeshStatus(), "Mesh exported") != NULL);
 
     shutdown_object_authoring_state();
     return true;
@@ -1456,6 +1500,8 @@ bool object_authoring_run_tests(void) {
          test_object_authoring_face_ref_matching_prefers_stable_ids},
         {"face ref diagnostics classify invalid refs",
          test_object_authoring_face_ref_diagnostics_classify_invalid_refs},
+        {"body selection syncs editor mirrors",
+         test_object_authoring_body_selection_syncs_editor_mirrors},
         {"rebuilds stable vertex edge topology",
          test_object_authoring_rebuilds_stable_vertex_edge_topology},
         {"selects vertex and edge topology refs",

@@ -9,6 +9,7 @@
 #include "Core/line_drawing_file_catalog.h"
 #include "Core/global_state.h"
 #include "Editor/editor.h"
+#include "Layout/asset/layout_imported_mesh_asset.h"
 #include "Layout/asset/layout_object_asset_mesh_authoring.h"
 #include "Layout/layout_json.h"
 #include "UI/info_overlay.h"
@@ -35,9 +36,385 @@ static const char* k_runtime_last_scene_entry_path = "data/runtime/file_browser_
 static const char* k_runtime_last_object_entry_path = "data/runtime/file_browser_last_object_entry.txt";
 static const char* k_runtime_last_mesh_entry_path = "data/runtime/file_browser_last_mesh_entry.txt";
 static const char* k_runtime_last_stl_entry_path = "data/runtime/file_browser_last_stl_entry.txt";
+static const Uint32 k_load_progress_finished_ttl_ms = 1400u;
 
 static bool UIPanel_PathIsDirectory(const char* path);
 static int UIPanel_FindLoadMenuIndexForPath(const UIPanelState* ui, const char* path);
+
+static const char* UIPanel_LoadProgressBaseName(const char* path) {
+    const char* base = NULL;
+    if (!path || !path[0]) return "(unset)";
+    base = strrchr(path, '/');
+    return base ? base + 1 : path;
+}
+
+static const char* UIPanel_LoadProgressVerbForMode(UILoadMenuMode mode) {
+    switch (mode) {
+        case UI_LOAD_MENU_MODE_JSON: return "Load JSON";
+        case UI_LOAD_MENU_MODE_SCENE: return "Load scene";
+        case UI_LOAD_MENU_MODE_OBJECT: return "Load asset";
+        case UI_LOAD_MENU_MODE_RUNTIME_MESH: return "Place mesh";
+        case UI_LOAD_MENU_MODE_STL_IMPORT: return "Import STL";
+        case UI_LOAD_MENU_MODE_NONE:
+        default: return "Load";
+    }
+}
+
+static void UIPanel_BeginLoadProgress(UIPanelState* ui,
+                                      UILoadMenuMode mode,
+                                      const char* path,
+                                      const char* label) {
+    if (!ui || !path || !path[0]) return;
+    ui->loadMenu.loadProgressState = UI_LOAD_PROGRESS_LOADING;
+    ui->loadMenu.loadProgressMode = mode;
+    ui->loadMenu.loadProgressStartedTicks = SDL_GetTicks();
+    ui->loadMenu.loadProgressFinishedTicks = 0u;
+    ui->loadMenu.loadProgressPermille = 35;
+    snprintf(ui->loadMenu.loadProgressPath,
+             sizeof(ui->loadMenu.loadProgressPath),
+             "%s",
+             path);
+    snprintf(ui->loadMenu.loadProgressLabel,
+             sizeof(ui->loadMenu.loadProgressLabel),
+             "%s",
+             label && label[0] ? label : UIPanel_LoadProgressBaseName(path));
+    snprintf(ui->loadMenu.loadProgressDetail,
+             sizeof(ui->loadMenu.loadProgressDetail),
+             "%s queued",
+             UIPanel_LoadProgressVerbForMode(mode));
+}
+
+static void UIPanel_EndLoadProgress(UIPanelState* ui, bool succeeded) {
+    if (!ui || ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_NONE) return;
+    ui->loadMenu.loadProgressState = succeeded
+        ? UI_LOAD_PROGRESS_COMPLETE
+        : UI_LOAD_PROGRESS_FAILED;
+    ui->loadMenu.loadProgressFinishedTicks = SDL_GetTicks();
+    ui->loadMenu.loadProgressPermille = 1000;
+    snprintf(ui->loadMenu.loadProgressDetail,
+             sizeof(ui->loadMenu.loadProgressDetail),
+             "%s %s",
+             UIPanel_LoadProgressVerbForMode(ui->loadMenu.loadProgressMode),
+             succeeded ? "finished" : "failed");
+}
+
+static void UIPanel_EndLoadProgressWithDetail(UIPanelState* ui,
+                                              bool succeeded,
+                                              const char* detail) {
+    UIPanel_EndLoadProgress(ui, succeeded);
+    if (!ui || !detail || !detail[0]) return;
+    snprintf(ui->loadMenu.loadProgressDetail,
+             sizeof(ui->loadMenu.loadProgressDetail),
+             "%s",
+             detail);
+}
+
+static void UIPanel_RecordStlImportFailure(UIPanelState* ui, const char* detail) {
+    const char* message = detail && detail[0] ? detail : "STL import failed: import or placement error";
+    UIPanel_EndLoadProgressWithDetail(ui, false, message);
+    Global_SetObjectRuntimeMeshStatus(message);
+}
+
+static int UIPanel_StlProgressPermille(const CoreMeshCompileProgress* progress) {
+    int stage_base = 50;
+    int stage_span = 50;
+    int within_stage = 0;
+    if (!progress) return stage_base;
+    switch (progress->stage) {
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_PREPARING:
+            stage_base = 50;
+            stage_span = 50;
+            break;
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_READING_SOURCE:
+            stage_base = 100;
+            stage_span = 50;
+            break;
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_SCANNING_STL:
+            stage_base = 150;
+            stage_span = 200;
+            break;
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_PARSING_STL:
+            stage_base = 350;
+            stage_span = 350;
+            break;
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_EMITTING_RUNTIME:
+            stage_base = 700;
+            stage_span = 200;
+            break;
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_COMPLETE:
+            return 950;
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_UNKNOWN:
+        default:
+            return 50;
+    }
+    if (progress->total > 0u && progress->current < progress->total) {
+        within_stage = (int)((progress->current * (size_t)stage_span) / progress->total);
+    } else if (progress->total > 0u) {
+        within_stage = stage_span;
+    }
+    return stage_base + within_stage;
+}
+
+static const char* UIPanel_StlProgressStageDetail(int stage) {
+    switch ((CoreMeshCompileProgressStage)stage) {
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_PREPARING:
+            return "Preparing STL import";
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_READING_SOURCE:
+            return "Reading STL source";
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_SCANNING_STL:
+            return "Scanning ASCII STL triangles";
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_PARSING_STL:
+            return "Parsing and welding STL triangles";
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_EMITTING_RUNTIME:
+            return "Writing runtime mesh";
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_COMPLETE:
+            return "Runtime mesh compiled";
+        case CORE_MESH_COMPILE_PROGRESS_STAGE_UNKNOWN:
+        default:
+            return "Import STL running in background";
+    }
+}
+
+static void UIPanel_StlImportProgressCallback(const CoreMeshCompileProgress* progress,
+                                              void* user_data) {
+    UIPanelState* ui = (UIPanelState*)user_data;
+    int permille = UIPanel_StlProgressPermille(progress);
+    if (!ui || !progress) return;
+    if (permille < 0) permille = 0;
+    if (permille > 1000) permille = 1000;
+    SDL_AtomicSet(&ui->loadMenu.asyncStlProgressPermille, permille);
+    SDL_AtomicSet(&ui->loadMenu.asyncStlProgressStage, (int)progress->stage);
+}
+
+static int UIPanel_AsyncStlImportThreadMain(void* data) {
+    UIPanelState* ui = (UIPanelState*)data;
+    char diagnostics[256];
+    char authoring_path[MAX_CONFIG_PATH];
+    char runtime_path[MAX_CONFIG_PATH];
+    bool ok = false;
+    if (!ui) return 1;
+
+    diagnostics[0] = '\0';
+    authoring_path[0] = '\0';
+    runtime_path[0] = '\0';
+    ok = LayoutImportedMeshAsset_ImportStlToRuntimeWithProgress(
+        ui->loadMenu.asyncStlSourcePath,
+        ui->loadMenu.asyncStlAssetRoot,
+        authoring_path,
+        sizeof(authoring_path),
+        runtime_path,
+        sizeof(runtime_path),
+        diagnostics,
+        sizeof(diagnostics),
+        UIPanel_StlImportProgressCallback,
+        ui);
+    snprintf(ui->loadMenu.asyncStlAuthoringPath,
+             sizeof(ui->loadMenu.asyncStlAuthoringPath),
+             "%s",
+             authoring_path);
+    snprintf(ui->loadMenu.asyncStlRuntimePath,
+             sizeof(ui->loadMenu.asyncStlRuntimePath),
+             "%s",
+             runtime_path);
+    snprintf(ui->loadMenu.asyncStlDiagnostics,
+             sizeof(ui->loadMenu.asyncStlDiagnostics),
+             "%s",
+             diagnostics);
+    ui->loadMenu.asyncStlSucceeded = ok;
+    SDL_AtomicSet(&ui->loadMenu.asyncStlComplete, 1);
+    return ok ? 0 : 1;
+}
+
+static bool UIPanel_StartAsyncStlImport(UIPanelState* ui,
+                                        const char* stl_path,
+                                        const char* label) {
+    const char* asset_root = Global_GetObjectAssetRoot();
+    if (!ui || !stl_path || !stl_path[0]) return false;
+
+    if (ui->loadMenu.asyncStlActive) {
+        UIPanel_RecordStlImportFailure(ui,
+                                       "STL import failed: another STL import is already running");
+        return false;
+    }
+    if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
+        UIPanel_RecordStlImportFailure(ui, "STL import failed: switch to scene mode.");
+        return false;
+    }
+    if (!asset_root || !asset_root[0]) {
+        UIPanel_RecordStlImportFailure(ui,
+                                       "STL import failed: object asset root is unset.");
+        return false;
+    }
+
+    snprintf(ui->loadMenu.asyncStlSourcePath,
+             sizeof(ui->loadMenu.asyncStlSourcePath),
+             "%s",
+             stl_path);
+    snprintf(ui->loadMenu.asyncStlAssetRoot,
+             sizeof(ui->loadMenu.asyncStlAssetRoot),
+             "%s",
+             asset_root);
+    ui->loadMenu.asyncStlAuthoringPath[0] = '\0';
+    ui->loadMenu.asyncStlRuntimePath[0] = '\0';
+    ui->loadMenu.asyncStlDiagnostics[0] = '\0';
+    ui->loadMenu.asyncStlSucceeded = false;
+    SDL_AtomicSet(&ui->loadMenu.asyncStlComplete, 0);
+    SDL_AtomicSet(&ui->loadMenu.asyncStlProgressPermille, 50);
+    SDL_AtomicSet(&ui->loadMenu.asyncStlProgressStage,
+                  (int)CORE_MESH_COMPILE_PROGRESS_STAGE_PREPARING);
+    ui->loadMenu.asyncStlThread = SDL_CreateThread(UIPanel_AsyncStlImportThreadMain,
+                                                   "ld-stl-import",
+                                                   ui);
+    if (!ui->loadMenu.asyncStlThread) {
+        UIPanel_RecordStlImportFailure(ui,
+                                       "STL import failed: could not start import worker");
+        return false;
+    }
+
+    ui->loadMenu.asyncStlActive = true;
+    ui->loadMenu.loadProgressPermille = 50;
+    snprintf(ui->loadMenu.loadProgressDetail,
+             sizeof(ui->loadMenu.loadProgressDetail),
+             "Preparing STL import");
+    (void)label;
+    return true;
+}
+
+static bool UIPanel_PlaceCachedStlOrStartImport(UIPanelState* ui,
+                                                const char* stl_path,
+                                                const char* label) {
+    const char* asset_root = Global_GetObjectAssetRoot();
+    char authoring_path[MAX_CONFIG_PATH];
+    char runtime_path[MAX_CONFIG_PATH];
+    char preview_path[MAX_CONFIG_PATH];
+    char diagnostics[256];
+    LayoutImportedMeshStlCacheState cache_state =
+        LAYOUT_IMPORTED_MESH_STL_CACHE_MISSING;
+    if (!ui || !stl_path || !stl_path[0]) return false;
+
+    authoring_path[0] = '\0';
+    runtime_path[0] = '\0';
+    preview_path[0] = '\0';
+    diagnostics[0] = '\0';
+    if (asset_root && asset_root[0]) {
+        cache_state = LayoutImportedMeshAsset_GetStlCacheState(stl_path,
+                                                               asset_root,
+                                                               authoring_path,
+                                                               sizeof(authoring_path),
+                                                               runtime_path,
+                                                               sizeof(runtime_path),
+                                                               preview_path,
+                                                               sizeof(preview_path),
+                                                               diagnostics,
+                                                               sizeof(diagnostics));
+    }
+
+    if (cache_state == LAYOUT_IMPORTED_MESH_STL_CACHE_FRESH) {
+        const bool placed = UIPanel_PlaceImportedStlRuntimeMesh(stl_path,
+                                                               authoring_path,
+                                                               runtime_path);
+        if (placed) {
+            UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_STL_IMPORT, stl_path);
+            UIPanel_RefreshConfigList();
+            UIPanel_EndLoadProgressWithDetail(ui, true, "Added cached STL");
+        } else {
+            UIPanel_EndLoadProgressWithDetail(ui, false, "Add cached STL failed");
+        }
+        (void)preview_path;
+        (void)label;
+        return placed;
+    }
+
+    if (cache_state == LAYOUT_IMPORTED_MESH_STL_CACHE_STALE) {
+        snprintf(ui->loadMenu.loadProgressDetail,
+                 sizeof(ui->loadMenu.loadProgressDetail),
+                 "Reimporting changed STL");
+    }
+    return UIPanel_StartAsyncStlImport(ui, stl_path, label);
+}
+
+void UIPanel_WaitForAsyncStlImport(void) {
+    UIPanelState* ui = UIPanel_Get();
+    if (!ui || !ui->loadMenu.asyncStlThread) return;
+    SDL_WaitThread(ui->loadMenu.asyncStlThread, NULL);
+    ui->loadMenu.asyncStlThread = NULL;
+    ui->loadMenu.asyncStlActive = false;
+    SDL_AtomicSet(&ui->loadMenu.asyncStlComplete, 0);
+    SDL_AtomicSet(&ui->loadMenu.asyncStlProgressPermille, 0);
+    SDL_AtomicSet(&ui->loadMenu.asyncStlProgressStage,
+                  (int)CORE_MESH_COMPILE_PROGRESS_STAGE_UNKNOWN);
+}
+
+void UIPanel_TickLoadProgress(void) {
+    UIPanelState* ui = UIPanel_Get();
+    Uint32 now = SDL_GetTicks();
+    if (!ui) return;
+
+    if (ui->loadMenu.asyncStlActive &&
+        SDL_AtomicGet(&ui->loadMenu.asyncStlComplete) != 0) {
+        bool placed = false;
+        bool import_ok = ui->loadMenu.asyncStlSucceeded;
+        char diagnostics[256];
+        char authoring_path[MAX_CONFIG_PATH];
+        char runtime_path[MAX_CONFIG_PATH];
+        char stl_path[MAX_CONFIG_PATH];
+
+        snprintf(diagnostics, sizeof(diagnostics), "%s", ui->loadMenu.asyncStlDiagnostics);
+        snprintf(authoring_path, sizeof(authoring_path), "%s", ui->loadMenu.asyncStlAuthoringPath);
+        snprintf(runtime_path, sizeof(runtime_path), "%s", ui->loadMenu.asyncStlRuntimePath);
+        snprintf(stl_path, sizeof(stl_path), "%s", ui->loadMenu.asyncStlSourcePath);
+        UIPanel_WaitForAsyncStlImport();
+
+        if (import_ok) {
+            placed = UIPanel_PlaceImportedStlRuntimeMesh(stl_path,
+                                                         authoring_path,
+                                                         runtime_path);
+            if (placed) {
+                UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_STL_IMPORT, stl_path);
+                UIPanel_RefreshConfigList();
+            }
+        }
+
+        if (placed) {
+            UIPanel_EndLoadProgressWithDetail(ui, true, "Import STL finished");
+        } else {
+            char detail[160];
+            snprintf(detail,
+                     sizeof(detail),
+                     "STL import failed: %s",
+                     diagnostics[0] ? diagnostics : "import or placement error");
+            UIPanel_RecordStlImportFailure(ui, detail);
+        }
+        return;
+    }
+
+    if (ui->loadMenu.asyncStlActive) {
+        int progress_permille = SDL_AtomicGet(&ui->loadMenu.asyncStlProgressPermille);
+        int progress_stage = SDL_AtomicGet(&ui->loadMenu.asyncStlProgressStage);
+        if (progress_permille < 0) progress_permille = 0;
+        if (progress_permille > 950) progress_permille = 950;
+        ui->loadMenu.loadProgressPermille = progress_permille;
+        snprintf(ui->loadMenu.loadProgressDetail,
+                 sizeof(ui->loadMenu.loadProgressDetail),
+                 "%s",
+                 UIPanel_StlProgressStageDetail(progress_stage));
+    }
+
+    if ((ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_COMPLETE ||
+         ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_FAILED) &&
+        ui->loadMenu.loadProgressFinishedTicks != 0u &&
+        (Uint32)(now - ui->loadMenu.loadProgressFinishedTicks) >= k_load_progress_finished_ttl_ms) {
+        ui->loadMenu.loadProgressState = UI_LOAD_PROGRESS_NONE;
+        ui->loadMenu.loadProgressMode = UI_LOAD_MENU_MODE_NONE;
+        ui->loadMenu.loadProgressStartedTicks = 0u;
+        ui->loadMenu.loadProgressFinishedTicks = 0u;
+        ui->loadMenu.loadProgressPermille = 0;
+        ui->loadMenu.loadProgressPath[0] = '\0';
+        ui->loadMenu.loadProgressLabel[0] = '\0';
+        ui->loadMenu.loadProgressDetail[0] = '\0';
+        UIPanel_LoadMenuClampScroll(ui);
+    }
+}
 
 static bool UIPanel_PathIsRegularFile(const char* path) {
     struct stat st = {0};
@@ -247,10 +624,17 @@ void UIPanel_RememberLoadedEntry(UILoadMenuMode mode, const char* path) {
     (void)UIPanel_SaveRememberedEntryPath(mode, path);
 }
 
-static void UIPanel_SetFileBrowserVisibleState(UIPanelState* ui, bool visible) {
+void UIPanel_SetFileBrowserVisible(UIPanelState* ui, bool visible) {
     if (!ui) return;
     ui->loadMenu.visible = visible;
     ui->loadMenu.open = visible;
+}
+
+void UIPanel_CloseFileBrowser(UIPanelState* ui) {
+    if (!ui) return;
+    UIPanel_SetFileBrowserVisible(ui, false);
+    ui->loadMenu.hoverIndex = -1;
+    ui->loadMenu.scrollbarDragging = false;
 }
 
 void UIPanel_LoadFileBrowserMode(UIPanelState* ui) {
@@ -266,7 +650,7 @@ void UIPanel_LoadFileBrowserMode(UIPanelState* ui) {
     fclose(file);
     line[strcspn(line, "\r\n")] = '\0';
     ui->loadMenu.mode = UIPanel_FileBrowserModeFromToken(line);
-    UIPanel_SetFileBrowserVisibleState(ui, ui->loadMenu.mode != UI_LOAD_MENU_MODE_NONE);
+    UIPanel_SetFileBrowserVisible(ui, ui->loadMenu.mode != UI_LOAD_MENU_MODE_NONE);
 }
 
 static bool UIPanel_AddLoadEntry(UIPanelState* ui, const char* label, const char* full_path) {
@@ -375,8 +759,7 @@ static int UIPanel_FindActiveLoadMenuIndex(const UIPanelState* ui) {
     } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT) {
         active_path = Global_GetCurrentObjectAssetPath();
     } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
-        GlobalState* state = Global_Get();
-        active_path = state ? state->lastObjectRuntimeMeshPath : NULL;
+        active_path = Global_GetLastObjectRuntimeMeshPath();
     } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
         active_path = NULL;
     }
@@ -406,8 +789,7 @@ const char* UIPanel_GetActiveSessionPathForMode(const UIPanelState* ui) {
         return Global_GetCurrentObjectAssetPath();
     }
     if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
-        GlobalState* state = Global_Get();
-        return state ? state->lastObjectRuntimeMeshPath : NULL;
+        return Global_GetLastObjectRuntimeMeshPath();
     }
     if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
         return NULL;
@@ -443,10 +825,8 @@ static const char* UIPanel_GetPreferredSessionPathForMode(const UIPanelState* ui
                    : NULL;
     }
     if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
-        GlobalState* state = Global_Get();
-        return state && state->lastObjectRuntimeMeshPath[0]
-                   ? state->lastObjectRuntimeMeshPath
-                   : NULL;
+        active_path = Global_GetLastObjectRuntimeMeshPath();
+        return active_path && active_path[0] ? active_path : NULL;
     }
     if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
         char remembered_path[MAX_CONFIG_PATH];
@@ -488,9 +868,7 @@ static bool UIPanel_DeriveBrowserRootFromActiveSession(const UIPanelState* ui,
 
 static void UIPanel_LoadMenuClose(UIPanelState* ui) {
     if (!ui) return;
-    UIPanel_SetFileBrowserVisibleState(ui, false);
-    ui->loadMenu.hoverIndex = -1;
-    ui->loadMenu.scrollbarDragging = false;
+    UIPanel_CloseFileBrowser(ui);
     ui->loadMenu.mode = UI_LOAD_MENU_MODE_NONE;
     (void)UIPanel_SaveFileBrowserMode(ui);
 }
@@ -542,7 +920,7 @@ static bool UIPanel_ShowFileBrowserForCurrentRoot(UILoadMenuMode mode,
     UIPanel_SetActiveLeftTab(ui, UI_PANEL_LEFT_TAB_FILE);
     UIPanel_OnWindowResized(Global_GetScreenWidth(), Global_GetScreenHeight());
     UIPanel_RefreshConfigList();
-    UIPanel_SetFileBrowserVisibleState(ui, true);
+    UIPanel_SetFileBrowserVisible(ui, true);
     ui->loadMenu.hoverIndex = -1;
     ui->loadMenu.scrollOffsetPx = 0.0f;
     ui->loadMenu.scrollbarDragging = false;
@@ -575,8 +953,7 @@ static bool UIPanel_RestorePersistedEntryForMode(UILoadMenuMode mode) {
         return UIPanel_LoadObjectAssetFromPath(path);
     }
     if (mode == UI_LOAD_MENU_MODE_RUNTIME_MESH) {
-        GlobalState* state = Global_Get();
-        path = state ? state->lastObjectRuntimeMeshPath : NULL;
+        path = Global_GetLastObjectRuntimeMeshPath();
         if (!path || !path[0]) return false;
         return UIPanel_PlaceRuntimeMeshAsSceneInstance(path);
     }
@@ -585,7 +962,7 @@ static bool UIPanel_RestorePersistedEntryForMode(UILoadMenuMode mode) {
         if (!UIPanel_LoadRememberedEntryPath(mode, remembered_path, sizeof(remembered_path))) {
             return false;
         }
-        return UIPanel_ImportStlAndPlaceFromPath(remembered_path);
+        return UIPanel_PlaceCachedStlOrStartImport(UIPanel_Get(), remembered_path, remembered_path);
     }
     return false;
 }
@@ -595,14 +972,17 @@ bool UIPanel_LoadJsonFromFolderSelection(const char* selected_folder, bool persi
     if (UIPanel_CountEntriesForRoot(selected_folder, UI_LOAD_MENU_MODE_JSON) <= 0) {
         UIPanelState* ui = UIPanel_Get();
         if (ui) {
-            UIPanel_SetFileBrowserVisibleState(ui, false);
+            UIPanel_SetFileBrowserVisible(ui, false);
         }
+        UIPanel_SetFilePaneActionStatus("Load JSON failed: no JSON files found.");
         return false;
     }
     if (!UIPanel_ApplyBrowserRootForMode(UI_LOAD_MENU_MODE_JSON, selected_folder, persist_root)) {
+        UIPanel_SetFilePaneActionStatus("Load JSON failed: root could not be applied.");
         return false;
     }
     if (!Global_SetInputRoot(selected_folder, persist_root)) {
+        UIPanel_SetFilePaneActionStatus("Load JSON failed: input root rejected.");
         return false;
     }
     return UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_JSON,
@@ -614,14 +994,17 @@ bool UIPanel_LoadSceneFromFolderSelection(const char* selected_folder, bool pers
     if (UIPanel_CountEntriesForRoot(selected_folder, UI_LOAD_MENU_MODE_SCENE) <= 0) {
         UIPanelState* ui = UIPanel_Get();
         if (ui) {
-            UIPanel_SetFileBrowserVisibleState(ui, false);
+            UIPanel_SetFileBrowserVisible(ui, false);
         }
+        UIPanel_SetFilePaneActionStatus("Load scene failed: no scene files found.");
         return false;
     }
     if (!UIPanel_ApplyBrowserRootForMode(UI_LOAD_MENU_MODE_SCENE, selected_folder, persist_root)) {
+        UIPanel_SetFilePaneActionStatus("Load scene failed: root could not be applied.");
         return false;
     }
     if (!Global_SetInputRoot(selected_folder, persist_root)) {
+        UIPanel_SetFilePaneActionStatus("Load scene failed: input root rejected.");
         return false;
     }
     return UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_SCENE,
@@ -633,14 +1016,17 @@ bool UIPanel_LoadObjectAssetFromFolderSelection(const char* selected_folder, boo
     if (UIPanel_CountEntriesForRoot(selected_folder, UI_LOAD_MENU_MODE_OBJECT) <= 0) {
         UIPanelState* ui = UIPanel_Get();
         if (ui) {
-            UIPanel_SetFileBrowserVisibleState(ui, false);
+            UIPanel_SetFileBrowserVisible(ui, false);
         }
+        UIPanel_SetFilePaneActionStatus("Load asset failed: no object asset files found.");
         return false;
     }
     if (!UIPanel_ApplyBrowserRootForMode(UI_LOAD_MENU_MODE_OBJECT, selected_folder, persist_root)) {
+        UIPanel_SetFilePaneActionStatus("Load asset failed: root could not be applied.");
         return false;
     }
     if (!Global_SetObjectAssetRoot(selected_folder, persist_root)) {
+        UIPanel_SetFilePaneActionStatus("Load asset failed: object asset root rejected.");
         return false;
     }
     return UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_OBJECT,
@@ -652,16 +1038,19 @@ bool UIPanel_LoadStlFromFolderSelection(const char* selected_folder, bool persis
     if (UIPanel_CountEntriesForRoot(selected_folder, UI_LOAD_MENU_MODE_STL_IMPORT) <= 0) {
         UIPanelState* ui = UIPanel_Get();
         if (ui) {
-            UIPanel_SetFileBrowserVisibleState(ui, false);
+            UIPanel_SetFileBrowserVisible(ui, false);
         }
+        UIPanel_SetFilePaneActionStatus("Import STL failed: no STL files found.");
         return false;
     }
     if (!UIPanel_ApplyBrowserRootForMode(UI_LOAD_MENU_MODE_STL_IMPORT,
                                          selected_folder,
                                          persist_root)) {
+        UIPanel_SetFilePaneActionStatus("Import STL failed: root could not be applied.");
         return false;
     }
     if (!Global_SetObjectAssetRoot(selected_folder, persist_root)) {
+        UIPanel_SetFilePaneActionStatus("Import STL failed: object asset root rejected.");
         return false;
     }
     return UIPanel_ShowFileBrowserForCurrentRoot(UI_LOAD_MENU_MODE_STL_IMPORT,
@@ -717,7 +1106,7 @@ void UIPanel_RefreshConfigList(void) {
         UIPanel_LoadMenuScrollIndexIntoView(ui, ui->loadMenu.activeIndex);
     }
     if (!ui->loadMenu.visible && ui->loadMenu.mode != UI_LOAD_MENU_MODE_NONE) {
-        UIPanel_SetFileBrowserVisibleState(ui, true);
+        UIPanel_SetFileBrowserVisible(ui, true);
     }
     UIPanel_LoadMenuClampScroll(ui);
 }
@@ -734,10 +1123,10 @@ void UIPanel_ToggleLoadMenu(void) {
     }
     UIPanel_RefreshConfigList();
     if (ui->loadMenu.count <= 0) {
-        UIPanel_SetFileBrowserVisibleState(ui, true);
+        UIPanel_SetFileBrowserVisible(ui, true);
         return;
     }
-    UIPanel_SetFileBrowserVisibleState(ui, true);
+    UIPanel_SetFileBrowserVisible(ui, true);
     ui->loadMenu.hoverIndex = -1;
     ui->loadMenu.scrollOffsetPx = 0.0f;
     UIPanel_LoadMenuClampScroll(ui);
@@ -781,7 +1170,7 @@ bool UIPanel_RestorePersistedFileSession(void) {
 
     restored = UIPanel_RestorePersistedEntryForMode(ui->loadMenu.mode);
     UIPanel_RefreshConfigList();
-    UIPanel_SetFileBrowserVisibleState(ui, true);
+    UIPanel_SetFileBrowserVisible(ui, true);
     ui->loadMenu.hoverIndex = -1;
     ui->loadMenu.activeIndex = UIPanel_FindActiveLoadMenuIndex(ui);
     if (ui->loadMenu.activeIndex < 0) {
@@ -790,6 +1179,51 @@ bool UIPanel_RestorePersistedFileSession(void) {
     ui->loadMenu.scrollOffsetPx = 0.0f;
     UIPanel_LoadMenuClampScroll(ui);
     return restored;
+}
+
+bool UIPanel_GetFileBrowserRestoreSummary(
+    const UIPanelState* ui,
+    UIPanelFileBrowserRestoreSummary* out_summary) {
+    const char* active_path = NULL;
+    char remembered_path[MAX_CONFIG_PATH];
+    if (!ui || !out_summary) return false;
+
+    memset(out_summary, 0, sizeof(*out_summary));
+    out_summary->mode = ui->loadMenu.mode;
+    out_summary->hasMode = ui->loadMenu.mode != UI_LOAD_MENU_MODE_NONE;
+    out_summary->visible = ui->loadMenu.visible;
+    out_summary->activeIndex = -1;
+    out_summary->rememberedIndex = -1;
+    snprintf(out_summary->rootPath,
+             sizeof(out_summary->rootPath),
+             "%s",
+             ui->loadMenu.rootPath);
+
+    active_path = UIPanel_GetActiveSessionPathForMode(ui);
+    if (active_path && active_path[0]) {
+        out_summary->hasActiveSessionPath = true;
+        out_summary->activeSessionPathExists = UIPanel_PathIsRegularFile(active_path);
+        out_summary->activeIndex = UIPanel_FindActiveLoadMenuIndex(ui);
+        snprintf(out_summary->activeSessionPath,
+                 sizeof(out_summary->activeSessionPath),
+                 "%s",
+                 active_path);
+    }
+
+    remembered_path[0] = '\0';
+    if (UIPanel_LoadRememberedEntryPath(ui->loadMenu.mode,
+                                        remembered_path,
+                                        sizeof(remembered_path))) {
+        out_summary->hasRememberedEntryPath = true;
+        out_summary->rememberedEntryExists = UIPanel_PathIsRegularFile(remembered_path);
+        out_summary->rememberedIndex = UIPanel_FindRememberedLoadMenuIndex(ui);
+        snprintf(out_summary->rememberedEntryPath,
+                 sizeof(out_summary->rememberedEntryPath),
+                 "%s",
+                 remembered_path);
+    }
+
+    return true;
 }
 
 bool UIPanel_FocusFileBrowserOnActiveSession(void) {
@@ -807,7 +1241,7 @@ bool UIPanel_FocusFileBrowserOnActiveSession(void) {
         return false;
     }
     snprintf(ui->loadMenu.rootPath, sizeof(ui->loadMenu.rootPath), "%s", root_path);
-    UIPanel_SetFileBrowserVisibleState(ui, true);
+    UIPanel_SetFileBrowserVisible(ui, true);
     UIPanel_RefreshConfigList();
     ui->loadMenu.hoverIndex = -1;
     ui->loadMenu.activeIndex = UIPanel_FindActiveLoadMenuIndex(ui);
@@ -844,26 +1278,14 @@ bool UIPanel_LoadLayoutFromPath(const char* path) {
         Global_OnLayoutLoaded(path);
         UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_JSON, path);
         UIPanel_RefreshConfigList();
-        state->editor.selectedAnchorIndex = -1;
-        state->editor.selectedWallIndex = -1;
-        state->editor.selectedObject3DId = 0u;
-        state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-        state->editor.hoveredAnchorIndex = -1;
-        state->editor.hoveredWallIndex = -1;
-        state->editor.hoveredObject3DId = 0u;
-        state->editor.hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-        state->editor.hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-        state->editor.hoveredHandleAnchor = -1;
-        state->editor.hoveredHandleComponent = -1;
-        state->editor.hoveredGizmoAxis = -1;
-        state->editor.hoveredObject3DGizmoAxis = -1;
-        state->editor.activeObject3DGizmoAxis = -1;
+        UIPanel_ResetEditorTransientSelection(&state->editor);
+        UIPanel_RefreshViewportAfterSceneDocumentLoad(state);
         Editor_HistoryCapture(&state->editor, &state->layout);
         return true;
     }
 
     SDL_Log("[UI] Failed to load layout %s", path);
+    UIPanel_SetFilePaneActionStatus("Load JSON failed: read or parse error.");
     return false;
 }
 
@@ -924,6 +1346,14 @@ bool UIPanel_LoadObjectAssetFromPath(const char* path) {
             diagnostics[0] ? " (" : "",
             diagnostics[0] ? diagnostics : "",
             diagnostics[0] ? ")" : "");
+    {
+        char status[160];
+        snprintf(status,
+                 sizeof(status),
+                 "Load asset failed: %s",
+                 diagnostics[0] ? diagnostics : "read or parse error");
+        UIPanel_SetFilePaneActionStatus(status);
+    }
     return false;
 }
 
@@ -931,6 +1361,20 @@ static bool UIPanel_LoadEntryByIndex(int index) {
     UIPanelState* ui = UIPanel_Get();
     bool loaded = false;
     if (!ui || index < 0 || index >= ui->loadMenu.count) return false;
+    if (ui->loadMenu.asyncStlActive) {
+        snprintf(ui->loadMenu.loadProgressDetail,
+                 sizeof(ui->loadMenu.loadProgressDetail),
+                 "Import STL running in background");
+        if (UIPanel_FindLoadProgressIndex(ui) >= 0) {
+            UIPanel_LoadMenuScrollIndexIntoView(ui, UIPanel_FindLoadProgressIndex(ui));
+        }
+        return true;
+    }
+    UIPanel_BeginLoadProgress(ui,
+                              ui->loadMenu.mode,
+                              ui->loadMenu.entryPaths[index],
+                              ui->loadMenu.entries[index]);
+    UIPanel_LoadMenuScrollIndexIntoView(ui, index);
     if (ui->loadMenu.rootPath[0] != '\0' &&
         (ui->loadMenu.mode == UI_LOAD_MENU_MODE_OBJECT ||
          ui->loadMenu.mode == UI_LOAD_MENU_MODE_RUNTIME_MESH ||
@@ -952,12 +1396,18 @@ static bool UIPanel_LoadEntryByIndex(int index) {
                                         ui->loadMenu.entryPaths[index]);
         }
     } else if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) {
-        loaded = UIPanel_ImportStlAndPlaceFromPath(ui->loadMenu.entryPaths[index]);
+        loaded = UIPanel_PlaceCachedStlOrStartImport(ui,
+                                                     ui->loadMenu.entryPaths[index],
+                                                     ui->loadMenu.entries[index]);
         if (loaded) {
-            UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_STL_IMPORT,
-                                        ui->loadMenu.entryPaths[index]);
+            UIPanel_LoadMenuScrollIndexIntoView(ui, index);
+            return true;
         }
+        UIPanel_LoadMenuScrollIndexIntoView(ui, index);
+        return false;
     }
+    UIPanel_EndLoadProgress(ui, loaded);
+    UIPanel_LoadMenuScrollIndexIntoView(ui, index);
     return loaded;
 }
 

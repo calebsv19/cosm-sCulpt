@@ -1,4 +1,5 @@
 #include "test_layout_internal.h"
+#include "test_artifact_helpers.h"
 #include "Editor/primitive_placement_preview.h"
 #include "Input/input_mouse.h"
 #include "UI/ui_panel_internal.h"
@@ -83,23 +84,12 @@ static void ld_test_load_menu_click_point(const UIPanelState* ui, int index, int
 }
 
 static bool ld_test_write_scene_contract(const char* scene_dir) {
-    char authoring_path[512];
-    char runtime_path[512];
-    if (!scene_dir || !scene_dir[0]) return false;
-    if (!ld_test_make_dir(scene_dir)) return false;
-    if (snprintf(authoring_path, sizeof(authoring_path), "%s/scene_authoring.json", scene_dir) >= (int)sizeof(authoring_path)) {
-        return false;
-    }
-    if (snprintf(runtime_path, sizeof(runtime_path), "%s/scene_runtime.json", scene_dir) >= (int)sizeof(runtime_path)) {
-        return false;
-    }
-    return ld_test_write_text_file(authoring_path, "{\n  \"scene_id\": \"test_authoring\"\n}\n") &&
-           ld_test_write_text_file(runtime_path, "{\n  \"scene_id\": \"test_runtime\"\n}\n");
+    return ld_test_artifact_write_scene_contract(scene_dir,
+                                                 "{\n  \"scene_id\": \"test_authoring\"\n}\n",
+                                                 "{\n  \"scene_id\": \"test_runtime\"\n}\n");
 }
 
 static bool ld_test_write_legacy_scene_contract(const char* scene_dir) {
-    char authoring_path[512];
-    char runtime_path[512];
     const char* authoring_json =
         "{\n"
         "  \"schema_family\": \"codework_scene\",\n"
@@ -178,16 +168,7 @@ static bool ld_test_write_legacy_scene_contract(const char* scene_dir) {
         "  \"schema_variant\": \"scene_runtime_v1\",\n"
         "  \"scene_id\": \"scene_line_drawing_legacy_scene\"\n"
         "}\n";
-    if (!scene_dir || !scene_dir[0]) return false;
-    if (!ld_test_make_dir(scene_dir)) return false;
-    if (snprintf(authoring_path, sizeof(authoring_path), "%s/scene_authoring.json", scene_dir) >= (int)sizeof(authoring_path)) {
-        return false;
-    }
-    if (snprintf(runtime_path, sizeof(runtime_path), "%s/scene_runtime.json", scene_dir) >= (int)sizeof(runtime_path)) {
-        return false;
-    }
-    return ld_test_write_text_file(authoring_path, authoring_json) &&
-           ld_test_write_text_file(runtime_path, runtime_json);
+    return ld_test_artifact_write_scene_contract(scene_dir, authoring_json, runtime_json);
 }
 
 static bool test_scene_menu_discovers_direct_and_grouped_scene_dirs(void) {
@@ -572,6 +553,118 @@ static bool test_scene_menu_click_loads_selection_and_stays_open(void) {
     return true;
 }
 
+static bool test_scene_export_promotes_exported_scene_as_active_session(void) {
+    char root_template[] = "/tmp/ld_scene_export_active_XXXXXX";
+    char* root = NULL;
+    char expected_authoring[512];
+    char expected_runtime[512];
+    char expected_scene_dir[512];
+    GlobalState* state = NULL;
+
+    root = mkdtemp(root_template);
+    TEST_ASSERT(root != NULL);
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    TEST_ASSERT(Global_SetOutputRoot(root, false));
+    Global_OnLayoutLoaded("/tmp/ld_scene_export_source/custom_layout.json");
+    TEST_ASSERT(Layout_AddAnchor3(&state->layout, (Vec3){0.0f, 0.0f, 0.0f}) >= 0);
+    TEST_ASSERT(Layout_AddAnchor3(&state->layout, (Vec3){2.0f, 0.0f, 1.0f}) >= 0);
+    Layout_AddWall3(&state->layout, (Vec3){0.0f, 0.0f, 0.0f}, (Vec3){2.0f, 0.0f, 1.0f});
+
+    UIPanel_ExportScene();
+
+    TEST_ASSERT(snprintf(expected_scene_dir,
+                         sizeof(expected_scene_dir),
+                         "%s/custom_layout",
+                         root) < (int)sizeof(expected_scene_dir));
+    TEST_ASSERT(snprintf(expected_authoring,
+                         sizeof(expected_authoring),
+                         "%s/scene_authoring.json",
+                         expected_scene_dir) < (int)sizeof(expected_authoring));
+    TEST_ASSERT(snprintf(expected_runtime,
+                         sizeof(expected_runtime),
+                         "%s/scene_runtime.json",
+                         expected_scene_dir) < (int)sizeof(expected_runtime));
+    TEST_ASSERT(access(expected_authoring, F_OK) == 0);
+    TEST_ASSERT(access(expected_runtime, F_OK) == 0);
+    TEST_ASSERT(strcmp(Global_GetCurrentSceneAuthoringPath(), expected_authoring) == 0);
+    TEST_ASSERT(strcmp(Global_GetLastSceneAuthoringPath(), expected_authoring) == 0);
+    TEST_ASSERT(strstr(Global_GetCurrentConfigPath(), "custom_layout.json") != NULL);
+    TEST_ASSERT(!Global_IsLayoutDirty());
+
+    ld_test_shutdown_runtime();
+    ld_test_remove_file_if_exists(expected_authoring);
+    ld_test_remove_file_if_exists(expected_runtime);
+    ld_test_remove_dir_if_exists(expected_scene_dir);
+    ld_test_remove_dir_if_exists(root);
+    return true;
+}
+
+static bool test_scene_export_uses_output_root_even_with_active_scene_session(void) {
+    char session_root_template[] = "/tmp/ld_scene_export_session_XXXXXX";
+    char output_root_template[] = "/tmp/ld_scene_export_output_XXXXXX";
+    char* session_root = NULL;
+    char* output_root = NULL;
+    char session_scene_dir[512];
+    char session_authoring[512];
+    char expected_scene_dir[512];
+    char expected_authoring[512];
+    char expected_runtime[512];
+    GlobalState* state = NULL;
+
+    session_root = mkdtemp(session_root_template);
+    output_root = mkdtemp(output_root_template);
+    TEST_ASSERT(session_root != NULL);
+    TEST_ASSERT(output_root != NULL);
+    TEST_ASSERT(snprintf(session_scene_dir,
+                         sizeof(session_scene_dir),
+                         "%s/source_scene",
+                         session_root) < (int)sizeof(session_scene_dir));
+    TEST_ASSERT(snprintf(session_authoring,
+                         sizeof(session_authoring),
+                         "%s/scene_authoring.json",
+                         session_scene_dir) < (int)sizeof(session_authoring));
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    TEST_ASSERT(Global_SetOutputRoot(output_root, false));
+    Global_OnSceneLoaded(session_authoring, "/tmp/ld_scene_export_session/source_scene.json");
+    TEST_ASSERT(Layout_AddAnchor3(&state->layout, (Vec3){0.0f, 0.0f, 0.0f}) >= 0);
+    TEST_ASSERT(Layout_AddAnchor3(&state->layout, (Vec3){2.0f, 0.0f, 1.0f}) >= 0);
+    Layout_AddWall3(&state->layout, (Vec3){0.0f, 0.0f, 0.0f}, (Vec3){2.0f, 0.0f, 1.0f});
+
+    UIPanel_ExportScene();
+
+    TEST_ASSERT(snprintf(expected_scene_dir,
+                         sizeof(expected_scene_dir),
+                         "%s/source_scene",
+                         output_root) < (int)sizeof(expected_scene_dir));
+    TEST_ASSERT(snprintf(expected_authoring,
+                         sizeof(expected_authoring),
+                         "%s/scene_authoring.json",
+                         expected_scene_dir) < (int)sizeof(expected_authoring));
+    TEST_ASSERT(snprintf(expected_runtime,
+                         sizeof(expected_runtime),
+                         "%s/scene_runtime.json",
+                         expected_scene_dir) < (int)sizeof(expected_runtime));
+    TEST_ASSERT(access(expected_authoring, F_OK) == 0);
+    TEST_ASSERT(access(expected_runtime, F_OK) == 0);
+    TEST_ASSERT(strcmp(Global_GetCurrentSceneAuthoringPath(), expected_authoring) == 0);
+    TEST_ASSERT(access(session_authoring, F_OK) != 0);
+
+    ld_test_shutdown_runtime();
+    ld_test_remove_file_if_exists(expected_authoring);
+    ld_test_remove_file_if_exists(expected_runtime);
+    ld_test_remove_dir_if_exists(expected_scene_dir);
+    ld_test_remove_dir_if_exists(output_root);
+    ld_test_remove_dir_if_exists(session_scene_dir);
+    ld_test_remove_dir_if_exists(session_root);
+    return true;
+}
+
 static bool test_scene_menu_failed_load_keeps_list_open(void) {
     char root_template[] = "/tmp/ld_scene_failed_click_menu_XXXXXX";
     char* root = NULL;
@@ -910,6 +1003,10 @@ bool ui_panel_scene_menu_run_tests(void) {
           test_scene_folder_selection_opens_menu_for_scene_root },
         { "scene_menu_click_loads_selection_and_stays_open",
           test_scene_menu_click_loads_selection_and_stays_open },
+        { "scene_export_promotes_exported_scene_as_active_session",
+          test_scene_export_promotes_exported_scene_as_active_session },
+        { "scene_export_uses_output_root_even_with_active_scene_session",
+          test_scene_export_uses_output_root_even_with_active_scene_session },
         { "scene_menu_failed_load_keeps_list_open",
           test_scene_menu_failed_load_keeps_list_open },
         { "legacy_scene_menu_click_loads_selection_and_stays_open",

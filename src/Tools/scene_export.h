@@ -30,6 +30,12 @@ bool LineDrawingSceneExport_ExportLayoutToAuthoringPath(const Layout* layout,
                                                         char* diagnostics,
                                                         size_t diagnostics_size);
 
+bool LineDrawingSceneExport_ExportLayoutToProjectRoot(const Layout* layout,
+                                                      const char* project_root,
+                                                      LineDrawingSceneExportPaths* out_paths,
+                                                      char* diagnostics,
+                                                      size_t diagnostics_size);
+
 #ifdef __cplusplus
 }
 #endif

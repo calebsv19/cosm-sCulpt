@@ -3,12 +3,15 @@
 #include "Core/global_state.h"
 #include "Editor/editor.h"
 #include "Layout/scene/layout_object_faces.h"
+#include "Layout/scene/layout_mesh_runtime_preview.h"
 #include "ObjectAuthoring/object_authoring_document.h"
 #include "UI/font_manager.h"
+#include "UI/ui_panel.h"
 #include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_visual_style.h"
 
 #include <SDL2/SDL.h>
+#include <math.h>
 #include <stdio.h>
 
 enum {
@@ -44,6 +47,129 @@ static const char* UIPanelEditSummary_TargetKindLabel(const ObjectAuthoringDocum
         default: return "None";
     }
     return "None";
+}
+
+static const char* UIPanelEditSummary_ObjectKindLabel(Object3DKind kind) {
+    switch (kind) {
+        case OBJECT3D_KIND_PLANE: return "Plane";
+        case OBJECT3D_KIND_RECT_PRISM: return "Rect Prism";
+        case OBJECT3D_KIND_MESH_ASSET_INSTANCE: return "Mesh Asset";
+        case OBJECT3D_KIND_UNKNOWN:
+        default: return "Unknown";
+    }
+}
+
+static void UIPanelEditSummary_FormatDimension(float world_value,
+                                               char* out,
+                                               size_t out_size) {
+    double display = 0.0;
+    const char* symbol = UIPanel_GetDisplayUnitSymbol();
+    if (!out || out_size == 0u) return;
+    if (UIPanel_ConvertWorldToDisplay((double)world_value, &display)) {
+        snprintf(out, out_size, "%.2f%s", display, symbol);
+    } else {
+        snprintf(out, out_size, "%.2f", world_value);
+    }
+}
+
+static bool UIPanelEditSummary_BuildSceneObjectLines(const GlobalState* state,
+                                                     char* mode_line,
+                                                     size_t mode_line_size,
+                                                     char* target_line,
+                                                     size_t target_line_size,
+                                                     char* authoring_line,
+                                                     size_t authoring_line_size,
+                                                     char* counts_line,
+                                                     size_t counts_line_size,
+                                                     char* gizmo_line,
+                                                     size_t gizmo_line_size) {
+    const Object3D* object = NULL;
+    char w_text[32] = {0};
+    char h_text[32] = {0};
+    char d_text[32] = {0};
+    Vec3 world_min = {0};
+    Vec3 world_max = {0};
+    if (!state || state->editor.selectedObject3DId == 0u) return false;
+    object = Layout_ObjectStore_FindConst(&state->layout.objectStore,
+                                          state->editor.selectedObject3DId);
+    if (!object) return false;
+
+    if (Layout_Object3D_ComputeWorldAABB(object, &world_min, &world_max)) {
+        UIPanelEditSummary_FormatDimension(fabsf(world_max.x - world_min.x),
+                                           w_text,
+                                           sizeof(w_text));
+        UIPanelEditSummary_FormatDimension(fabsf(world_max.y - world_min.y),
+                                           h_text,
+                                           sizeof(h_text));
+        UIPanelEditSummary_FormatDimension(fabsf(world_max.z - world_min.z),
+                                           d_text,
+                                           sizeof(d_text));
+    } else {
+        snprintf(w_text, sizeof(w_text), "n/a");
+        snprintf(h_text, sizeof(h_text), "n/a");
+        snprintf(d_text, sizeof(d_text), "n/a");
+    }
+
+    snprintf(mode_line,
+             mode_line_size,
+             "Mode  Scene object edit");
+    snprintf(target_line,
+             target_line_size,
+             "Target  #%u   %s",
+             object->objectId,
+             UIPanelEditSummary_ObjectKindLabel(object->kind));
+    snprintf(authoring_line,
+             authoring_line_size,
+             "Position  %.2f, %.2f, %.2f",
+             object->transform.position.x,
+             object->transform.position.y,
+             object->transform.position.z);
+    snprintf(counts_line,
+             counts_line_size,
+             "Size  W %s   H %s   D %s",
+             w_text,
+             h_text,
+             d_text);
+    if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        LayoutMeshRuntimePreviewStats preview_stats = {0};
+        char preview_diag[96] = {0};
+        if (Layout_MeshRuntimePreview_LoadStats(object->meshInstance.runtimePath,
+                                                &preview_stats,
+                                                preview_diag,
+                                                sizeof(preview_diag))) {
+            snprintf(mode_line,
+                     mode_line_size,
+                     "Mode  Mesh preview %s%s",
+                     preview_stats.previewMode[0] ? preview_stats.previewMode : "unknown",
+                     preview_stats.metadataOnly ? " metadata" : "");
+            snprintf(gizmo_line,
+                     gizmo_line_size,
+                     "Mesh src %zuV/%zuT prev %zuE/%zuT S %.2f R %.2f",
+                     preview_stats.sourceVertexCount,
+                     preview_stats.sourceTriangleCount,
+                     preview_stats.previewEdgeCount,
+                     preview_stats.previewTriangleCount,
+                     object->transform.scale.x,
+                     preview_stats.boundingSphereRadius);
+        } else {
+            snprintf(mode_line,
+                     mode_line_size,
+                     "Mode  Mesh preview unavailable");
+            snprintf(gizmo_line,
+                     gizmo_line_size,
+                     "Mesh  src %zuV/%zuT   preview n/a   Scale %.2f",
+                     object->meshInstance.vertexCount,
+                     object->meshInstance.triangleCount,
+                     object->transform.scale.x);
+        }
+    } else {
+        snprintf(gizmo_line,
+                 gizmo_line_size,
+                 "Gizmo  %s   Face:%s",
+                 UIPanel_ObjectGizmoModeLabel(),
+                 Layout_Object3DFaceKind_Label(state->editor.selectedObjectAssetFace));
+    }
+    return true;
 }
 
 static void UIPanelEditSummary_BuildTargetLine(const GlobalState* state,
@@ -133,24 +259,37 @@ void Render_UIPanelEditSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     border_color = palette.pane_border;
     border_color.a = 210;
 
-    snprintf(mode_line,
-             sizeof(mode_line),
-             "Mode  %s",
-             Editor_ObjectEditSelectionModeLabel(state->editor.objectEditSelectionMode));
-    UIPanelEditSummary_BuildTargetLine(state, target_line, sizeof(target_line));
-    snprintf(authoring_line,
-             sizeof(authoring_line),
-             "Authoring  %s",
-             state->objectAuthoring.attached ? "attached" : "detached");
-    snprintf(counts_line,
-             sizeof(counts_line),
-             "Topology  %zu vertices   %zu edges",
-             state->objectAuthoring.document.vertexCount,
-             state->objectAuthoring.document.edgeCount);
-    snprintf(gizmo_line,
-             sizeof(gizmo_line),
-             "Gizmo  %s target",
-             UIPanelEditSummary_TargetKindLabel(&state->objectAuthoring.document));
+    if (Global_GetWorkspaceMode() != LINE_DRAWING_WORKSPACE_MODE_SCENE ||
+        !UIPanelEditSummary_BuildSceneObjectLines(state,
+                                                  mode_line,
+                                                  sizeof(mode_line),
+                                                  target_line,
+                                                  sizeof(target_line),
+                                                  authoring_line,
+                                                  sizeof(authoring_line),
+                                                  counts_line,
+                                                  sizeof(counts_line),
+                                                  gizmo_line,
+                                                  sizeof(gizmo_line))) {
+        snprintf(mode_line,
+                 sizeof(mode_line),
+                 "Mode  %s",
+                 Editor_ObjectEditSelectionModeLabel(state->editor.objectEditSelectionMode));
+        UIPanelEditSummary_BuildTargetLine(state, target_line, sizeof(target_line));
+        snprintf(authoring_line,
+                 sizeof(authoring_line),
+                 "Authoring  %s",
+                 state->objectAuthoring.attached ? "attached" : "detached");
+        snprintf(counts_line,
+                 sizeof(counts_line),
+                 "Topology  %zu vertices   %zu edges",
+                 state->objectAuthoring.document.vertexCount,
+                 state->objectAuthoring.document.edgeCount);
+        snprintf(gizmo_line,
+                 sizeof(gizmo_line),
+                 "Gizmo  %s target",
+                 UIPanelEditSummary_TargetKindLabel(&state->objectAuthoring.document));
+    }
 
     lines[0] = mode_line;
     lines[1] = target_line;

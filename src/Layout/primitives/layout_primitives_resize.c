@@ -709,11 +709,10 @@ bool Layout_SetObject3DPosition(Layout* layout,
         const Vec3 min = object->meshInstance.localBoundsMin;
         const Vec3 max = object->meshInstance.localBoundsMax;
         const Vec3 localCenter = Vec3_Scale(Vec3_Add(min, max), 0.5f);
-        nextTransformPosition = (Vec3){
-            .x = nextCenter.x - (localCenter.x * object->transform.scale.x),
-            .y = nextCenter.y - (localCenter.y * object->transform.scale.y),
-            .z = nextCenter.z - (localCenter.z * object->transform.scale.z)
-        };
+        Transform3D centerTransform = object->transform;
+        centerTransform.position = (Vec3){0.0f, 0.0f, 0.0f};
+        const Vec3 centerOffset = Layout_Transform3D_ApplyLocalPoint(centerTransform, localCenter);
+        nextTransformPosition = Vec3_Sub(nextCenter, centerOffset);
     }
     object->transform.position = nextTransformPosition;
     if (object->kind == OBJECT3D_KIND_PLANE) {
@@ -731,6 +730,68 @@ bool Layout_SetObject3DPosition(Layout* layout,
     } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
         object->rectPrism.frame.origin = object->transform.position;
     }
+
+    if (!Layout_ObjectStore_ValidateObject(object)) {
+        *object = snapshot;
+        return false;
+    }
+
+    if (outBoundsAdjusted) *outBoundsAdjusted = boundsAdjusted;
+    Global_FlagLayoutChanged();
+    return true;
+}
+
+bool Layout_SetPlaneDimensions(Layout* layout,
+                               uint32_t objectId,
+                               float width,
+                               float height,
+                               bool* outBoundsAdjusted) {
+    if (outBoundsAdjusted) *outBoundsAdjusted = false;
+    if (!layout) return false;
+    if (!isfinite(width) || !isfinite(height)) return false;
+    if (width <= kPlanePrimitiveMinSize || height <= kPlanePrimitiveMinSize) return false;
+
+    Object3D* object = Layout_ObjectStore_Find(&layout->objectStore, objectId);
+    if (!object || object->kind != OBJECT3D_KIND_PLANE) return false;
+    if (!Layout_ObjectStore_ValidateObject(object)) return false;
+
+    const Vec3 center = object->transform.position;
+    const Vec3 axisU = Vec3_Normalize(object->plane.frame.axisU);
+    const Vec3 axisV = Vec3_Normalize(object->plane.frame.axisV);
+    if (Vec3_Length(axisU) <= kConstructionPlaneEpsilon ||
+        Vec3_Length(axisV) <= kConstructionPlaneEpsilon) {
+        return false;
+    }
+
+    float nextWidth = width;
+    float nextHeight = height;
+    bool boundsAdjusted = false;
+    if (object->plane.lockToBounds) {
+        bool sizeAdjusted = false;
+        if (!SceneBounds_ClampPlaneExtents(&layout->scene3d.bounds,
+                                           center,
+                                           axisU,
+                                           axisV,
+                                           &nextWidth,
+                                           &nextHeight,
+                                           &sizeAdjusted)) {
+            return false;
+        }
+        if (sizeAdjusted) boundsAdjusted = true;
+    }
+    if (nextWidth <= kPlanePrimitiveMinSize || nextHeight <= kPlanePrimitiveMinSize) {
+        return false;
+    }
+
+    Object3D snapshot = *object;
+    object->plane.width = nextWidth;
+    object->plane.height = nextHeight;
+
+    if (!Object3D_ApplyCoreRules(object)) {
+        *object = snapshot;
+        return false;
+    }
+    object->plane.frame.origin = object->transform.position;
 
     if (!Layout_ObjectStore_ValidateObject(object)) {
         *object = snapshot;
@@ -898,11 +959,10 @@ bool Layout_ScaleObject3D(Layout* layout,
             .y = baseline->transform.scale.y * scaleFactors.y,
             .z = baseline->transform.scale.z * scaleFactors.z
         };
-        next.transform.position = (Vec3){
-            .x = visualCenter.x - (localCenter.x * next.transform.scale.x),
-            .y = visualCenter.y - (localCenter.y * next.transform.scale.y),
-            .z = visualCenter.z - (localCenter.z * next.transform.scale.z)
-        };
+        Transform3D centerTransform = next.transform;
+        centerTransform.position = (Vec3){0.0f, 0.0f, 0.0f};
+        const Vec3 centerOffset = Layout_Transform3D_ApplyLocalPoint(centerTransform, localCenter);
+        next.transform.position = Vec3_Sub(visualCenter, centerOffset);
     }
 
     *object = next;

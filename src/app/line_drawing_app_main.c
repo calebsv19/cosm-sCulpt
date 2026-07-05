@@ -128,6 +128,91 @@ static LineDrawingAppContext g_line_drawing_app_ctx = {
     .runtime_dispatch = line_drawing_default_runtime_dispatch
 };
 
+static const LineDrawingAppStageDiagnostic k_line_drawing_app_stage_diagnostics[] = {
+    {
+        LINE_DRAWING_APP_DIAGNOSTIC_STAGE_BOOTSTRAP,
+        "bootstrap",
+        "reset wrapper context and preserve launch arguments",
+        "src/app owns wrapper context setup only; product runtime state remains in downstream owners",
+        false,
+        false,
+        false,
+        false,
+    },
+    {
+        LINE_DRAWING_APP_DIAGNOSTIC_STAGE_CONFIG_LOAD,
+        "config_load",
+        "record that the wrapper reached the config-load checkpoint",
+        "Core Global_Init/data_paths owns runtime data-root loading and fallback diagnostics",
+        false,
+        false,
+        false,
+        false,
+    },
+    {
+        LINE_DRAWING_APP_DIAGNOSTIC_STAGE_STATE_SEED,
+        "state_seed",
+        "record that the wrapper reached the state-seed checkpoint",
+        "Core recent_contexts and UI File-browser lanes own persisted session restore state",
+        false,
+        false,
+        false,
+        false,
+    },
+    {
+        LINE_DRAWING_APP_DIAGNOSTIC_STAGE_SUBSYSTEMS_INIT,
+        "subsystems_init",
+        "record that the wrapper reached subsystem initialization",
+        "subsystem behavior stays in the owning Core/UI/Layout/ObjectAuthoring modules",
+        false,
+        false,
+        false,
+        false,
+    },
+    {
+        LINE_DRAWING_APP_DIAGNOSTIC_STAGE_RUNTIME_START,
+        "runtime_start",
+        "record that the wrapper is ready to hand off to the runtime session",
+        "legacy SDL runtime startup remains behind the run-loop handoff",
+        false,
+        false,
+        false,
+        false,
+    },
+    {
+        LINE_DRAWING_APP_DIAGNOSTIC_STAGE_RUN_LOOP_HANDOFF,
+        "run_loop_handoff",
+        "dispatch the existing runtime entry point and summarize dispatch outcome",
+        "the wrapper owns dispatch accounting, not editor/product behavior",
+        false,
+        false,
+        false,
+        false,
+    },
+    {
+        LINE_DRAWING_APP_DIAGNOSTIC_STAGE_SHUTDOWN,
+        "shutdown",
+        "release wrapper ownership flags and mark wrapper shutdown complete",
+        "Core/UI resource cleanup remains in the owning runtime shutdown paths",
+        false,
+        false,
+        false,
+        false,
+    },
+};
+
+size_t line_drawing_app_stage_diagnostics_count(void) {
+    return sizeof(k_line_drawing_app_stage_diagnostics) /
+           sizeof(k_line_drawing_app_stage_diagnostics[0]);
+}
+
+const LineDrawingAppStageDiagnostic *line_drawing_app_stage_diagnostic_at(size_t index) {
+    if (index >= line_drawing_app_stage_diagnostics_count()) {
+        return NULL;
+    }
+    return &k_line_drawing_app_stage_diagnostics[index];
+}
+
 static void line_drawing_log_stage_error(const char *fn_name,
                                          LineDrawingAppStage expected,
                                          LineDrawingAppStage actual) {

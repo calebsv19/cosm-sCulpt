@@ -1,12 +1,12 @@
 #include "Menu/line_drawing_root_browser.h"
 
 #include "Core/data_paths.h"
+#include "Core/line_drawing_file_catalog.h"
 
 #include <dirent.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
-#include <sys/stat.h>
 
 enum {
     LINE_DRAWING_ROOT_BROWSER_MAX_CANDIDATES = 24
@@ -21,87 +21,8 @@ typedef struct LineDrawingRootBrowserCandidate {
     char preview_path[MAX_CONFIG_PATH];
 } LineDrawingRootBrowserCandidate;
 
-static bool line_drawing_root_browser_path_is_directory(const char* path) {
-    struct stat st = {0};
-    if (!path || !path[0]) return false;
-    if (stat(path, &st) != 0) return false;
-    return S_ISDIR(st.st_mode);
-}
-
-static bool line_drawing_root_browser_path_is_regular_file(const char* path) {
-    struct stat st = {0};
-    if (!path || !path[0]) return false;
-    if (stat(path, &st) != 0) return false;
-    return S_ISREG(st.st_mode);
-}
-
-static void line_drawing_root_browser_normalize(char* path) {
-    size_t len = 0u;
-    if (!path) return;
-    len = strlen(path);
-    while (len > 1u && path[len - 1u] == '/') {
-        path[len - 1u] = '\0';
-        len -= 1u;
-    }
-}
-
-static bool line_drawing_root_browser_parent_path(const char* path,
-                                                  char* out_path,
-                                                  size_t out_path_size) {
-    const char* last_slash = NULL;
-    size_t len = 0u;
-    if (!path || !path[0] || !out_path || out_path_size == 0u) return false;
-
-    snprintf(out_path, out_path_size, "%s", path);
-    line_drawing_root_browser_normalize(out_path);
-    if (strcmp(out_path, "/") == 0 || strcmp(out_path, ".") == 0) {
-        return false;
-    }
-
-    last_slash = strrchr(out_path, '/');
-    if (!last_slash) {
-        snprintf(out_path, out_path_size, ".");
-        return true;
-    }
-
-    len = (size_t)(last_slash - out_path);
-    if (len == 0u) {
-        snprintf(out_path, out_path_size, "/");
-        return true;
-    }
-
-    out_path[len] = '\0';
-    return true;
-}
-
-static bool line_drawing_root_browser_join_path(const char* base,
-                                                const char* leaf,
-                                                char* out_path,
-                                                size_t out_path_size) {
-    bool needs_slash = false;
-    if (!base || !base[0] || !leaf || !leaf[0] || !out_path || out_path_size == 0u) return false;
-    needs_slash = base[strlen(base) - 1u] != '/';
-    if (snprintf(out_path,
-                 out_path_size,
-                 "%s%s%s",
-                 base,
-                 needs_slash ? "/" : "",
-                 leaf) >= (int)out_path_size) {
-        return false;
-    }
-    line_drawing_root_browser_normalize(out_path);
-    return true;
-}
-
-static bool line_drawing_root_browser_has_json_suffix(const char* name) {
-    size_t len = 0u;
-    if (!name) return false;
-    len = strlen(name);
-    return len >= 5u && strcasecmp(name + len - 5u, ".json") == 0;
-}
-
 static bool line_drawing_root_browser_is_scene_authoring_name(const char* name) {
-    return name && strcasecmp(name, "scene_authoring.json") == 0;
+    return name && strcasecmp(name, LineDrawingFileCatalog_SceneAuthoringFilename()) == 0;
 }
 
 static bool line_drawing_root_browser_resolve_preview_target(
@@ -118,11 +39,11 @@ static bool line_drawing_root_browser_resolve_preview_target(
         return false;
     }
 
-    if (line_drawing_root_browser_join_path(directory_path,
-                                            "scene_authoring.json",
-                                            out_path,
-                                            out_path_size) &&
-        line_drawing_root_browser_path_is_regular_file(out_path)) {
+    if (LineDrawingFileCatalog_JoinPath(directory_path,
+                                        LineDrawingFileCatalog_SceneAuthoringFilename(),
+                                        out_path,
+                                        out_path_size) &&
+        LineDrawingFileCatalog_PathIsRegularFile(out_path)) {
         *out_kind = LINE_DRAWING_CATALOG_PREVIEW_SOURCE_SCENE;
         return true;
     }
@@ -132,19 +53,19 @@ static bool line_drawing_root_browser_resolve_preview_target(
     while ((entry = readdir(dir)) != NULL) {
         char child_path[MAX_CONFIG_PATH];
         if (entry->d_name[0] == '.') continue;
-        if (!line_drawing_root_browser_join_path(directory_path,
-                                                 entry->d_name,
-                                                 child_path,
-                                                 sizeof(child_path))) {
+        if (!LineDrawingFileCatalog_JoinPath(directory_path,
+                                             entry->d_name,
+                                             child_path,
+                                             sizeof(child_path))) {
             continue;
         }
-        if (line_drawing_root_browser_path_is_directory(child_path)) {
+        if (LineDrawingFileCatalog_PathIsDirectory(child_path)) {
             char authoring_path[MAX_CONFIG_PATH];
-            if (line_drawing_root_browser_join_path(child_path,
-                                                    "scene_authoring.json",
-                                                    authoring_path,
-                                                    sizeof(authoring_path)) &&
-                line_drawing_root_browser_path_is_regular_file(authoring_path)) {
+            if (LineDrawingFileCatalog_JoinPath(child_path,
+                                                LineDrawingFileCatalog_SceneAuthoringFilename(),
+                                                authoring_path,
+                                                sizeof(authoring_path)) &&
+                LineDrawingFileCatalog_PathIsRegularFile(authoring_path)) {
                 *out_kind = LINE_DRAWING_CATALOG_PREVIEW_SOURCE_SCENE;
                 snprintf(out_path, out_path_size, "%s", authoring_path);
                 closedir(dir);
@@ -152,8 +73,8 @@ static bool line_drawing_root_browser_resolve_preview_target(
             }
             continue;
         }
-        if (!line_drawing_root_browser_path_is_regular_file(child_path) ||
-            !line_drawing_root_browser_has_json_suffix(entry->d_name)) {
+        if (!LineDrawingFileCatalog_PathIsRegularFile(child_path) ||
+            !LineDrawingFileCatalog_NameHasJsonSuffix(entry->d_name)) {
             continue;
         }
         if (line_drawing_root_browser_is_scene_authoring_name(entry->d_name)) {
@@ -228,27 +149,27 @@ static int line_drawing_root_browser_score_directory(const char* path,
     while ((entry = readdir(dir)) != NULL) {
         char child_path[MAX_CONFIG_PATH];
         if (entry->d_name[0] == '.') continue;
-        if (!line_drawing_root_browser_join_path(path,
-                                                 entry->d_name,
-                                                 child_path,
-                                                 sizeof(child_path))) {
+        if (!LineDrawingFileCatalog_JoinPath(path,
+                                             entry->d_name,
+                                             child_path,
+                                             sizeof(child_path))) {
             continue;
         }
-        if (line_drawing_root_browser_path_is_regular_file(child_path) &&
-            line_drawing_root_browser_has_json_suffix(entry->d_name)) {
+        if (LineDrawingFileCatalog_PathIsRegularFile(child_path) &&
+            LineDrawingFileCatalog_NameHasJsonSuffix(entry->d_name)) {
             json_count += 1;
-            if (strcasecmp(entry->d_name, "scene_authoring.json") == 0) {
+            if (strcasecmp(entry->d_name, LineDrawingFileCatalog_SceneAuthoringFilename()) == 0) {
                 has_authoring = true;
-            } else if (strcasecmp(entry->d_name, "scene_runtime.json") == 0) {
+            } else if (strcasecmp(entry->d_name, LineDrawingFileCatalog_SceneRuntimeFilename()) == 0) {
                 has_runtime = true;
             }
-        } else if (line_drawing_root_browser_path_is_directory(child_path)) {
+        } else if (LineDrawingFileCatalog_PathIsDirectory(child_path)) {
             char scene_path[MAX_CONFIG_PATH];
-            if (line_drawing_root_browser_join_path(child_path,
-                                                    "scene_authoring.json",
-                                                    scene_path,
-                                                    sizeof(scene_path)) &&
-                line_drawing_root_browser_path_is_regular_file(scene_path)) {
+            if (LineDrawingFileCatalog_JoinPath(child_path,
+                                                LineDrawingFileCatalog_SceneAuthoringFilename(),
+                                                scene_path,
+                                                sizeof(scene_path)) &&
+                LineDrawingFileCatalog_PathIsRegularFile(scene_path)) {
                 child_scene_dirs += 1;
             }
         }
@@ -397,14 +318,14 @@ static void line_drawing_root_browser_scan_siblings(LineDrawingRootBrowserCandid
             LINE_DRAWING_CATALOG_PREVIEW_SOURCE_LAYOUT;
         int score = 0;
         if (entry->d_name[0] == '.') continue;
-        if (!line_drawing_root_browser_join_path(parent_path,
-                                                 entry->d_name,
-                                                 child_path,
-                                                 sizeof(child_path))) {
+        if (!LineDrawingFileCatalog_JoinPath(parent_path,
+                                             entry->d_name,
+                                             child_path,
+                                             sizeof(child_path))) {
             continue;
         }
         if (strcasecmp(child_path, current_path) == 0) continue;
-        if (!line_drawing_root_browser_path_is_directory(child_path)) continue;
+        if (!LineDrawingFileCatalog_PathIsDirectory(child_path)) continue;
 
         score = line_drawing_root_browser_score_directory(child_path,
                                                           entry->d_name,
@@ -449,13 +370,13 @@ static void line_drawing_root_browser_scan_children(LineDrawingRootBrowserCandid
             LINE_DRAWING_CATALOG_PREVIEW_SOURCE_LAYOUT;
         int score = 0;
         if (entry->d_name[0] == '.') continue;
-        if (!line_drawing_root_browser_join_path(current_path,
-                                                 entry->d_name,
-                                                 child_path,
-                                                 sizeof(child_path))) {
+        if (!LineDrawingFileCatalog_JoinPath(current_path,
+                                             entry->d_name,
+                                             child_path,
+                                             sizeof(child_path))) {
             continue;
         }
-        if (!line_drawing_root_browser_path_is_directory(child_path)) continue;
+        if (!LineDrawingFileCatalog_PathIsDirectory(child_path)) continue;
 
         score = line_drawing_root_browser_score_directory(child_path,
                                                           entry->d_name,
@@ -499,14 +420,14 @@ static void line_drawing_root_browser_scan_cousins(LineDrawingRootBrowserCandida
         struct dirent* child_entry = NULL;
 
         if (branch_entry->d_name[0] == '.') continue;
-        if (!line_drawing_root_browser_join_path(grandparent_path,
-                                                 branch_entry->d_name,
-                                                 branch_path,
-                                                 sizeof(branch_path))) {
+        if (!LineDrawingFileCatalog_JoinPath(grandparent_path,
+                                             branch_entry->d_name,
+                                             branch_path,
+                                             sizeof(branch_path))) {
             continue;
         }
         if (strcasecmp(branch_path, parent_path) == 0) continue;
-        if (!line_drawing_root_browser_path_is_directory(branch_path)) continue;
+        if (!LineDrawingFileCatalog_PathIsDirectory(branch_path)) continue;
 
         child_dir = opendir(branch_path);
         if (!child_dir) continue;
@@ -519,13 +440,13 @@ static void line_drawing_root_browser_scan_cousins(LineDrawingRootBrowserCandida
                 LINE_DRAWING_CATALOG_PREVIEW_SOURCE_LAYOUT;
             int score = 0;
             if (child_entry->d_name[0] == '.') continue;
-            if (!line_drawing_root_browser_join_path(branch_path,
-                                                     child_entry->d_name,
-                                                     child_path,
-                                                     sizeof(child_path))) {
+            if (!LineDrawingFileCatalog_JoinPath(branch_path,
+                                                 child_entry->d_name,
+                                                 child_path,
+                                                 sizeof(child_path))) {
                 continue;
             }
-            if (!line_drawing_root_browser_path_is_directory(child_path)) continue;
+            if (!LineDrawingFileCatalog_PathIsDirectory(child_path)) continue;
             score = line_drawing_root_browser_score_directory(child_path,
                                                               child_entry->d_name,
                                                               description,
@@ -579,10 +500,10 @@ void LineDrawingRootBrowser_Refresh(LineDrawingRootBrowser* browser,
         effective_root = (input_root && input_root[0]) ? input_root : LineDrawingDataPaths_DefaultInputRoot();
     }
     snprintf(resolved_root, sizeof(resolved_root), "%s", effective_root);
-    line_drawing_root_browser_normalize(resolved_root);
-    if (!line_drawing_root_browser_path_is_directory(resolved_root)) {
+    LineDrawingFileCatalog_NormalizePath(resolved_root);
+    if (!LineDrawingFileCatalog_PathIsDirectory(resolved_root)) {
         snprintf(resolved_root, sizeof(resolved_root), "%s", LineDrawingDataPaths_DefaultInputRoot());
-        line_drawing_root_browser_normalize(resolved_root);
+        LineDrawingFileCatalog_NormalizePath(resolved_root);
     }
     snprintf(browser->current_path, sizeof(browser->current_path), "%s", resolved_root);
 
@@ -590,16 +511,16 @@ void LineDrawingRootBrowser_Refresh(LineDrawingRootBrowser* browser,
     line_drawing_root_browser_scan_children(candidates,
                                             &candidate_count,
                                             browser->current_path);
-    if (line_drawing_root_browser_parent_path(browser->current_path,
-                                              parent_path,
-                                              sizeof(parent_path))) {
+    if (LineDrawingFileCatalog_ParentPath(browser->current_path,
+                                          parent_path,
+                                          sizeof(parent_path))) {
         line_drawing_root_browser_scan_siblings(candidates,
                                                 &candidate_count,
                                                 browser->current_path,
                                                 parent_path);
-        if (line_drawing_root_browser_parent_path(parent_path,
-                                                  grandparent_path,
-                                                  sizeof(grandparent_path))) {
+        if (LineDrawingFileCatalog_ParentPath(parent_path,
+                                              grandparent_path,
+                                              sizeof(grandparent_path))) {
             line_drawing_root_browser_scan_cousins(candidates,
                                                    &candidate_count,
                                                    parent_path,

@@ -1,5 +1,6 @@
 #include "UI/info_overlay.h"
 #include "Core/global_state.h"
+#include "Core/line_drawing_file_catalog.h"
 #include "Core/space_mode_adapter.h"
 #include "Input/input_viewport_pick.h"
 #include "Layout/layout.h"
@@ -433,8 +434,7 @@ void Render_InfoOverlay(SDL_Renderer* renderer) {
     }
 
     const char* path = Global_GetCurrentConfigPath();
-    const char* base = path ? strrchr(path, '/') : NULL;
-    base = base ? base + 1 : (path ? path : "(unsaved)");
+    const char* base = (path && path[0]) ? LineDrawingFileCatalog_PathBasename(path) : "(unsaved)";
     bool dirty = Global_IsLayoutDirty();
     size_t undoCount = Editor_UndoCount(editor);
     size_t redoCount = Editor_RedoCount(editor);

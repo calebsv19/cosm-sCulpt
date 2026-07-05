@@ -1,13 +1,13 @@
 #include "Menu/line_drawing_recent_contexts.h"
 
+#include "Core/line_drawing_file_catalog.h"
+
 #include <stdio.h>
 #include <string.h>
 
 static const char* line_drawing_recent_contexts_basename(const char* path) {
-    const char* slash = NULL;
     if (!path || !path[0]) return "";
-    slash = strrchr(path, '/');
-    return slash ? slash + 1 : path;
+    return LineDrawingFileCatalog_PathBasename(path);
 }
 
 static void line_drawing_recent_contexts_last_path_component(const char* path,

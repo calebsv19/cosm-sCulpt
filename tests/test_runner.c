@@ -20,6 +20,7 @@ bool ui_panel_create_summary_run_tests(void);
 bool ui_panel_object_inspector_run_tests(void);
 bool ui_panel_file_summary_run_tests(void);
 bool ui_panel_file_browser_run_tests(void);
+bool ui_panel_file_browser_session_run_tests(void);
 bool input_policy_run_tests(void);
 bool pane_host_run_tests(void);
 bool host_menu_run_tests(void);
@@ -30,6 +31,10 @@ bool root_browser_run_tests(void);
 bool workspace_authoring_host_run_tests(void);
 bool object_authoring_run_tests(void);
 bool object_face_sketch_run_tests(void);
+bool render_readonly_contract_run_tests(void);
+bool startup_config_run_tests(void);
+bool app_wrapper_diagnostics_run_tests(void);
+bool shutdown_lifetime_run_tests(void);
 
 typedef struct TestGroup {
     const char* name;
@@ -55,6 +60,7 @@ static const TestGroup kTestGroups[] = {
     {"UIPanelObjectInspector", ui_panel_object_inspector_run_tests, true},
     {"UIPanelFileSummary", ui_panel_file_summary_run_tests, true},
     {"UIPanelFileBrowser", ui_panel_file_browser_run_tests, true},
+    {"UIPanelFileBrowserSession", ui_panel_file_browser_session_run_tests, true},
     {"InputPolicy", input_policy_run_tests, true},
     {"PaneHost", pane_host_run_tests, true},
     {"HostMenu", host_menu_run_tests, true},
@@ -65,6 +71,10 @@ static const TestGroup kTestGroups[] = {
     {"WorkspaceAuthoringHost", workspace_authoring_host_run_tests, true},
     {"object_authoring", object_authoring_run_tests, true},
     {"ObjectFaceSketch", object_face_sketch_run_tests, true},
+    {"RenderReadOnlyContract", render_readonly_contract_run_tests, true},
+    {"StartupConfig", startup_config_run_tests, true},
+    {"AppWrapperDiagnostics", app_wrapper_diagnostics_run_tests, true},
+    {"ShutdownLifetime", shutdown_lifetime_run_tests, true},
 };
 
 static bool test_group_name_matches(const char* lhs, const char* rhs) {

@@ -3,26 +3,6 @@
 #include "Core/global_state.h"
 
 #include <string.h>
-#include <stdio.h>
-
-static const char* UIPanel_LoadMenuBaseName(const char* path) {
-    const char* base = NULL;
-    if (!path || !path[0]) return "(unset)";
-    base = strrchr(path, '/');
-    return base ? (base + 1) : path;
-}
-
-static const char* UIPanel_GetModeBrowseName(UILoadMenuMode mode) {
-    switch (mode) {
-        case UI_LOAD_MENU_MODE_JSON: return "JSON";
-        case UI_LOAD_MENU_MODE_SCENE: return "Scene";
-        case UI_LOAD_MENU_MODE_OBJECT: return "Asset";
-        case UI_LOAD_MENU_MODE_RUNTIME_MESH: return "Runtime Mesh";
-        case UI_LOAD_MENU_MODE_STL_IMPORT: return "STL";
-        case UI_LOAD_MENU_MODE_NONE:
-        default: return "Browser";
-    }
-}
 
 int UIPanel_FindRememberedLoadMenuIndex(const UIPanelState* ui) {
     char remembered_path[MAX_CONFIG_PATH];
@@ -107,29 +87,31 @@ bool UIPanel_GetFileBrowserStatusText(const UIPanelState* ui,
     out_text[0] = '\0';
     if (!ui) return false;
 
-    mode_name = UIPanel_GetModeBrowseName(ui->loadMenu.mode);
+    mode_name = UIPanel_FileStatusBrowseModeName(ui->loadMenu.mode);
     if (UIPanel_GetFileBrowserSelectionInfo(ui, &selection_state, &selection_path) &&
         selection_path && selection_path[0]) {
-        return snprintf(out_text,
-                        out_text_size,
-                        "Browser  %s row %s",
-                        selection_state == UI_LOAD_MENU_SELECTION_ACTIVE_SESSION
-                            ? "Active"
-                            : "Remembered",
-                        UIPanel_LoadMenuBaseName(selection_path)) < (int)out_text_size;
+        return UIPanel_FileStatusWriteMessage(
+            out_text,
+            out_text_size,
+            "Browser",
+            "%s row %s",
+            selection_state == UI_LOAD_MENU_SELECTION_ACTIVE_SESSION ? "Active" : "Remembered",
+            UIPanel_FileStatusDisplayBaseName(selection_path));
     }
 
     if (ui->loadMenu.count > 0) {
-        return snprintf(out_text,
-                        out_text_size,
-                        "Browser  %s mode has entries but no active row",
-                        mode_name) < (int)out_text_size;
+        return UIPanel_FileStatusWriteMessage(out_text,
+                                              out_text_size,
+                                              "Browser",
+                                              "%s mode has entries but no active row",
+                                              mode_name);
     }
 
-    return snprintf(out_text,
-                    out_text_size,
-                    "Browser  %s mode has no entries",
-                    mode_name) < (int)out_text_size;
+    return UIPanel_FileStatusWriteMessage(out_text,
+                                          out_text_size,
+                                          "Browser",
+                                          "%s mode has no entries",
+                                          mode_name);
 }
 
 bool UIPanel_GetFileBrowserActionHintText(const UIPanelState* ui,
@@ -138,47 +120,74 @@ bool UIPanel_GetFileBrowserActionHintText(const UIPanelState* ui,
     UILoadMenuSelectionState selection_state = UI_LOAD_MENU_SELECTION_NONE;
     const char* selection_path = NULL;
     const char* mode_name = NULL;
-    GlobalState* state = NULL;
 
     if (!out_text || out_text_size == 0u) return false;
     out_text[0] = '\0';
     if (!ui) return false;
 
-    mode_name = UIPanel_GetModeBrowseName(ui->loadMenu.mode);
-    state = Global_Get();
+    mode_name = UIPanel_FileStatusBrowseModeName(ui->loadMenu.mode);
+    if (ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_LOADING &&
+        ui->loadMenu.loadProgressMode == ui->loadMenu.mode) {
+        return UIPanel_FileStatusWriteMessage(
+            out_text,
+            out_text_size,
+            "Actions",
+            "%s is loading. Wait for the expanded row to finish before starting another load.",
+            ui->loadMenu.loadProgressLabel[0] ? ui->loadMenu.loadProgressLabel : mode_name);
+    }
+    if ((ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_COMPLETE ||
+         ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_FAILED) &&
+        ui->loadMenu.loadProgressMode == ui->loadMenu.mode &&
+        ui->loadMenu.loadProgressDetail[0]) {
+        return UIPanel_FileStatusWriteMessage(out_text,
+                                              out_text_size,
+                                              "Actions",
+                                              "%s",
+                                              ui->loadMenu.loadProgressDetail);
+    }
+
+    const char* runtime_mesh_status = Global_GetObjectRuntimeMeshStatus();
     if (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT &&
-        state &&
-        strncmp(state->objectRuntimeMeshStatus,
+        runtime_mesh_status &&
+        strncmp(runtime_mesh_status,
                 "STL import failed:",
                 strlen("STL import failed:")) == 0) {
-        return snprintf(out_text,
-                        out_text_size,
-                        "Actions  %s",
-                        state->objectRuntimeMeshStatus) < (int)out_text_size;
+        return UIPanel_FileStatusWriteMessage(out_text,
+                                              out_text_size,
+                                              "Actions",
+                                              "%s",
+                                              runtime_mesh_status);
     }
 
     if (UIPanel_GetFileBrowserSelectionInfo(ui, &selection_state, &selection_path)) {
         if (selection_state == UI_LOAD_MENU_SELECTION_ACTIVE_SESSION) {
-            return snprintf(out_text,
-                            out_text_size,
-                            "Actions  Use Session re-centers the live row if the browse root drifts. Clear Last is only for remembered fallback rows.") < (int)out_text_size;
+            return UIPanel_FileStatusWriteMessage(out_text,
+                                                  out_text_size,
+                                                  "Actions",
+                                                  "%s",
+                                                  "Use Session re-centers the live row if the browse root drifts. Clear Last is only for remembered fallback rows.");
         }
         if (selection_state == UI_LOAD_MENU_SELECTION_REMEMBERED_ENTRY) {
-            return snprintf(out_text,
-                            out_text_size,
-                            "Actions  Use Session restores the live session row. Clear Last removes this remembered fallback row.") < (int)out_text_size;
+            return UIPanel_FileStatusWriteMessage(out_text,
+                                                  out_text_size,
+                                                  "Actions",
+                                                  "%s",
+                                                  "Use Session restores the live session row. Clear Last removes this remembered fallback row.");
         }
     }
 
     if (ui->loadMenu.count > 0) {
-        return snprintf(out_text,
-                        out_text_size,
-                        "Actions  Use Session targets the live session row. Clear Last removes any stale remembered fallback for %s mode.",
-                        mode_name) < (int)out_text_size;
+        return UIPanel_FileStatusWriteMessage(
+            out_text,
+            out_text_size,
+            "Actions",
+            "Use Session targets the live session row. Clear Last removes any stale remembered fallback for %s mode.",
+            mode_name);
     }
 
-    return snprintf(out_text,
-                    out_text_size,
-                    "Actions  Use Set Directory in the browser header to pick the %s root.",
-                    mode_name) < (int)out_text_size;
+    return UIPanel_FileStatusWriteMessage(out_text,
+                                          out_text_size,
+                                          "Actions",
+                                          "Use Set Directory in the browser header to pick the %s root.",
+                                          mode_name);
 }

@@ -10,8 +10,20 @@ typedef struct LineDrawingFileCatalogEntry {
     char path[MAX_CONFIG_PATH];
 } LineDrawingFileCatalogEntry;
 
+const char* LineDrawingFileCatalog_SceneAuthoringFilename(void);
+const char* LineDrawingFileCatalog_SceneRuntimeFilename(void);
+bool LineDrawingFileCatalog_PathIsDirectory(const char* path);
 bool LineDrawingFileCatalog_PathIsRegularFile(const char* path);
 const char* LineDrawingFileCatalog_PathBasename(const char* path);
+void LineDrawingFileCatalog_NormalizePath(char* path);
+bool LineDrawingFileCatalog_ParentPath(const char* path,
+                                       char* out_path,
+                                       size_t out_path_size);
+bool LineDrawingFileCatalog_JoinPath(const char* base,
+                                     const char* leaf,
+                                     char* out_path,
+                                     size_t out_path_size);
+bool LineDrawingFileCatalog_NameHasJsonSuffix(const char* name);
 bool LineDrawingFileCatalog_DirectoryHasSceneContract(const char* scene_dir,
                                                       char* out_authoring_path,
                                                       size_t out_authoring_path_size);

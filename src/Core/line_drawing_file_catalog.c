@@ -10,8 +10,17 @@ static const char* k_scene_authoring_filename = "scene_authoring.json";
 static const char* k_scene_runtime_filename = "scene_runtime.json";
 static const char* k_runtime_mesh_suffix = ".runtime.json";
 static const char* k_stl_suffix = ".stl";
+static const int k_stl_scan_max_depth = 5;
 
-static bool line_drawing_file_catalog_path_is_directory(const char* path) {
+const char* LineDrawingFileCatalog_SceneAuthoringFilename(void) {
+    return k_scene_authoring_filename;
+}
+
+const char* LineDrawingFileCatalog_SceneRuntimeFilename(void) {
+    return k_scene_runtime_filename;
+}
+
+bool LineDrawingFileCatalog_PathIsDirectory(const char* path) {
     struct stat st = {0};
     if (!path || !path[0]) return false;
     if (stat(path, &st) != 0) return false;
@@ -30,6 +39,70 @@ const char* LineDrawingFileCatalog_PathBasename(const char* path) {
     if (!path || !path[0]) return "";
     slash = strrchr(path, '/');
     return slash ? slash + 1 : path;
+}
+
+void LineDrawingFileCatalog_NormalizePath(char* path) {
+    size_t len = 0u;
+    if (!path) return;
+    len = strlen(path);
+    while (len > 1u && path[len - 1u] == '/') {
+        path[len - 1u] = '\0';
+        len -= 1u;
+    }
+}
+
+bool LineDrawingFileCatalog_ParentPath(const char* path,
+                                       char* out_path,
+                                       size_t out_path_size) {
+    const char* last_slash = NULL;
+    size_t len = 0u;
+    if (!path || !path[0] || !out_path || out_path_size == 0u) return false;
+    if (snprintf(out_path, out_path_size, "%s", path) >= (int)out_path_size) return false;
+    LineDrawingFileCatalog_NormalizePath(out_path);
+    if (strcmp(out_path, "/") == 0 || strcmp(out_path, ".") == 0) {
+        return false;
+    }
+
+    last_slash = strrchr(out_path, '/');
+    if (!last_slash) {
+        return snprintf(out_path, out_path_size, ".") < (int)out_path_size;
+    }
+
+    len = (size_t)(last_slash - out_path);
+    if (len == 0u) {
+        return snprintf(out_path, out_path_size, "/") < (int)out_path_size;
+    }
+
+    out_path[len] = '\0';
+    return true;
+}
+
+bool LineDrawingFileCatalog_JoinPath(const char* base,
+                                     const char* leaf,
+                                     char* out_path,
+                                     size_t out_path_size) {
+    bool needs_slash = false;
+    if (!base || !base[0] || !leaf || !leaf[0] || !out_path || out_path_size == 0u) {
+        return false;
+    }
+    needs_slash = base[strlen(base) - 1u] != '/';
+    if (snprintf(out_path,
+                 out_path_size,
+                 "%s%s%s",
+                 base,
+                 needs_slash ? "/" : "",
+                 leaf) >= (int)out_path_size) {
+        return false;
+    }
+    LineDrawingFileCatalog_NormalizePath(out_path);
+    return true;
+}
+
+bool LineDrawingFileCatalog_NameHasJsonSuffix(const char* name) {
+    size_t len = 0u;
+    if (!name) return false;
+    len = strlen(name);
+    return len >= 5u && strcasecmp(name + len - 5u, ".json") == 0;
 }
 
 static bool line_drawing_file_catalog_add_entry(LineDrawingFileCatalogEntry* entries,
@@ -132,12 +205,9 @@ int LineDrawingFileCatalog_ScanLayoutEntries(LineDrawingFileCatalogEntry* entrie
     while ((entry = readdir(dir)) != NULL && count < max_entries) {
         char full_path[MAX_CONFIG_PATH];
         const char* name = entry->d_name;
-        size_t len = 0u;
 
         if (name[0] == '.') continue;
-        len = strlen(name);
-        if (len < 5u) continue;
-        if (strcasecmp(name + len - 5u, ".json") != 0) continue;
+        if (!LineDrawingFileCatalog_NameHasJsonSuffix(name)) continue;
         if (snprintf(full_path, sizeof(full_path), "%s/%s", root_dir, name) >= (int)sizeof(full_path)) {
             continue;
         }
@@ -197,7 +267,7 @@ int LineDrawingFileCatalog_ScanSceneEntries(LineDrawingFileCatalogEntry* entries
                      entry->d_name) >= (int)sizeof(candidate_path)) {
             continue;
         }
-        if (!line_drawing_file_catalog_path_is_directory(candidate_path)) continue;
+        if (!LineDrawingFileCatalog_PathIsDirectory(candidate_path)) continue;
         if (LineDrawingFileCatalog_DirectoryHasSceneContract(candidate_path, NULL, 0u)) {
             line_drawing_file_catalog_try_append_scene_dir(entries,
                                                            &count,
@@ -219,7 +289,7 @@ int LineDrawingFileCatalog_ScanSceneEntries(LineDrawingFileCatalogEntry* entries
                          grouped_entry->d_name) >= (int)sizeof(grouped_scene_path)) {
                 continue;
             }
-            if (!line_drawing_file_catalog_path_is_directory(grouped_scene_path)) continue;
+            if (!LineDrawingFileCatalog_PathIsDirectory(grouped_scene_path)) continue;
             line_drawing_file_catalog_try_append_scene_dir(entries,
                                                            &count,
                                                            max_entries,
@@ -302,7 +372,7 @@ int LineDrawingFileCatalog_ScanRuntimeMeshEntries(LineDrawingFileCatalogEntry* e
                      entry->d_name) >= (int)sizeof(candidate_path)) {
             continue;
         }
-        if (!line_drawing_file_catalog_path_is_directory(candidate_path)) continue;
+        if (!LineDrawingFileCatalog_PathIsDirectory(candidate_path)) continue;
         line_drawing_file_catalog_scan_runtime_mesh_dir(entries,
                                                         &count,
                                                         max_entries,
@@ -353,42 +423,64 @@ static void line_drawing_file_catalog_scan_stl_dir(LineDrawingFileCatalogEntry* 
     closedir(dir);
 }
 
+static void line_drawing_file_catalog_scan_stl_tree(LineDrawingFileCatalogEntry* entries,
+                                                    int* count,
+                                                    int max_entries,
+                                                    const char* root_dir,
+                                                    const char* relative_group,
+                                                    int depth_remaining) {
+    DIR* dir = NULL;
+    struct dirent* entry = NULL;
+    if (!entries || !count || *count >= max_entries || !root_dir || !root_dir[0]) return;
+    if (depth_remaining < 0) return;
+
+    line_drawing_file_catalog_scan_stl_dir(entries,
+                                           count,
+                                           max_entries,
+                                           root_dir,
+                                           relative_group);
+    if (*count >= max_entries || depth_remaining == 0) return;
+
+    dir = opendir(root_dir);
+    if (!dir) return;
+    while ((entry = readdir(dir)) != NULL && *count < max_entries) {
+        char child_path[MAX_CONFIG_PATH];
+        char child_group[128];
+        const char* name = entry->d_name;
+        if (name[0] == '.') continue;
+        if (snprintf(child_path, sizeof(child_path), "%s/%s", root_dir, name) >=
+            (int)sizeof(child_path)) {
+            continue;
+        }
+        if (!LineDrawingFileCatalog_PathIsDirectory(child_path)) continue;
+        if (relative_group && relative_group[0]) {
+            snprintf(child_group, sizeof(child_group), "%s/%s", relative_group, name);
+        } else {
+            snprintf(child_group, sizeof(child_group), "%s", name);
+        }
+        line_drawing_file_catalog_scan_stl_tree(entries,
+                                                count,
+                                                max_entries,
+                                                child_path,
+                                                child_group,
+                                                depth_remaining - 1);
+    }
+    closedir(dir);
+}
+
 int LineDrawingFileCatalog_ScanStlEntries(LineDrawingFileCatalogEntry* entries,
                                           int max_entries,
                                           const char* root_dir) {
-    DIR* root = NULL;
-    struct dirent* entry = NULL;
     int count = 0;
 
     if (!entries || max_entries <= 0 || !root_dir || !root_dir[0]) return 0;
 
-    line_drawing_file_catalog_scan_stl_dir(entries, &count, max_entries, root_dir, NULL);
-
-    root = opendir(root_dir);
-    if (!root) {
-        LineDrawingFileCatalog_SortEntries(entries, count);
-        return count;
-    }
-
-    while ((entry = readdir(root)) != NULL && count < max_entries) {
-        char candidate_path[MAX_CONFIG_PATH];
-        if (entry->d_name[0] == '.') continue;
-        if (snprintf(candidate_path,
-                     sizeof(candidate_path),
-                     "%s/%s",
-                     root_dir,
-                     entry->d_name) >= (int)sizeof(candidate_path)) {
-            continue;
-        }
-        if (!line_drawing_file_catalog_path_is_directory(candidate_path)) continue;
-        line_drawing_file_catalog_scan_stl_dir(entries,
-                                               &count,
-                                               max_entries,
-                                               candidate_path,
-                                               entry->d_name);
-    }
-
-    closedir(root);
+    line_drawing_file_catalog_scan_stl_tree(entries,
+                                            &count,
+                                            max_entries,
+                                            root_dir,
+                                            NULL,
+                                            k_stl_scan_max_depth);
     LineDrawingFileCatalog_SortEntries(entries, count);
     return count;
 }

@@ -53,6 +53,7 @@ typedef struct {
     int id;            // Unique enum or index
     bool hovered;
     bool pressed;
+    Uint32 pressedTicks;
 } UIButton;
 
 typedef struct {
@@ -139,6 +140,28 @@ typedef enum {
     UI_LOAD_MENU_SELECTION_REMEMBERED_ENTRY = 2
 } UILoadMenuSelectionState;
 
+typedef struct UIPanelFileBrowserRestoreSummary {
+    UILoadMenuMode mode;
+    bool hasMode;
+    bool visible;
+    char rootPath[MAX_CONFIG_PATH];
+    bool hasActiveSessionPath;
+    bool activeSessionPathExists;
+    int activeIndex;
+    char activeSessionPath[MAX_CONFIG_PATH];
+    bool hasRememberedEntryPath;
+    bool rememberedEntryExists;
+    int rememberedIndex;
+    char rememberedEntryPath[MAX_CONFIG_PATH];
+} UIPanelFileBrowserRestoreSummary;
+
+typedef enum {
+    UI_LOAD_PROGRESS_NONE = 0,
+    UI_LOAD_PROGRESS_LOADING = 1,
+    UI_LOAD_PROGRESS_COMPLETE = 2,
+    UI_LOAD_PROGRESS_FAILED = 3
+} UILoadProgressState;
+
 typedef enum {
     UI_ROOT_TARGET_NONE = 0,
     UI_ROOT_TARGET_INPUT = 1,
@@ -192,6 +215,8 @@ typedef struct {
         SDL_Rect fileActionsRect;
         SDL_Rect rootPathsRect;
         SDL_Rect browserRect;
+        char actionStatus[160];
+        Uint32 actionStatusSetTicks;
     } filePane;
     struct {
         SDL_Rect summaryRect;
@@ -271,6 +296,25 @@ typedef struct {
         bool scrollbarDragging;
         int scrollbarDragStartY;
         float scrollbarDragStartOffsetPx;
+        UILoadProgressState loadProgressState;
+        UILoadMenuMode loadProgressMode;
+        Uint32 loadProgressStartedTicks;
+        Uint32 loadProgressFinishedTicks;
+        int loadProgressPermille;
+        char loadProgressPath[MAX_CONFIG_PATH];
+        char loadProgressLabel[128];
+        char loadProgressDetail[160];
+        bool asyncStlActive;
+        SDL_Thread* asyncStlThread;
+        SDL_atomic_t asyncStlComplete;
+        SDL_atomic_t asyncStlProgressPermille;
+        SDL_atomic_t asyncStlProgressStage;
+        bool asyncStlSucceeded;
+        char asyncStlSourcePath[MAX_CONFIG_PATH];
+        char asyncStlAssetRoot[MAX_CONFIG_PATH];
+        char asyncStlAuthoringPath[MAX_CONFIG_PATH];
+        char asyncStlRuntimePath[MAX_CONFIG_PATH];
+        char asyncStlDiagnostics[256];
     } loadMenu;
 
     struct {
@@ -355,9 +399,14 @@ bool UIPanel_OpenObjectAssetFolderDialog(void);
 bool UIPanel_OpenDirectoryDialogForActiveBrowser(void);
 void UIPanel_ExportShape(void);
 void UIPanel_ExportScene(void);
+void UIPanel_SetFilePaneActionStatus(const char* status);
+bool UIPanel_FilePaneActionStatusIsLive(const UIPanelState* ui);
 bool UIPanel_ExportObjectRuntimeMesh(void);
 bool UIPanel_PlaceLastRuntimeMeshAsSceneInstance(void);
 bool UIPanel_PlaceRuntimeMeshAsSceneInstance(const char* runtime_mesh_path);
+bool UIPanel_PlaceImportedStlRuntimeMesh(const char* stl_path,
+                                         const char* authoring_path,
+                                         const char* runtime_path);
 bool UIPanel_IsSaveDialogActive(void);
 bool UIPanel_IsRootDialogActive(void);
 bool UIPanel_IsPrismDimensionDialogActive(void);
@@ -373,6 +422,10 @@ bool UIPanel_HandleLoadMenuWheel(int mouseX, int mouseY, float wheel_delta);
 void UIPanel_ToggleLoadMenu(void);
 bool UIPanel_IsLoadMenuOpen(void);
 void UIPanel_LoadFileBrowserMode(UIPanelState* ui);
+void UIPanel_SetFileBrowserVisible(UIPanelState* ui, bool visible);
+void UIPanel_CloseFileBrowser(UIPanelState* ui);
+void UIPanel_TickLoadProgress(void);
+void UIPanel_WaitForAsyncStlImport(void);
 void UIPanel_ActivateJsonBrowser(void);
 void UIPanel_ActivateSceneBrowser(void);
 void UIPanel_ActivateObjectAssetBrowser(void);
@@ -384,6 +437,9 @@ bool UIPanel_ImportStlAndPlaceFromPath(const char* stl_path);
 bool UIPanel_FocusFileBrowserOnActiveSession(void);
 bool UIPanel_ClearRememberedFileBrowserEntry(void);
 bool UIPanel_RestorePersistedFileSession(void);
+bool UIPanel_GetFileBrowserRestoreSummary(
+    const UIPanelState* ui,
+    UIPanelFileBrowserRestoreSummary* out_summary);
 bool UIPanel_GetFileBrowserSelectionInfo(const UIPanelState* ui,
                                          UILoadMenuSelectionState* out_state,
                                          const char** out_path);

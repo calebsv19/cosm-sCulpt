@@ -90,6 +90,37 @@ static void ObjectWorkspaceView_ResetFaceAuthoringChrome(GlobalState* state) {
     state->editor.activeObject3DGizmoAxis = -1;
 }
 
+bool LineDrawingObjectWorkspaceView_SelectBody(GlobalState* state,
+                                               ObjectAuthoringBodyId body_id) {
+    EditorState* editor = NULL;
+    ObjectAuthoringDocument* doc = NULL;
+    if (!state ||
+        body_id == 0u ||
+        state->workspaceMode != LINE_DRAWING_WORKSPACE_MODE_OBJECT ||
+        !state->objectAuthoring.attached ||
+        !Layout_ObjectStore_FindConst(&state->layout.objectStore, body_id)) {
+        return false;
+    }
+
+    editor = &state->editor;
+    doc = &state->objectAuthoring.document;
+    Editor_ObjectFaceExtrudeClear(editor);
+    Editor_ObjectFaceSketchDeselect(editor);
+    if (!ObjectAuthoringDocument_SetSelection(doc, body_id, OBJECT3D_FACE_NONE)) {
+        return false;
+    }
+    doc->selectedSketchId = 0u;
+    doc->selectedOperationId = 0u;
+
+    editor->selectedObject3DId = body_id;
+    editor->selectedObjectAssetBodyId = body_id;
+    editor->selectedObjectAssetFace = OBJECT3D_FACE_NONE;
+    editor->objectAuthoringMode = Editor_ObjectAuthoringIdleMode(editor);
+    ObjectWorkspaceView_ResetFaceAuthoringChrome(state);
+    Global_FlagHitboxesDirty();
+    return true;
+}
+
 bool LineDrawingObjectWorkspaceView_EnterFreeView(GlobalState* state,
                                                   uint32_t object_id) {
     const Object3D* object = NULL;

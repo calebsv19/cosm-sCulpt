@@ -14,6 +14,10 @@ This folder holds persisted data that the editor loads on startup and writes whe
 - `Layout_LoadFromFile` rebuilds anchors and walls from `layout_config.json` and restores the `persistent` flags. Files saved with a future `schemaVersion` are rejected to avoid corrupting the current runtime.
 - The scene contract is additive: unknown root/file/anchor/wall fields are ignored by the loader so future metadata does not break current builds.
 - `Layout_SaveToFile` rewrites the file when you click "Save JSON" in the UI.
+- Runtime root choices are persisted under `data/runtime/*_root.txt` by the
+  Core data-path lane. On startup, unset or missing roots fall back to the
+  current app defaults through the Core startup-config diagnostic helper and
+  `Global_Init(...)` persists the corrected roots.
 - `Global_LoadSpaceMode` reads `space_mode.txt` at startup and applies mode constraints.
 - `Global_SaveSpaceMode` updates `space_mode.txt` when mode is toggled through keyboard/UI.
 - Ensure `walls` only reference valid anchors if you hand-edit the JSON—the loader skips invalid indices. When editing curved anchors manually remember to keep handle data consistent; linked handles are normalised automatically on load/save.

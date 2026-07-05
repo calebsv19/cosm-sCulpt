@@ -3,22 +3,45 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 LINE_DIR="$ROOT/line_drawing"
+LD_CLI_SMOKE_LABEL="line-imported-mesh-harness"
+source "$LINE_DIR/tests/lib/cli_smoke_helpers.sh"
 TOOL_REL="$(make -s -C "$LINE_DIR" print-imported-mesh-harness-bin)"
 TOOL="$LINE_DIR/$TOOL_REL"
 
 if [[ -z "$TOOL_REL" || ! -x "$TOOL" ]]; then
-  echo "[line-imported-mesh-harness] ERROR: harness binary not found at $TOOL" >&2
+  ld_cli_smoke_error "harness binary not found at $TOOL"
   exit 1
 fi
 
-require_pattern() {
-  local pattern="$1"
-  local path="$2"
-  if ! rg -q "$pattern" "$path"; then
-    echo "[line-imported-mesh-harness] ERROR: expected pattern '$pattern' in $path" >&2
-    exit 1
-  fi
-}
+FAIL_DIR="$LINE_DIR/tmp/imported_mesh_harness_failure_r4"
+ld_cli_smoke_reset_dir "$FAIL_DIR"
+
+ld_cli_smoke_expect_failure "missing-args" "$FAIL_DIR/missing_args.err" "$TOOL"
+
+ld_cli_smoke_require_pattern 'usage:' "$FAIL_DIR/missing_args.err"
+
+ld_cli_smoke_expect_failure "missing-STL" \
+  "$FAIL_DIR/missing_stl.err" \
+  "$TOOL" \
+  --stl "$FAIL_DIR/missing.stl" \
+  --out "$FAIL_DIR/out_missing" \
+  --asset-id "asset_missing_stl" \
+  --scene-id "scene_missing_stl" \
+  --object-id "object_missing_stl"
+
+ld_cli_smoke_require_pattern 'imported_mesh_harness: failed to prepare output paths' "$FAIL_DIR/missing_stl.err"
+
+printf 'not an stl\n' > "$FAIL_DIR/invalid.stl"
+ld_cli_smoke_expect_failure "invalid-STL" \
+  "$FAIL_DIR/invalid_stl.err" \
+  "$TOOL" \
+  --stl "$FAIL_DIR/invalid.stl" \
+  --out "$FAIL_DIR/out_invalid" \
+  --asset-id "asset_invalid_stl" \
+  --scene-id "scene_invalid_stl" \
+  --object-id "object_invalid_stl"
+
+ld_cli_smoke_require_pattern 'imported_mesh_harness: runtime compile failed:' "$FAIL_DIR/invalid_stl.err"
 
 run_import_case() {
   local name="$1"
@@ -40,26 +63,26 @@ run_import_case() {
     --scene-id "scene_line_drawing_imported_${name}_harness" \
     --object-id "obj_imported_${name}_harness" >/dev/null
 
-  test -f "$authoring"
-  test -f "$runtime"
-  test -f "$scene"
-  test -f "$summary"
+  ld_cli_smoke_require_file "$authoring"
+  ld_cli_smoke_require_file "$runtime"
+  ld_cli_smoke_require_file "$scene"
+  ld_cli_smoke_require_file "$summary"
 
-  require_pattern '"schema_variant"[[:space:]]*:[[:space:]]*"mesh_asset_authoring_v1"' "$authoring"
-  require_pattern '"source_mode"[[:space:]]*:[[:space:]]*"imported_mesh"' "$authoring"
-  require_pattern '"source_format"[[:space:]]*:[[:space:]]*"stl"' "$authoring"
-  require_pattern '"default_surface_group_id"[[:space:]]*:[[:space:]]*"imported_surface"' "$authoring"
-  require_pattern '"schema_variant"[[:space:]]*:[[:space:]]*"mesh_asset_runtime_v1"' "$runtime"
-  require_pattern "\"vertex_count\"[[:space:]]*:[[:space:]]*$expected_vertices" "$runtime"
-  require_pattern "\"triangle_count\"[[:space:]]*:[[:space:]]*$expected_triangles" "$runtime"
-  require_pattern '"group_id"[[:space:]]*:[[:space:]]*"imported_surface"' "$runtime"
-  require_pattern '"schema_variant"[[:space:]]*:[[:space:]]*"scene_runtime_v1"' "$scene"
-  require_pattern '"object_type"[[:space:]]*:[[:space:]]*"mesh_asset_instance"' "$scene"
-  require_pattern '"kind"[[:space:]]*:[[:space:]]*"mesh_asset"' "$scene"
-  require_pattern "\"id\"[[:space:]]*:[[:space:]]*\"$asset_id\"" "$scene"
-  require_pattern '"schema"[[:space:]]*:[[:space:]]*"line_drawing_imported_mesh_harness_summary_v1"' "$summary"
-  require_pattern "\"vertices\"[[:space:]]*:[[:space:]]*$expected_vertices" "$summary"
-  require_pattern "\"triangles\"[[:space:]]*:[[:space:]]*$expected_triangles" "$summary"
+  ld_cli_smoke_require_pattern '"schema_variant"[[:space:]]*:[[:space:]]*"mesh_asset_authoring_v1"' "$authoring"
+  ld_cli_smoke_require_pattern '"source_mode"[[:space:]]*:[[:space:]]*"imported_mesh"' "$authoring"
+  ld_cli_smoke_require_pattern '"source_format"[[:space:]]*:[[:space:]]*"stl"' "$authoring"
+  ld_cli_smoke_require_pattern '"default_surface_group_id"[[:space:]]*:[[:space:]]*"imported_surface"' "$authoring"
+  ld_cli_smoke_require_pattern '"schema_variant"[[:space:]]*:[[:space:]]*"mesh_asset_runtime_v1"' "$runtime"
+  ld_cli_smoke_require_pattern "\"vertex_count\"[[:space:]]*:[[:space:]]*$expected_vertices" "$runtime"
+  ld_cli_smoke_require_pattern "\"triangle_count\"[[:space:]]*:[[:space:]]*$expected_triangles" "$runtime"
+  ld_cli_smoke_require_pattern '"group_id"[[:space:]]*:[[:space:]]*"imported_surface"' "$runtime"
+  ld_cli_smoke_require_pattern '"schema_variant"[[:space:]]*:[[:space:]]*"scene_runtime_v1"' "$scene"
+  ld_cli_smoke_require_pattern '"object_type"[[:space:]]*:[[:space:]]*"mesh_asset_instance"' "$scene"
+  ld_cli_smoke_require_pattern '"kind"[[:space:]]*:[[:space:]]*"mesh_asset"' "$scene"
+  ld_cli_smoke_require_pattern "\"id\"[[:space:]]*:[[:space:]]*\"$asset_id\"" "$scene"
+  ld_cli_smoke_require_pattern '"schema"[[:space:]]*:[[:space:]]*"line_drawing_imported_mesh_harness_summary_v1"' "$summary"
+  ld_cli_smoke_require_pattern "\"vertices\"[[:space:]]*:[[:space:]]*$expected_vertices" "$summary"
+  ld_cli_smoke_require_pattern "\"triangles\"[[:space:]]*:[[:space:]]*$expected_triangles" "$summary"
 }
 
 run_import_case \

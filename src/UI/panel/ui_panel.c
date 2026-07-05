@@ -64,6 +64,7 @@ static void AddButton(UIPanelState* ui,
     b->id = id;
     b->hovered = false;
     b->pressed = false;
+    b->pressedTicks = 0u;
 }
 
 static SDL_Rect UIPanel_CoreRectToSDLRect(CorePaneRect rect) {
@@ -959,7 +960,7 @@ bool UIPanel_IsCapturingKeyboard(void) {
 void UIPanel_ResetTransientUiState(void) {
     UIPanelState* ui = UIPanel_Get();
     if (!ui) return;
-    ui->loadMenu.open = false;
+    UIPanel_CloseFileBrowser(ui);
     ui->loadMenu.hoverIndex = -1;
     ui->loadMenu.activeIndex = -1;
     ui->loadMenu.scrollOffsetPx = 0.0f;

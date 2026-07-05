@@ -434,6 +434,21 @@ Last updated: 2026-06-09
   - write `scene_authoring.json`
   - compile `scene_runtime.json` immediately through shared `core_scene_compile`
   - preserve the resulting authoring/runtime paths for UI diagnostics/logging
+- The scene-project export integration now has an explicit tool/API entrypoint
+  that writes canonical `scene_authoring.json`, compiled `scene_runtime.json`,
+  `scene_project.json`, `object_manifest.json`, and empty downstream scaffold
+  directories into one selected project root while preserving ordinary scene
+  export behavior. Project metadata uses root-relative paths, and
+  `scene_authoring.json` remains the editable LineDrawing import target;
+  `scene_runtime.json` remains compiled output only.
+- Scene-project export now populates `object_manifest.json` for live
+  `mesh_asset_instance` objects that reference runtime mesh sidecars. The
+  manifest records stable object ids, display names, object kind, mesh/source
+  asset ids, vertex/triangle counts, extension presence flags, and
+  project-relative `assets/mesh_assets/*.runtime.json` sidecar paths. Referenced
+  runtime mesh sidecars are copied into the project `assets/mesh_assets/`
+  folder during export, while `scene_authoring.json` remains the editable import
+  target and `scene_runtime.json` remains compiled output only.
 - The compiler-units rollout now has an initial authoring/export seam:
   - explicit toolchain commands:
     - `make -C line_drawing toolchain-contract`

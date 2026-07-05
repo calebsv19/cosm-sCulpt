@@ -351,6 +351,11 @@ bool Layout_SetRectPrismDimensions(Layout* layout,
                                    float height,
                                    float depth,
                                    bool* outBoundsAdjusted);
+bool Layout_SetPlaneDimensions(Layout* layout,
+                               uint32_t objectId,
+                               float width,
+                               float height,
+                               bool* outBoundsAdjusted);
 bool Layout_SetObject3DPosition(Layout* layout,
                                 uint32_t objectId,
                                 Vec3 position,
@@ -400,6 +405,7 @@ const Object3D* Layout_ObjectStore_FindConst(const LayoutObjectStore* store, uin
 bool Layout_ObjectStore_Delete(LayoutObjectStore* store, uint32_t objectId);
 bool Layout_ObjectStore_ValidateObject(const Object3D* object);
 size_t Layout_ObjectStore_LiveCount(const LayoutObjectStore* store);
+Vec3 Layout_Transform3D_ApplyLocalPoint(Transform3D transform, Vec3 localPoint);
 bool Layout_Object3D_ComputePlaneCorners(const Object3D* object, Vec3 outCorners[4]);
 bool Layout_Object3D_ComputeRectPrismCorners(const Object3D* object, Vec3 outCorners[8]);
 bool Layout_Object3D_ComputeMeshInstanceCorners(const Object3D* object, Vec3 outCorners[8]);

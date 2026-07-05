@@ -1,5 +1,6 @@
 // src/Core/global_state.c
 #include "Core/global_state.h"
+#include "Core/line_drawing_startup_config.h"
 #include "Core/space_mode_adapter.h"
 #include "Core/workspace/line_drawing_workspace_mode_handoff.h"
 #include "Layout/hitbox_system.h"
@@ -41,13 +42,6 @@ static bool Global_SetPathField(char* dst, size_t dst_size, const char* value) {
     memcpy(dst, value, len);
     dst[len] = '\0';
     return true;
-}
-
-static bool Global_DirExists(const char* path) {
-    struct stat st;
-    if (!path || !path[0]) return false;
-    if (stat(path, &st) != 0) return false;
-    return S_ISDIR(st.st_mode);
 }
 
 static void Global_BuildDefaultLayoutPath(const GlobalState* state,
@@ -195,95 +189,37 @@ static void Global_SeedLastSessionPathsFromRecents(GlobalState* state) {
     }
 }
 
+static void Global_LogStartupRootFallbacks(
+    const LineDrawingStartupRootFallbackReport* report) {
+    if (!report) return;
+    for (size_t i = 0u; i < report->count; ++i) {
+        const LineDrawingStartupRootFallbackEntry* entry = &report->entries[i];
+        const char* label = LineDrawingStartupRootKind_Label(entry->kind);
+        if (!entry->changed) continue;
+        if (entry->reason == LINE_DRAWING_STARTUP_ROOT_FALLBACK_UNSET) {
+            fprintf(stderr,
+                    "[startup] %c%s unset; using '%s'.\n",
+                    (char)toupper((unsigned char)label[0]),
+                    label + 1,
+                    entry->fallback);
+        } else if (entry->reason == LINE_DRAWING_STARTUP_ROOT_FALLBACK_MISSING) {
+            fprintf(stderr,
+                    "[startup] Startup fallback: %s '%s' missing; using '%s'.\n",
+                    label,
+                    entry->prior,
+                    entry->fallback);
+        }
+    }
+}
+
 static bool Global_ApplyStartupRootFallbacks(GlobalState* state) {
-    bool changed = false;
+    LineDrawingStartupRootFallbackReport report = {0};
     if (!state) return false;
-
-    if (state->dataPaths.input_root[0] == '\0') {
-        fprintf(stderr,
-                "[startup] Input root unset; using '%s'.\n",
-                LineDrawingDataPaths_DefaultInputRoot());
-        snprintf(state->dataPaths.input_root,
-                 sizeof(state->dataPaths.input_root),
-                 "%s",
-                 LineDrawingDataPaths_DefaultInputRoot());
-        changed = true;
-    } else if (!Global_DirExists(state->dataPaths.input_root)) {
-        fprintf(stderr,
-                "[startup] Startup fallback: input root '%s' missing; using '%s'.\n",
-                state->dataPaths.input_root,
-                LineDrawingDataPaths_DefaultInputRoot());
-        snprintf(state->dataPaths.input_root,
-                 sizeof(state->dataPaths.input_root),
-                 "%s",
-                 LineDrawingDataPaths_DefaultInputRoot());
-        changed = true;
+    if (!LineDrawingStartupConfig_ApplyRootFallbacks(&state->dataPaths, &report)) {
+        return false;
     }
-
-    if (state->dataPaths.output_root[0] == '\0') {
-        fprintf(stderr,
-                "[startup] Output root unset; using '%s'.\n",
-                LineDrawingDataPaths_DefaultOutputRoot());
-        snprintf(state->dataPaths.output_root,
-                 sizeof(state->dataPaths.output_root),
-                 "%s",
-                 LineDrawingDataPaths_DefaultOutputRoot());
-        changed = true;
-    } else if (!Global_DirExists(state->dataPaths.output_root)) {
-        fprintf(stderr,
-                "[startup] Startup fallback: output root '%s' missing; using '%s'.\n",
-                state->dataPaths.output_root,
-                LineDrawingDataPaths_DefaultOutputRoot());
-        snprintf(state->dataPaths.output_root,
-                 sizeof(state->dataPaths.output_root),
-                 "%s",
-                 LineDrawingDataPaths_DefaultOutputRoot());
-        changed = true;
-    }
-
-    if (state->dataPaths.layout_root[0] == '\0') {
-        fprintf(stderr,
-                "[startup] Layout root unset; using '%s'.\n",
-                LineDrawingDataPaths_DefaultLayoutRoot());
-        snprintf(state->dataPaths.layout_root,
-                 sizeof(state->dataPaths.layout_root),
-                 "%s",
-                 LineDrawingDataPaths_DefaultLayoutRoot());
-        changed = true;
-    } else if (!Global_DirExists(state->dataPaths.layout_root)) {
-        fprintf(stderr,
-                "[startup] Startup fallback: layout root '%s' missing; using '%s'.\n",
-                state->dataPaths.layout_root,
-                LineDrawingDataPaths_DefaultLayoutRoot());
-        snprintf(state->dataPaths.layout_root,
-                 sizeof(state->dataPaths.layout_root),
-                 "%s",
-                 LineDrawingDataPaths_DefaultLayoutRoot());
-        changed = true;
-    }
-
-    if (state->dataPaths.object_asset_root[0] == '\0') {
-        fprintf(stderr,
-                "[startup] Object asset root unset; using '%s'.\n",
-                LineDrawingDataPaths_DefaultObjectAssetRoot());
-        snprintf(state->dataPaths.object_asset_root,
-                 sizeof(state->dataPaths.object_asset_root),
-                 "%s",
-                 LineDrawingDataPaths_DefaultObjectAssetRoot());
-        changed = true;
-    } else if (!Global_DirExists(state->dataPaths.object_asset_root)) {
-        fprintf(stderr,
-                "[startup] Startup fallback: object asset root '%s' missing; using '%s'.\n",
-                state->dataPaths.object_asset_root,
-                LineDrawingDataPaths_DefaultObjectAssetRoot());
-        snprintf(state->dataPaths.object_asset_root,
-                 sizeof(state->dataPaths.object_asset_root),
-                 "%s",
-                 LineDrawingDataPaths_DefaultObjectAssetRoot());
-        changed = true;
-    }
-
-    return changed;
+    Global_LogStartupRootFallbacks(&report);
+    return report.changed;
 }
 
 static void Global_RecordRecentLayout(GlobalState* state, const char* path, bool persist) {
@@ -576,6 +512,8 @@ void Global_Init(int screenWidth, int screenHeight) {
 
 
 void Global_Shutdown(void) {
+    UIPanel_WaitForAsyncStlImport();
+    if (!global) return;
     if (global->lastSavedSnapshot) {
         Layout_FreeString(global->lastSavedSnapshot);
         global->lastSavedSnapshot = NULL;
@@ -601,6 +539,8 @@ void Global_TickSystems(AppContext* ctx) {
     if (!state) return;
 
     Global_ProcessLayoutChanges(state);
+
+    UIPanel_TickLoadProgress();
 
     Global_RebuildHitboxesIfDirty();
 
@@ -830,6 +770,43 @@ const char* Global_GetCurrentObjectAssetPath(void) {
     GlobalState* state = Global_Get();
     if (!state) return NULL;
     return state->currentObjectAssetPath;
+}
+
+const char* Global_GetObjectRuntimeMeshStatus(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return state->objectRuntimeMeshStatus;
+}
+
+const char* Global_GetLastObjectRuntimeMeshPath(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return NULL;
+    return state->lastObjectRuntimeMeshPath;
+}
+
+bool Global_SetObjectRuntimeMeshStatus(const char* status) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    snprintf(state->objectRuntimeMeshStatus,
+             sizeof(state->objectRuntimeMeshStatus),
+             "%s",
+             status && status[0] ? status : "Mesh export idle.");
+    return true;
+}
+
+bool Global_RecordObjectRuntimeMeshPath(const char* path) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    snprintf(state->lastObjectRuntimeMeshPath,
+             sizeof(state->lastObjectRuntimeMeshPath),
+             "%s",
+             path && path[0] ? path : "");
+    return true;
+}
+
+bool Global_RecordObjectRuntimeMeshResult(const char* path, const char* status) {
+    if (!Global_RecordObjectRuntimeMeshPath(path)) return false;
+    return Global_SetObjectRuntimeMeshStatus(status);
 }
 
 const char* Global_GetLastLayoutPath(void) {

@@ -36,26 +36,35 @@ package-desktop:
 	@echo "Desktop package ready: $(PACKAGE_APP_DIR)"
 
 package-desktop-smoke: package-desktop
-	@test -x "$(PACKAGE_MACOS_DIR)/line-drawing-launcher" || (echo "Missing launcher"; exit 1)
-	@test -x "$(PACKAGE_MACOS_DIR)/line-drawing-bin" || (echo "Missing app binary"; exit 1)
-	@test -f "$(PACKAGE_CONTENTS_DIR)/Info.plist" || (echo "Missing Info.plist"; exit 1)
+	@echo "Checking desktop package: app=$(PACKAGE_APP_DIR) resources=$(PACKAGE_RESOURCES_DIR)"
+	@test -x "$(PACKAGE_MACOS_DIR)/line-drawing-launcher" || (echo "Missing launcher at $(PACKAGE_MACOS_DIR)/line-drawing-launcher"; exit 1)
+	@test -x "$(PACKAGE_MACOS_DIR)/line-drawing-bin" || (echo "Missing app binary at $(PACKAGE_MACOS_DIR)/line-drawing-bin"; exit 1)
+	@test -f "$(PACKAGE_CONTENTS_DIR)/Info.plist" || (echo "Missing Info.plist at $(PACKAGE_CONTENTS_DIR)/Info.plist"; exit 1)
 	@if [ -f "$(PACKAGE_APP_ICON_SRC)" ] || [ -d "$(PACKAGE_APP_ICONSET_SRC)" ]; then \
-		test -f "$(PACKAGE_BUNDLED_ICON_PATH)" || (echo "Missing bundled AppIcon.icns"; exit 1); \
+		test -f "$(PACKAGE_BUNDLED_ICON_PATH)" || (echo "Missing bundled AppIcon.icns at $(PACKAGE_BUNDLED_ICON_PATH)"; exit 1); \
 	fi
-	@test -f "$(PACKAGE_FRAMEWORKS_DIR)/libvulkan.1.dylib" || (echo "Missing bundled libvulkan"; exit 1)
-	@test -f "$(PACKAGE_FRAMEWORKS_DIR)/libMoltenVK.dylib" || (echo "Missing bundled libMoltenVK"; exit 1)
-	@test -f "$(PACKAGE_RESOURCES_DIR)/config/layout_config.json" || (echo "Missing config/layout_config.json"; exit 1)
-	@test -f "$(PACKAGE_RESOURCES_DIR)/include/fonts/Lato/Lato-Regular.ttf" || (echo "Missing bundled local font"; exit 1)
-	@test -f "$(PACKAGE_RESOURCES_DIR)/shared/assets/fonts/Montserrat-Regular.ttf" || (echo "Missing bundled shared font"; exit 1)
-	@test -d "$(PACKAGE_RESOURCES_DIR)/data/runtime" || (echo "Missing runtime lane"; exit 1)
-	@test -d "$(PACKAGE_RESOURCES_DIR)/data/snapshots" || (echo "Missing snapshots lane"; exit 1)
-	@test -d "$(PACKAGE_RESOURCES_DIR)/export" || (echo "Missing export lane"; exit 1)
-	@test -f "$(PACKAGE_RESOURCES_DIR)/vk_renderer/shaders/textured.vert.spv" || (echo "Missing bundled vk renderer shader"; exit 1)
-	@test -f "$(PACKAGE_RESOURCES_DIR)/shaders/textured.vert.spv" || (echo "Missing bundled runtime shader"; exit 1)
+	@test -f "$(PACKAGE_FRAMEWORKS_DIR)/libvulkan.1.dylib" || (echo "Missing bundled libvulkan at $(PACKAGE_FRAMEWORKS_DIR)/libvulkan.1.dylib"; exit 1)
+	@test -f "$(PACKAGE_FRAMEWORKS_DIR)/libMoltenVK.dylib" || (echo "Missing bundled libMoltenVK at $(PACKAGE_FRAMEWORKS_DIR)/libMoltenVK.dylib"; exit 1)
+	@test -f "$(PACKAGE_RESOURCES_DIR)/config/layout_config.json" || (echo "Missing config/layout_config.json at $(PACKAGE_RESOURCES_DIR)/config/layout_config.json"; exit 1)
+	@test -f "$(PACKAGE_RESOURCES_DIR)/include/fonts/Lato/Lato-Regular.ttf" || (echo "Missing bundled local font at $(PACKAGE_RESOURCES_DIR)/include/fonts/Lato/Lato-Regular.ttf"; exit 1)
+	@test -f "$(PACKAGE_RESOURCES_DIR)/shared/assets/fonts/Montserrat-Regular.ttf" || (echo "Missing bundled shared font at $(PACKAGE_RESOURCES_DIR)/shared/assets/fonts/Montserrat-Regular.ttf"; exit 1)
+	@test -d "$(PACKAGE_RESOURCES_DIR)/data/runtime" || (echo "Missing runtime lane at $(PACKAGE_RESOURCES_DIR)/data/runtime"; exit 1)
+	@test -d "$(PACKAGE_RESOURCES_DIR)/data/snapshots" || (echo "Missing snapshots lane at $(PACKAGE_RESOURCES_DIR)/data/snapshots"; exit 1)
+	@test -d "$(PACKAGE_RESOURCES_DIR)/export" || (echo "Missing export lane at $(PACKAGE_RESOURCES_DIR)/export"; exit 1)
+	@test -f "$(PACKAGE_RESOURCES_DIR)/vk_renderer/shaders/textured.vert.spv" || (echo "Missing bundled vk renderer shader at $(PACKAGE_RESOURCES_DIR)/vk_renderer/shaders/textured.vert.spv"; exit 1)
+	@test -f "$(PACKAGE_RESOURCES_DIR)/shaders/textured.vert.spv" || (echo "Missing bundled runtime shader at $(PACKAGE_RESOURCES_DIR)/shaders/textured.vert.spv"; exit 1)
 	@echo "package-desktop-smoke passed."
 
+package-desktop-print-config: package-desktop
+	@"$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --print-config
+
 package-desktop-self-test: package-desktop-smoke
-	@"$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --self-test || (echo "package-desktop self-test failed."; exit 1)
+	@"$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --self-test || { \
+		status=$$?; \
+		echo "package-desktop self-test failed; launcher config follows:"; \
+		"$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --print-config || true; \
+		exit $$status; \
+	}
 	@echo "package-desktop-self-test passed."
 
 package-desktop-copy-desktop: package-desktop

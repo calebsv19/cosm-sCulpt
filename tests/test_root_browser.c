@@ -1,29 +1,12 @@
 #include "test_framework.h"
 
 #include "Menu/line_drawing_root_browser.h"
+#include "test_artifact_helpers.h"
 
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <unistd.h>
-
-static bool make_dir(const char* path) {
-    if (!path || !path[0]) return false;
-    return mkdir(path, 0700) == 0;
-}
-
-static bool write_file(const char* path, const char* contents) {
-    FILE* file = NULL;
-    if (!path) return false;
-    file = fopen(path, "wb");
-    if (!file) return false;
-    if (contents && contents[0]) {
-        (void)fputs(contents, file);
-    }
-    fclose(file);
-    return true;
-}
 
 static bool test_root_browser_builds_picker_actions_and_nearby_suggestions(void) {
     char temp_template[] = "/tmp/ld_root_browser_nearby_XXXXXX";
@@ -37,23 +20,25 @@ static bool test_root_browser_builds_picker_actions_and_nearby_suggestions(void)
     char cousin_json_file[PATH_MAX];
     LineDrawingRootBrowser browser;
 
-    root = mkdtemp(temp_template);
+    root = ld_test_artifact_make_temp_dir(temp_template);
     TEST_ASSERT(root != NULL);
     snprintf(family_dir, sizeof(family_dir), "%s/family", root);
     snprintf(current_dir, sizeof(current_dir), "%s/family/current_room", root);
     snprintf(sibling_dir, sizeof(sibling_dir), "%s/family/gallery_room", root);
     snprintf(cousin_branch_dir, sizeof(cousin_branch_dir), "%s/other_branch", root);
     snprintf(cousin_dir, sizeof(cousin_dir), "%s/other_branch/scene_sets", root);
-    snprintf(sibling_scene_file, sizeof(sibling_scene_file), "%s/scene_authoring.json", sibling_dir);
+    TEST_ASSERT(ld_test_artifact_scene_authoring_path(sibling_scene_file,
+                                                      sizeof(sibling_scene_file),
+                                                      sibling_dir));
     snprintf(cousin_json_file, sizeof(cousin_json_file), "%s/request.json", cousin_dir);
 
-    TEST_ASSERT(make_dir(family_dir));
-    TEST_ASSERT(make_dir(current_dir));
-    TEST_ASSERT(make_dir(sibling_dir));
-    TEST_ASSERT(make_dir(cousin_branch_dir));
-    TEST_ASSERT(make_dir(cousin_dir));
-    TEST_ASSERT(write_file(sibling_scene_file, "{}"));
-    TEST_ASSERT(write_file(cousin_json_file, "{}"));
+    TEST_ASSERT(ld_test_artifact_make_dir(family_dir));
+    TEST_ASSERT(ld_test_artifact_make_dir(current_dir));
+    TEST_ASSERT(ld_test_artifact_make_dir(sibling_dir));
+    TEST_ASSERT(ld_test_artifact_make_dir(cousin_branch_dir));
+    TEST_ASSERT(ld_test_artifact_make_dir(cousin_dir));
+    TEST_ASSERT(ld_test_artifact_write_text_file(sibling_scene_file, "{}"));
+    TEST_ASSERT(ld_test_artifact_write_text_file(cousin_json_file, "{}"));
 
     LineDrawingRootBrowser_Refresh(&browser, current_dir, current_dir, "export");
     TEST_ASSERT(browser.entry_count >= 2);
@@ -77,12 +62,12 @@ static bool test_root_browser_uses_input_root_as_anchor_when_browse_root_is_miss
     int i = 0;
     LineDrawingRootBrowser browser;
 
-    root = mkdtemp(temp_template);
+    root = ld_test_artifact_make_temp_dir(temp_template);
     TEST_ASSERT(root != NULL);
     snprintf(sibling_dir, sizeof(sibling_dir), "%s/scenes", root);
     snprintf(sibling_json, sizeof(sibling_json), "%s/layout.json", sibling_dir);
-    TEST_ASSERT(make_dir(sibling_dir));
-    TEST_ASSERT(write_file(sibling_json, "{}"));
+    TEST_ASSERT(ld_test_artifact_make_dir(sibling_dir));
+    TEST_ASSERT(ld_test_artifact_write_text_file(sibling_json, "{}"));
 
     LineDrawingRootBrowser_Refresh(&browser, NULL, root, "export");
     TEST_ASSERT(strcmp(browser.current_path, root) == 0);

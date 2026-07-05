@@ -46,6 +46,43 @@ static void DrawFilledCircle(SDL_Renderer* renderer, int cx, int cy, int r) {
     }
 }
 
+static void DrawFilledSquare(SDL_Renderer* renderer, int cx, int cy, int half) {
+    if (!renderer || half <= 0) return;
+    SDL_Rect rect = {cx - half, cy - half, half * 2 + 1, half * 2 + 1};
+    (void)SDL_RenderFillRect(renderer, &rect);
+}
+
+static void DrawTriangleEndpoint(SDL_Renderer* renderer,
+                                 int cx,
+                                 int cy,
+                                 int radius,
+                                 float dx,
+                                 float dy) {
+    if (!renderer || radius <= 0) return;
+    float len = sqrtf(dx * dx + dy * dy);
+    if (len <= 1e-4f) {
+        dx = 0.0f;
+        dy = -1.0f;
+        len = 1.0f;
+    }
+    const float ux = dx / len;
+    const float uy = dy / len;
+    const float px = -uy;
+    const float py = ux;
+    const Vec2 tip = {(float)cx + ux * (float)radius, (float)cy + uy * (float)radius};
+    const Vec2 base = {(float)cx - ux * (float)radius * 0.8f,
+                       (float)cy - uy * (float)radius * 0.8f};
+    const Vec2 left = {base.x + px * (float)radius * 0.8f,
+                       base.y + py * (float)radius * 0.8f};
+    const Vec2 right = {base.x - px * (float)radius * 0.8f,
+                        base.y - py * (float)radius * 0.8f};
+
+    (void)SDL_RenderDrawLine(renderer, (int)tip.x, (int)tip.y, (int)left.x, (int)left.y);
+    (void)SDL_RenderDrawLine(renderer, (int)left.x, (int)left.y, (int)right.x, (int)right.y);
+    (void)SDL_RenderDrawLine(renderer, (int)right.x, (int)right.y, (int)tip.x, (int)tip.y);
+    (void)SDL_RenderDrawLine(renderer, cx, cy, (int)tip.x, (int)tip.y);
+}
+
 static void DrawCircleRing(SDL_Renderer* renderer, int cx, int cy, int radius, int thickness) {
     if (radius <= 0 || thickness <= 0) return;
     const int innerR = SDL_max(0, radius - thickness);
@@ -426,6 +463,8 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
                     float screenLen = sqrtf(dx * dx + dy * dy);
                     if (screenLen <= 3.0f) continue;
 
+                    const bool sizeMode = editor->object3DSizeMode;
+                    const bool rotateMode = editor->object3DRotateMode && !sizeMode;
                     bool isHovered = (editor->hoveredObject3DId == selectedObject->objectId) &&
                                      (editor->hoveredObject3DGizmoAxis == dir);
                     bool isActive = (editor->activeObject3DGizmoAxis == dir) &&
@@ -441,7 +480,18 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
                                           (isHovered || isActive) ? 3 : 2);
 
                     int handleRadius = baseRadius + (isHovered ? 1 : 0) + (isActive ? 1 : 0);
-                    DrawFilledCircle(ctx->renderer, (int)tipScreen.x, (int)tipScreen.y, handleRadius);
+                    if (sizeMode) {
+                        DrawFilledSquare(ctx->renderer, (int)tipScreen.x, (int)tipScreen.y, handleRadius);
+                    } else if (rotateMode) {
+                        DrawTriangleEndpoint(ctx->renderer,
+                                             (int)tipScreen.x,
+                                             (int)tipScreen.y,
+                                             handleRadius + 2,
+                                             dx,
+                                             dy);
+                    } else {
+                        DrawFilledCircle(ctx->renderer, (int)tipScreen.x, (int)tipScreen.y, handleRadius);
+                    }
 
                     SDL_Color ringColor = (SDL_Color){ 30, 30, 30, 255 };
                     if (isHovered) ringColor = (SDL_Color){ 235, 235, 235, 255 };

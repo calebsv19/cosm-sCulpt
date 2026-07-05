@@ -78,7 +78,7 @@ These controls apply when view mode is `FREE_VIEW`.
 - `Alt + Left Drag`: Precise drag (no snap).
 - `Left Click` on gizmo handle (`3D + FREE_VIEW`): Start axis-constrained gizmo drag for the selected anchor.
 - `Left Drag` on gizmo handle (`3D + FREE_VIEW`): Move along selected axis with signed motion (pull opposite to move negative).
-- `Shift + Gizmo Drag` (`3D + FREE_VIEW`): Smooth/non-quantized gizmo drag.
+- `Shift + Gizmo Drag` (`3D + FREE_VIEW`): Smooth/non-quantized object move and rotate drags; in size mode, stretches only along the grabbed axis.
 - `Shift + Left Drag` on empty space: Marquee selection box.
 - `Shift + Left Click`: Add/remove from anchor selection group.
 - `Double Left Click` on selected anchor: Collapse multi-selection to that anchor.
@@ -101,7 +101,10 @@ These controls apply when view mode is `FREE_VIEW`.
 - `Link Handles (L)`: Same action as `L`.
 - `Mode: <2D|3D> (M)`: Same action as `M`.
 - `View: <Plane|Free> (V)`: Same action as `V`.
-- `Gizmo: <Move|Rotate|Size> (X)`: Same action as `X`; in `Size`, center-gizmo drags scale uniformly, and `Shift` drag stretches along the matching object axis.
+- `Plane: <XY|YZ|XZ>`: Cycles the active edit plane, matching the `1` / `2` / `3` plane set.
+- `Gizmo: <Move|Rotate|Size> (X)`: Same action as `X`; center-gizmo drags move, rotate, or size the selected object based on the current mode. The topbar keeps `Gizmo` as the stable mode chip and shows a separate live `Op` chip for active move distance, rotate angle, or size factor.
+- `Undo` / `Redo`: Clickable topbar controls mirroring `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z`, and `Ctrl/Cmd+Y`.
+- Selected-object dimension buttons: `W`/`H` open exact width/height dialogs for planes and rectangular prisms; `D` opens exact depth only for rectangular prisms.
 
 ## Notes
 - Selection prefers: handles, then points, then walls.

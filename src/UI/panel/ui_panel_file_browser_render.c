@@ -1,11 +1,52 @@
 #include "UI/panel/ui_panel_file_browser_internal.h"
 
+#include "Core/global_state.h"
+#include "Layout/asset/layout_imported_mesh_asset.h"
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
 #include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_visual_style.h"
 
 #include <stdio.h>
+
+static const char* UIPanel_LoadProgressStatusLabel(UILoadProgressState state) {
+    switch (state) {
+        case UI_LOAD_PROGRESS_LOADING: return "Loading";
+        case UI_LOAD_PROGRESS_COMPLETE: return "Complete";
+        case UI_LOAD_PROGRESS_FAILED: return "Failed";
+        case UI_LOAD_PROGRESS_NONE:
+        default: return "Ready";
+    }
+}
+
+static const char* UIPanel_StlCacheChipLabel(const UIPanelState* ui, int index) {
+    const char* asset_root = Global_GetObjectAssetRoot();
+    char diagnostics[128];
+    LayoutImportedMeshStlCacheState cache_state =
+        LAYOUT_IMPORTED_MESH_STL_CACHE_MISSING;
+    if (!ui || ui->loadMenu.mode != UI_LOAD_MENU_MODE_STL_IMPORT ||
+        index < 0 || index >= ui->loadMenu.count ||
+        !asset_root || !asset_root[0]) {
+        return NULL;
+    }
+    diagnostics[0] = '\0';
+    cache_state = LayoutImportedMeshAsset_GetStlCacheState(ui->loadMenu.entryPaths[index],
+                                                           asset_root,
+                                                           NULL,
+                                                           0u,
+                                                           NULL,
+                                                           0u,
+                                                           NULL,
+                                                           0u,
+                                                           diagnostics,
+                                                           sizeof(diagnostics));
+    switch (cache_state) {
+        case LAYOUT_IMPORTED_MESH_STL_CACHE_FRESH: return "ADD";
+        case LAYOUT_IMPORTED_MESH_STL_CACHE_STALE: return "STALE";
+        case LAYOUT_IMPORTED_MESH_STL_CACHE_MISSING:
+        default: return NULL;
+    }
+}
 
 void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
     UIPanelVisualPalette palette = {0};
@@ -48,9 +89,12 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
             (ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT) ? "STL Import Browser" :
             "Browser";
     if (!UIPanel_GetFileBrowserActionHintText(ui, helper_line, sizeof(helper_line))) {
-        snprintf(helper_line,
-                 sizeof(helper_line),
-                 "Actions  Use Session targets the live row. Clear Last removes remembered fallback rows.");
+        (void)UIPanel_FileStatusWriteMessage(
+            helper_line,
+            sizeof(helper_line),
+            "Actions",
+            "%s",
+            "Use Session targets the live row. Clear Last removes remembered fallback rows.");
     }
     empty_label = (ui->loadMenu.mode == UI_LOAD_MENU_MODE_JSON)
                       ? "No JSON files found in the current input root."
@@ -196,12 +240,13 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
                                        font_h + 4,
                                        label_color);
     } else {
-        const int first_index = (int)(ui->loadMenu.scrollOffsetPx / 24.0f);
-        const int offset_in_row = (int)ui->loadMenu.scrollOffsetPx % 24;
-        int y = list_clip.y - offset_in_row;
-        for (int i = first_index; i < ui->loadMenu.count && y < list_clip.y + list_clip.h; ++i) {
+        int y = list_clip.y - (int)ui->loadMenu.scrollOffsetPx;
+        const int progress_index = UIPanel_FindLoadProgressIndex(ui);
+        for (int i = 0; i < ui->loadMenu.count && y < list_clip.y + list_clip.h; ++i) {
             const bool hovered = (i == ui->loadMenu.hoverIndex);
             const bool active = (i == ui->loadMenu.activeIndex);
+            const bool shows_progress = (i == progress_index);
+            const int row_h = UIPanel_LoadMenuRowHeight(ui, i);
             UILoadMenuSelectionState row_state = UI_LOAD_MENU_SELECTION_NONE;
             SDL_Rect row_rect = {
                 list_clip.x,
@@ -209,14 +254,26 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
                 list_clip.w,
                 24 - 2
             };
+            SDL_Rect expanded_rect = {
+                list_clip.x,
+                y + 24,
+                list_clip.w,
+                row_h - 24 - 2
+            };
             SDL_Rect chip_rect = {0, 0, 0, 0};
             const char* chip_label = NULL;
             int text_max_width = row_rect.w - (metrics.pad_x * 2);
+            if (y + row_h < list_clip.y) {
+                y += row_h;
+                continue;
+            }
             (void)UIPanel_GetFileBrowserRowSelectionState(ui, i, &row_state);
             if (row_state == UI_LOAD_MENU_SELECTION_ACTIVE_SESSION) {
                 chip_label = "LIVE";
             } else if (row_state == UI_LOAD_MENU_SELECTION_REMEMBERED_ENTRY) {
                 chip_label = "LAST";
+            } else {
+                chip_label = UIPanel_StlCacheChipLabel(ui, i);
             }
             if (chip_label) {
                 chip_rect.w = 40;
@@ -278,7 +335,71 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
                                                    ? remembered_accent
                                                    : accent_color);
             }
-            y += 24;
+            if (shows_progress && expanded_rect.h > 0) {
+                SDL_Color detail_fill = UIPanelVisual_AdjustColor(panel_fill, 8, 6);
+                SDL_Color detail_border = panel_border;
+                SDL_Color bar_back = UIPanelVisual_AdjustColor(panel_fill, 18, 12);
+                SDL_Color bar_fill = accent_color;
+                SDL_Rect bar_rect = {
+                    expanded_rect.x + metrics.pad_x,
+                    expanded_rect.y + 23,
+                    expanded_rect.w - (metrics.pad_x * 2),
+                    7
+                };
+                SDL_Rect bar_done = bar_rect;
+                char progress_text[224];
+                Uint32 now_ticks = SDL_GetTicks();
+                Uint32 elapsed_ms = 0u;
+                int progress_permille = ui->loadMenu.loadProgressPermille;
+                if (progress_permille < 0) progress_permille = 0;
+                if (progress_permille > 1000) progress_permille = 1000;
+                if (ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_LOADING) {
+                    elapsed_ms = now_ticks - ui->loadMenu.loadProgressStartedTicks;
+                } else if (ui->loadMenu.loadProgressFinishedTicks >= ui->loadMenu.loadProgressStartedTicks) {
+                    elapsed_ms = ui->loadMenu.loadProgressFinishedTicks - ui->loadMenu.loadProgressStartedTicks;
+                }
+                bar_done.w = (bar_rect.w * progress_permille) / 1000;
+                detail_border.a = 150;
+                bar_fill.a = 230;
+                UIPanelVisual_DrawFrame(renderer,
+                                        expanded_rect,
+                                        detail_fill,
+                                        detail_border,
+                                        70);
+                snprintf(progress_text,
+                         sizeof(progress_text),
+                         "%s  %d%%  %.1fs  %s",
+                         UIPanel_LoadProgressStatusLabel(ui->loadMenu.loadProgressState),
+                         progress_permille / 10,
+                         (double)elapsed_ms / 1000.0,
+                         ui->loadMenu.loadProgressDetail[0]
+                             ? ui->loadMenu.loadProgressDetail
+                             : ui->loadMenu.loadProgressLabel);
+                UIPanelSummary_DrawTextClipped(renderer,
+                                               font,
+                                               progress_text,
+                                               expanded_rect.x + metrics.pad_x,
+                                               expanded_rect.y + 4,
+                                               expanded_rect.w - (metrics.pad_x * 2),
+                                               font_h + 3,
+                                               label_color);
+                if (bar_rect.w > 0 && bar_rect.h > 0) {
+                    UIPanelVisual_DrawFrame(renderer,
+                                            bar_rect,
+                                            bar_back,
+                                            detail_border,
+                                            80);
+                    if (bar_done.w > 0) {
+                        SDL_SetRenderDrawColor(renderer,
+                                               bar_fill.r,
+                                               bar_fill.g,
+                                               bar_fill.b,
+                                               bar_fill.a);
+                        SDL_RenderFillRect(renderer, &bar_done);
+                    }
+                }
+            }
+            y += row_h;
         }
     }
     SDL_RenderSetClipRect(renderer, NULL);

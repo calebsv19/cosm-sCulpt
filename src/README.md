@@ -1,9 +1,16 @@
 # Source Overview
 
-All engine code lives under `src/`, separated by responsibility so the floor-plan editor can grow into a richer home-monitoring tool.
+All application code lives under `src/`, separated by responsibility so
+`sCulpt` can keep host-menu, editor, scene authoring, object/CAD authoring,
+import/export tooling, and runtime proof lanes easy to route.
 
 ## Entry Point
-- `main.c` — initialises SDL via the app framework, loads fonts, allocates `GlobalState`, registers callbacks, sets a throttled render mode (60 FPS), owns the top-level `MENU` vs `EDITOR` host split, and orchestrates shutdown.
+- `main.c` — delegates into the scaffold wrapper by calling
+  `line_drawing_app_main(...)`.
+- `app/` — owns the lifecycle wrapper shell behind
+  `include/line_drawing/line_drawing_app_main.h`, including bootstrap,
+  config-load, state-seed, subsystem-init, runtime-start, run-loop handoff, and
+  shutdown sequencing. See `app/README.md`.
 
 ## Update Loop
 1. SDL events are routed through `Input_Handle`, which dispatches to mouse and keyboard handlers, updates the grid camera, and mutates layout/editor state.
@@ -12,16 +19,35 @@ All engine code lives under `src/`, separated by responsibility so the floor-pla
 4. `Render_SubmitFrame` consumes the derive contract and performs draw/submit calls (grid, layout, editor overlays, UI).
 
 ## Module Directories
-- `Core/` — SDL bootstrapping and the project-wide `GlobalState` singleton.
-- `Input/` — user input handling split across devices (mouse/keyboard) plus marquee selection and multi-anchor drag plumbing.
-- `Layout/` — geometry data structures, bezier-aware rendering, hit detection (including handle hitboxes), and JSON persistence.
+- `Core/` — app-wide `GlobalState`, runtime paths, recent contexts, file
+  catalog, pane host, workspace handoff, SDL loop helpers, and mode adapters.
+- `Input/` — SDL event routing, keyboard/mouse handling, input-policy seams,
+  viewport picking, hover policy, and drag-session plumbing. Dense mouse-drag
+  ownership is summarized in `Input/mouse/README.md`.
+- `Layout/` — layout/scene data structures, primitives, imported mesh asset
+  state, mesh asset instances, hit detection, JSON persistence, and layout
+  rendering. Durable sub-lanes under `Layout/asset`, `Layout/primitives`, and
+  `Layout/scene` now have local README maps.
 - `Layout/Grid/` — grid camera maths and rendering helpers shared by layout and editor code.
 - `Menu/` — app-local top-level host menu state, input handling, and rendering for the menu-first launch surface.
   - current scope includes the first Phase 2 scene catalog shell for layouts/scenes under the input root
+- `ObjectAuthoring/` — reusable object/CAD authoring documents, sessions,
+  stable topology ids, operation replay, persistence, and app-local runtime mesh
+  compile.
 - `Render/` — top-level frame compositor.
-- `UI/` — UI panel data, rendering, click routing, and font management.
-- `Editor/` — wall-placement state machine, bezier handle/link tracking, multi-selection data structures, and overlay rendering (ghost walls + selection marquee).
+- `UI/` — editor shell panels, File pane/browser, scene/object/view/create
+  panes, topbar, overlays, workspace-authoring host, text/font/theme support,
+  and click routing. Dense lanes under `UI/panel`, `UI/overlay`, and
+  `UI/topbar` now have local README maps.
+- `Editor/` — editor state, wall/anchor workflows, object/scene-bounds gizmo
+  selections, object face/sketch/extrude controls, primitive preview, and
+  editor overlay rendering. `Editor/gizmo` and `Editor/render` document the
+  durable helper sub-lanes.
 - `Math/` — inline vector utilities and coordinate transforms.
-- `Tools/` — standalone helpers that are also linked into the runtime (ShapeLib core structs/flatteners/JSON, the Layout→Shape adapter, canonical scene exporter, scene-directory export via shared `core_scene_compile`, SDL previewer, diagnostics dataset mapping, and CLI tools `shape_tool` + `shape_pack_tool`). This folder keeps the export pipeline reusable across applications.
+- `Tools/` — reusable export/tooling code, including ShapeLib, shape
+  diagnostics, scene export/import, canonical scene export, imported mesh
+  harness, agent scene tooling, and sema/toolchain dump customers. See
+  `Tools/README.md`.
 
-Each directory below has its own README with per-file details and relationships.
+Major source directories and durable dense sub-lanes have local README files
+with per-file details and ownership boundaries.

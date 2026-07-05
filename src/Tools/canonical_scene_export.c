@@ -375,6 +375,58 @@ static bool upsert_object_item(cJSON* object, const char* key, cJSON* item) {
     return true;
 }
 
+static bool add_vec3_object_item(cJSON* object, const char* key, Vec3 value) {
+    cJSON* vec = NULL;
+    if (!object || !key) return false;
+    vec = cJSON_CreateObject();
+    if (!vec) return false;
+    cJSON_AddNumberToObject(vec, "x", value.x);
+    cJSON_AddNumberToObject(vec, "y", value.y);
+    cJSON_AddNumberToObject(vec, "z", value.z);
+    if (!upsert_object_item(object, key, vec)) {
+        cJSON_Delete(vec);
+        return false;
+    }
+    return true;
+}
+
+static bool refresh_physics_scene_domain_extension(cJSON* root_extensions, const Layout* layout) {
+    cJSON* physics_sim = NULL;
+    cJSON* scene_domain = NULL;
+    if (!root_extensions || !layout) return false;
+    if (!layout->scene3d.bounds.enabled ||
+        !Layout_SceneBounds3D_IsValid(&layout->scene3d.bounds)) {
+        return true;
+    }
+
+    physics_sim = duplicate_or_empty_object(cJSON_GetObjectItemCaseSensitive(root_extensions, "physics_sim"));
+    if (!physics_sim) return false;
+    scene_domain = cJSON_CreateObject();
+    if (!scene_domain) {
+        cJSON_Delete(physics_sim);
+        return false;
+    }
+    cJSON_AddBoolToObject(scene_domain, "active", true);
+    cJSON_AddStringToObject(scene_domain, "shape", "box");
+    if (!add_vec3_object_item(scene_domain, "min", layout->scene3d.bounds.min) ||
+        !add_vec3_object_item(scene_domain, "max", layout->scene3d.bounds.max)) {
+        cJSON_Delete(scene_domain);
+        cJSON_Delete(physics_sim);
+        return false;
+    }
+    cJSON_AddBoolToObject(scene_domain, "seeded_from_retained_bounds", false);
+    if (!upsert_object_item(physics_sim, "scene_domain", scene_domain)) {
+        cJSON_Delete(scene_domain);
+        cJSON_Delete(physics_sim);
+        return false;
+    }
+    if (!upsert_object_item(root_extensions, "physics_sim", physics_sim)) {
+        cJSON_Delete(physics_sim);
+        return false;
+    }
+    return true;
+}
+
 static const cJSON* find_existing_object_extensions(const cJSON* existing_root) {
     if (!existing_root) return NULL;
 
@@ -432,17 +484,31 @@ static bool append_primitive_scene_objects(cJSON* objects,
                                            const Layout* layout,
                                            const cJSON* existing_root,
                                            const char* material_id) {
+    const bool debug_export = getenv("LINE_DRAWING_SCENE_EXPORT_DEBUG") != NULL;
     if (!objects || !hierarchy || !layout) return false;
 
     for (size_t i = 0; i < layout->objectStore.count; ++i) {
         const Object3D* object = &layout->objectStore.items[i];
+        CoreObject export_core_meta;
         char geometry_id[96];
         cJSON* object_json = NULL;
         cJSON* object_extensions = NULL;
         cJSON* hierarchy_item = NULL;
 
         if (object->isDeleted) continue;
-        if (!object->coreMeta.object_id[0]) continue;
+        if (!object->coreMeta.object_id[0]) {
+            if (debug_export) {
+                fprintf(stderr, "[scene_export] skip object index=%zu id=%u: missing core object_id\n",
+                        i,
+                        object->objectId);
+            }
+            continue;
+        }
+        export_core_meta = object->coreMeta;
+        if (object->kind == OBJECT3D_KIND_PLANE) {
+            export_core_meta.dimensional_mode = CORE_OBJECT_DIMENSIONAL_MODE_PLANE_LOCKED;
+            export_core_meta.locked_plane = object->coreMeta.locked_plane;
+        }
 
         snprintf(geometry_id,
                  sizeof(geometry_id),
@@ -457,7 +523,7 @@ static bool append_primitive_scene_objects(cJSON* objects,
         }
         object_json = LineDrawingCanonicalScene_AppendSceneObjectFromCore(
             objects,
-            &object->coreMeta,
+            &export_core_meta,
             object->coreMeta.object_id,
             geometry_id,
             material_id,
@@ -465,24 +531,60 @@ static bool append_primitive_scene_objects(cJSON* objects,
             object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE
                 ? "mesh_asset"
                 : (object->kind == OBJECT3D_KIND_RECT_PRISM ? "rect_prism" : "plane"));
-        if (!object_json) return false;
+        if (!object_json) {
+            if (debug_export) {
+                fprintf(stderr,
+                        "[scene_export] failed append scene object id=%u core_id=%s kind=%d geometry=%s\n",
+                        object->objectId,
+                        object->coreMeta.object_id,
+                        (int)object->kind,
+                        geometry_id);
+            }
+            return false;
+        }
 
         if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
             cJSON* geometry_ref = cJSON_GetObjectItemCaseSensitive(object_json, "geometry_ref");
             cJSON* mesh_extensions = NULL;
             cJSON* line_ext = NULL;
-            if (!cJSON_IsObject(geometry_ref)) return false;
+            if (!cJSON_IsObject(geometry_ref)) {
+                if (debug_export) {
+                    fprintf(stderr,
+                            "[scene_export] mesh object id=%u has no geometry_ref object\n",
+                            object->objectId);
+                }
+                return false;
+            }
             cJSON_ReplaceItemInObjectCaseSensitive(geometry_ref, "kind", cJSON_CreateString("mesh_asset"));
             cJSON_ReplaceItemInObjectCaseSensitive(geometry_ref, "id", cJSON_CreateString(object->meshInstance.assetId));
 
             object_extensions = duplicate_or_empty_object(
                 find_existing_object_extensions_by_id(existing_root, object->coreMeta.object_id));
-            if (!object_extensions) return false;
+            if (!object_extensions) {
+                if (debug_export) {
+                    fprintf(stderr,
+                            "[scene_export] mesh object id=%u failed to allocate extensions\n",
+                            object->objectId);
+                }
+                return false;
+            }
             cJSON_AddItemToObject(object_json, "extensions", object_extensions);
             line_ext = duplicate_or_empty_object(cJSON_GetObjectItemCaseSensitive(object_extensions, "line_drawing"));
-            if (!line_ext) return false;
+            if (!line_ext) {
+                if (debug_export) {
+                    fprintf(stderr,
+                            "[scene_export] mesh object id=%u failed to allocate line_drawing extension\n",
+                            object->objectId);
+                }
+                return false;
+            }
             if (!upsert_object_item(object_extensions, "line_drawing", line_ext)) {
                 cJSON_Delete(line_ext);
+                if (debug_export) {
+                    fprintf(stderr,
+                            "[scene_export] mesh object id=%u failed to upsert line_drawing extension\n",
+                            object->objectId);
+                }
                 return false;
             }
             cJSON_AddStringToObject(line_ext, "geometry_source", "mesh_asset_instance");
@@ -493,7 +595,14 @@ static bool append_primitive_scene_objects(cJSON* objects,
             cJSON_AddNumberToObject(line_ext, "runtime_vertex_count", (double)object->meshInstance.vertexCount);
             cJSON_AddNumberToObject(line_ext, "runtime_triangle_count", (double)object->meshInstance.triangleCount);
             mesh_extensions = cJSON_CreateObject();
-            if (!mesh_extensions) return false;
+            if (!mesh_extensions) {
+                if (debug_export) {
+                    fprintf(stderr,
+                            "[scene_export] mesh object id=%u failed to allocate local_bounds extension\n",
+                            object->objectId);
+                }
+                return false;
+            }
             cJSON_AddItemToObject(line_ext, "local_bounds", mesh_extensions);
             cJSON_AddItemToObject(mesh_extensions,
                                   "min",
@@ -505,14 +614,42 @@ static bool append_primitive_scene_objects(cJSON* objects,
 
             object_extensions = duplicate_or_empty_object(
                 find_existing_object_extensions_by_id(existing_root, object->coreMeta.object_id));
-            if (!object_extensions) return false;
+            if (!object_extensions) {
+                if (debug_export) {
+                    fprintf(stderr,
+                            "[scene_export] primitive object id=%u failed to allocate extensions\n",
+                            object->objectId);
+                }
+                return false;
+            }
             cJSON_AddItemToObject(object_json, "extensions", object_extensions);
-            if (!LineDrawingCanonicalScene_AddCanonicalPrimitivePayload(object_json, object)) return false;
-            if (!LineDrawingCanonicalScene_AddPrimitiveExtensionPayload(object_extensions, object)) return false;
+            if (!LineDrawingCanonicalScene_AddCanonicalPrimitivePayload(object_json, object)) {
+                if (debug_export) {
+                    fprintf(stderr,
+                            "[scene_export] primitive object id=%u failed canonical primitive payload\n",
+                            object->objectId);
+                }
+                return false;
+            }
+            if (!LineDrawingCanonicalScene_AddPrimitiveExtensionPayload(object_extensions, object)) {
+                if (debug_export) {
+                    fprintf(stderr,
+                            "[scene_export] primitive object id=%u failed primitive extension payload\n",
+                            object->objectId);
+                }
+                return false;
+            }
         }
 
         hierarchy_item = cJSON_CreateObject();
-        if (!hierarchy_item) return false;
+        if (!hierarchy_item) {
+            if (debug_export) {
+                fprintf(stderr,
+                        "[scene_export] object id=%u failed hierarchy allocation\n",
+                        object->objectId);
+            }
+            return false;
+        }
         cJSON_AddItemToArray(hierarchy, hierarchy_item);
         cJSON_AddStringToObject(hierarchy_item, "parent_object_id", kDefaultObjectId);
         cJSON_AddStringToObject(hierarchy_item, "child_object_id", object->coreMeta.object_id);
@@ -657,6 +794,11 @@ static cJSON* build_scene_json(const Layout* layout,
     root_extensions = duplicate_or_empty_object(
         existing_root ? cJSON_GetObjectItemCaseSensitive(existing_root, "extensions") : NULL);
     if (!root_extensions) {
+        cJSON_Delete(root);
+        return NULL;
+    }
+    if (!refresh_physics_scene_domain_extension(root_extensions, layout)) {
+        cJSON_Delete(root_extensions);
         cJSON_Delete(root);
         return NULL;
     }

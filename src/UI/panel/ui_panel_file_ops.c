@@ -21,12 +21,107 @@
 #include <strings.h>
 
 static const char* k_legacy_layout_root = "config";
+static const float kRuntimeMeshAutoFitDefaultSpan = 4.0f;
 static const float kRuntimeMeshAutoFitMaxSceneSpan = 48.0f;
 static const float kRuntimeMeshAutoFitSceneBoundsFraction = 0.35f;
-static const float kImportedStlSceneBoundsPadding = 4.0f;
+static const Uint32 kFilePaneActionStatusTtlMs = 2500u;
+
+void UIPanel_SetFilePaneActionStatus(const char* status) {
+    UIPanelState* ui = UIPanel_Get();
+    if (!ui) return;
+    snprintf(ui->filePane.actionStatus,
+             sizeof(ui->filePane.actionStatus),
+             "%s",
+             status && status[0] ? status : "");
+    ui->filePane.actionStatusSetTicks = ui->filePane.actionStatus[0] ? SDL_GetTicks() : 0u;
+}
+
+bool UIPanel_FilePaneActionStatusIsLive(const UIPanelState* ui) {
+    if (!ui || !ui->filePane.actionStatus[0] || ui->filePane.actionStatusSetTicks == 0u) {
+        return false;
+    }
+    return (Uint32)(SDL_GetTicks() - ui->filePane.actionStatusSetTicks) < kFilePaneActionStatusTtlMs;
+}
 
 static bool UIPanel_IsObjectWorkspace(void) {
     return Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+}
+
+static bool UIPanel_LayoutWorldAabb(const Layout* layout, Vec3* out_min, Vec3* out_max) {
+    bool found = false;
+    if (!layout || !out_min || !out_max) return false;
+    for (size_t i = 0u; i < layout->objectStore.count; ++i) {
+        const Object3D* object = &layout->objectStore.items[i];
+        Vec3 min = {0};
+        Vec3 max = {0};
+        if (!Layout_Object3D_ComputeWorldAABB(object, &min, &max)) continue;
+        if (!found) {
+            *out_min = min;
+            *out_max = max;
+            found = true;
+        } else {
+            out_min->x = fminf(out_min->x, min.x);
+            out_min->y = fminf(out_min->y, min.y);
+            out_min->z = fminf(out_min->z, min.z);
+            out_max->x = fmaxf(out_max->x, max.x);
+            out_max->y = fmaxf(out_max->y, max.y);
+            out_max->z = fmaxf(out_max->z, max.z);
+        }
+    }
+    for (size_t i = 0u; i < layout->anchorCount; ++i) {
+        const Anchor* anchor = &layout->anchors[i];
+        if (anchor->isDeleted) continue;
+        if (!found) {
+            *out_min = anchor->pos;
+            *out_max = anchor->pos;
+            found = true;
+        } else {
+            out_min->x = fminf(out_min->x, anchor->pos.x);
+            out_min->y = fminf(out_min->y, anchor->pos.y);
+            out_min->z = fminf(out_min->z, anchor->pos.z);
+            out_max->x = fmaxf(out_max->x, anchor->pos.x);
+            out_max->y = fmaxf(out_max->y, anchor->pos.y);
+            out_max->z = fmaxf(out_max->z, anchor->pos.z);
+        }
+    }
+    return found;
+}
+
+void UIPanel_ResetEditorTransientSelection(EditorState* editor) {
+    if (!editor) return;
+    editor->selectedAnchorIndex = -1;
+    editor->selectedWallIndex = -1;
+    editor->selectedObject3DId = 0u;
+    editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->hoveredAnchorIndex = -1;
+    editor->hoveredWallIndex = -1;
+    editor->hoveredObject3DId = 0u;
+    editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->hoveredHandleAnchor = -1;
+    editor->hoveredHandleComponent = -1;
+    editor->hoveredGizmoAxis = -1;
+    editor->hoveredObject3DGizmoAxis = -1;
+    editor->activeObject3DGizmoAxis = -1;
+    editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+}
+
+void UIPanel_RefreshViewportAfterSceneDocumentLoad(GlobalState* state) {
+    Vec3 min = {0};
+    Vec3 max = {0};
+    if (!state) return;
+    state->activePlane = Layout_ConstructionPlane3D_ToViewPlane(&state->layout.scene3d.constructionPlane);
+    if (state->freeViewCamera.enabled &&
+        UIPanel_LayoutWorldAabb(&state->layout, &min, &max)) {
+        state->freeViewCamera.target = (Vec3){
+            .x = (min.x + max.x) * 0.5f,
+            .y = (min.y + max.y) * 0.5f,
+            .z = (min.z + max.z) * 0.5f
+        };
+    }
+    Global_FlagHitboxesDirty();
+    Global_RebuildHitboxesIfDirty();
 }
 
 static void SanitizeBuffer(char* buffer) {
@@ -185,16 +280,8 @@ static bool UIPanel_DeriveLayoutHintFromScenePath(const char* scene_path,
     return true;
 }
 
-static void UIPanel_SetObjectRuntimeMeshStatus(GlobalState* state, const char* status) {
-    if (!state) return;
-    snprintf(state->objectRuntimeMeshStatus,
-             sizeof(state->objectRuntimeMeshStatus),
-             "%s",
-             status && status[0] ? status : "Mesh export idle.");
-}
-
 static float UIPanel_SceneRuntimeMeshTargetSpan(const Layout* layout) {
-    float target = kRuntimeMeshAutoFitMaxSceneSpan;
+    float target = kRuntimeMeshAutoFitDefaultSpan;
     if (layout &&
         layout->scene3d.bounds.enabled &&
         Layout_SceneBounds3D_IsValid(&layout->scene3d.bounds)) {
@@ -205,14 +292,16 @@ static float UIPanel_SceneRuntimeMeshTargetSpan(const Layout* layout) {
         const float span_z = fabsf(max.z - min.z);
         const float scene_span = fmaxf(span_x, fmaxf(span_y, span_z));
         if (scene_span > 0.0f) {
-            target = fminf(target, scene_span * kRuntimeMeshAutoFitSceneBoundsFraction);
+            target = fminf(kRuntimeMeshAutoFitMaxSceneSpan,
+                           scene_span * kRuntimeMeshAutoFitSceneBoundsFraction);
         }
     }
-    return fmaxf(target, 4.0f);
+    return fmaxf(target, kRuntimeMeshAutoFitDefaultSpan);
 }
 
 static bool UIPanel_ResolveRuntimeMeshAutoScale(const Layout* layout,
                                                 const char* runtime_mesh_path,
+                                                bool allow_scale_up,
                                                 float* out_scale) {
     MeshAssetInstance3D instance = {0};
     char diagnostics[128];
@@ -235,7 +324,8 @@ static bool UIPanel_ResolveRuntimeMeshAutoScale(const Layout* layout,
     span_z = fabsf(instance.localBoundsMax.z - instance.localBoundsMin.z);
     max_span = fmaxf(span_x, fmaxf(span_y, span_z));
     target_span = UIPanel_SceneRuntimeMeshTargetSpan(layout);
-    if (max_span <= target_span || max_span <= 1e-5f) return true;
+    if (max_span <= 1e-5f) return true;
+    if (!allow_scale_up && max_span <= target_span) return true;
     *out_scale = target_span / max_span;
     return isfinite(*out_scale) && *out_scale > 0.0f;
 }
@@ -421,7 +511,7 @@ void UIPanel_BeginRootDialog(UIRootDialogTarget target) {
     ui->rootDialog.length = strlen(ui->rootDialog.buffer);
     ui->rootDialog.cursor = ui->rootDialog.length;
 
-    ui->loadMenu.open = false;
+    UIPanel_CloseFileBrowser(ui);
     UIPanel_CloseSaveDialog(ui);
     UIPanel_ClosePrismDimensionDialog(ui);
     UIPanel_CloseSceneBoundsDialog(ui);
@@ -457,6 +547,7 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
 
     if (ui->saveDialog.length == 0) {
         SDL_Log("[UI] Save aborted: filename is empty.");
+        UIPanel_SetFilePaneActionStatus("Save failed: filename is empty.");
         return false;
     }
 
@@ -470,6 +561,7 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
             strcat(filename, ".json");
         } else {
             SDL_Log("[UI] Save aborted: filename too long.");
+            UIPanel_SetFilePaneActionStatus("Save failed: filename is too long.");
             return false;
         }
     }
@@ -510,6 +602,7 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
     if (!saved) {
         if (!LineDrawingDataPaths_BuildPath(fallback_path, sizeof(fallback_path), k_legacy_layout_root, filename)) {
             SDL_Log("[UI] Save failed: invalid legacy fallback path.");
+            UIPanel_SetFilePaneActionStatus("Save failed: invalid fallback path.");
             return false;
         }
         if (!(object_workspace
@@ -526,6 +619,14 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
                     diagnostics[0] ? " (" : "",
                     diagnostics[0] ? diagnostics : "",
                     diagnostics[0] ? ")" : "");
+            {
+                char status[160];
+                snprintf(status,
+                         sizeof(status),
+                         "Save failed: %s",
+                         diagnostics[0] ? diagnostics : "write error");
+                UIPanel_SetFilePaneActionStatus(status);
+            }
             return false;
         }
         snprintf(path, sizeof(path), "%s", fallback_path);
@@ -549,7 +650,7 @@ void UIPanel_BeginSaveDialog(void) {
     UIPanelState* ui = UIPanel_Get();
     ui->saveDialog.active = true;
     UIPanel_PopulateDefaultFilename(ui);
-    ui->loadMenu.open = false;
+    UIPanel_CloseFileBrowser(ui);
     UIPanel_CloseRootDialog(ui);
     UIPanel_ClosePrismDimensionDialog(ui);
     UIPanel_CloseSceneBoundsDialog(ui);
@@ -571,6 +672,14 @@ bool UIPanel_LoadSceneFromPath(const char* path) {
                                                             diagnostics,
                                                             sizeof(diagnostics))) {
         SDL_Log("[UI] Failed to import scene %s (%s)", path, diagnostics[0] ? diagnostics : "unknown");
+        {
+            char status[160];
+            snprintf(status,
+                     sizeof(status),
+                     "Load scene failed: %s",
+                     diagnostics[0] ? diagnostics : "unknown error");
+            UIPanel_SetFilePaneActionStatus(status);
+        }
         return false;
     }
 
@@ -583,21 +692,8 @@ bool UIPanel_LoadSceneFromPath(const char* path) {
     Global_OnSceneLoaded(path, layout_hint);
     UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_SCENE, path);
     UIPanel_RefreshConfigList();
-    state->editor.selectedAnchorIndex = -1;
-    state->editor.selectedWallIndex = -1;
-    state->editor.selectedObject3DId = 0u;
-    state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-    state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-    state->editor.hoveredAnchorIndex = -1;
-    state->editor.hoveredWallIndex = -1;
-    state->editor.hoveredObject3DId = 0u;
-    state->editor.hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
-    state->editor.hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-    state->editor.hoveredHandleAnchor = -1;
-    state->editor.hoveredHandleComponent = -1;
-    state->editor.hoveredGizmoAxis = -1;
-    state->editor.hoveredObject3DGizmoAxis = -1;
-    state->editor.activeObject3DGizmoAxis = -1;
+    UIPanel_ResetEditorTransientSelection(&state->editor);
+    UIPanel_RefreshViewportAfterSceneDocumentLoad(state);
     Editor_HistoryCapture(&state->editor, &state->layout);
     return true;
 }
@@ -709,6 +805,8 @@ void UIPanel_ExportScene(void) {
     GlobalState* state = Global_Get();
     LineDrawingSceneExportPaths export_paths;
     char diagnostics[256];
+    char layout_hint[LINE_DRAWING_PATH_CAP];
+    char export_hint[LINE_DRAWING_PATH_CAP];
     const char* output_root = NULL;
     const char* authoring_path = NULL;
     if (!state) return;
@@ -717,25 +815,52 @@ void UIPanel_ExportScene(void) {
     authoring_path = Global_GetCurrentSceneAuthoringPath();
     Layout_CompactDeletedElements(&state->layout);
 
-    if ((authoring_path && authoring_path[0] != '\0')
-            ? !LineDrawingSceneExport_ExportLayoutToAuthoringPath(&state->layout,
-                                                                  authoring_path,
-                                                                  &export_paths,
-                                                                  diagnostics,
-                                                                  sizeof(diagnostics))
-            : !LineDrawingSceneExport_ExportLayoutToOutputRoot(&state->layout,
-                                                               Global_GetCurrentConfigPath(),
-                                                               output_root,
-                                                               &export_paths,
-                                                               diagnostics,
-                                                               sizeof(diagnostics))) {
+    snprintf(export_hint,
+             sizeof(export_hint),
+             "%s",
+             (authoring_path && authoring_path[0] != '\0')
+                 ? authoring_path
+                 : Global_GetCurrentConfigPath());
+
+    if (!LineDrawingSceneExport_ExportLayoutToOutputRoot(&state->layout,
+                                                         export_hint,
+                                                         output_root,
+                                                         &export_paths,
+                                                         diagnostics,
+                                                         sizeof(diagnostics))) {
         SDL_Log("[UI] Scene export failed: %s", diagnostics[0] ? diagnostics : "unknown error");
+        {
+            char status[160];
+            snprintf(status,
+                     sizeof(status),
+                     "Export Scene failed: %s",
+                     diagnostics[0] ? diagnostics : "unknown error");
+            UIPanel_SetFilePaneActionStatus(status);
+        }
         return;
     }
 
     SDL_Log("[UI] Exported scene directory to %s", export_paths.scene_dir);
     SDL_Log("[UI] Exported authoring scene to %s", export_paths.authoring_path);
     SDL_Log("[UI] Exported runtime scene to %s", export_paths.runtime_path);
+
+    layout_hint[0] = '\0';
+    if (!UIPanel_DeriveLayoutHintFromScenePath(export_paths.authoring_path,
+                                               layout_hint,
+                                               sizeof(layout_hint))) {
+        snprintf(layout_hint, sizeof(layout_hint), "%s", export_paths.authoring_path);
+    }
+    Global_OnSceneLoaded(export_paths.authoring_path, layout_hint);
+    UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_SCENE, export_paths.authoring_path);
+    {
+        char status[160];
+        snprintf(status,
+                 sizeof(status),
+                 "Export Scene OK -> %s",
+                 export_paths.authoring_path);
+        UIPanel_SetFilePaneActionStatus(status);
+    }
+    UIPanel_RefreshConfigList();
 }
 
 bool UIPanel_ExportObjectRuntimeMesh(void) {
@@ -749,10 +874,12 @@ bool UIPanel_ExportObjectRuntimeMesh(void) {
     diagnostics[0] = '\0';
     ObjectAuthoringRuntimeMesh_Init(&runtime_mesh);
     if (!state || Global_GetWorkspaceMode() != LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
+        UIPanel_SetFilePaneActionStatus("Mesh export failed: switch to object mode.");
         return false;
     }
     if (!state->objectAuthoring.attached || state->objectAuthoring.document.operationCount == 0u) {
-        UIPanel_SetObjectRuntimeMeshStatus(state, "Mesh export failed: no authored operations.");
+        Global_SetObjectRuntimeMeshStatus("Mesh export failed: no authored operations.");
+        UIPanel_SetFilePaneActionStatus("Mesh export failed: no authored operations.");
         SDL_Log("[UI] Object runtime mesh export failed: no authored operations.");
         return false;
     }
@@ -763,7 +890,8 @@ bool UIPanel_ExportObjectRuntimeMesh(void) {
                                             sizeof(runtime_asset_id),
                                             path,
                                             sizeof(path))) {
-        UIPanel_SetObjectRuntimeMeshStatus(state, "Mesh export failed: invalid output path.");
+        Global_SetObjectRuntimeMeshStatus("Mesh export failed: invalid output path.");
+        UIPanel_SetFilePaneActionStatus("Mesh export failed: invalid output path.");
         SDL_Log("[UI] Object runtime mesh export failed: invalid output path.");
         return false;
     }
@@ -778,7 +906,8 @@ bool UIPanel_ExportObjectRuntimeMesh(void) {
                  sizeof(status),
                  "Mesh export failed: %s",
                  diagnostics[0] ? diagnostics : "compile error");
-        UIPanel_SetObjectRuntimeMeshStatus(state, status);
+        Global_SetObjectRuntimeMeshStatus(status);
+        UIPanel_SetFilePaneActionStatus(status);
         SDL_Log("[UI] Object runtime mesh compile failed: %s",
                 diagnostics[0] ? diagnostics : "unknown error");
         ObjectAuthoringRuntimeMesh_Free(&runtime_mesh);
@@ -793,27 +922,30 @@ bool UIPanel_ExportObjectRuntimeMesh(void) {
                  sizeof(status),
                  "Mesh export failed: %s",
                  diagnostics[0] ? diagnostics : "write error");
-        UIPanel_SetObjectRuntimeMeshStatus(state, status);
+        Global_SetObjectRuntimeMeshStatus(status);
+        UIPanel_SetFilePaneActionStatus(status);
         SDL_Log("[UI] Object runtime mesh write failed: %s",
                 diagnostics[0] ? diagnostics : "unknown error");
         ObjectAuthoringRuntimeMesh_Free(&runtime_mesh);
         return false;
     }
-    snprintf(state->lastObjectRuntimeMeshPath,
-             sizeof(state->lastObjectRuntimeMeshPath),
-             "%s",
-             path);
-    snprintf(state->objectRuntimeMeshStatus,
-             sizeof(state->objectRuntimeMeshStatus),
-             "Mesh exported: %zu verts / %zu tris",
-             runtime_mesh.vertexCount,
-             runtime_mesh.triangleCount);
+    {
+        char status[160];
+        snprintf(status,
+                 sizeof(status),
+                 "Mesh exported: %zu verts / %zu tris",
+                 runtime_mesh.vertexCount,
+                 runtime_mesh.triangleCount);
+        Global_RecordObjectRuntimeMeshResult(path, status);
+    }
     SDL_Log("[UI] Exported object runtime mesh to %s", path);
     ObjectAuthoringRuntimeMesh_Free(&runtime_mesh);
     return true;
 }
 
-bool UIPanel_PlaceRuntimeMeshAsSceneInstance(const char* runtime_mesh_path) {
+static bool UIPanel_PlaceRuntimeMeshAsSceneInstanceWithOptions(const char* runtime_mesh_path,
+                                                               bool place_at_origin,
+                                                               bool allow_scale_up) {
     GlobalState* state = Global_Get();
     Transform3D transform;
     uint32_t object_id = 0u;
@@ -823,9 +955,13 @@ bool UIPanel_PlaceRuntimeMeshAsSceneInstance(const char* runtime_mesh_path) {
     diagnostics[0] = '\0';
     resolved_path[0] = '\0';
     if (!state || Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
+        Global_SetObjectRuntimeMeshStatus("Mesh placement failed: switch to scene mode.");
+        UIPanel_SetFilePaneActionStatus("Mesh placement failed: switch to scene mode.");
         return false;
     }
     if (!runtime_mesh_path || runtime_mesh_path[0] == '\0') {
+        Global_SetObjectRuntimeMeshStatus("Mesh placement failed: choose or export a runtime mesh first.");
+        UIPanel_SetFilePaneActionStatus("Mesh placement failed: choose or export a runtime mesh first.");
         SDL_Log("[UI] Mesh placement blocked: choose or export an object runtime mesh first.");
         return false;
     }
@@ -834,13 +970,17 @@ bool UIPanel_PlaceRuntimeMeshAsSceneInstance(const char* runtime_mesh_path) {
     transform = Layout_Transform3D_Default();
     {
         float auto_scale = 1.0f;
-        if (UIPanel_ResolveRuntimeMeshAutoScale(&state->layout, resolved_path, &auto_scale) &&
+        if (UIPanel_ResolveRuntimeMeshAutoScale(&state->layout,
+                                                resolved_path,
+                                                allow_scale_up,
+                                                &auto_scale) &&
             auto_scale > 0.0f &&
-            auto_scale < 1.0f) {
+            fabsf(auto_scale - 1.0f) > 1e-4f) {
             transform.scale = (Vec3){ auto_scale, auto_scale, auto_scale };
         }
     }
-    if (Layout_ConstructionPlane3D_IsValid(&state->layout.scene3d.constructionPlane)) {
+    if (!place_at_origin &&
+        Layout_ConstructionPlane3D_IsValid(&state->layout.scene3d.constructionPlane)) {
         const ConstructionPlane3D* plane = &state->layout.scene3d.constructionPlane;
         if (plane->mode == CONSTRUCTION_PLANE_MODE_CUSTOM_FRAME) {
             transform.position = plane->customFrame.origin;
@@ -869,6 +1009,15 @@ bool UIPanel_PlaceRuntimeMeshAsSceneInstance(const char* runtime_mesh_path) {
                                                         sizeof(diagnostics))) {
         SDL_Log("[UI] Mesh placement failed: %s",
                 diagnostics[0] ? diagnostics : "unknown error");
+        {
+            char status[160];
+            snprintf(status,
+                     sizeof(status),
+                     "Mesh placement failed: %s",
+                     diagnostics[0] ? diagnostics : "unknown error");
+            Global_SetObjectRuntimeMeshStatus(status);
+            UIPanel_SetFilePaneActionStatus(status);
+        }
         return false;
     }
 
@@ -880,19 +1029,17 @@ bool UIPanel_PlaceRuntimeMeshAsSceneInstance(const char* runtime_mesh_path) {
     state->editor.selectedWallIndex = -1;
     state->editor.selectedHandleAnchor = -1;
     state->editor.selectedHandleComponent = -1;
-    snprintf(state->lastObjectRuntimeMeshPath,
-             sizeof(state->lastObjectRuntimeMeshPath),
-             "%s",
-             resolved_path);
-    snprintf(state->objectRuntimeMeshStatus,
-             sizeof(state->objectRuntimeMeshStatus),
-             "Mesh placed: %s",
-             resolved_path);
+    snprintf(diagnostics, sizeof(diagnostics), "Mesh placed: %s", resolved_path);
+    Global_RecordObjectRuntimeMeshResult(resolved_path, diagnostics);
     Global_FlagHitboxesDirty();
     SDL_Log("[UI] Placed mesh asset instance id=%u from %s",
             object_id,
             resolved_path);
     return true;
+}
+
+bool UIPanel_PlaceRuntimeMeshAsSceneInstance(const char* runtime_mesh_path) {
+    return UIPanel_PlaceRuntimeMeshAsSceneInstanceWithOptions(runtime_mesh_path, false, false);
 }
 
 bool UIPanel_ImportStlAndPlaceFromPath(const char* stl_path) {
@@ -908,12 +1055,14 @@ bool UIPanel_ImportStlAndPlaceFromPath(const char* stl_path) {
     runtime_path[0] = '\0';
     if (!state || !stl_path || !stl_path[0]) return false;
     if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
-        UIPanel_SetObjectRuntimeMeshStatus(state, "STL import failed: switch to scene mode.");
+        Global_SetObjectRuntimeMeshStatus("STL import failed: switch to scene mode.");
+        UIPanel_SetFilePaneActionStatus("STL import failed: switch to scene mode.");
         SDL_Log("[UI] STL import placement is scene-mode only for this slice.");
         return false;
     }
     if (!asset_root || !asset_root[0]) {
-        UIPanel_SetObjectRuntimeMeshStatus(state, "STL import failed: object asset root is unset.");
+        Global_SetObjectRuntimeMeshStatus("STL import failed: object asset root is unset.");
+        UIPanel_SetFilePaneActionStatus("STL import failed: object asset root is unset.");
         SDL_Log("[UI] STL import failed: object asset root is unset.");
         return false;
     }
@@ -931,44 +1080,56 @@ bool UIPanel_ImportStlAndPlaceFromPath(const char* stl_path) {
                  sizeof(status),
                  "STL import failed: %s",
                  diagnostics[0] ? diagnostics : "import error");
-        UIPanel_SetObjectRuntimeMeshStatus(state, status);
+        Global_SetObjectRuntimeMeshStatus(status);
+        UIPanel_SetFilePaneActionStatus(status);
         SDL_Log("[UI] STL import failed for %s: %s",
                 stl_path,
                 diagnostics[0] ? diagnostics : "unknown error");
         return false;
     }
 
-    placed = UIPanel_PlaceRuntimeMeshAsSceneInstance(runtime_path);
-    if (placed) {
-        if (state->editor.selectedObject3DId != 0u) {
-            (void)Layout_FitSceneBounds3DToObject(&state->layout,
-                                                  state->editor.selectedObject3DId,
-                                                  kImportedStlSceneBoundsPadding);
-        }
-        snprintf(state->objectRuntimeMeshStatus,
-                 sizeof(state->objectRuntimeMeshStatus),
-                 "STL imported: %s",
-                 runtime_path);
-        SDL_Log("[UI] Imported STL %s to %s and %s",
-                stl_path,
-                authoring_path,
-                runtime_path);
-    }
+    placed = UIPanel_PlaceImportedStlRuntimeMesh(stl_path, authoring_path, runtime_path);
     return placed;
 }
 
-bool UIPanel_PlaceLastRuntimeMeshAsSceneInstance(void) {
+bool UIPanel_PlaceImportedStlRuntimeMesh(const char* stl_path,
+                                         const char* authoring_path,
+                                         const char* runtime_path) {
     GlobalState* state = Global_Get();
+    bool placed = false;
+    if (!state || !stl_path || !stl_path[0] || !runtime_path || !runtime_path[0]) {
+        Global_SetObjectRuntimeMeshStatus("STL import failed: placement path is missing.");
+        UIPanel_SetFilePaneActionStatus("STL import failed: placement path is missing.");
+        return false;
+    }
+    placed = UIPanel_PlaceRuntimeMeshAsSceneInstanceWithOptions(runtime_path, true, true);
+    if (!placed) return false;
+
+    {
+        char status[160];
+        snprintf(status, sizeof(status), "STL imported at origin: %s", runtime_path);
+        Global_RecordObjectRuntimeMeshResult(runtime_path, status);
+    }
+    SDL_Log("[UI] Imported STL %s to %s and %s",
+            stl_path,
+            authoring_path && authoring_path[0] ? authoring_path : "(unknown authoring path)",
+            runtime_path);
+    Global_FlagHitboxesDirty();
+    Global_RebuildHitboxesIfDirty();
+    return true;
+}
+
+bool UIPanel_PlaceLastRuntimeMeshAsSceneInstance(void) {
     char runtime_mesh_path[LINE_DRAWING_PATH_CAP];
-    if (!state) return false;
-    if (state->lastObjectRuntimeMeshPath[0] == '\0') {
+    const char* last_runtime_mesh_path = Global_GetLastObjectRuntimeMeshPath();
+    if (!last_runtime_mesh_path || last_runtime_mesh_path[0] == '\0') {
         SDL_Log("[UI] Mesh placement blocked: export an object runtime mesh first.");
         return false;
     }
     snprintf(runtime_mesh_path,
              sizeof(runtime_mesh_path),
              "%s",
-             state->lastObjectRuntimeMeshPath);
+             last_runtime_mesh_path);
     return UIPanel_PlaceRuntimeMeshAsSceneInstance(runtime_mesh_path);
 }
 

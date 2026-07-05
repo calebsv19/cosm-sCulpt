@@ -1,6 +1,6 @@
 # Line Drawing Future Intent
 
-Last updated: 2026-05-25
+Last updated: 2026-06-09
 
 ## Scaffold Alignment Intent
 1. Keep existing 2D/3D parity behavior unchanged while normalizing scaffold contracts.
@@ -134,14 +134,23 @@ Last updated: 2026-05-25
   - invalid/missing roots are corrected to defaults and persisted
 - future work should add behavior on top of this contract instead of replacing it ad hoc.
 
-## Current Maintain-Only Direction
-- `line_drawing` should stay maintain-only on the upstream authoring/export contract.
-- If local work continues here, keep it bounded to:
-  - scene-directory export UX
-  - output-root ergonomics
-  - small validation or test-coverage improvements around `scene_authoring.json` -> `scene_runtime.json`
-- Broader feature expansion should only reopen a new private plan if it materially changes the authoring/export contract instead of polishing the existing one.
-- The editor pane shell is now also in a maintain/polish state rather than a
+## Current Direction
+- The scaffold, wrapper, release, and original authoring/export contract lanes
+  are maintain-only.
+- Broader feature expansion is now intentionally tracked by the active private
+  CAD architecture lane:
+  `../../docs/private_program_docs/line_drawing/active/2026-06-02_sculpt_blender_level_cad_architecture_plan.md`.
+- Current local work should stay bounded to explicit workflow slices:
+  - topbar/menu-bar interaction where the behavior mirrors existing backend
+    commands
+  - scene-directory export UX and output-root clarity
+  - File-pane session/browser ergonomics
+  - object center-gizmo move/rotate/size polish
+  - semantic object-authoring operations when deformation or topology changes
+    are required
+- Avoid adding raw mesh/topology mutation as a UI shortcut. Richer CAD behavior
+  should land through object-authoring operations with tests and diagnostics.
+- The editor pane shell is now in a maintain/polish state rather than a
   structural refactor state:
   - the five-pane tab model is established
   - follow-up UI work should stay usage-driven inside specific panes
@@ -150,6 +159,8 @@ Last updated: 2026-05-25
     - file-pane quick actions
     - richer create presets / staged dimensions
     - deeper object-inspector editing
+    - construction-plane topbar picker/stepper controls
+    - export destination/open-folder feedback
 
 ## Host Split Intent
 - `LD-HS1` complete:

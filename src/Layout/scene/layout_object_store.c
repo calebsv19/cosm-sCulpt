@@ -7,6 +7,45 @@
 static const float kConstructionPlaneEpsilon = 1e-4f;
 static const float kPlanePrimitiveMinSize = 1e-3f;
 static const float kRectPrismPrimitiveMinSize = 1e-3f;
+static const float kDegreesToRadians = 0.017453292519943295f;
+
+static Vec3 RotateXYZDegrees(Vec3 value, Vec3 rotationDeg) {
+    const float rx = rotationDeg.x * kDegreesToRadians;
+    const float ry = rotationDeg.y * kDegreesToRadians;
+    const float rz = rotationDeg.z * kDegreesToRadians;
+    const float cx = cosf(rx);
+    const float sx = sinf(rx);
+    const float cy = cosf(ry);
+    const float sy = sinf(ry);
+    const float cz = cosf(rz);
+    const float sz = sinf(rz);
+    Vec3 r = value;
+    Vec3 tmp = r;
+
+    tmp.y = r.y * cx - r.z * sx;
+    tmp.z = r.y * sx + r.z * cx;
+    r = tmp;
+
+    tmp = r;
+    tmp.x = r.x * cy + r.z * sy;
+    tmp.z = -r.x * sy + r.z * cy;
+    r = tmp;
+
+    tmp = r;
+    tmp.x = r.x * cz - r.y * sz;
+    tmp.y = r.x * sz + r.y * cz;
+    return tmp;
+}
+
+Vec3 Layout_Transform3D_ApplyLocalPoint(Transform3D transform, Vec3 localPoint) {
+    Vec3 scaled = {
+        localPoint.x * transform.scale.x,
+        localPoint.y * transform.scale.y,
+        localPoint.z * transform.scale.z
+    };
+    Vec3 rotated = RotateXYZDegrees(scaled, transform.rotationDeg);
+    return Vec3_Add(rotated, transform.position);
+}
 
 static bool PlaneFrame_IsValid(const PlaneFrame3* frame) {
     if (!frame) return false;
@@ -177,8 +216,6 @@ bool Layout_Object3D_ComputeMeshInstanceCorners(const Object3D* object, Vec3 out
 
     const Vec3 min = object->meshInstance.localBoundsMin;
     const Vec3 max = object->meshInstance.localBoundsMax;
-    const Vec3 scale = object->transform.scale;
-    const Vec3 position = object->transform.position;
     const Vec3 local[8] = {
         { min.x, min.y, min.z }, { max.x, min.y, min.z },
         { max.x, max.y, min.z }, { min.x, max.y, min.z },
@@ -186,11 +223,7 @@ bool Layout_Object3D_ComputeMeshInstanceCorners(const Object3D* object, Vec3 out
         { max.x, max.y, max.z }, { min.x, max.y, max.z }
     };
     for (size_t i = 0u; i < 8u; ++i) {
-        outCorners[i] = (Vec3){
-            .x = position.x + (local[i].x * scale.x),
-            .y = position.y + (local[i].y * scale.y),
-            .z = position.z + (local[i].z * scale.z)
-        };
+        outCorners[i] = Layout_Transform3D_ApplyLocalPoint(object->transform, local[i]);
     }
     return true;
 }
@@ -204,13 +237,7 @@ bool Layout_Object3D_ComputeVisualCenter(const Object3D* object, Vec3* outCenter
         const Vec3 min = object->meshInstance.localBoundsMin;
         const Vec3 max = object->meshInstance.localBoundsMax;
         const Vec3 localCenter = Vec3_Scale(Vec3_Add(min, max), 0.5f);
-        const Vec3 scale = object->transform.scale;
-        const Vec3 position = object->transform.position;
-        *outCenter = (Vec3){
-            .x = position.x + (localCenter.x * scale.x),
-            .y = position.y + (localCenter.y * scale.y),
-            .z = position.z + (localCenter.z * scale.z)
-        };
+        *outCenter = Layout_Transform3D_ApplyLocalPoint(object->transform, localCenter);
         return true;
     }
 
