@@ -630,7 +630,7 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
             if (isExpanded) {
                 char detail0[192];
                 char detail1[192];
-                char detail2[192];
+                char detail2[4096];
                 int detailY = rowRect.y + UIPanelSceneList_RowHeight() + metrics.section_gap;
                 SDL_Color detailColor = valueColor;
                 SDL_Color detailMuted = labelColor;
