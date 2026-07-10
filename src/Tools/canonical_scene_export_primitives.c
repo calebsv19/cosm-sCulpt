@@ -9,20 +9,20 @@ static const float kFramingBoundsMinPadding = 0.25f;
 static const float kFramingBoundsFallbackHalfExtent = 1.0f;
 
 static float scene_length_max3(
-    float a [[fisics::dim(length)]] [[fisics::unit(meter)]],
-    float b [[fisics::dim(length)]] [[fisics::unit(meter)]],
-    float c [[fisics::dim(length)]] [[fisics::unit(meter)]]) {
-    float out [[fisics::dim(length)]] [[fisics::unit(meter)]] = a;
+    float a,
+    float b,
+    float c) {
+    float out = a;
     if (b > out) out = b;
     if (c > out) out = c;
     return out;
 }
 
 static float scene_length_padding_from_span(
-    float max_dim [[fisics::dim(length)]] [[fisics::unit(meter)]]) {
-    float ratio_padding [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+    float max_dim) {
+    float ratio_padding =
         max_dim * kFramingBoundsPaddingRatio;
-    float min_padding [[fisics::dim(length)]] [[fisics::unit(meter)]] = kFramingBoundsMinPadding;
+    float min_padding = kFramingBoundsMinPadding;
     return fmaxf(ratio_padding, min_padding);
 }
 
@@ -210,9 +210,9 @@ bool LineDrawingCanonicalScene_AddCanonicalPrimitivePayload(cJSON* object_json, 
     core_scene_object_contract_init(&contract);
     contract.object = object->coreMeta;
     if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
-        float width [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->rectPrism.width;
-        float height [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->rectPrism.height;
-        float depth [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->rectPrism.depth;
+        float width = object->rectPrism.width;
+        float height = object->rectPrism.height;
+        float depth = object->rectPrism.depth;
         contract.kind = CORE_SCENE_OBJECT_KIND_RECT_PRISM_PRIMITIVE;
         contract.has_rect_prism_primitive = true;
         contract.rect_prism_primitive.width = width;
@@ -222,8 +222,8 @@ bool LineDrawingCanonicalScene_AddCanonicalPrimitivePayload(cJSON* object_json, 
         contract.rect_prism_primitive.lock_to_bounds = object->rectPrism.lockToBounds;
         core_scene_frame_from_plane_frame(&contract.rect_prism_primitive.frame, &object->rectPrism.frame);
     } else {
-        float width [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->plane.width;
-        float height [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->plane.height;
+        float width = object->plane.width;
+        float height = object->plane.height;
         contract.kind = CORE_SCENE_OBJECT_KIND_PLANE_PRIMITIVE;
         contract.object.dimensional_mode = CORE_OBJECT_DIMENSIONAL_MODE_PLANE_LOCKED;
         contract.object.locked_plane = object->coreMeta.locked_plane;
@@ -287,11 +287,11 @@ bool LineDrawingCanonicalScene_ComputeFramingBounds(const Layout* layout, SceneB
 
     if (!has_points) {
         const Vec3 center = construction_plane_origin(&layout->scene3d.constructionPlane);
-        float fallback_half_extent [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+        float fallback_half_extent =
             kFramingBoundsFallbackHalfExtent;
-        float center_x [[fisics::dim(length)]] [[fisics::unit(meter)]] = center.x;
-        float center_y [[fisics::dim(length)]] [[fisics::unit(meter)]] = center.y;
-        float center_z [[fisics::dim(length)]] [[fisics::unit(meter)]] = center.z;
+        float center_x = center.x;
+        float center_y = center.y;
+        float center_z = center.z;
         bounds.enabled = true;
         bounds.clampOnEdit = layout->scene3d.bounds.clampOnEdit;
         bounds.min = (Vec3){ center_x - fallback_half_extent,
@@ -306,19 +306,19 @@ bool LineDrawingCanonicalScene_ComputeFramingBounds(const Layout* layout, SceneB
 
     {
         const Vec3 span = Vec3_Sub(bounds.max, bounds.min);
-        float span_x [[fisics::dim(length)]] [[fisics::unit(meter)]] = span.x;
-        float span_y [[fisics::dim(length)]] [[fisics::unit(meter)]] = span.y;
-        float span_z [[fisics::dim(length)]] [[fisics::unit(meter)]] = span.z;
-        float max_dim [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+        float span_x = span.x;
+        float span_y = span.y;
+        float span_z = span.z;
+        float max_dim =
             scene_length_max3(span_x, span_y, span_z);
-        float padding [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+        float padding =
             scene_length_padding_from_span(max_dim);
-        float min_x [[fisics::dim(length)]] [[fisics::unit(meter)]] = bounds.min.x;
-        float min_y [[fisics::dim(length)]] [[fisics::unit(meter)]] = bounds.min.y;
-        float min_z [[fisics::dim(length)]] [[fisics::unit(meter)]] = bounds.min.z;
-        float max_x [[fisics::dim(length)]] [[fisics::unit(meter)]] = bounds.max.x;
-        float max_y [[fisics::dim(length)]] [[fisics::unit(meter)]] = bounds.max.y;
-        float max_z [[fisics::dim(length)]] [[fisics::unit(meter)]] = bounds.max.z;
+        float min_x = bounds.min.x;
+        float min_y = bounds.min.y;
+        float min_z = bounds.min.z;
+        float max_x = bounds.max.x;
+        float max_y = bounds.max.y;
+        float max_z = bounds.max.z;
         bounds.enabled = true;
         bounds.clampOnEdit = layout->scene3d.bounds.clampOnEdit;
         bounds.min = (Vec3){ min_x - padding, min_y - padding, min_z - padding };
@@ -513,9 +513,9 @@ bool LineDrawingCanonicalScene_AddPrimitiveExtensionPayload(cJSON* object_extens
         cJSON_AddItemToObject(line_drawing_ext, "primitive_payload", primitive);
     }
     if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
-        float width [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->rectPrism.width;
-        float height [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->rectPrism.height;
-        float depth [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->rectPrism.depth;
+        float width = object->rectPrism.width;
+        float height = object->rectPrism.height;
+        float depth = object->rectPrism.depth;
         cJSON_AddNumberToObject(primitive, "width", width);
         cJSON_AddNumberToObject(primitive, "height", height);
         cJSON_AddNumberToObject(primitive, "depth", depth);
@@ -523,8 +523,8 @@ bool LineDrawingCanonicalScene_AddPrimitiveExtensionPayload(cJSON* object_extens
         cJSON_AddBoolToObject(primitive, "lock_to_bounds", object->rectPrism.lockToBounds);
         if (!add_plane_frame_item(primitive, "frame", &object->rectPrism.frame)) return false;
     } else {
-        float width [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->plane.width;
-        float height [[fisics::dim(length)]] [[fisics::unit(meter)]] = object->plane.height;
+        float width = object->plane.width;
+        float height = object->plane.height;
         cJSON_AddNumberToObject(primitive, "width", width);
         cJSON_AddNumberToObject(primitive, "height", height);
         cJSON_AddBoolToObject(primitive, "lock_to_construction_plane", object->plane.lockToConstructionPlane);

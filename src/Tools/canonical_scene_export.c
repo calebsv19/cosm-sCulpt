@@ -935,18 +935,12 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON* light = cJSON_CreateObject();
         cJSON* light_transform = cJSON_CreateObject();
         cJSON* light_position = cJSON_CreateObject();
-        float scene_focus_x [[fisics::dim(length)]]
-                           [[fisics::unit(meter)]] = scene_focus.x;
-        float scene_focus_y [[fisics::dim(length)]]
-                           [[fisics::unit(meter)]] = scene_focus.y;
-        float scene_focus_z [[fisics::dim(length)]]
-                           [[fisics::unit(meter)]] = scene_focus.z;
-        float light_offset_x [[fisics::dim(length)]]
-                            [[fisics::unit(meter)]] = 3.0f;
-        float light_offset_y [[fisics::dim(length)]]
-                            [[fisics::unit(meter)]] = 4.0f;
-        float light_offset_z [[fisics::dim(length)]]
-                            [[fisics::unit(meter)]] = is_3d ? 5.0f : 2.0f;
+        float scene_focus_x = scene_focus.x;
+        float scene_focus_y = scene_focus.y;
+        float scene_focus_z = scene_focus.z;
+        float light_offset_x = 3.0f;
+        float light_offset_y = 4.0f;
+        float light_offset_z = is_3d ? 5.0f : 2.0f;
         if (!light || !light_transform || !light_position) {
             cJSON_Delete(root);
             return NULL;
@@ -965,14 +959,10 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON* camera = cJSON_CreateObject();
         cJSON* camera_transform = cJSON_CreateObject();
         cJSON* camera_position = cJSON_CreateObject();
-        float scene_focus_x [[fisics::dim(length)]]
-                           [[fisics::unit(meter)]] = scene_focus.x;
-        float scene_focus_y [[fisics::dim(length)]]
-                           [[fisics::unit(meter)]] = scene_focus.y;
-        float scene_focus_z [[fisics::dim(length)]]
-                           [[fisics::unit(meter)]] = scene_focus.z;
-        float camera_offset_z [[fisics::dim(length)]]
-                             [[fisics::unit(meter)]] = is_3d ? 8.0f : 3.0f;
+        float scene_focus_x = scene_focus.x;
+        float scene_focus_y = scene_focus.y;
+        float scene_focus_z = scene_focus.z;
+        float camera_offset_z = is_3d ? 8.0f : 3.0f;
         if (!camera || !camera_transform || !camera_position) {
             cJSON_Delete(root);
             return NULL;
