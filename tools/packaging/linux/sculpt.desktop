@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=sCulpt
+Comment=Line drawing and scene authoring workspace
+Exec=bin/line-drawing-launcher
+Icon=sculpt
+Terminal=false
+Categories=Graphics;2DGraphics;
+StartupNotify=true

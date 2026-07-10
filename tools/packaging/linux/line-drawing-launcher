@@ -1,0 +1,116 @@
+#!/usr/bin/env sh
+set -eu
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+PACKAGE_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+RES_DIR="$PACKAGE_ROOT/resources"
+
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+RUNTIME_DIR_DEFAULT="$DATA_HOME/LineDrawing/runtime"
+RUNTIME_DIR="${LINE_DRAWING_RUNTIME_DIR:-$RUNTIME_DIR_DEFAULT}"
+LOG_DIR_DEFAULT="$STATE_HOME/LineDrawing/logs"
+LOG_DIR="${LINE_DRAWING_LOG_DIR:-$LOG_DIR_DEFAULT}"
+LOG_FILE="$LOG_DIR/package_launcher.log"
+
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+if ! touch "$LOG_FILE" 2>/dev/null; then
+    LOG_DIR="${TMPDIR:-/tmp}/LineDrawing/logs"
+    LOG_FILE="$LOG_DIR/package_launcher.log"
+    mkdir -p "$LOG_DIR" 2>/dev/null || true
+    touch "$LOG_FILE" 2>/dev/null || true
+fi
+
+copy_lane_once() {
+    lane="$1"
+    source="$RES_DIR/$lane"
+    target="$RUNTIME_DIR/$lane"
+    if [ -L "$target" ] || [ -e "$target" ]; then
+        return 0
+    fi
+    if [ -e "$source" ]; then
+        mkdir -p "$(dirname "$target")"
+        cp -R "$source" "$target"
+    fi
+}
+
+setup_runtime_root() {
+    mkdir -p "$RUNTIME_DIR" 2>/dev/null || true
+    if [ ! -d "$RUNTIME_DIR" ]; then
+        RUNTIME_DIR="${TMPDIR:-/tmp}/LineDrawing/runtime"
+        mkdir -p "$RUNTIME_DIR" 2>/dev/null || true
+    fi
+    if [ ! -d "$RUNTIME_DIR" ]; then
+        echo "failed to create writable runtime directory" >&2
+        exit 1
+    fi
+
+    mkdir -p "$RUNTIME_DIR/data/runtime" "$RUNTIME_DIR/data/snapshots" "$RUNTIME_DIR/export"
+    copy_lane_once config
+    copy_lane_once include
+    copy_lane_once shared
+    copy_lane_once shaders
+    copy_lane_once vk_renderer
+}
+
+setup_runtime_root
+
+export LINE_DRAWING_RUNTIME_DIR="$RUNTIME_DIR"
+export VK_RENDERER_SHADER_ROOT="${VK_RENDERER_SHADER_ROOT:-$RUNTIME_DIR/vk_renderer}"
+export SHAPE_ASSET_DIR="${SHAPE_ASSET_DIR:-$RUNTIME_DIR/export}"
+export LINE_DRAWING3D_USE_SHARED_THEME="${LINE_DRAWING3D_USE_SHARED_THEME:-1}"
+export LINE_DRAWING3D_USE_SHARED_THEME_FONT="${LINE_DRAWING3D_USE_SHARED_THEME_FONT:-1}"
+export LINE_DRAWING3D_USE_SHARED_FONT="${LINE_DRAWING3D_USE_SHARED_FONT:-1}"
+export LINE_DRAWING3D_FONT_PRESET="${LINE_DRAWING3D_FONT_PRESET:-ide}"
+
+print_launcher_config() {
+    echo "PACKAGE_ROOT=$PACKAGE_ROOT"
+    echo "RES_DIR=$RES_DIR"
+    echo "LOG_FILE=$LOG_FILE"
+    echo "LINE_DRAWING_RUNTIME_DIR=$LINE_DRAWING_RUNTIME_DIR"
+    echo "VK_RENDERER_SHADER_ROOT=$VK_RENDERER_SHADER_ROOT"
+    echo "SHAPE_ASSET_DIR=$SHAPE_ASSET_DIR"
+    echo "LINE_DRAWING3D_USE_SHARED_THEME=$LINE_DRAWING3D_USE_SHARED_THEME"
+    echo "LINE_DRAWING3D_USE_SHARED_THEME_FONT=$LINE_DRAWING3D_USE_SHARED_THEME_FONT"
+    echo "LINE_DRAWING3D_USE_SHARED_FONT=$LINE_DRAWING3D_USE_SHARED_FONT"
+    echo "LINE_DRAWING3D_FONT_PRESET=$LINE_DRAWING3D_FONT_PRESET"
+}
+
+self_test_fail() {
+    echo "self-test: failed: $1" >&2
+    echo "self-test: diagnostic config follows" >&2
+    print_launcher_config >&2
+    exit 1
+}
+
+if [ "${1:-}" = "--print-config" ]; then
+    print_launcher_config
+    exit 0
+fi
+
+if [ "${1:-}" = "--self-test" ]; then
+    [ -x "$SCRIPT_DIR/line-drawing-bin" ] || self_test_fail "missing: line-drawing-bin"
+    [ -f "$RUNTIME_DIR/config/layout_config.json" ] || self_test_fail "missing: config/layout_config.json"
+    [ -f "$RUNTIME_DIR/include/fonts/Lato/Lato-Regular.ttf" ] || self_test_fail "missing: include/fonts/Lato/Lato-Regular.ttf"
+    [ -f "$RUNTIME_DIR/shared/assets/fonts/Montserrat-Regular.ttf" ] || self_test_fail "missing: shared/assets/fonts/Montserrat-Regular.ttf"
+    [ -d "$RUNTIME_DIR/data/runtime" ] || self_test_fail "missing: data/runtime"
+    [ -d "$RUNTIME_DIR/data/snapshots" ] || self_test_fail "missing: data/snapshots"
+    [ -d "$RUNTIME_DIR/export" ] || self_test_fail "missing: export"
+    [ -f "$RUNTIME_DIR/vk_renderer/shaders/textured.vert.spv" ] || self_test_fail "missing: vk_renderer shader"
+    [ -f "$RUNTIME_DIR/shaders/textured.vert.spv" ] || self_test_fail "missing: runtime shader"
+    echo "self-test: ok"
+    echo "LOG_FILE=$LOG_FILE"
+    echo "LINE_DRAWING_RUNTIME_DIR=$LINE_DRAWING_RUNTIME_DIR"
+    echo "VK_RENDERER_SHADER_ROOT=$VK_RENDERER_SHADER_ROOT"
+    echo "SHAPE_ASSET_DIR=$SHAPE_ASSET_DIR"
+    echo "LINE_DRAWING3D_FONT_PRESET=$LINE_DRAWING3D_FONT_PRESET"
+    exit 0
+fi
+
+cd "$RUNTIME_DIR"
+printf '%s launch begin pid=%s cwd=%s runtime=%s shader_root=%s shape_asset_dir=%s args=%s\n' \
+    "$(date '+%Y-%m-%d %H:%M:%S')" "$$" "$RUNTIME_DIR" "$LINE_DRAWING_RUNTIME_DIR" "$VK_RENDERER_SHADER_ROOT" "$SHAPE_ASSET_DIR" "$*" >>"$LOG_FILE" 2>/dev/null || true
+"$SCRIPT_DIR/line-drawing-bin" "$@" >>"$LOG_FILE" 2>&1
+status=$?
+printf '%s launch end pid=%s status=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$$" "$status" >>"$LOG_FILE" 2>/dev/null || true
+exit "$status"
