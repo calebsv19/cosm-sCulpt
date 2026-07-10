@@ -21,6 +21,39 @@ typedef struct LineDrawingRootBrowserCandidate {
     char preview_path[MAX_CONFIG_PATH];
 } LineDrawingRootBrowserCandidate;
 
+static void line_drawing_root_browser_copy_text(char* dst, size_t dst_size, const char* src) {
+    size_t len = 0u;
+    if (!dst || dst_size == 0u) return;
+    if (!src) src = "";
+    len = strlen(src);
+    if (len >= dst_size) {
+        len = dst_size - 1u;
+    }
+    if (len > 0u) {
+        memcpy(dst, src, len);
+    }
+    dst[len] = '\0';
+}
+
+static void line_drawing_root_browser_append_text(char* dst, size_t dst_size, const char* src) {
+    size_t used = 0u;
+    size_t remaining = 0u;
+    if (!dst || dst_size == 0u || !src || !src[0]) return;
+    used = strlen(dst);
+    if (used >= dst_size - 1u) return;
+    remaining = dst_size - used;
+    line_drawing_root_browser_copy_text(dst + used, remaining, src);
+}
+
+static void line_drawing_root_browser_join_label(char* dst,
+                                                 size_t dst_size,
+                                                 const char* left,
+                                                 const char* right) {
+    line_drawing_root_browser_copy_text(dst, dst_size, left);
+    line_drawing_root_browser_append_text(dst, dst_size, "/");
+    line_drawing_root_browser_append_text(dst, dst_size, right);
+}
+
 static bool line_drawing_root_browser_is_scene_authoring_name(const char* name) {
     return name && strcasecmp(name, LineDrawingFileCatalog_SceneAuthoringFilename()) == 0;
 }
@@ -227,10 +260,10 @@ static bool line_drawing_root_browser_add_entry(LineDrawingRootBrowser* browser,
     entry->enabled = enabled;
     entry->score = score;
     entry->preview_kind = preview_kind;
-    snprintf(entry->label, sizeof(entry->label), "%s", label ? label : "");
-    snprintf(entry->description, sizeof(entry->description), "%s", description ? description : "");
-    snprintf(entry->path, sizeof(entry->path), "%s", path ? path : "");
-    snprintf(entry->preview_path, sizeof(entry->preview_path), "%s", preview_path ? preview_path : "");
+    line_drawing_root_browser_copy_text(entry->label, sizeof(entry->label), label);
+    line_drawing_root_browser_copy_text(entry->description, sizeof(entry->description), description);
+    line_drawing_root_browser_copy_text(entry->path, sizeof(entry->path), path);
+    line_drawing_root_browser_copy_text(entry->preview_path, sizeof(entry->preview_path), preview_path);
     return true;
 }
 
@@ -251,33 +284,31 @@ static void line_drawing_root_browser_add_candidate(LineDrawingRootBrowserCandid
             if (score > candidates[i].score) {
                 candidates[i].score = score;
                 candidates[i].preview_kind = preview_kind;
-                snprintf(candidates[i].label, sizeof(candidates[i].label), "%s", label);
-                snprintf(candidates[i].description,
-                         sizeof(candidates[i].description),
-                         "%s",
-                         description ? description : "");
-                snprintf(candidates[i].preview_path,
-                         sizeof(candidates[i].preview_path),
-                         "%s",
-                         preview_path ? preview_path : "");
+                line_drawing_root_browser_copy_text(candidates[i].label,
+                                                    sizeof(candidates[i].label),
+                                                    label);
+                line_drawing_root_browser_copy_text(candidates[i].description,
+                                                    sizeof(candidates[i].description),
+                                                    description);
+                line_drawing_root_browser_copy_text(candidates[i].preview_path,
+                                                    sizeof(candidates[i].preview_path),
+                                                    preview_path);
             }
             return;
         }
     }
 
     if (*count >= LINE_DRAWING_ROOT_BROWSER_MAX_CANDIDATES) return;
-    snprintf(candidates[*count].path, sizeof(candidates[*count].path), "%s", path);
-    snprintf(candidates[*count].label, sizeof(candidates[*count].label), "%s", label);
-    snprintf(candidates[*count].description,
-             sizeof(candidates[*count].description),
-             "%s",
-             description ? description : "");
+    line_drawing_root_browser_copy_text(candidates[*count].path, sizeof(candidates[*count].path), path);
+    line_drawing_root_browser_copy_text(candidates[*count].label, sizeof(candidates[*count].label), label);
+    line_drawing_root_browser_copy_text(candidates[*count].description,
+                                        sizeof(candidates[*count].description),
+                                        description);
     candidates[*count].score = score;
     candidates[*count].preview_kind = preview_kind;
-    snprintf(candidates[*count].preview_path,
-             sizeof(candidates[*count].preview_path),
-             "%s",
-             preview_path ? preview_path : "");
+    line_drawing_root_browser_copy_text(candidates[*count].preview_path,
+                                        sizeof(candidates[*count].preview_path),
+                                        preview_path);
     *count += 1;
 }
 
@@ -312,7 +343,8 @@ static void line_drawing_root_browser_scan_siblings(LineDrawingRootBrowserCandid
     if (!dir) return;
     while ((entry = readdir(dir)) != NULL) {
         char child_path[MAX_CONFIG_PATH];
-        char description[160];
+        char description[320];
+        char base_description[160];
         char preview_path[MAX_CONFIG_PATH] = {0};
         LineDrawingCatalogPreviewSourceKind preview_kind =
             LINE_DRAWING_CATALOG_PREVIEW_SOURCE_LAYOUT;
@@ -332,6 +364,7 @@ static void line_drawing_root_browser_scan_siblings(LineDrawingRootBrowserCandid
                                                           description,
                                                           sizeof(description));
         if (score <= 0) continue;
+        line_drawing_root_browser_copy_text(base_description, sizeof(base_description), description);
         (void)line_drawing_root_browser_resolve_preview_target(child_path,
                                                                &preview_kind,
                                                                preview_path,
@@ -340,7 +373,7 @@ static void line_drawing_root_browser_scan_siblings(LineDrawingRootBrowserCandid
         snprintf(description,
                  sizeof(description),
                  "Sibling branch: %s",
-                 description[0] ? description : "nearby directory");
+                 base_description[0] ? base_description : "nearby directory");
         line_drawing_root_browser_add_candidate(candidates,
                                                 count,
                                                 child_path,
@@ -364,7 +397,8 @@ static void line_drawing_root_browser_scan_children(LineDrawingRootBrowserCandid
     if (!dir) return;
     while ((entry = readdir(dir)) != NULL) {
         char child_path[MAX_CONFIG_PATH];
-        char description[160];
+        char description[320];
+        char base_description[160];
         char preview_path[MAX_CONFIG_PATH] = {0};
         LineDrawingCatalogPreviewSourceKind preview_kind =
             LINE_DRAWING_CATALOG_PREVIEW_SOURCE_LAYOUT;
@@ -383,6 +417,7 @@ static void line_drawing_root_browser_scan_children(LineDrawingRootBrowserCandid
                                                           description,
                                                           sizeof(description));
         if (score <= 0) continue;
+        line_drawing_root_browser_copy_text(base_description, sizeof(base_description), description);
         (void)line_drawing_root_browser_resolve_preview_target(child_path,
                                                                &preview_kind,
                                                                preview_path,
@@ -391,7 +426,7 @@ static void line_drawing_root_browser_scan_children(LineDrawingRootBrowserCandid
         snprintf(description,
                  sizeof(description),
                  "Child branch: %s",
-                 description[0] ? description : "nearby directory");
+                 base_description[0] ? base_description : "nearby directory");
         line_drawing_root_browser_add_candidate(candidates,
                                                 count,
                                                 child_path,
@@ -433,8 +468,9 @@ static void line_drawing_root_browser_scan_cousins(LineDrawingRootBrowserCandida
         if (!child_dir) continue;
         while ((child_entry = readdir(child_dir)) != NULL) {
             char child_path[MAX_CONFIG_PATH];
-            char description[160];
-            char label[128];
+            char description[320];
+            char base_description[160];
+            char label[256];
             char preview_path[MAX_CONFIG_PATH] = {0};
             LineDrawingCatalogPreviewSourceKind preview_kind =
                 LINE_DRAWING_CATALOG_PREVIEW_SOURCE_LAYOUT;
@@ -452,16 +488,20 @@ static void line_drawing_root_browser_scan_cousins(LineDrawingRootBrowserCandida
                                                               description,
                                                               sizeof(description));
             if (score <= 0) continue;
+            line_drawing_root_browser_copy_text(base_description, sizeof(base_description), description);
             (void)line_drawing_root_browser_resolve_preview_target(child_path,
                                                                    &preview_kind,
                                                                    preview_path,
                                                                    sizeof(preview_path));
             score += 12;
-            snprintf(label, sizeof(label), "%s/%s", branch_entry->d_name, child_entry->d_name);
+            line_drawing_root_browser_join_label(label,
+                                                 sizeof(label),
+                                                 branch_entry->d_name,
+                                                 child_entry->d_name);
             snprintf(description,
                      sizeof(description),
                      "Cousin branch: %s",
-                     description[0] ? description : "nearby directory");
+                     base_description[0] ? base_description : "nearby directory");
             line_drawing_root_browser_add_candidate(candidates,
                                                     count,
                                                     child_path,

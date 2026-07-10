@@ -41,7 +41,7 @@ static void line_drawing_host_menu_draw_content(SDL_Renderer* renderer,
                                      layout->list_header_rect.y,
                                      title_color);
     {
-        char summary[192];
+        char summary[640];
         if (state->selected_section == LINE_DRAWING_HOST_MENU_SECTION_BROWSE) {
             snprintf(summary,
                      sizeof(summary),
