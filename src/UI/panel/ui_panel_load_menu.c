@@ -378,7 +378,7 @@ void UIPanel_TickLoadProgress(void) {
         if (placed) {
             UIPanel_EndLoadProgressWithDetail(ui, true, "Import STL finished");
         } else {
-            char detail[160];
+            char detail[320];
             snprintf(detail,
                      sizeof(detail),
                      "STL import failed: %s",
@@ -688,10 +688,10 @@ static void UIPanel_SwapLoadEntries(UIPanelState* ui, int a, int b) {
     if (!ui || a < 0 || b < 0 || a >= ui->loadMenu.count || b >= ui->loadMenu.count) return;
     snprintf(name_tmp, sizeof(name_tmp), "%s", ui->loadMenu.entries[a]);
     snprintf(path_tmp, sizeof(path_tmp), "%s", ui->loadMenu.entryPaths[a]);
-    snprintf(ui->loadMenu.entries[a], sizeof(ui->loadMenu.entries[a]), "%s", ui->loadMenu.entries[b]);
-    snprintf(ui->loadMenu.entryPaths[a], sizeof(ui->loadMenu.entryPaths[a]), "%s", ui->loadMenu.entryPaths[b]);
-    snprintf(ui->loadMenu.entries[b], sizeof(ui->loadMenu.entries[b]), "%s", name_tmp);
-    snprintf(ui->loadMenu.entryPaths[b], sizeof(ui->loadMenu.entryPaths[b]), "%s", path_tmp);
+    memmove(ui->loadMenu.entries[a], ui->loadMenu.entries[b], sizeof(ui->loadMenu.entries[a]));
+    memmove(ui->loadMenu.entryPaths[a], ui->loadMenu.entryPaths[b], sizeof(ui->loadMenu.entryPaths[a]));
+    memmove(ui->loadMenu.entries[b], name_tmp, sizeof(ui->loadMenu.entries[b]));
+    memmove(ui->loadMenu.entryPaths[b], path_tmp, sizeof(ui->loadMenu.entryPaths[b]));
 }
 
 static void UIPanel_AppendCatalogEntries(UIPanelState* ui,
@@ -1347,7 +1347,7 @@ bool UIPanel_LoadObjectAssetFromPath(const char* path) {
             diagnostics[0] ? diagnostics : "",
             diagnostics[0] ? ")" : "");
     {
-        char status[160];
+        char status[320];
         snprintf(status,
                  sizeof(status),
                  "Load asset failed: %s",

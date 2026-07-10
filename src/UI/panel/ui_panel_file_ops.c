@@ -131,6 +131,7 @@ static void SanitizeBuffer(char* buffer) {
     }
 }
 
+#if defined(__APPLE__)
 static void EscapeAppleScriptString(const char* input, char* output, size_t output_size) {
     size_t out_index = 0;
     if (!output || output_size == 0) return;
@@ -147,6 +148,7 @@ static void EscapeAppleScriptString(const char* input, char* output, size_t outp
     }
     output[out_index] = '\0';
 }
+#endif
 
 static void UIPanel_GetDefaultLoadDirectory(char* out_dir, size_t out_dir_size) {
     const char* current_path = Global_GetCurrentConfigPath();
@@ -673,7 +675,7 @@ bool UIPanel_LoadSceneFromPath(const char* path) {
                                                             sizeof(diagnostics))) {
         SDL_Log("[UI] Failed to import scene %s (%s)", path, diagnostics[0] ? diagnostics : "unknown");
         {
-            char status[160];
+            char status[320];
             snprintf(status,
                      sizeof(status),
                      "Load scene failed: %s",
@@ -830,7 +832,7 @@ void UIPanel_ExportScene(void) {
                                                          sizeof(diagnostics))) {
         SDL_Log("[UI] Scene export failed: %s", diagnostics[0] ? diagnostics : "unknown error");
         {
-            char status[160];
+            char status[320];
             snprintf(status,
                      sizeof(status),
                      "Export Scene failed: %s",
@@ -848,12 +850,12 @@ void UIPanel_ExportScene(void) {
     if (!UIPanel_DeriveLayoutHintFromScenePath(export_paths.authoring_path,
                                                layout_hint,
                                                sizeof(layout_hint))) {
-        snprintf(layout_hint, sizeof(layout_hint), "%s", export_paths.authoring_path);
+        snprintf(layout_hint, sizeof(layout_hint), "%.255s", export_paths.authoring_path);
     }
     Global_OnSceneLoaded(export_paths.authoring_path, layout_hint);
     UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_SCENE, export_paths.authoring_path);
     {
-        char status[160];
+        char status[640];
         snprintf(status,
                  sizeof(status),
                  "Export Scene OK -> %s",

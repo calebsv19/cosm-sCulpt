@@ -57,7 +57,7 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     char line_layout_scene[256];
     char line_input[384];
     char line_output[384];
-    char line_status_browser[256];
+    char line_status_browser[640];
     char line_action_hint[320];
     char line_browser_root[384];
 
@@ -119,7 +119,7 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
              state->layoutDirtySinceSave ? "Modified" : "Clean");
     (void)UIPanel_GetFileBrowserStatusText(ui, line_action_hint, sizeof(line_action_hint));
     {
-        char browser_status_line[256];
+        char browser_status_line[512];
         if (!UIPanel_GetFileBrowserStatusText(ui, browser_status_line, sizeof(browser_status_line))) {
             (void)UIPanel_FileStatusWriteMessage(browser_status_line,
                                                  sizeof(browser_status_line),
