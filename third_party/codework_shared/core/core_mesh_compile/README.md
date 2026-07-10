@@ -32,7 +32,7 @@ Shared compile-boundary helpers for the mesh-asset rollout.
 - No long-term scene-envelope ownership (`core_scene` will absorb scene-instance semantics in the next rollout step)
 - No renderer/solver import behavior
 
-## Current Contract (v0.6.5)
+## Current Contract (v0.6.6)
 - Supported geometry-ref kind is exactly:
   - `mesh_asset`
 - Supported staged instance object type is exactly:
@@ -72,6 +72,8 @@ Shared compile-boundary helpers for the mesh-asset rollout.
 
 ## Status
 - Bootstrap staging module created so fixtures and validation can land before `core_scene` integration.
+- v0.6.6 keeps the binary STL size guard warning-clean under strict Linux
+  C11 builds where `size_t` is wider than the 32-bit STL triangle-count field.
 - v0.6.5 raises the bounded imported STL proof ceiling to `3000000`
   triangles so the private high-triangle sidecar lane can run the x3 Stanford
   Dragon upper-range proof while repair, retopo, LOD/streaming, and host UX
