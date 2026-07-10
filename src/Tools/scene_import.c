@@ -239,12 +239,12 @@ static bool scene_bounds_from_json(const cJSON* node, SceneBounds3D* out) {
     if (!vec3_from_json_object(cJSON_GetObjectItemCaseSensitive(node, "min"), &out->min)) return false;
     if (!vec3_from_json_object(cJSON_GetObjectItemCaseSensitive(node, "max"), &out->max)) return false;
     {
-        float min_x [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->min.x;
-        float min_y [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->min.y;
-        float min_z [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->min.z;
-        float max_x [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->max.x;
-        float max_y [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->max.y;
-        float max_z [[fisics::dim(length)]] [[fisics::unit(meter)]] = out->max.z;
+        float min_x = out->min.x;
+        float min_y = out->min.y;
+        float min_z = out->min.z;
+        float max_x = out->max.x;
+        float max_y = out->max.y;
+        float max_z = out->max.z;
         out->min = (Vec3){ min_x, min_y, min_z };
         out->max = (Vec3){ max_x, max_y, max_z };
     }
@@ -382,12 +382,12 @@ static bool import_legacy_scene_object(Layout* layout,
 
     if (kind == OBJECT3D_KIND_PLANE) {
         if (cJSON_IsNumber(width) && width->valuedouble > 0.0) {
-            float scene_width [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+            float scene_width =
                 (float)width->valuedouble;
             object->plane.width = scene_width;
         }
         if (cJSON_IsNumber(height) && height->valuedouble > 0.0) {
-            float scene_height [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+            float scene_height =
                 (float)height->valuedouble;
             object->plane.height = scene_height;
         }
@@ -397,17 +397,17 @@ static bool import_legacy_scene_object(Layout* layout,
         object->plane.frame.origin = object->transform.position;
     } else if (kind == OBJECT3D_KIND_RECT_PRISM) {
         if (cJSON_IsNumber(width) && width->valuedouble > 0.0) {
-            float scene_width [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+            float scene_width =
                 (float)width->valuedouble;
             object->rectPrism.width = scene_width;
         }
         if (cJSON_IsNumber(height) && height->valuedouble > 0.0) {
-            float scene_height [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+            float scene_height =
                 (float)height->valuedouble;
             object->rectPrism.height = scene_height;
         }
         if (cJSON_IsNumber(depth) && depth->valuedouble >= 0.0) {
-            float scene_depth [[fisics::dim(length)]] [[fisics::unit(meter)]] =
+            float scene_depth =
                 (float)depth->valuedouble;
             object->rectPrism.depth = scene_depth;
         }
