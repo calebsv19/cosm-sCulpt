@@ -12,6 +12,37 @@ static const char* k_runtime_mesh_suffix = ".runtime.json";
 static const char* k_stl_suffix = ".stl";
 static const int k_stl_scan_max_depth = 5;
 
+static void line_drawing_file_catalog_copy_text(char* dst, size_t dst_size, const char* src) {
+    size_t len = 0u;
+    if (!dst || dst_size == 0u) return;
+    if (!src) src = "";
+    len = strlen(src);
+    if (len >= dst_size) {
+        len = dst_size - 1u;
+    }
+    if (len > 0u && dst != src) {
+        memcpy(dst, src, len);
+    }
+    dst[len] = '\0';
+}
+
+static void line_drawing_file_catalog_append_text(char* dst, size_t dst_size, const char* src) {
+    size_t used = 0u;
+    if (!dst || dst_size == 0u || !src || !src[0]) return;
+    used = strlen(dst);
+    if (used >= dst_size - 1u) return;
+    line_drawing_file_catalog_copy_text(dst + used, dst_size - used, src);
+}
+
+static void line_drawing_file_catalog_join_label(char* dst,
+                                                 size_t dst_size,
+                                                 const char* left,
+                                                 const char* right) {
+    line_drawing_file_catalog_copy_text(dst, dst_size, left);
+    line_drawing_file_catalog_append_text(dst, dst_size, "/");
+    line_drawing_file_catalog_append_text(dst, dst_size, right);
+}
+
 const char* LineDrawingFileCatalog_SceneAuthoringFilename(void) {
     return k_scene_authoring_filename;
 }
@@ -454,9 +485,12 @@ static void line_drawing_file_catalog_scan_stl_tree(LineDrawingFileCatalogEntry*
         }
         if (!LineDrawingFileCatalog_PathIsDirectory(child_path)) continue;
         if (relative_group && relative_group[0]) {
-            snprintf(child_group, sizeof(child_group), "%s/%s", relative_group, name);
+            line_drawing_file_catalog_join_label(child_group,
+                                                 sizeof(child_group),
+                                                 relative_group,
+                                                 name);
         } else {
-            snprintf(child_group, sizeof(child_group), "%s", name);
+            line_drawing_file_catalog_copy_text(child_group, sizeof(child_group), name);
         }
         line_drawing_file_catalog_scan_stl_tree(entries,
                                                 count,

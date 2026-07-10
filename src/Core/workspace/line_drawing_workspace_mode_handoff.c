@@ -25,12 +25,17 @@ static char* WorkspaceHandoff_DupString(const char* text) {
 }
 
 static void WorkspaceHandoff_SetPath(char* dst, size_t dst_size, const char* src) {
+    size_t len = 0u;
     if (!dst || dst_size == 0u) return;
-    if (!src || !src[0]) {
-        dst[0] = '\0';
-        return;
+    if (!src) src = "";
+    len = strlen(src);
+    if (len >= dst_size) {
+        len = dst_size - 1u;
     }
-    snprintf(dst, dst_size, "%s", src);
+    if (len > 0u && dst != src) {
+        memcpy(dst, src, len);
+    }
+    dst[len] = '\0';
 }
 
 static bool WorkspaceHandoff_PathIsRegularFile(const char* path) {
@@ -513,10 +518,9 @@ static void WorkspaceHandoff_RefreshSceneMeshInstanceFromObjectWorkspace(
     object = Layout_ObjectStore_Find(&state->layout.objectStore,
                                      source_scene_object_id);
     if (!object || object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) return;
-    snprintf(runtime_path,
-             sizeof(runtime_path),
-             "%s",
-             object->meshInstance.runtimePath);
+    WorkspaceHandoff_SetPath(runtime_path,
+                             sizeof(runtime_path),
+                             object->meshInstance.runtimePath);
 
     if (!Layout_RefreshMeshAssetInstancesFromRuntimeAsset(&state->layout,
                                                           runtime_path,
