@@ -150,6 +150,7 @@ package-linux-desktop-self-test: package-linux-desktop
 	@HOME="$(abspath $(RELEASE_DIR)/linux-desktop-self-test/home)" XDG_DATA_HOME="$(abspath $(RELEASE_DIR)/linux-desktop-self-test/xdg-data)" "$(RELEASE_DIR)/linux-desktop-self-test/unpack/$(LINUX_DESKTOP_BASENAME)/share/install-desktop-entry.sh" >/dev/null
 	@test -f "$(RELEASE_DIR)/linux-desktop-self-test/xdg-data/applications/sculpt.desktop" || (echo "Installer did not write sculpt.desktop"; exit 1)
 	@test -f "$(RELEASE_DIR)/linux-desktop-self-test/xdg-data/icons/hicolor/scalable/apps/sculpt.svg" || (echo "Installer did not write sculpt.svg"; exit 1)
+	@$(MAKE) test-folder-picker
 	@LINE_DRAWING_RUNTIME_DIR="$(LINUX_DESKTOP_SELF_TEST_RUNTIME_DIR)" XDG_STATE_HOME="$(LINUX_DESKTOP_SELF_TEST_STATE_DIR)" "$(RELEASE_DIR)/linux-desktop-self-test/unpack/$(LINUX_DESKTOP_BASENAME)/bin/line-drawing-launcher" --self-test
 	@echo "package-linux-desktop-self-test passed."
 
