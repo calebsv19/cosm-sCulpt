@@ -7,7 +7,7 @@ run-ide-theme: $(APP_TARGET)
 run-daw-theme: $(APP_TARGET)
 	LINE_DRAWING3D_USE_SHARED_THEME_FONT=1 LINE_DRAWING3D_USE_SHARED_THEME=1 LINE_DRAWING3D_USE_SHARED_FONT=1 LINE_DRAWING3D_THEME_PRESET=daw_default LINE_DRAWING3D_FONT_PRESET=daw_default $(APP_TARGET)
 
-test: $(TEST_TARGET)
+test: $(TEST_TARGET) test-folder-picker
 	$(TEST_TARGET) $(ARGS)
 
 run-headless-smoke:
@@ -71,3 +71,12 @@ $(INPUT_POLICY_TEST_BIN): $(INPUT_POLICY_TEST_SRCS) tests/test_framework.c
 
 test-input-policy: $(INPUT_POLICY_TEST_BIN)
 	@$(INPUT_POLICY_TEST_BIN) || (echo "input policy test failed."; exit 1)
+
+$(FOLDER_PICKER_TEST_BIN): tests/line_drawing_folder_picker_test.c src/UI/platform/line_drawing_folder_picker.c tests/test_framework.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DLINE_DRAWING_FOLDER_PICKER_FORCE_LINUX=1 -Isrc -Itests \
+		tests/line_drawing_folder_picker_test.c src/UI/platform/line_drawing_folder_picker.c tests/test_framework.c \
+		-o $(FOLDER_PICKER_TEST_BIN) $(LDFLAGS)
+
+test-folder-picker: $(FOLDER_PICKER_TEST_BIN)
+	@$(FOLDER_PICKER_TEST_BIN) || (echo "folder picker test failed."; exit 1)

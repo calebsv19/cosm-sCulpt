@@ -11,6 +11,7 @@
 #include "Tools/scene_import.h"
 #include "Tools/scene_export.h"
 #include "Tools/shape_export.h"
+#include "UI/platform/line_drawing_folder_picker.h"
 
 #include <SDL2/SDL.h>
 #include <ctype.h>
@@ -130,25 +131,6 @@ static void SanitizeBuffer(char* buffer) {
         buffer[--len] = '\0';
     }
 }
-
-#if defined(__APPLE__)
-static void EscapeAppleScriptString(const char* input, char* output, size_t output_size) {
-    size_t out_index = 0;
-    if (!output || output_size == 0) return;
-    output[0] = '\0';
-    if (!input) return;
-
-    for (size_t i = 0; input[i] != '\0' && out_index + 1 < output_size; ++i) {
-        const char c = input[i];
-        if ((c == '\\' || c == '"') && out_index + 2 < output_size) {
-            output[out_index++] = '\\';
-        }
-        if (out_index + 1 >= output_size) break;
-        output[out_index++] = c;
-    }
-    output[out_index] = '\0';
-}
-#endif
 
 static void UIPanel_GetDefaultLoadDirectory(char* out_dir, size_t out_dir_size) {
     const char* current_path = Global_GetCurrentConfigPath();
@@ -431,72 +413,31 @@ static bool UIPanel_ShouldRefreshBrowserForEditedRoot(const UIPanelState* ui,
 }
 
 static bool UIPanel_SelectFolderWithPrompt(const char* prompt, char* out_path, size_t out_path_size) {
-#if defined(__APPLE__)
-    FILE* pipe = NULL;
-    char command[512];
-    if (!prompt || !out_path || out_path_size == 0) return false;
-    out_path[0] = '\0';
-    snprintf(command,
-             sizeof(command),
-             "/usr/bin/osascript -e 'POSIX path of (choose folder with prompt \"%s\")'",
-             prompt);
-    pipe = popen(command, "r");
-    if (!pipe) return false;
-    if (!fgets(out_path, (int)out_path_size, pipe)) {
-        (void)pclose(pipe);
-        out_path[0] = '\0';
-        return false;
+    const LineDrawingFolderPickerResult result =
+        LineDrawing_FolderPicker_Select(prompt, NULL, out_path, out_path_size);
+    if (result == LINE_DRAWING_FOLDER_PICKER_UNAVAILABLE) {
+        UIPanel_SetFilePaneActionStatus("Folder picker unavailable; enter a path manually.");
+    } else if (result == LINE_DRAWING_FOLDER_PICKER_FAILED) {
+        UIPanel_SetFilePaneActionStatus("Folder picker failed; enter a path manually.");
     }
-    (void)pclose(pipe);
-    SanitizeBuffer(out_path);
-    return out_path[0] != '\0';
-#else
-    (void)prompt;
-    (void)out_path;
-    (void)out_path_size;
-    return false;
-#endif
+    return result == LINE_DRAWING_FOLDER_PICKER_SELECTED;
 }
 
 static bool UIPanel_SelectFolderWithPromptAndDefault(const char* prompt,
                                                      const char* default_dir,
                                                      char* out_path,
                                                      size_t out_path_size) {
-#if defined(__APPLE__)
-    FILE* pipe = NULL;
-    char command[1024];
-    char escaped_prompt[256];
-    char escaped_dir[LINE_DRAWING_PATH_CAP * 2];
-
     if (!prompt || !default_dir || !default_dir[0] || !out_path || out_path_size == 0) return false;
-
-    out_path[0] = '\0';
-    EscapeAppleScriptString(prompt, escaped_prompt, sizeof(escaped_prompt));
-    EscapeAppleScriptString(default_dir, escaped_dir, sizeof(escaped_dir));
-    snprintf(command,
-             sizeof(command),
-             "/usr/bin/osascript "
-             "-e 'set defaultDir to POSIX file \"%s\"' "
-             "-e 'POSIX path of (choose folder with prompt \"%s\" default location defaultDir)'",
-             escaped_dir,
-             escaped_prompt);
-    pipe = popen(command, "r");
-    if (!pipe) return false;
-    if (!fgets(out_path, (int)out_path_size, pipe)) {
-        (void)pclose(pipe);
-        out_path[0] = '\0';
-        return false;
+    {
+        const LineDrawingFolderPickerResult result =
+            LineDrawing_FolderPicker_Select(prompt, default_dir, out_path, out_path_size);
+        if (result == LINE_DRAWING_FOLDER_PICKER_UNAVAILABLE) {
+            UIPanel_SetFilePaneActionStatus("Folder picker unavailable; enter a path manually.");
+        } else if (result == LINE_DRAWING_FOLDER_PICKER_FAILED) {
+            UIPanel_SetFilePaneActionStatus("Folder picker failed; enter a path manually.");
+        }
+        return result == LINE_DRAWING_FOLDER_PICKER_SELECTED;
     }
-    (void)pclose(pipe);
-    SanitizeBuffer(out_path);
-    return out_path[0] != '\0';
-#else
-    (void)prompt;
-    (void)default_dir;
-    (void)out_path;
-    (void)out_path_size;
-    return false;
-#endif
 }
 
 void UIPanel_BeginRootDialog(UIRootDialogTarget target) {

@@ -14,6 +14,7 @@ LINE_DRAWING_UNITS_IMPORT_SEMA_OUTPUT := $(FISICS_TOOLCHAIN_DIR)/scene_import.se
 
 APP_TARGET := $(PROGRAM_BIN_DIR)/LineDrawing
 TEST_TARGET := $(HOST_TEST_BIN_DIR)/run_tests
+FOLDER_PICKER_TEST_BIN := $(HOST_TEST_BIN_DIR)/line_drawing_folder_picker_test
 PACKAGE_SOURCE_BIN := $(call program_bin_for,$(PACKAGE_TOOLCHAIN))
 DIST_DIR := dist
 
