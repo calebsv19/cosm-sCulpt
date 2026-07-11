@@ -1,5 +1,7 @@
 #include "test_layout_internal.h"
 
+#include "Editor/scene_authoring_path_handles.h"
+
 static bool test_layout_add_wall_reuses_anchors(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
@@ -751,6 +753,346 @@ static bool test_layout_compute_centroid_ignores_deleted_anchors(void) {
     return true;
 }
 
+static bool test_layout_scene_authoring_defaults_seed_authoring_entities(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    TEST_ASSERT(layout->sceneAuthoring.light_count == 1u);
+    TEST_ASSERT(strcmp(layout->sceneAuthoring.lights[0].light_id, "light_key") == 0);
+    TEST_ASSERT(layout->sceneAuthoring.lights[0].enabled);
+    TEST_ASSERT(layout->sceneAuthoring.camera_path_count == 1u);
+    TEST_ASSERT(strcmp(layout->sceneAuthoring.camera_paths[0].path_kind, "bezier") == 0);
+    TEST_ASSERT(layout->sceneAuthoring.camera_paths[0].control_point_count == 3u);
+    TEST_ASSERT(layout->sceneAuthoring.material_count == 1u);
+    TEST_ASSERT(strcmp(layout->sceneAuthoring.materials[0].material_id, "mat_default") == 0);
+    TEST_ASSERT(layout->sceneAuthoring.selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE);
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(&layout->sceneAuthoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT,
+                                                  0u));
+    TEST_ASSERT(layout->sceneAuthoring.selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT);
+    TEST_ASSERT(!Layout_SceneAuthoringState_Select(&layout->sceneAuthoring,
+                                                   LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT,
+                                                   layout->sceneAuthoring.light_count));
+
+    size_t index = 0u;
+    TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultLight(&layout->sceneAuthoring, &index));
+    TEST_ASSERT(index == 1u);
+    TEST_ASSERT(layout->sceneAuthoring.light_count == 2u);
+    TEST_ASSERT(strcmp(layout->sceneAuthoring.lights[index].light_id, "light_002") == 0);
+    TEST_ASSERT(layout->sceneAuthoring.selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT);
+    TEST_ASSERT(layout->sceneAuthoring.selected_index == index);
+    TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultCameraPath(&layout->sceneAuthoring, &index));
+    TEST_ASSERT(index == 1u);
+    TEST_ASSERT(strcmp(layout->sceneAuthoring.camera_paths[index].path_id, "path_camera_002") == 0);
+    TEST_ASSERT(layout->sceneAuthoring.selected_kind ==
+                LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH);
+    TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultMaterial(&layout->sceneAuthoring, &index));
+    TEST_ASSERT(index == 1u);
+    TEST_ASSERT(strcmp(layout->sceneAuthoring.materials[index].material_id, "mat_002") == 0);
+    TEST_ASSERT(layout->sceneAuthoring.selected_kind ==
+                LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_scene_authoring_path_handles_follow_selected_records(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+
+    TEST_ASSERT(state->editor.sceneAuthoringEditMode == SCENE_AUTHORING_EDIT_MODE_NONE);
+    TEST_ASSERT(!SceneAuthoringPathHandles_ShouldShow(state));
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  0u));
+    TEST_ASSERT(SceneAuthoringPathHandles_ShouldShow(state));
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT,
+                                                  0u));
+    TEST_ASSERT(SceneAuthoringPathHandles_ShouldShow(state));
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL,
+                                                  0u));
+    TEST_ASSERT(!SceneAuthoringPathHandles_ShouldShow(state));
+
+    state->workspaceMode = LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  0u));
+    TEST_ASSERT(!SceneAuthoringPathHandles_ShouldShow(state));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_scene_authoring_deletes_selected_records_and_clears_references(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+    size_t light_index = 0u;
+    size_t path_index = 0u;
+    size_t material_index = 0u;
+
+    TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultLight(authoring, &light_index));
+    TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultCameraPath(authoring, &path_index));
+    TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultMaterial(authoring, &material_index));
+    TEST_ASSERT(light_index == 1u);
+    TEST_ASSERT(path_index == 1u);
+    TEST_ASSERT(material_index == 1u);
+
+    snprintf(authoring->lights[light_index].path_id,
+             sizeof(authoring->lights[light_index].path_id),
+             "%s",
+             authoring->camera_paths[path_index].path_id);
+    snprintf(authoring->camera_paths[path_index].bound_light_id,
+             sizeof(authoring->camera_paths[path_index].bound_light_id),
+             "%s",
+             authoring->lights[light_index].light_id);
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT,
+                                                  light_index));
+    TEST_ASSERT(Layout_SceneAuthoringState_DeleteSelected(authoring));
+    TEST_ASSERT(authoring->light_count == 1u);
+    TEST_ASSERT(authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE);
+    TEST_ASSERT(authoring->camera_paths[path_index].bound_light_id[0] == '\0');
+
+    snprintf(authoring->lights[0].path_id,
+             sizeof(authoring->lights[0].path_id),
+             "%s",
+             authoring->camera_paths[path_index].path_id);
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  path_index));
+    TEST_ASSERT(Layout_SceneAuthoringState_DeleteSelected(authoring));
+    TEST_ASSERT(authoring->camera_path_count == 1u);
+    TEST_ASSERT(authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE);
+    TEST_ASSERT(authoring->lights[0].path_id[0] == '\0');
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL,
+                                                  material_index));
+    TEST_ASSERT(Layout_SceneAuthoringState_DeleteSelected(authoring));
+    TEST_ASSERT(authoring->material_count == 1u);
+    TEST_ASSERT(authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE);
+    TEST_ASSERT(!Layout_SceneAuthoringState_DeleteSelected(authoring));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_json_persists_scene_authoring_records(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    LineDrawingSceneAuthoringState* authoring = &layout->sceneAuthoring;
+    size_t light_index = 0u;
+    size_t path_index = 0u;
+    size_t material_index = 0u;
+    Vec3 edited_point = { 2.5f, -3.25f, 4.75f };
+
+    TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultLight(authoring, &light_index));
+    TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultCameraPath(authoring, &path_index));
+    TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultMaterial(authoring, &material_index));
+    TEST_ASSERT(light_index == 1u);
+    TEST_ASSERT(path_index == 1u);
+    TEST_ASSERT(material_index == 1u);
+
+    authoring->lights[light_index].kind = LINE_DRAWING_SCENE_LIGHT_SPOT;
+    authoring->lights[light_index].enabled = false;
+    authoring->lights[light_index].position = (Vec3){ 1.0f, 2.0f, 3.0f };
+    authoring->lights[light_index].direction = (Vec3){ -0.25f, 0.5f, -1.0f };
+    snprintf(authoring->lights[light_index].path_id,
+             sizeof(authoring->lights[light_index].path_id),
+             "%s",
+             authoring->camera_paths[path_index].path_id);
+    snprintf(authoring->camera_paths[path_index].bound_light_id,
+             sizeof(authoring->camera_paths[path_index].bound_light_id),
+             "%s",
+             authoring->lights[light_index].light_id);
+    TEST_ASSERT(Layout_SceneAuthoringState_SetCameraPathControlPoint(authoring,
+                                                                     path_index,
+                                                                     1u,
+                                                                     edited_point));
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  path_index));
+    TEST_ASSERT(Layout_SceneAuthoringState_CycleSelectedCameraPathKind(authoring));
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL,
+                                                  material_index));
+    TEST_ASSERT(Layout_SceneAuthoringState_CycleSelectedMaterialColor(authoring));
+
+    char* json = Layout_SaveToString(layout);
+    TEST_ASSERT(json != NULL);
+    {
+        cJSON* root = cJSON_Parse(json);
+        const cJSON* scene_authoring = NULL;
+        TEST_ASSERT(root != NULL);
+        scene_authoring = cJSON_GetObjectItem(root, "sceneAuthoring");
+        TEST_ASSERT(cJSON_IsObject(scene_authoring));
+        TEST_ASSERT(cJSON_IsArray(cJSON_GetObjectItem(scene_authoring, "lights")));
+        TEST_ASSERT(cJSON_IsArray(cJSON_GetObjectItem(scene_authoring, "cameraPaths")));
+        TEST_ASSERT(cJSON_IsArray(cJSON_GetObjectItem(scene_authoring, "materials")));
+        cJSON_Delete(root);
+    }
+
+    Layout_SceneAuthoringState_Init(authoring);
+    TEST_ASSERT(Layout_LoadFromString(layout, json));
+    Layout_FreeString(json);
+    authoring = &layout->sceneAuthoring;
+
+    TEST_ASSERT(authoring->light_count == 2u);
+    TEST_ASSERT(authoring->camera_path_count == 2u);
+    TEST_ASSERT(authoring->material_count == 2u);
+    TEST_ASSERT(strcmp(authoring->lights[1].light_id, "light_002") == 0);
+    TEST_ASSERT(authoring->lights[1].kind == LINE_DRAWING_SCENE_LIGHT_SPOT);
+    TEST_ASSERT(!authoring->lights[1].enabled);
+    TEST_ASSERT(ld_test_vec3_nearly_equal(authoring->lights[1].position,
+                                          (Vec3){ 1.0f, 2.0f, 3.0f }));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(authoring->lights[1].direction,
+                                          (Vec3){ -0.25f, 0.5f, -1.0f }));
+    TEST_ASSERT(strcmp(authoring->lights[1].path_id, "path_camera_002") == 0);
+    TEST_ASSERT(strcmp(authoring->camera_paths[1].path_kind, "linear") == 0);
+    TEST_ASSERT(strcmp(authoring->camera_paths[1].bound_light_id, "light_002") == 0);
+    TEST_ASSERT(ld_test_vec3_nearly_equal(authoring->camera_paths[1].control_points[1],
+                                          edited_point));
+    TEST_ASSERT(strcmp(authoring->materials[1].material_id, "mat_002") == 0);
+    TEST_ASSERT(ld_test_nearly_equal(authoring->materials[1].rgba[0], 0.78f));
+    TEST_ASSERT(ld_test_nearly_equal(authoring->materials[1].rgba[1], 0.50f));
+    TEST_ASSERT(ld_test_nearly_equal(authoring->materials[1].rgba[2], 0.34f));
+    TEST_ASSERT(authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL);
+    TEST_ASSERT(authoring->selected_index == 1u);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_layout_json_missing_scene_authoring_keeps_seed_records(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    const char* legacy_json =
+        "{\"file\":{\"schemaVersion\":9,\"gridSize\":1},\"anchors\":[],\"walls\":[]}";
+    TEST_ASSERT(Layout_LoadFromString(layout, legacy_json));
+    TEST_ASSERT(layout->sceneAuthoring.light_count == 1u);
+    TEST_ASSERT(strcmp(layout->sceneAuthoring.lights[0].light_id, "light_key") == 0);
+    TEST_ASSERT(layout->sceneAuthoring.camera_path_count == 1u);
+    TEST_ASSERT(strcmp(layout->sceneAuthoring.camera_paths[0].path_id, "path_camera_main") == 0);
+    TEST_ASSERT(layout->sceneAuthoring.material_count == 1u);
+    TEST_ASSERT(strcmp(layout->sceneAuthoring.materials[0].material_id, "mat_default") == 0);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_scene_authoring_light_property_setters(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+
+    TEST_ASSERT(authoring->light_count == 1u);
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT,
+                                                  0u));
+    TEST_ASSERT(authoring->lights[0].enabled);
+    TEST_ASSERT(authoring->lights[0].kind == LINE_DRAWING_SCENE_LIGHT_DIRECTIONAL);
+
+    TEST_ASSERT(Layout_SceneAuthoringState_ToggleSelectedLightEnabled(authoring));
+    TEST_ASSERT(!authoring->lights[0].enabled);
+    TEST_ASSERT(Layout_SceneAuthoringState_CycleSelectedLightKind(authoring));
+    TEST_ASSERT(authoring->lights[0].kind == LINE_DRAWING_SCENE_LIGHT_POINT);
+    TEST_ASSERT(Layout_SceneAuthoringState_CycleSelectedLightKind(authoring));
+    TEST_ASSERT(authoring->lights[0].kind == LINE_DRAWING_SCENE_LIGHT_SPOT);
+    TEST_ASSERT(Layout_SceneAuthoringState_CycleSelectedLightKind(authoring));
+    TEST_ASSERT(authoring->lights[0].kind == LINE_DRAWING_SCENE_LIGHT_DIRECTIONAL);
+    TEST_ASSERT(Layout_SceneAuthoringState_CycleSelectedLightPath(authoring));
+    TEST_ASSERT(strcmp(authoring->lights[0].path_id, "path_camera_main") == 0);
+    TEST_ASSERT(Layout_SceneAuthoringState_CycleSelectedLightPath(authoring));
+    TEST_ASSERT(authoring->lights[0].path_id[0] == '\0');
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  0u));
+    TEST_ASSERT(Layout_SceneAuthoringState_CycleSelectedCameraPathKind(authoring));
+    TEST_ASSERT(strcmp(authoring->camera_paths[0].path_kind, "linear") == 0);
+    TEST_ASSERT(Layout_SceneAuthoringState_CycleSelectedCameraPathKind(authoring));
+    TEST_ASSERT(strcmp(authoring->camera_paths[0].path_kind, "bezier") == 0);
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL,
+                                                  0u));
+    TEST_ASSERT(Layout_SceneAuthoringState_CycleSelectedMaterialColor(authoring));
+    TEST_ASSERT(ld_test_nearly_equal(authoring->materials[0].rgba[0], 0.45f));
+    TEST_ASSERT(ld_test_nearly_equal(authoring->materials[0].rgba[1], 0.62f));
+    TEST_ASSERT(ld_test_nearly_equal(authoring->materials[0].rgba[2], 0.80f));
+
+    Vec3 moved_point = { 1.25f, 2.5f, 3.75f };
+    TEST_ASSERT(Layout_SceneAuthoringState_SetCameraPathControlPoint(authoring,
+                                                                     0u,
+                                                                     1u,
+                                                                     moved_point));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(authoring->camera_paths[0].control_points[1],
+                                          moved_point));
+    TEST_ASSERT(!Layout_SceneAuthoringState_SetCameraPathControlPoint(authoring,
+                                                                      authoring->camera_path_count,
+                                                                      0u,
+                                                                      moved_point));
+    TEST_ASSERT(!Layout_SceneAuthoringState_SetCameraPathControlPoint(authoring,
+                                                                      0u,
+                                                                      authoring->camera_paths[0].control_point_count,
+                                                                      moved_point));
+    TEST_ASSERT(Layout_SceneAuthoringState_SetLightPosition(authoring, 0u, moved_point));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(authoring->lights[0].position, moved_point));
+    TEST_ASSERT(!Layout_SceneAuthoringState_SetLightPosition(authoring,
+                                                            authoring->light_count,
+                                                            moved_point));
+    TEST_ASSERT(Layout_SceneAuthoringState_FindCameraPathById(authoring,
+                                                              "path_camera_main") ==
+                &authoring->camera_paths[0]);
+    TEST_ASSERT(Layout_SceneAuthoringState_FindCameraPathById(authoring, "missing") == NULL);
+
+    Vec3 inserted_point = { 9.0f, 8.0f, 7.0f };
+    TEST_ASSERT(Layout_SceneAuthoringState_InsertCameraPathControlPoint(authoring,
+                                                                        0u,
+                                                                        1u,
+                                                                        inserted_point));
+    TEST_ASSERT(authoring->camera_paths[0].control_point_count == 4u);
+    TEST_ASSERT(ld_test_vec3_nearly_equal(authoring->camera_paths[0].control_points[1],
+                                          inserted_point));
+    TEST_ASSERT(!Layout_SceneAuthoringState_InsertCameraPathControlPoint(authoring,
+                                                                         0u,
+                                                                         1u,
+                                                                         inserted_point));
+    TEST_ASSERT(Layout_SceneAuthoringState_DeleteCameraPathControlPoint(authoring, 0u, 1u));
+    TEST_ASSERT(authoring->camera_paths[0].control_point_count == 3u);
+    TEST_ASSERT(!ld_test_vec3_nearly_equal(authoring->camera_paths[0].control_points[1],
+                                           inserted_point));
+    TEST_ASSERT(Layout_SceneAuthoringState_DeleteCameraPathControlPoint(authoring, 0u, 2u));
+    TEST_ASSERT(authoring->camera_paths[0].control_point_count == 2u);
+    TEST_ASSERT(!Layout_SceneAuthoringState_DeleteCameraPathControlPoint(authoring, 0u, 1u));
+    TEST_ASSERT(!Layout_SceneAuthoringState_DeleteCameraPathControlPoint(authoring,
+                                                                         authoring->camera_path_count,
+                                                                         0u));
+
+    Layout_SceneAuthoringState_ClearSelection(authoring);
+    TEST_ASSERT(!Layout_SceneAuthoringState_ToggleSelectedLightEnabled(authoring));
+    TEST_ASSERT(!Layout_SceneAuthoringState_CycleSelectedLightKind(authoring));
+    TEST_ASSERT(!Layout_SceneAuthoringState_CycleSelectedLightPath(authoring));
+    TEST_ASSERT(!Layout_SceneAuthoringState_CycleSelectedCameraPathKind(authoring));
+    TEST_ASSERT(!Layout_SceneAuthoringState_CycleSelectedMaterialColor(authoring));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 bool test_layout_core_run_tests(void) {
     const TestCase cases[] = {
         { "AddWallReusesAnchors", test_layout_add_wall_reuses_anchors },
@@ -782,7 +1124,19 @@ bool test_layout_core_run_tests(void) {
         { "EditorHistoryLimitEnforced", test_editor_history_limit_enforced },
         { "LayoutAddAnchor3PreservesZ", test_layout_add_anchor3_preserves_z },
         { "LayoutCornerAnchorAllowsMoreThanTwoConnections", test_layout_corner_anchor_allows_more_than_two_connections },
-        { "LayoutComputeCentroidIgnoresDeletedAnchors", test_layout_compute_centroid_ignores_deleted_anchors }
+        { "LayoutComputeCentroidIgnoresDeletedAnchors", test_layout_compute_centroid_ignores_deleted_anchors },
+        { "LayoutSceneAuthoringDefaultsSeedAuthoringEntities",
+          test_layout_scene_authoring_defaults_seed_authoring_entities },
+        { "SceneAuthoringPathHandlesFollowSelectedRecords",
+          test_scene_authoring_path_handles_follow_selected_records },
+        { "SceneAuthoringDeletesSelectedRecordsAndClearsReferences",
+          test_scene_authoring_deletes_selected_records_and_clears_references },
+        { "LayoutJsonPersistsSceneAuthoringRecords",
+          test_layout_json_persists_scene_authoring_records },
+        { "LayoutJsonMissingSceneAuthoringKeepsSeedRecords",
+          test_layout_json_missing_scene_authoring_keeps_seed_records },
+        { "SceneAuthoringLightPropertySetters",
+          test_scene_authoring_light_property_setters }
     };
 
     return run_test_cases("LayoutCore", cases, sizeof(cases) / sizeof(cases[0]));

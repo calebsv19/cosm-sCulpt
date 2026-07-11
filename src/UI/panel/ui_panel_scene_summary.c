@@ -160,26 +160,71 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
 
     snprintf(line_counts,
              sizeof(line_counts),
-             "Objects  %zu total   %zu planes   %zu prisms   %zu meshes",
+             "Objects %zu   Lights %zu   Paths %zu   Materials %zu",
              total,
-             planes,
-             prisms,
-             meshes);
+             state->layout.sceneAuthoring.light_count,
+             state->layout.sceneAuthoring.camera_path_count,
+             state->layout.sceneAuthoring.material_count);
     UIPanelSummary_DrawTextClipped(renderer, font, line_counts, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), font_h + 4, accent_color);
     y += font_h + line_gap;
 
     UIPanelSummary_DrawDivider(renderer, panel, y - (line_gap / 2), metrics.pad_x, accent_color, 90);
 
     if (!object) {
-        snprintf(line_selected, sizeof(line_selected), "Selection  none");
+        if (state->layout.sceneAuthoring.selected_kind ==
+                LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT &&
+            state->layout.sceneAuthoring.selected_index < state->layout.sceneAuthoring.light_count) {
+            const LineDrawingSceneLight* light =
+                &state->layout.sceneAuthoring.lights[state->layout.sceneAuthoring.selected_index];
+            snprintf(line_selected, sizeof(line_selected), "Selection  Light  %s", light->label);
+            snprintf(line_locks,
+                     sizeof(line_locks),
+                     "Type %s   %s   Path %s",
+                     Layout_SceneLightKind_Label(light->kind),
+                     light->enabled ? "Enabled" : "Disabled",
+                     light->path_id[0] ? light->path_id : "none");
+        } else if (state->layout.sceneAuthoring.selected_kind ==
+                       LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH &&
+                   state->layout.sceneAuthoring.selected_index <
+                       state->layout.sceneAuthoring.camera_path_count) {
+            const LineDrawingSceneCameraPath* path =
+                &state->layout.sceneAuthoring.camera_paths[state->layout.sceneAuthoring.selected_index];
+            snprintf(line_selected, sizeof(line_selected), "Selection  Camera Path  %s", path->label);
+            snprintf(line_locks,
+                     sizeof(line_locks),
+                     "Kind %s   Points %zu   Camera %s",
+                     path->path_kind,
+                     path->control_point_count,
+                     path->bound_camera_id[0] ? path->bound_camera_id : "unbound");
+        } else if (state->layout.sceneAuthoring.selected_kind ==
+                       LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL &&
+                   state->layout.sceneAuthoring.selected_index <
+                       state->layout.sceneAuthoring.material_count) {
+            const LineDrawingSceneMaterial* material =
+                &state->layout.sceneAuthoring.materials[state->layout.sceneAuthoring.selected_index];
+            snprintf(line_selected, sizeof(line_selected), "Selection  Material  %s", material->label);
+            snprintf(line_locks,
+                     sizeof(line_locks),
+                     "Id %s   RGBA %.2f, %.2f, %.2f, %.2f",
+                     material->material_id,
+                     material->rgba[0],
+                     material->rgba[1],
+                     material->rgba[2],
+                     material->rgba[3]);
+        } else {
+            snprintf(line_selected, sizeof(line_selected), "Selection  none");
+            snprintf(line_locks,
+                     sizeof(line_locks),
+                     "Pick from the list or click an object origin.");
+        }
         snprintf(line_context,
                  sizeof(line_context),
-                 "Graph  %zu anchors   %zu walls",
+                 "Graph %zu anchors   %zu walls   Obj %zuP/%zuR/%zuM",
                  anchors,
-                 walls);
-        snprintf(line_locks,
-                 sizeof(line_locks),
-                 "Pick from the list or click an object origin.");
+                 walls,
+                 planes,
+                 prisms,
+                 meshes);
     } else {
         char w_text[32] = {0};
         char h_text[32] = {0};

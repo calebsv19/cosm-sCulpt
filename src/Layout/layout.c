@@ -468,6 +468,7 @@ void Layout_MarkWallDeleted(Layout* layout, int wallIndex) {
 void Layout_Init(Layout* layout, float gridSize) {
     layout->gridSize = gridSize;
     Layout_Scene3DSettings_SetDefaults(&layout->scene3d);
+    Layout_SceneAuthoringState_Init(&layout->sceneAuthoring);
     Layout_ObjectStore_Init(&layout->objectStore);
 
     layout->walls = NULL;
@@ -485,6 +486,7 @@ void Layout_Free(Layout* layout) {
     free(layout->anchors);
     free(layout->walls);
     Layout_ObjectStore_Free(&layout->objectStore);
+    Layout_SceneAuthoringState_ClearSelection(&layout->sceneAuthoring);
     layout->anchors = NULL;
     layout->walls = NULL;
     layout->wallCount = 0;

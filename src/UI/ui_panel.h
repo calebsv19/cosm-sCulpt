@@ -6,7 +6,7 @@
 #include "Math/math_util.h"
 #include "core_units.h"
 
-#define MAX_UI_BUTTONS 64
+#define MAX_UI_BUTTONS 80
 
 typedef enum {
     UI_PANEL_LEFT,
@@ -121,6 +121,15 @@ typedef struct {
 #define UI_BTN_OBJECT_EDIT_EDGE_MODE 55
 #define UI_BTN_OBJECT_EDIT_VERTEX_MODE 56
 #define UI_BTN_LOAD_STL 57
+#define UI_BTN_CREATE_LIGHT 58
+#define UI_BTN_CREATE_CAMERA_PATH 59
+#define UI_BTN_CREATE_MATERIAL 60
+#define UI_BTN_SCENE_AUTHORING_EDIT_MODE 61
+#define UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED 62
+#define UI_BTN_SCENE_AUTHORING_LIGHT_KIND 63
+#define UI_BTN_SCENE_AUTHORING_LIGHT_PATH 64
+#define UI_BTN_SCENE_AUTHORING_PATH_KIND 65
+#define UI_BTN_SCENE_AUTHORING_MATERIAL_COLOR 66
 
 #define MAX_CONFIG_FILES 128
 #define MAX_CONFIG_PATH 512
@@ -487,4 +496,7 @@ bool UIPanel_OpenInputRootFolderDialog(void);
 bool UIPanel_OpenOutputRootFolderDialog(void);
 bool UIPanel_CreatePlanePrimitiveFromActiveContext(bool disable_bounds_lock);
 bool UIPanel_CreateRectPrismPrimitiveFromActiveContext(bool disable_bounds_lock);
+bool UIPanel_CreateSceneAuthoringLight(void);
+bool UIPanel_CreateSceneAuthoringCameraPath(void);
+bool UIPanel_CreateSceneAuthoringMaterial(void);
 bool UIPanel_FitSceneBoundsToSelectedObject(void);

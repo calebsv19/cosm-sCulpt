@@ -255,6 +255,12 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         "Sketch Select",
         "Clear Sketch",
         "Place Mesh",
+        "+Light",
+        "+Camera Path",
+        "+Material",
+        "Light Edit: Off",
+        "Enabled: On",
+        "Kind: Directional",
         "Cut Prism",
         "Gizmo: Mode (X)",
         "Clear Select",
@@ -468,6 +474,7 @@ bool UIPanel_CreatePlanePrimitiveFromActiveContext(bool disable_bounds_lock) {
     }
 
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+    Layout_SceneAuthoringState_ClearSelection(&state->layout.sceneAuthoring);
     Editor_ClearAnchorSelection(&state->editor);
     state->editor.selectedObject3DId = objectId;
     state->editor.selectedObjectAssetBodyId = object_mode ? objectId : 0u;
@@ -524,6 +531,7 @@ bool UIPanel_CreateRectPrismPrimitiveFromActiveContext(bool disable_bounds_lock)
     }
 
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+    Layout_SceneAuthoringState_ClearSelection(&state->layout.sceneAuthoring);
     Editor_ClearAnchorSelection(&state->editor);
     state->editor.selectedObject3DId = objectId;
     state->editor.selectedObjectAssetBodyId = object_mode ? objectId : 0u;
@@ -845,6 +853,24 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "+Prism", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_CREATE_RECT_PRISM);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Place Mesh", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_PLACE_MESH_INSTANCE);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "+Light", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OPERATIONS, UI_BTN_CREATE_LIGHT);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "+Camera Path", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OPERATIONS, UI_BTN_CREATE_CAMERA_PATH);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "+Material", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OPERATIONS, UI_BTN_CREATE_MATERIAL);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Light Edit: Off", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_SCENE_AUTHORING_EDIT_MODE);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Enabled: On", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Kind: Directional", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_SCENE_AUTHORING_LIGHT_KIND);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Path: none", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_GIZMO, UI_BTN_SCENE_AUTHORING_LIGHT_PATH);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Path Kind: bezier", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_SCENE_AUTHORING_PATH_KIND);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Color", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_SCENE_AUTHORING_MATERIAL_COLOR);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Face Select", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_OBJECT_FACE_SELECT);
     yR += btnH + spacing;

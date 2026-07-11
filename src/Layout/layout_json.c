@@ -123,6 +123,281 @@ static bool Vec3_FromJsonObject(const cJSON* node, Vec3* out) {
     return true;
 }
 
+static const char* SceneLightKind_ToString(LineDrawingSceneLightKind kind) {
+    switch (kind) {
+        case LINE_DRAWING_SCENE_LIGHT_POINT: return "point";
+        case LINE_DRAWING_SCENE_LIGHT_SPOT: return "spot";
+        case LINE_DRAWING_SCENE_LIGHT_DIRECTIONAL:
+        default: return "directional";
+    }
+}
+
+static LineDrawingSceneLightKind SceneLightKind_FromJson(const cJSON* node) {
+    if (!cJSON_IsString(node) || !node->valuestring) {
+        return LINE_DRAWING_SCENE_LIGHT_DIRECTIONAL;
+    }
+    if (strcasecmp(node->valuestring, "point") == 0) {
+        return LINE_DRAWING_SCENE_LIGHT_POINT;
+    }
+    if (strcasecmp(node->valuestring, "spot") == 0) {
+        return LINE_DRAWING_SCENE_LIGHT_SPOT;
+    }
+    return LINE_DRAWING_SCENE_LIGHT_DIRECTIONAL;
+}
+
+static const char* SceneAuthoringSelectionKind_ToString(LineDrawingSceneAuthoringSelectionKind kind) {
+    switch (kind) {
+        case LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT: return "light";
+        case LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH: return "camera_path";
+        case LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL: return "material";
+        case LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE:
+        default: return "none";
+    }
+}
+
+static LineDrawingSceneAuthoringSelectionKind SceneAuthoringSelectionKind_FromJson(const cJSON* node) {
+    if (!cJSON_IsString(node) || !node->valuestring) {
+        return LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE;
+    }
+    if (strcasecmp(node->valuestring, "light") == 0) {
+        return LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT;
+    }
+    if (strcasecmp(node->valuestring, "camera_path") == 0) {
+        return LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH;
+    }
+    if (strcasecmp(node->valuestring, "material") == 0) {
+        return LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL;
+    }
+    return LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE;
+}
+
+static void CopyJsonString(char* dst, size_t dst_size, const cJSON* node, const char* fallback) {
+    const char* value = fallback;
+    if (!dst || dst_size == 0u) return;
+    if (cJSON_IsString(node) && node->valuestring) {
+        value = node->valuestring;
+    }
+    if (!value) value = "";
+    snprintf(dst, dst_size, "%s", value);
+}
+
+static cJSON* SceneAuthoring_ToJsonObject(const LineDrawingSceneAuthoringState* authoring) {
+    cJSON* root = cJSON_CreateObject();
+    cJSON* lights = cJSON_CreateArray();
+    cJSON* camera_paths = cJSON_CreateArray();
+    cJSON* materials = cJSON_CreateArray();
+    cJSON* selection = cJSON_CreateObject();
+    if (!root || !lights || !camera_paths || !materials || !selection) {
+        cJSON_Delete(root);
+        cJSON_Delete(lights);
+        cJSON_Delete(camera_paths);
+        cJSON_Delete(materials);
+        cJSON_Delete(selection);
+        return NULL;
+    }
+
+    cJSON_AddItemToObject(root, "lights", lights);
+    for (size_t i = 0u; i < authoring->light_count; ++i) {
+        const LineDrawingSceneLight* light = &authoring->lights[i];
+        cJSON* node = cJSON_CreateObject();
+        cJSON_AddItemToArray(lights, node);
+        cJSON_AddStringToObject(node, "lightId", light->light_id);
+        cJSON_AddStringToObject(node, "label", light->label);
+        cJSON_AddStringToObject(node, "kind", SceneLightKind_ToString(light->kind));
+        cJSON_AddItemToObject(node, "position", Vec3_ToJsonObject(light->position));
+        cJSON_AddItemToObject(node, "direction", Vec3_ToJsonObject(light->direction));
+        cJSON_AddStringToObject(node, "pathId", light->path_id);
+        cJSON_AddBoolToObject(node, "enabled", light->enabled);
+    }
+
+    cJSON_AddItemToObject(root, "cameraPaths", camera_paths);
+    for (size_t i = 0u; i < authoring->camera_path_count; ++i) {
+        const LineDrawingSceneCameraPath* path = &authoring->camera_paths[i];
+        cJSON* node = cJSON_CreateObject();
+        cJSON* control_points = cJSON_CreateArray();
+        cJSON_AddItemToArray(camera_paths, node);
+        cJSON_AddStringToObject(node, "pathId", path->path_id);
+        cJSON_AddStringToObject(node, "label", path->label);
+        cJSON_AddStringToObject(node, "curveType", path->path_kind);
+        cJSON_AddStringToObject(node, "boundLightId", path->bound_light_id);
+        cJSON_AddStringToObject(node, "boundCameraId", path->bound_camera_id);
+        cJSON_AddItemToObject(node, "controlPoints", control_points);
+        for (size_t point_index = 0u; point_index < path->control_point_count; ++point_index) {
+            cJSON_AddItemToArray(control_points, Vec3_ToJsonObject(path->control_points[point_index]));
+        }
+    }
+
+    cJSON_AddItemToObject(root, "materials", materials);
+    for (size_t i = 0u; i < authoring->material_count; ++i) {
+        const LineDrawingSceneMaterial* material = &authoring->materials[i];
+        cJSON* node = cJSON_CreateObject();
+        cJSON* rgba = cJSON_CreateArray();
+        cJSON_AddItemToArray(materials, node);
+        cJSON_AddStringToObject(node, "materialId", material->material_id);
+        cJSON_AddStringToObject(node, "label", material->label);
+        cJSON_AddItemToObject(node, "rgba", rgba);
+        for (int channel = 0; channel < 4; ++channel) {
+            cJSON_AddItemToArray(rgba, cJSON_CreateNumber(material->rgba[channel]));
+        }
+    }
+
+    cJSON_AddItemToObject(root, "selection", selection);
+    cJSON_AddStringToObject(selection,
+                            "kind",
+                            SceneAuthoringSelectionKind_ToString(authoring->selected_kind));
+    cJSON_AddNumberToObject(selection, "index", (double)authoring->selected_index);
+    return root;
+}
+
+static void SceneAuthoring_FromJsonObject(const cJSON* node,
+                                          LineDrawingSceneAuthoringState* authoring) {
+    LineDrawingSceneAuthoringState parsed;
+    const cJSON* lights = NULL;
+    const cJSON* camera_paths = NULL;
+    const cJSON* materials = NULL;
+    if (!cJSON_IsObject(node) || !authoring) return;
+
+    memset(&parsed, 0, sizeof(parsed));
+
+    lights = cJSON_GetObjectItem(node, "lights");
+    if (cJSON_IsArray(lights)) {
+        const int count = cJSON_GetArraySize(lights);
+        for (int i = 0; i < count &&
+                        parsed.light_count < LINE_DRAWING_SCENE_AUTHORING_MAX_LIGHTS; ++i) {
+            const cJSON* item = cJSON_GetArrayItem(lights, i);
+            LineDrawingSceneLight* light = NULL;
+            if (!cJSON_IsObject(item)) continue;
+            light = &parsed.lights[parsed.light_count];
+            CopyJsonString(light->light_id,
+                           sizeof(light->light_id),
+                           cJSON_GetObjectItem(item, "lightId"),
+                           "");
+            if (light->light_id[0] == '\0') continue;
+            CopyJsonString(light->label,
+                           sizeof(light->label),
+                           cJSON_GetObjectItem(item, "label"),
+                           light->light_id);
+            light->kind = SceneLightKind_FromJson(cJSON_GetObjectItem(item, "kind"));
+            if (!Vec3_FromJsonObject(cJSON_GetObjectItem(item, "position"), &light->position)) {
+                light->position = (Vec3){ 0.0f, -4.0f, 4.0f };
+            }
+            if (!Vec3_FromJsonObject(cJSON_GetObjectItem(item, "direction"), &light->direction)) {
+                light->direction = (Vec3){ 0.0f, 0.0f, -1.0f };
+            }
+            CopyJsonString(light->path_id,
+                           sizeof(light->path_id),
+                           cJSON_GetObjectItem(item, "pathId"),
+                           "");
+            {
+                const cJSON* enabled = cJSON_GetObjectItem(item, "enabled");
+                light->enabled = !cJSON_IsBool(enabled) || cJSON_IsTrue(enabled);
+            }
+            ++parsed.light_count;
+        }
+    }
+
+    camera_paths = cJSON_GetObjectItem(node, "cameraPaths");
+    if (cJSON_IsArray(camera_paths)) {
+        const int count = cJSON_GetArraySize(camera_paths);
+        for (int i = 0; i < count &&
+                        parsed.camera_path_count < LINE_DRAWING_SCENE_AUTHORING_MAX_CAMERA_PATHS; ++i) {
+            const cJSON* item = cJSON_GetArrayItem(camera_paths, i);
+            const cJSON* control_points = NULL;
+            LineDrawingSceneCameraPath* path = NULL;
+            if (!cJSON_IsObject(item)) continue;
+            path = &parsed.camera_paths[parsed.camera_path_count];
+            CopyJsonString(path->path_id,
+                           sizeof(path->path_id),
+                           cJSON_GetObjectItem(item, "pathId"),
+                           "");
+            if (path->path_id[0] == '\0') continue;
+            CopyJsonString(path->label,
+                           sizeof(path->label),
+                           cJSON_GetObjectItem(item, "label"),
+                           path->path_id);
+            CopyJsonString(path->path_kind,
+                           sizeof(path->path_kind),
+                           cJSON_GetObjectItem(item, "curveType"),
+                           "bezier");
+            CopyJsonString(path->bound_light_id,
+                           sizeof(path->bound_light_id),
+                           cJSON_GetObjectItem(item, "boundLightId"),
+                           "");
+            CopyJsonString(path->bound_camera_id,
+                           sizeof(path->bound_camera_id),
+                           cJSON_GetObjectItem(item, "boundCameraId"),
+                           "");
+            control_points = cJSON_GetObjectItem(item, "controlPoints");
+            if (cJSON_IsArray(control_points)) {
+                const int point_count = cJSON_GetArraySize(control_points);
+                for (int point_index = 0; point_index < point_count &&
+                                          path->control_point_count <
+                                              sizeof(path->control_points) /
+                                                  sizeof(path->control_points[0]); ++point_index) {
+                    Vec3 point = {0};
+                    if (Vec3_FromJsonObject(cJSON_GetArrayItem(control_points, point_index), &point)) {
+                        path->control_points[path->control_point_count++] = point;
+                    }
+                }
+            }
+            if (path->control_point_count == 0u) continue;
+            ++parsed.camera_path_count;
+        }
+    }
+
+    materials = cJSON_GetObjectItem(node, "materials");
+    if (cJSON_IsArray(materials)) {
+        const int count = cJSON_GetArraySize(materials);
+        for (int i = 0; i < count &&
+                        parsed.material_count < LINE_DRAWING_SCENE_AUTHORING_MAX_MATERIALS; ++i) {
+            const cJSON* item = cJSON_GetArrayItem(materials, i);
+            const cJSON* rgba = NULL;
+            LineDrawingSceneMaterial* material = NULL;
+            if (!cJSON_IsObject(item)) continue;
+            material = &parsed.materials[parsed.material_count];
+            CopyJsonString(material->material_id,
+                           sizeof(material->material_id),
+                           cJSON_GetObjectItem(item, "materialId"),
+                           "");
+            if (material->material_id[0] == '\0') continue;
+            CopyJsonString(material->label,
+                           sizeof(material->label),
+                           cJSON_GetObjectItem(item, "label"),
+                           material->material_id);
+            material->rgba[0] = 0.72f;
+            material->rgba[1] = 0.72f;
+            material->rgba[2] = 0.68f;
+            material->rgba[3] = 1.0f;
+            rgba = cJSON_GetObjectItem(item, "rgba");
+            if (cJSON_IsArray(rgba) && cJSON_GetArraySize(rgba) >= 4) {
+                for (int channel = 0; channel < 4; ++channel) {
+                    const cJSON* value = cJSON_GetArrayItem(rgba, channel);
+                    if (cJSON_IsNumber(value)) {
+                        material->rgba[channel] = (float)value->valuedouble;
+                    }
+                }
+            }
+            ++parsed.material_count;
+        }
+    }
+
+    {
+        const cJSON* selection = cJSON_GetObjectItem(node, "selection");
+        const cJSON* index = cJSON_IsObject(selection) ? cJSON_GetObjectItem(selection, "index") : NULL;
+        parsed.selected_kind =
+            SceneAuthoringSelectionKind_FromJson(
+                cJSON_IsObject(selection) ? cJSON_GetObjectItem(selection, "kind") : NULL);
+        parsed.selected_index = cJSON_IsNumber(index) && index->valuedouble >= 0.0
+            ? (size_t)index->valuedouble
+            : 0u;
+    }
+    if (!Layout_SceneAuthoringState_Select(&parsed, parsed.selected_kind, parsed.selected_index)) {
+        Layout_SceneAuthoringState_ClearSelection(&parsed);
+    }
+
+    *authoring = parsed;
+}
+
 static cJSON* Transform3D_ToJsonObject(Transform3D t) {
     cJSON* obj = cJSON_CreateObject();
     if (!obj) return NULL;
@@ -184,6 +459,13 @@ static cJSON* Layout_CreateJson(const Layout* layout) {
     cJSON_AddItemToObject(customFrame, "axisU", Vec3_ToJsonObject(layout->scene3d.constructionPlane.customFrame.axisU));
     cJSON_AddItemToObject(customFrame, "axisV", Vec3_ToJsonObject(layout->scene3d.constructionPlane.customFrame.axisV));
     cJSON_AddItemToObject(customFrame, "normal", Vec3_ToJsonObject(layout->scene3d.constructionPlane.customFrame.normal));
+
+    cJSON* sceneAuthoring = SceneAuthoring_ToJsonObject(&layout->sceneAuthoring);
+    if (!sceneAuthoring) {
+        cJSON_Delete(root);
+        return NULL;
+    }
+    cJSON_AddItemToObject(root, "sceneAuthoring", sceneAuthoring);
 
     cJSON* objects3d = cJSON_CreateArray();
     cJSON_AddItemToObject(root, "objects3d", objects3d);
@@ -356,6 +638,8 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
             }
         }
     }
+
+    SceneAuthoring_FromJsonObject(cJSON_GetObjectItem(root, "sceneAuthoring"), &temp.sceneAuthoring);
 
     const cJSON* anchors = cJSON_GetObjectItem(root, "anchors");
     if (!anchors || !cJSON_IsArray(anchors)) {

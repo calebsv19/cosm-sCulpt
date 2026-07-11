@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "Math/math_util.h"
+#include "Layout/scene/layout_scene_authoring.h"
 #include "core_object.h"
 
 //        Anchor node in layout graph
@@ -242,6 +243,7 @@ typedef struct {
 typedef struct {
     float gridSize;
     Scene3DSettings scene3d;
+    LineDrawingSceneAuthoringState sceneAuthoring;
     LayoutObjectStore objectStore;
 
     Anchor* anchors;

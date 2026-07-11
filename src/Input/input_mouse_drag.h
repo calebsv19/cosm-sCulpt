@@ -13,6 +13,7 @@ void ResetObjectTranslateDrag(EditorState* editor);
 void ResetObjectRotateDrag(EditorState* editor);
 void ResetObjectScaleDrag(EditorState* editor);
 void ResetSceneBoundsGizmoDrag(EditorState* editor);
+void ResetSceneAuthoringPathHandleDrag(EditorState* editor);
 
 bool BeginGizmoDragSession(GlobalState* state,
                            EditorState* editor,

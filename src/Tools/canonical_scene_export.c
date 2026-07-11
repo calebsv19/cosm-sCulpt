@@ -5,6 +5,8 @@
 #include "core_scene.h"
 #include "core_object.h"
 #include "core_units.h"
+#include "Tools/canonical_scene_export_authoring.h"
+#include "Tools/canonical_scene_export_materials.h"
 #include "Tools/canonical_scene_export_primitives.h"
 #include "cjson/cJSON.h"
 
@@ -26,6 +28,9 @@ static const char* kWallSetGeometryId = "shape_line_drawing_wall_set";
 static const char* kDefaultMaterialId = "mat_line_drawing_default";
 static const char* kDefaultLightId = "light_line_drawing_key";
 static const char* kDefaultCameraId = "cam_line_drawing_default";
+static const char* kDefaultCameraPathLabel = "Camera Path";
+static const char* kDefaultLightPathLabel = "Light Path";
+static const char* kDefaultPreviewMode = "wireframe";
 static const char* kDefaultMaterialType = "flat_color";
 static const char* kDefaultLightType = "directional";
 static const char* kDefaultUnitSystem = "meters";
@@ -59,6 +64,56 @@ static cJSON* vec3_to_json_object(Vec3 value) {
     return node;
 }
 
+static bool append_path_control_point(cJSON* control_points, Vec3 position) {
+    cJSON* point = NULL;
+    if (!control_points) return false;
+    point = vec3_to_json_object(position);
+    if (!point) return false;
+    cJSON_AddItemToArray(control_points, point);
+    return true;
+}
+
+static bool append_scene_path(cJSON* paths,
+                              const char* path_id,
+                              const char* path_kind,
+                              const char* label,
+                              const char* bound_key,
+                              const char* bound_id,
+                              Vec3 start,
+                              Vec3 control,
+                              Vec3 end) {
+    cJSON* path = NULL;
+    cJSON* control_points = NULL;
+    if (!paths || !path_id || !path_id[0] || !path_kind || !path_kind[0]) return false;
+
+    path = cJSON_CreateObject();
+    control_points = cJSON_CreateArray();
+    if (!path || !control_points) {
+        cJSON_Delete(path);
+        cJSON_Delete(control_points);
+        return false;
+    }
+
+    cJSON_AddStringToObject(path, "path_id", path_id);
+    cJSON_AddStringToObject(path, "path_kind", path_kind);
+    cJSON_AddStringToObject(path, "label", string_or_default(label, path_id));
+    cJSON_AddStringToObject(path, "curve_type", "bezier");
+    if (bound_key && bound_key[0] && bound_id && bound_id[0]) {
+        cJSON_AddStringToObject(path, bound_key, bound_id);
+    }
+    cJSON_AddItemToObject(path, "control_points", control_points);
+
+    if (!append_path_control_point(control_points, start) ||
+        !append_path_control_point(control_points, control) ||
+        !append_path_control_point(control_points, end)) {
+        cJSON_Delete(path);
+        return false;
+    }
+
+    cJSON_AddItemToArray(paths, path);
+    return true;
+}
+
 static bool is_allowed_material_type(const char* value) {
     return strcmp(value, "flat_color") == 0;
 }
@@ -74,6 +129,12 @@ static bool is_allowed_camera_type(const char* value) {
            strcmp(value, "orthographic") == 0;
 }
 
+static bool is_allowed_preview_mode(const char* value) {
+    return strcmp(value, "wireframe") == 0 ||
+           strcmp(value, "flat") == 0 ||
+           strcmp(value, "material") == 0;
+}
+
 static bool is_allowed_unit_system(const char* value) {
     return strcmp(value, kDefaultUnitSystem) == 0;
 }
@@ -87,16 +148,39 @@ static double scene_authoring_world_scale_or_default(const LineDrawingSceneAutho
     return options->world_scale;
 }
 
+static bool scene_authoring_options_override_live_records(
+    const LineDrawingSceneAuthoringOptions* options) {
+    if (!options) return false;
+    return (options->material_id && options->material_id[0]) ||
+           (options->light_id && options->light_id[0]) ||
+           (options->camera_id && options->camera_id[0]) ||
+           (options->camera_path_id && options->camera_path_id[0]) ||
+           (options->light_path_id && options->light_path_id[0]) ||
+           options->material_binding_count > 0u;
+}
+
 static bool validate_options(const LineDrawingSceneAuthoringOptions* options) {
     if (!options) return true;
 
     if (options->material_id && !is_valid_token(options->material_id)) return false;
     if (options->light_id && !is_valid_token(options->light_id)) return false;
     if (options->camera_id && !is_valid_token(options->camera_id)) return false;
+    if (options->camera_path_id && !is_valid_token(options->camera_path_id)) return false;
+    if (options->light_path_id && !is_valid_token(options->light_path_id)) return false;
 
     if (options->material_type && !is_allowed_material_type(options->material_type)) return false;
+    if (options->material_binding_count > 0u) {
+        if (!options->material_bindings) return false;
+        for (size_t i = 0u; i < options->material_binding_count; ++i) {
+            if (!LineDrawingCanonicalScene_ValidateMaterialBindingOption(
+                    &options->material_bindings[i])) {
+                return false;
+            }
+        }
+    }
     if (options->light_type && !is_allowed_light_type(options->light_type)) return false;
     if (options->camera_type && !is_allowed_camera_type(options->camera_type)) return false;
+    if (options->preview_mode && !is_allowed_preview_mode(options->preview_mode)) return false;
     if (options->unit_system && !is_allowed_unit_system(options->unit_system)) return false;
     if (options->conversion_policy &&
         !is_allowed_conversion_policy(options->conversion_policy)) {
@@ -375,6 +459,18 @@ static bool upsert_object_item(cJSON* object, const char* key, cJSON* item) {
     return true;
 }
 
+static bool upsert_string_item(cJSON* object, const char* key, const char* value) {
+    cJSON* item = NULL;
+    if (!object || !key || !value) return false;
+    item = cJSON_CreateString(value);
+    if (!item) return false;
+    if (!upsert_object_item(object, key, item)) {
+        cJSON_Delete(item);
+        return false;
+    }
+    return true;
+}
+
 static bool add_vec3_object_item(cJSON* object, const char* key, Vec3 value) {
     cJSON* vec = NULL;
     if (!object || !key) return false;
@@ -481,6 +577,7 @@ static bool validate_root_contract(const char* scene_id, bool is_3d, double worl
 
 static bool append_primitive_scene_objects(cJSON* objects,
                                            cJSON* hierarchy,
+                                           cJSON* material_bindings,
                                            const Layout* layout,
                                            const cJSON* existing_root,
                                            const char* material_id) {
@@ -540,6 +637,12 @@ static bool append_primitive_scene_objects(cJSON* objects,
                         (int)object->kind,
                         geometry_id);
             }
+            return false;
+        }
+        if (!LineDrawingCanonicalScene_AppendDefaultObjectMaterialBinding(material_bindings,
+                                                                          object->coreMeta.object_id,
+                                                                          material_id,
+                                                                          "default")) {
             return false;
         }
 
@@ -696,11 +799,14 @@ static cJSON* build_scene_json(const Layout* layout,
     cJSON* objects = NULL;
     cJSON* hierarchy = NULL;
     cJSON* materials = NULL;
+    cJSON* material_bindings = NULL;
     cJSON* lights = NULL;
     cJSON* cameras = NULL;
+    cJSON* paths = NULL;
     cJSON* constraints = NULL;
     cJSON* root_extensions = NULL;
     cJSON* line_drawing_ext = NULL;
+    cJSON* line_drawing_authoring_ext = NULL;
     cJSON* layout_object_json = NULL;
     cJSON* anchor_object_json = NULL;
     cJSON* wall_object_json = NULL;
@@ -713,8 +819,14 @@ static cJSON* build_scene_json(const Layout* layout,
     const char* resolved_light_type = NULL;
     const char* resolved_camera_id = NULL;
     const char* resolved_camera_type = NULL;
+    const char* resolved_camera_path_id = NULL;
+    const char* resolved_light_path_id = NULL;
+    const char* resolved_preview_mode = NULL;
     const char* resolved_unit_system = NULL;
     const char* resolved_conversion_policy = NULL;
+    bool has_camera_path = false;
+    bool has_light_path = false;
+    bool use_live_scene_authoring = false;
     double resolved_world_scale = kDefaultWorldScale;
     SceneBounds3D framing_bounds = {0};
 
@@ -747,13 +859,24 @@ static cJSON* build_scene_json(const Layout* layout,
     if (!resolved_scene_id) {
         resolved_scene_id = string_or_default(scene_id, kDefaultSceneId);
     }
-    resolved_material_id = string_or_default(options ? options->material_id : NULL, kDefaultMaterialId);
+    use_live_scene_authoring =
+        LineDrawingCanonicalScene_HasLiveSceneAuthoringRecords(layout) &&
+        !scene_authoring_options_override_live_records(options);
+    resolved_material_id = use_live_scene_authoring && layout->sceneAuthoring.material_count > 0u
+        ? string_or_default(layout->sceneAuthoring.materials[0].material_id, kDefaultMaterialId)
+        : string_or_default(options ? options->material_id : NULL, kDefaultMaterialId);
     resolved_material_type = string_or_default(options ? options->material_type : NULL, kDefaultMaterialType);
     resolved_light_id = string_or_default(options ? options->light_id : NULL, kDefaultLightId);
     resolved_light_type = string_or_default(options ? options->light_type : NULL, kDefaultLightType);
     resolved_camera_id = string_or_default(options ? options->camera_id : NULL, kDefaultCameraId);
     resolved_camera_type = string_or_default(options ? options->camera_type : NULL,
                                              is_3d ? "perspective" : "orthographic");
+    resolved_camera_path_id = options ? options->camera_path_id : NULL;
+    resolved_light_path_id = options ? options->light_path_id : NULL;
+    has_camera_path = resolved_camera_path_id && resolved_camera_path_id[0];
+    has_light_path = resolved_light_path_id && resolved_light_path_id[0];
+    resolved_preview_mode = string_or_default(options ? options->preview_mode : NULL,
+                                              kDefaultPreviewMode);
     resolved_unit_system =
         string_or_default(options ? options->unit_system : NULL, kDefaultUnitSystem);
     resolved_conversion_policy =
@@ -777,18 +900,23 @@ static cJSON* build_scene_json(const Layout* layout,
     objects = cJSON_CreateArray();
     hierarchy = cJSON_CreateArray();
     materials = cJSON_CreateArray();
+    material_bindings = cJSON_CreateArray();
     lights = cJSON_CreateArray();
     cameras = cJSON_CreateArray();
+    paths = cJSON_CreateArray();
     constraints = cJSON_CreateArray();
-    if (!objects || !hierarchy || !materials || !lights || !cameras || !constraints) {
+    if (!objects || !hierarchy || !materials || !material_bindings ||
+        !lights || !cameras || !paths || !constraints) {
         cJSON_Delete(root);
         return NULL;
     }
     cJSON_AddItemToObject(root, "objects", objects);
     cJSON_AddItemToObject(root, "hierarchy", hierarchy);
     cJSON_AddItemToObject(root, "materials", materials);
+    cJSON_AddItemToObject(root, "material_bindings", material_bindings);
     cJSON_AddItemToObject(root, "lights", lights);
     cJSON_AddItemToObject(root, "cameras", cameras);
+    cJSON_AddItemToObject(root, "paths", paths);
     cJSON_AddItemToObject(root, "constraints", constraints);
 
     root_extensions = duplicate_or_empty_object(
@@ -837,6 +965,21 @@ static cJSON* build_scene_json(const Layout* layout,
                                            "walls",
                                            NULL);
     if (!anchor_object_json || !wall_object_json) {
+        cJSON_Delete(root);
+        return NULL;
+    }
+    if (!LineDrawingCanonicalScene_AppendDefaultObjectMaterialBinding(material_bindings,
+                                                                      kDefaultObjectId,
+                                                                      resolved_material_id,
+                                                                      "default") ||
+        !LineDrawingCanonicalScene_AppendDefaultObjectMaterialBinding(material_bindings,
+                                                                      kAnchorSetObjectId,
+                                                                      resolved_material_id,
+                                                                      "default") ||
+        !LineDrawingCanonicalScene_AppendDefaultObjectMaterialBinding(material_bindings,
+                                                                      kWallSetObjectId,
+                                                                      resolved_material_id,
+                                                                      "default")) {
         cJSON_Delete(root);
         return NULL;
     }
@@ -892,6 +1035,21 @@ static cJSON* build_scene_json(const Layout* layout,
     cJSON_AddStringToObject(line_drawing_ext, "producer", "line_drawing");
     cJSON_AddStringToObject(line_drawing_ext, "authoring_contract", "np2");
     cJSON_AddNumberToObject(line_drawing_ext, "active_object3d_count", (double)active_objects3d);
+    line_drawing_authoring_ext =
+        duplicate_or_empty_object(cJSON_GetObjectItemCaseSensitive(line_drawing_ext, "authoring"));
+    if (!line_drawing_authoring_ext) {
+        cJSON_Delete(root);
+        return NULL;
+    }
+    if (!upsert_object_item(line_drawing_ext, "authoring", line_drawing_authoring_ext)) {
+        cJSON_Delete(line_drawing_authoring_ext);
+        cJSON_Delete(root);
+        return NULL;
+    }
+    if (!upsert_string_item(line_drawing_authoring_ext, "preview_mode", resolved_preview_mode)) {
+        cJSON_Delete(root);
+        return NULL;
+    }
     if (!add_layout_snapshot_extension(line_drawing_ext, layout)) {
         cJSON_Delete(root);
         return NULL;
@@ -915,7 +1073,18 @@ static cJSON* build_scene_json(const Layout* layout,
     cJSON_AddStringToObject(object_line_drawing_ext, "geometry_source", "layout");
     cJSON_AddBoolToObject(object_line_drawing_ext, "is_layout_authoring_object", true);
 
-    {
+    if (use_live_scene_authoring) {
+        if (!LineDrawingCanonicalScene_AppendLiveSceneAuthoringRecords(materials,
+                                                                       lights,
+                                                                       cameras,
+                                                                       paths,
+                                                                       layout,
+                                                                       resolved_material_type,
+                                                                       resolved_camera_type)) {
+            cJSON_Delete(root);
+            return NULL;
+        }
+    } else {
         cJSON* material = cJSON_CreateObject();
         cJSON* material_extensions = cJSON_CreateObject();
         cJSON* material_line_drawing_ext = cJSON_CreateObject();
@@ -931,7 +1100,7 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_AddStringToObject(material_line_drawing_ext, "preset", "default");
     }
 
-    {
+    if (!use_live_scene_authoring) {
         cJSON* light = cJSON_CreateObject();
         cJSON* light_transform = cJSON_CreateObject();
         cJSON* light_position = cJSON_CreateObject();
@@ -948,6 +1117,9 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_AddItemToArray(lights, light);
         cJSON_AddStringToObject(light, "light_id", resolved_light_id);
         cJSON_AddStringToObject(light, "light_type", resolved_light_type);
+        if (has_light_path) {
+            cJSON_AddStringToObject(light, "path_id", resolved_light_path_id);
+        }
         cJSON_AddItemToObject(light, "transform", light_transform);
         cJSON_AddItemToObject(light_transform, "position", light_position);
         cJSON_AddNumberToObject(light_position, "x", scene_focus_x + light_offset_x);
@@ -955,7 +1127,7 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_AddNumberToObject(light_position, "z", scene_focus_z + light_offset_z);
     }
 
-    {
+    if (!use_live_scene_authoring) {
         cJSON* camera = cJSON_CreateObject();
         cJSON* camera_transform = cJSON_CreateObject();
         cJSON* camera_position = cJSON_CreateObject();
@@ -970,11 +1142,48 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_AddItemToArray(cameras, camera);
         cJSON_AddStringToObject(camera, "camera_id", resolved_camera_id);
         cJSON_AddStringToObject(camera, "camera_type", resolved_camera_type);
+        if (has_camera_path) {
+            cJSON_AddStringToObject(camera, "path_id", resolved_camera_path_id);
+        }
         cJSON_AddItemToObject(camera, "transform", camera_transform);
         cJSON_AddItemToObject(camera_transform, "position", camera_position);
         cJSON_AddNumberToObject(camera_position, "x", scene_focus_x);
         cJSON_AddNumberToObject(camera_position, "y", scene_focus_y);
         cJSON_AddNumberToObject(camera_position, "z", scene_focus_z + camera_offset_z);
+    }
+
+    if (!use_live_scene_authoring && has_camera_path) {
+        const float camera_z = scene_focus.z + (is_3d ? 8.0f : 3.0f);
+        if (!append_scene_path(paths,
+                               resolved_camera_path_id,
+                               "camera",
+                               string_or_default(options ? options->camera_path_label : NULL,
+                                                 kDefaultCameraPathLabel),
+                               "camera_id",
+                               resolved_camera_id,
+                               (Vec3){ scene_focus.x - 2.0f, scene_focus.y - 5.0f, camera_z },
+                               (Vec3){ scene_focus.x, scene_focus.y - 3.0f, camera_z - 1.0f },
+                               (Vec3){ scene_focus.x + 2.0f, scene_focus.y - 5.0f, camera_z })) {
+            cJSON_Delete(root);
+            return NULL;
+        }
+    }
+
+    if (!use_live_scene_authoring && has_light_path) {
+        const float light_z = scene_focus.z + (is_3d ? 5.0f : 2.0f);
+        if (!append_scene_path(paths,
+                               resolved_light_path_id,
+                               "light",
+                               string_or_default(options ? options->light_path_label : NULL,
+                                                 kDefaultLightPathLabel),
+                               "light_id",
+                               resolved_light_id,
+                               (Vec3){ scene_focus.x + 1.0f, scene_focus.y + 2.0f, light_z },
+                               (Vec3){ scene_focus.x + 3.0f, scene_focus.y + 4.0f, light_z + 1.0f },
+                               (Vec3){ scene_focus.x + 5.0f, scene_focus.y + 2.0f, light_z })) {
+            cJSON_Delete(root);
+            return NULL;
+        }
     }
 
     {
@@ -994,9 +1203,19 @@ static cJSON* build_scene_json(const Layout* layout,
 
     if (!append_primitive_scene_objects(objects,
                                         hierarchy,
+                                        material_bindings,
                                         layout,
                                         existing_root,
                                         resolved_material_id)) {
+        cJSON_Delete(root);
+        return NULL;
+    }
+
+    if (!LineDrawingCanonicalScene_AppendMaterialBindingOptions(
+            material_bindings,
+            options ? options->material_bindings : NULL,
+            options ? options->material_binding_count : 0u,
+            resolved_material_id)) {
         cJSON_Delete(root);
         return NULL;
     }
@@ -1007,6 +1226,7 @@ static cJSON* build_scene_json(const Layout* layout,
 static bool validate_scene_json_for_persistence(const cJSON* root) {
     const cJSON* objects = NULL;
     const cJSON* materials = NULL;
+    const cJSON* material_bindings = NULL;
     const cJSON* lights = NULL;
     const cJSON* cameras = NULL;
 
@@ -1019,10 +1239,12 @@ static bool validate_scene_json_for_persistence(const cJSON* root) {
 
     objects = cJSON_GetObjectItemCaseSensitive(root, "objects");
     materials = cJSON_GetObjectItemCaseSensitive(root, "materials");
+    material_bindings = cJSON_GetObjectItemCaseSensitive(root, "material_bindings");
     lights = cJSON_GetObjectItemCaseSensitive(root, "lights");
     cameras = cJSON_GetObjectItemCaseSensitive(root, "cameras");
     if (!cJSON_IsArray(objects) || cJSON_GetArraySize(objects) <= 0) return false;
     if (!cJSON_IsArray(materials) || cJSON_GetArraySize(materials) <= 0) return false;
+    if (!cJSON_IsArray(material_bindings)) return false;
     if (!cJSON_IsArray(lights) || cJSON_GetArraySize(lights) <= 0) return false;
     if (!cJSON_IsArray(cameras) || cJSON_GetArraySize(cameras) <= 0) return false;
     return true;

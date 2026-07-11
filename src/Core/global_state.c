@@ -277,6 +277,24 @@ const char* Global_GetWorkspaceModeLabel(LineDrawingWorkspaceMode mode) {
                : "Scene Workspace";
 }
 
+const char* Global_GetPreviewModeLabel(LineDrawingPreviewMode mode) {
+    switch (mode) {
+        case LINE_DRAWING_PREVIEW_MODE_FLAT: return "Flat";
+        case LINE_DRAWING_PREVIEW_MODE_MATERIAL: return "Material";
+        case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
+        default: return "Wireframe";
+    }
+}
+
+const char* Global_GetPreviewModeExportValue(LineDrawingPreviewMode mode) {
+    switch (mode) {
+        case LINE_DRAWING_PREVIEW_MODE_FLAT: return "flat";
+        case LINE_DRAWING_PREVIEW_MODE_MATERIAL: return "material";
+        case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
+        default: return "wireframe";
+    }
+}
+
 static bool SpaceMode_Parse(const char* text, SpaceMode* out_mode) {
     if (!text || !out_mode) return false;
 
@@ -393,6 +411,41 @@ bool Global_ToggleWorkspaceMode(void) {
             : LINE_DRAWING_WORKSPACE_MODE_SCENE);
 }
 
+LineDrawingPreviewMode Global_GetPreviewMode(void) {
+    if (!global) return LINE_DRAWING_PREVIEW_MODE_WIREFRAME;
+    return global->previewMode;
+}
+
+bool Global_SetPreviewMode(LineDrawingPreviewMode mode) {
+    if (!global) return false;
+    if (mode != LINE_DRAWING_PREVIEW_MODE_WIREFRAME &&
+        mode != LINE_DRAWING_PREVIEW_MODE_FLAT &&
+        mode != LINE_DRAWING_PREVIEW_MODE_MATERIAL) {
+        return false;
+    }
+    global->previewMode = mode;
+    Global_FlagGridChanged();
+    return true;
+}
+
+bool Global_TogglePreviewMode(void) {
+    LineDrawingPreviewMode next = LINE_DRAWING_PREVIEW_MODE_WIREFRAME;
+    if (!global) return false;
+    switch (global->previewMode) {
+        case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
+            next = LINE_DRAWING_PREVIEW_MODE_FLAT;
+            break;
+        case LINE_DRAWING_PREVIEW_MODE_FLAT:
+            next = LINE_DRAWING_PREVIEW_MODE_MATERIAL;
+            break;
+        case LINE_DRAWING_PREVIEW_MODE_MATERIAL:
+        default:
+            next = LINE_DRAWING_PREVIEW_MODE_WIREFRAME;
+            break;
+    }
+    return Global_SetPreviewMode(next);
+}
+
 bool Global_IsCenterCrosshairEnabled(void) {
     if (!global) return false;
     return global->centerCrosshairEnabled;
@@ -458,6 +511,7 @@ void Global_Init(int screenWidth, int screenHeight) {
     global->layoutDirty = true;
     global->hitboxDirty = true;
     global->spaceMode = SPACE_MODE_3D;
+    global->previewMode = LINE_DRAWING_PREVIEW_MODE_WIREFRAME;
     global->activePlane = (ViewPlane){ .axis = VIEW_PLANE_XY, .offset = 0.0f };
     global->freeViewCamera = (FreeViewCamera){
         .enabled = false,

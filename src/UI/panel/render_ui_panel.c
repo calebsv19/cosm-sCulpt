@@ -5,6 +5,7 @@
 #include "UI/ui_panel_file_layout.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_object_inspector.h"
+#include "UI/ui_panel_scene_authoring_inspector.h"
 #include "UI/ui_panel_scene_summary.h"
 #include "UI/ui_panel_scene_list.h"
 #include "UI/ui_panel_shell.h"
@@ -14,6 +15,7 @@
 #include "UI/font_manager.h"
 #include "UI/text_draw.h"
 #include "Core/global_state.h"
+#include "Layout/scene/layout_scene_authoring.h"
 #include "Editor/object_face_sketch.h"
 
 #include <SDL2/SDL.h>
@@ -134,6 +136,9 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
           state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_EDGE) ||
          (btn->id == UI_BTN_OBJECT_EDIT_VERTEX_MODE &&
           state->editor.objectEditSelectionMode == OBJECT_EDIT_SELECTION_VERTEX));
+    const bool scene_authoring_edit_active = state &&
+        btn->id == UI_BTN_SCENE_AUTHORING_EDIT_MODE &&
+        state->editor.sceneAuthoringEditMode != SCENE_AUTHORING_EDIT_MODE_NONE;
     const bool render_disabled =
         place_mesh_disabled ||
         (object_mode &&
@@ -156,7 +161,7 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         button_fill.a = 150;
         button_border = UIPanelVisual_AdjustColor(button_border, -24, 0);
         textColor = palette.text_muted;
-    } else if (pressed_live || edit_mode_active) {
+    } else if (pressed_live || edit_mode_active || scene_authoring_edit_active) {
         button_fill = UIPanelVisual_BlendColor(button_fill, palette.button_fill_active, 120);
         button_border = UIPanelVisual_AdjustColor(palette.accent, 10, 0);
         textColor = palette.text_primary;
@@ -204,6 +209,9 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
                 btn->id == UI_BTN_INPUT_ROOT_FOLDER ||
                 btn->id == UI_BTN_CREATE_PLANE ||
                 btn->id == UI_BTN_CREATE_RECT_PRISM ||
+                btn->id == UI_BTN_CREATE_LIGHT ||
+                btn->id == UI_BTN_CREATE_CAMERA_PATH ||
+                btn->id == UI_BTN_CREATE_MATERIAL ||
                 btn->id == UI_BTN_OBJECT_FACE_SELECT ||
                 btn->id == UI_BTN_OBJECT_SKETCH_SELECT ||
                 btn->id == UI_BTN_OBJECT_SKETCH_CLEAR ||
@@ -227,6 +235,12 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
             label = object_mode ? "Sketch Rect" : "Add Plane";
         } else if (btn->id == UI_BTN_CREATE_RECT_PRISM) {
             label = "Add Prism";
+        } else if (btn->id == UI_BTN_CREATE_LIGHT) {
+            label = "+Light";
+        } else if (btn->id == UI_BTN_CREATE_CAMERA_PATH) {
+            label = "+Camera Path";
+        } else if (btn->id == UI_BTN_CREATE_MATERIAL) {
+            label = "+Material";
         } else if (btn->id == UI_BTN_OBJECT_FACE_SELECT) {
             label = "Face Select";
         } else if (btn->id == UI_BTN_OBJECT_SKETCH_SELECT) {
@@ -248,6 +262,97 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
                  sizeof(dynamicLabel),
                  "%s (X)",
                  UIPanel_ObjectGizmoModeLabel());
+        label = dynamicLabel;
+    } else if (btn->id == UI_BTN_SCENE_AUTHORING_EDIT_MODE) {
+        const GlobalState* state = Global_Get();
+        const LineDrawingSceneAuthoringState* authoring = state ? &state->layout.sceneAuthoring : NULL;
+        const char* mode_name = authoring &&
+            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH
+                ? "Path Edit"
+                : "Light Edit";
+        const bool active = state &&
+            state->editor.sceneAuthoringEditMode != SCENE_AUTHORING_EDIT_MODE_NONE;
+        snprintf(dynamicLabel,
+                 sizeof(dynamicLabel),
+                 "%s: %s",
+                 mode_name,
+                 active ? "On" : "Off");
+        label = dynamicLabel;
+    } else if (btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED) {
+        const GlobalState* state = Global_Get();
+        const LineDrawingSceneAuthoringState* authoring = state ? &state->layout.sceneAuthoring : NULL;
+        const LineDrawingSceneLight* light = NULL;
+        if (authoring &&
+            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT &&
+            authoring->selected_index < authoring->light_count) {
+            light = &authoring->lights[authoring->selected_index];
+        }
+        snprintf(dynamicLabel,
+                 sizeof(dynamicLabel),
+                 "Enabled: %s",
+                 light && light->enabled ? "On" : "Off");
+        label = dynamicLabel;
+    } else if (btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_KIND) {
+        const GlobalState* state = Global_Get();
+        const LineDrawingSceneAuthoringState* authoring = state ? &state->layout.sceneAuthoring : NULL;
+        const LineDrawingSceneLight* light = NULL;
+        if (authoring &&
+            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT &&
+            authoring->selected_index < authoring->light_count) {
+            light = &authoring->lights[authoring->selected_index];
+        }
+        snprintf(dynamicLabel,
+                 sizeof(dynamicLabel),
+                 "Kind: %s",
+                 light ? Layout_SceneLightKind_Label(light->kind) : "Light");
+        label = dynamicLabel;
+    } else if (btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_PATH) {
+        const GlobalState* state = Global_Get();
+        const LineDrawingSceneAuthoringState* authoring = state ? &state->layout.sceneAuthoring : NULL;
+        const LineDrawingSceneLight* light = NULL;
+        if (authoring &&
+            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT &&
+            authoring->selected_index < authoring->light_count) {
+            light = &authoring->lights[authoring->selected_index];
+        }
+        snprintf(dynamicLabel,
+                 sizeof(dynamicLabel),
+                 "Path: %s",
+                 light && light->path_id[0] ? light->path_id : "none");
+        label = dynamicLabel;
+    } else if (btn->id == UI_BTN_SCENE_AUTHORING_PATH_KIND) {
+        const GlobalState* state = Global_Get();
+        const LineDrawingSceneAuthoringState* authoring = state ? &state->layout.sceneAuthoring : NULL;
+        const LineDrawingSceneCameraPath* path = NULL;
+        if (authoring &&
+            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH &&
+            authoring->selected_index < authoring->camera_path_count) {
+            path = &authoring->camera_paths[authoring->selected_index];
+        }
+        snprintf(dynamicLabel,
+                 sizeof(dynamicLabel),
+                 "Path Kind: %s",
+                 path && path->path_kind[0] ? path->path_kind : "bezier");
+        label = dynamicLabel;
+    } else if (btn->id == UI_BTN_SCENE_AUTHORING_MATERIAL_COLOR) {
+        const GlobalState* state = Global_Get();
+        const LineDrawingSceneAuthoringState* authoring = state ? &state->layout.sceneAuthoring : NULL;
+        const LineDrawingSceneMaterial* material = NULL;
+        if (authoring &&
+            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL &&
+            authoring->selected_index < authoring->material_count) {
+            material = &authoring->materials[authoring->selected_index];
+        }
+        if (material) {
+            snprintf(dynamicLabel,
+                     sizeof(dynamicLabel),
+                     "Color: %.2f %.2f %.2f",
+                     material->rgba[0],
+                     material->rgba[1],
+                     material->rgba[2]);
+        } else {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Color");
+        }
         label = dynamicLabel;
     } else if (btn->id == UI_BTN_TOGGLE_SCENE_BOUNDS) {
         GlobalState* state = Global_Get();
@@ -423,12 +528,16 @@ static const char* UIPanel_GroupTitle(UIPanelGroup group, UIPanelSide side) {
         case UI_PANEL_GROUP_RIGHT_VIEW: return object_mode ? "Navigate" : "View";
         case UI_PANEL_GROUP_RIGHT_MODES: return object_mode ? "Edit Modes" : "Modes";
         case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return object_mode ? "Target / Sketch" : "Primitives";
-        case UI_PANEL_GROUP_RIGHT_OPERATIONS: return object_mode ? "Solid Command" : "Operations";
+        case UI_PANEL_GROUP_RIGHT_OPERATIONS: return object_mode ? "Solid Command" : "Scene Records";
         case UI_PANEL_GROUP_RIGHT_CONSTRUCTION: return "Construction";
-        case UI_PANEL_GROUP_RIGHT_PRISM: return object_mode ? "Body Dimensions" : "Prism";
+        case UI_PANEL_GROUP_RIGHT_PRISM:
+            return UIPanel_SceneAuthoringInspectorHasSelection() ? "Authoring Property" :
+                   object_mode ? "Body Dimensions" : "Prism";
         case UI_PANEL_GROUP_RIGHT_GIZMO: return object_mode ? "Object Gizmo" : "Gizmo";
         case UI_PANEL_GROUP_RIGHT_TRANSFORM: return object_mode ? "Object Transform" : "Transform";
-        case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS: return object_mode ? "Selection Actions" : "Object Actions";
+        case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS:
+            return UIPanel_SceneAuthoringInspectorHasSelection() ? "Authoring Actions" :
+                   object_mode ? "Selection Actions" : "Object Actions";
         case UI_PANEL_GROUP_RIGHT_EDIT_SELECT: return "Selection Mode";
         case UI_PANEL_GROUP_NONE:
         default: return "Controls";
@@ -621,14 +730,22 @@ void Render_UIPanelRootSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
 void Render_UIPanelObjectSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     if (!ui || !renderer) return;
     if (!UIPanel_ShouldRenderObjectSummary(ui)) return;
-    Render_UIPanelObjectInspector(ui, renderer);
+    if (UIPanel_SceneAuthoringInspectorHasSelection()) {
+        Render_UIPanelSceneAuthoringInspector(ui, renderer);
+    } else {
+        Render_UIPanelObjectInspector(ui, renderer);
+    }
 }
 
 static void Render_UIPanelRightTabSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     if (!ui || !renderer) return;
     Render_UIPanelViewSummary(ui, renderer);
     Render_UIPanelCreateSummary(ui, renderer);
-    Render_UIPanelObjectInspector(ui, renderer);
+    if (UIPanel_SceneAuthoringInspectorHasSelection()) {
+        Render_UIPanelSceneAuthoringInspector(ui, renderer);
+    } else {
+        Render_UIPanelObjectInspector(ui, renderer);
+    }
     Render_UIPanelEditSummary(ui, renderer);
 }
 

@@ -39,9 +39,24 @@ typedef CoreSceneViewDisplayFlags LayoutSceneViewDisplayFlags;
 typedef CoreSceneViewPickId LayoutSceneViewPickId;
 typedef CoreSceneViewPacketReadback LayoutSceneViewPacketReadback;
 
+typedef struct LayoutSceneViewPacketReadout {
+    LayoutSceneViewPacketReadback packet;
+    Object3DKind object_kind;
+    bool face_mapping_supported;
+    bool face_mapping_degraded;
+    Object3DFaceKind first_face;
+    Object3DFaceKind last_face;
+} LayoutSceneViewPacketReadout;
+
 bool Layout_SceneViewPacketReadbackFromJsonString(
     const char* json,
     LayoutSceneViewPacketReadback* out_readback);
+
+void Layout_SceneViewPacketReadoutInit(LayoutSceneViewPacketReadout* readout);
+bool Layout_SceneViewPacketReadoutFromJsonString(
+    const char* json,
+    Object3DKind object_kind,
+    LayoutSceneViewPacketReadout* out_readout);
 
 bool Layout_SceneViewPacketMapPlaneFaceGroup(size_t face_group_index,
                                              Object3DFaceKind* out_face);

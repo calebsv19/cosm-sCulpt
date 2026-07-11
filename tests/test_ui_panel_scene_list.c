@@ -119,6 +119,36 @@ static bool test_scene_list_click_selects_first_object(void) {
     return true;
 }
 
+static bool test_scene_list_click_selects_authoring_light_row(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    int click_x = 0;
+    int click_y = 0;
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+    ui->activeLeftTab = UI_PANEL_LEFT_TAB_SCENE;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    ld_test_scene_list_first_row_point(ui, &click_x, &click_y);
+
+    TEST_ASSERT(UIPanel_HandleClick(click_x, click_y));
+    TEST_ASSERT(state->editor.selectedObject3DId == 0u);
+    TEST_ASSERT(state->layout.sceneAuthoring.selected_kind ==
+                LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT);
+    TEST_ASSERT(state->layout.sceneAuthoring.selected_index == 0u);
+
+    UIPanel_SceneListClearSelection();
+    TEST_ASSERT(state->layout.sceneAuthoring.selected_kind ==
+                LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_scene_list_scrollbar_drag_updates_scroll_offset(void) {
     GlobalState* state = NULL;
     UIPanelState* ui = NULL;
@@ -252,6 +282,16 @@ static bool test_scene_list_selection_buttons_clear_and_delete(void) {
     TEST_ASSERT(state->editor.selectedObject3DId == 0u);
     TEST_ASSERT(Layout_ObjectStore_FindConst(&state->layout.objectStore, object_id) == NULL);
 
+    TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultLight(&state->layout.sceneAuthoring, NULL));
+    TEST_ASSERT(state->layout.sceneAuthoring.light_count == 2u);
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(&state->layout.sceneAuthoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT,
+                                                  1u));
+    TEST_ASSERT(UIPanel_HandleClick(delete_x, delete_y));
+    TEST_ASSERT(state->layout.sceneAuthoring.light_count == 1u);
+    TEST_ASSERT(state->layout.sceneAuthoring.selected_kind ==
+                LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE);
+
     ld_test_shutdown_runtime();
     return true;
 }
@@ -309,6 +349,8 @@ bool ui_panel_scene_list_run_tests(void) {
     const TestCase cases[] = {
         { "scene_list_click_selects_first_object",
           test_scene_list_click_selects_first_object },
+        { "scene_list_click_selects_authoring_light_row",
+          test_scene_list_click_selects_authoring_light_row },
         { "scene_list_scrollbar_drag_updates_scroll_offset",
           test_scene_list_scrollbar_drag_updates_scroll_offset },
         { "scene_list_selection_buttons_clear_and_delete",

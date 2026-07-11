@@ -192,6 +192,7 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
     char work_prism[128];
     char work_next[128];
     char work_future[128];
+    char work_path[128];
     const char* work_lines[6];
     SDL_Color work_colors[6];
 
@@ -482,21 +483,24 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
              "Switch mode/plane until staging becomes valid");
     snprintf(work_next,
              sizeof(work_next),
-             "Presets and reusable dimensions can extend this pane later");
+             "Scene records  add light, camera path, and material records");
     snprintf(work_future,
              sizeof(work_future),
-             "Tool options appear here when a create tool is active");
+             "Select a light or path row to edit its viewport handles");
+    snprintf(work_path,
+             sizeof(work_path),
+             "Path handles  drag points, Shift-click to add");
 
     work_lines[0] = work_tool;
     work_lines[1] = work_ready;
     work_lines[2] = work_plane;
-    work_lines[3] = work_prism;
-    work_lines[4] = work_next;
-    work_lines[5] = work_future;
+    work_lines[3] = work_next;
+    work_lines[4] = work_future;
+    work_lines[5] = work_path;
     work_colors[0] = value_color;
     work_colors[1] = value_color;
     work_colors[2] = value_color;
-    work_colors[3] = value_color;
+    work_colors[3] = label_color;
     work_colors[4] = label_color;
     work_colors[5] = label_color;
 

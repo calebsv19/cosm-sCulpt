@@ -7,10 +7,12 @@
 #include "Editor/editor.h"
 #include "Editor/object_face_extrude.h"
 #include "Editor/object_face_sketch.h"
+#include "Editor/scene_authoring_path_handles.h"
 #include "Layout/layout.h"
 #include "Layout/layout_origin.h"
 #include "Layout/Grid/grid.h"
 #include "UI/ui_panel.h"
+#include "UI/ui_panel_scene_list.h"
 #include "UI/ui_panel_shell.h"
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
@@ -292,6 +294,16 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
         }
 
         if (event->type == SDL_KEYDOWN &&
+            event->key.keysym.sym == SDLK_n &&
+            (mods & (KMOD_CTRL | KMOD_GUI | KMOD_ALT)) == 0) {
+            if (Global_TogglePreviewMode()) {
+                printf("[Editor] Preview mode: %s\n",
+                       Global_GetPreviewModeLabel(Global_GetPreviewMode()));
+            }
+            return;
+        }
+
+        if (event->type == SDL_KEYDOWN &&
             event->key.keysym.sym == SDLK_h &&
             (mods & (KMOD_CTRL | KMOD_GUI | KMOD_ALT)) == 0) {
             state->editor.sceneBoundsHandlesVisible = !state->editor.sceneBoundsHandlesVisible;
@@ -502,6 +514,15 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
         // Delete wall or anchor
         if (event->type == SDL_KEYDOWN &&
            (event->key.keysym.sym == SDLK_DELETE || event->key.keysym.sym == SDLK_BACKSPACE)) {
+            if (SceneAuthoringPathHandles_DeleteSelectedControlPoint(state, &state->editor)) {
+                return;
+            }
+            if (state->layout.sceneAuthoring.selected_kind !=
+                LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE) {
+                if (UIPanel_SceneListDeleteSelectedObject()) {
+                    return;
+                }
+            }
             bool hasWall = state->editor.selectedWallIndex >= 0;
             bool hasAnchor = state->editor.selectedAnchorIndex >= 0;
             bool hasObject = state->editor.selectedObject3DId != 0u;

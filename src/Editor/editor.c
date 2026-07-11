@@ -149,6 +149,9 @@ void Editor_Init(EditorState* editor) {
     editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+    editor->selectedSceneAuthoringPathIndex = -1;
+    editor->selectedSceneAuthoringControlPointIndex = -1;
+    editor->selectedSceneAuthoringLightPosition = false;
     editor->deleteMode = DELETE_MODE_SAFE;
     editor->isDraggingAnchor = false;
     editor->isResizingObject3D = false;
@@ -160,6 +163,7 @@ void Editor_Init(EditorState* editor) {
     editor->object3DSizeMode = false;
     editor->sceneBoundsHandlesVisible = true;
     editor->primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
+    editor->sceneAuthoringEditMode = SCENE_AUTHORING_EDIT_MODE_NONE;
     editor->objectAuthoringMode = OBJECT_AUTHORING_MODE_NONE;
     editor->objectEditSelectionMode = OBJECT_EDIT_SELECTION_BODY;
     editor->objectFaceSketchToolArmed = false;
@@ -326,12 +330,16 @@ static void Editor_ResetSelection(EditorState* editor) {
     editor->hoveredObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     editor->hoveredObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+    editor->selectedSceneAuthoringPathIndex = -1;
+    editor->selectedSceneAuthoringControlPointIndex = -1;
+    editor->selectedSceneAuthoringLightPosition = false;
     editor->isDraggingAnchor = false;
     editor->isResizingObject3D = false;
     editor->isResizingSceneBounds = false;
     editor->isRotatingObject3D = false;
     editor->isPreciseDrag = false;
     editor->primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
+    editor->sceneAuthoringEditMode = SCENE_AUTHORING_EDIT_MODE_NONE;
     editor->objectAuthoringMode = OBJECT_AUTHORING_MODE_NONE;
     editor->objectFaceSketchToolArmed = false;
     editor->objectFaceSketchDragging = false;
@@ -361,6 +369,43 @@ static void Editor_ResetSelection(EditorState* editor) {
     editor->selectionBoxAdditive = false;
     editor->mode = TOOL_IDLE;
     Editor_ResetGizmoDrag(editor);
+}
+
+bool Editor_SetSceneAuthoringEditMode(EditorState* editor, SceneAuthoringEditMode mode) {
+    if (!editor) return false;
+    if (mode != SCENE_AUTHORING_EDIT_MODE_NONE &&
+        mode != SCENE_AUTHORING_EDIT_MODE_LIGHT &&
+        mode != SCENE_AUTHORING_EDIT_MODE_CAMERA_PATH) {
+        return false;
+    }
+    editor->sceneAuthoringEditMode = mode;
+    editor->primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
+    editor->selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
+    editor->selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
+    editor->selectedSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
+    editor->hoveredObject3DGizmoAxis = -1;
+    editor->activeObject3DGizmoAxis = -1;
+    editor->hoveredSceneBoundsGizmoAxis = -1;
+    editor->activeSceneBoundsGizmoAxis = -1;
+    editor->selectedSceneAuthoringPathIndex = -1;
+    editor->selectedSceneAuthoringControlPointIndex = -1;
+    editor->selectedSceneAuthoringLightPosition = false;
+    Editor_ResetGizmoDrag(editor);
+    return true;
+}
+
+void Editor_ClearSceneAuthoringEditMode(EditorState* editor) {
+    if (!editor) return;
+    (void)Editor_SetSceneAuthoringEditMode(editor, SCENE_AUTHORING_EDIT_MODE_NONE);
+}
+
+const char* Editor_SceneAuthoringEditModeLabel(SceneAuthoringEditMode mode) {
+    switch (mode) {
+        case SCENE_AUTHORING_EDIT_MODE_LIGHT: return "Light";
+        case SCENE_AUTHORING_EDIT_MODE_CAMERA_PATH: return "Camera Path";
+        case SCENE_AUTHORING_EDIT_MODE_NONE:
+        default: return "Off";
+    }
 }
 
 void Editor_SelectAnchorsInBox(EditorState* editor, const Layout* layout, Vec2 min, Vec2 max, bool additive) {

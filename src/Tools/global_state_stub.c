@@ -18,6 +18,7 @@ void Global_Init(int screenWidth, int screenHeight) {
     g_stubState.screenHeight = screenHeight;
     g_stubState.spaceMode = SPACE_MODE_3D;
     g_stubState.workspaceMode = LINE_DRAWING_WORKSPACE_MODE_SCENE;
+    g_stubState.previewMode = LINE_DRAWING_PREVIEW_MODE_WIREFRAME;
     LineDrawingDataPaths_SetDefaults(&g_stubState.dataPaths);
     (void)snprintf(g_stubState.currentConfigPath,
                    sizeof(g_stubState.currentConfigPath),
@@ -322,6 +323,50 @@ bool Global_ToggleWorkspaceMode(void) {
         g_stubState.workspaceMode == LINE_DRAWING_WORKSPACE_MODE_SCENE
             ? LINE_DRAWING_WORKSPACE_MODE_OBJECT
             : LINE_DRAWING_WORKSPACE_MODE_SCENE);
+}
+
+LineDrawingPreviewMode Global_GetPreviewMode(void) {
+    return g_stubState.previewMode;
+}
+
+const char* Global_GetPreviewModeLabel(LineDrawingPreviewMode mode) {
+    switch (mode) {
+        case LINE_DRAWING_PREVIEW_MODE_FLAT: return "Flat";
+        case LINE_DRAWING_PREVIEW_MODE_MATERIAL: return "Material";
+        case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
+        default: return "Wireframe";
+    }
+}
+
+const char* Global_GetPreviewModeExportValue(LineDrawingPreviewMode mode) {
+    switch (mode) {
+        case LINE_DRAWING_PREVIEW_MODE_FLAT: return "flat";
+        case LINE_DRAWING_PREVIEW_MODE_MATERIAL: return "material";
+        case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
+        default: return "wireframe";
+    }
+}
+
+bool Global_SetPreviewMode(LineDrawingPreviewMode mode) {
+    if (mode != LINE_DRAWING_PREVIEW_MODE_WIREFRAME &&
+        mode != LINE_DRAWING_PREVIEW_MODE_FLAT &&
+        mode != LINE_DRAWING_PREVIEW_MODE_MATERIAL) {
+        return false;
+    }
+    g_stubState.previewMode = mode;
+    return true;
+}
+
+bool Global_TogglePreviewMode(void) {
+    switch (g_stubState.previewMode) {
+        case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
+            return Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_FLAT);
+        case LINE_DRAWING_PREVIEW_MODE_FLAT:
+            return Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_MATERIAL);
+        case LINE_DRAWING_PREVIEW_MODE_MATERIAL:
+        default:
+            return Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_WIREFRAME);
+    }
 }
 
 bool Global_IsCenterCrosshairEnabled(void) {

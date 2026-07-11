@@ -12,6 +12,7 @@
 #include "Editor/object_face_extrude.h"
 #include "Editor/object_face_sketch.h"
 #include "Editor/object_face_sketch_edit.h"
+#include "Editor/scene_authoring_path_handles.h"
 #include "ObjectAuthoring/object_authoring_document.h"
 
 #include "UI/input_ui_panel.h"
@@ -135,7 +136,8 @@ static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
         draggingObjectResize || draggingObjectGizmo ||
         draggingObjectTranslate || draggingObjectRotate ||
         draggingObjectScale ||
-        draggingSceneBoundsGizmo) return false;
+        draggingSceneBoundsGizmo ||
+        draggingSceneAuthoringPathHandle) return false;
     GlobalState* state = Global_Get();
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (!state || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
@@ -296,6 +298,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     draggingObjectRotate = false;
     draggingObjectScale = false;
     draggingSceneBoundsGizmo = false;
+    draggingSceneAuthoringPathHandle = false;
     draggingAnchorIndex = -1;
     anchorDragCaptured = false;
     lastMx = btn->x;
@@ -353,6 +356,39 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     bool startedObjectRotateDrag = false;
     bool startedObjectScaleDrag = false;
     bool startedSceneBoundsGizmoDrag = false;
+    bool startedSceneAuthoringPathDrag = false;
+    SceneAuthoringPathHandleRef sceneAuthoringHandle = SceneAuthoringPathHandleRef_None();
+
+    if (shiftSelect &&
+        SceneAuthoringPathHandles_InsertControlPointAtScreen(state,
+                                                             editor,
+                                                             btn->x,
+                                                             btn->y,
+                                                             &sceneAuthoringHandle)) {
+        startedSceneAuthoringPathDrag =
+            BeginSceneAuthoringPathHandleDragSession(state,
+                                                     editor,
+                                                     sceneAuthoringHandle);
+        draggingHandle = false;
+        draggingPan = false;
+        draggingSceneAuthoringPathHandle = startedSceneAuthoringPathDrag;
+        Global_FlagHitboxesDirty();
+        UpdateHover(btn->x, btn->y);
+        return;
+    }
+
+    if (SceneAuthoringPathHandles_Pick(state, btn->x, btn->y, &sceneAuthoringHandle)) {
+        startedSceneAuthoringPathDrag =
+            BeginSceneAuthoringPathHandleDragSession(state,
+                                                     editor,
+                                                     sceneAuthoringHandle);
+        draggingHandle = false;
+        draggingPan = false;
+        draggingSceneAuthoringPathHandle = startedSceneAuthoringPathDrag;
+        Global_FlagHitboxesDirty();
+        UpdateHover(btn->x, btn->y);
+        return;
+    }
 
     ViewportPickResult pick = ViewportPick_ResolveObjectWorkspaceHit(state,
                                                                       btn->x,
@@ -782,6 +818,7 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
                 draggingObjectRotate = false;
                 draggingObjectScale = false;
                 draggingSceneBoundsGizmo = false;
+                draggingSceneAuthoringPathHandle = false;
                 draggingSelectionBox = false;
                 draggingAnchorIndex = -1;
                 anchorDragCaptured = false;
@@ -810,6 +847,7 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
                     ResetObjectRotateDrag(&state->editor);
                     ResetObjectScaleDrag(&state->editor);
                     ResetSceneBoundsGizmoDrag(&state->editor);
+                    ResetSceneAuthoringPathHandleDrag(&state->editor);
                     if (state->editor.selectionBoxActive) {
                         Vec2 start = state->editor.selectionBoxStart;
                         Vec2 end = state->editor.selectionBoxEnd;

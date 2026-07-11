@@ -986,6 +986,7 @@ int main(int argc, char** argv) {
         .light_type = json_string_or(scene_options, "light_type", NULL),
         .camera_id = json_string_or(scene_options, "camera_id", NULL),
         .camera_type = json_string_or(scene_options, "camera_type", NULL),
+        .preview_mode = json_string_or(scene_options, "preview_mode", NULL),
     };
 
     if (!write_text_file(request_copy_path, request_text)) {

@@ -905,7 +905,11 @@ void Layout_Render(const Layout* layout, AppContext* ctx) {
 
     Layout_RenderSceneBounds3D(layout, renderer);
     Layout_RenderPrimitivePlacementPreview(renderer);
-    Layout_RenderObjectSurfaces(layout, renderer);
+    if (state &&
+        state->spaceMode == SPACE_MODE_3D &&
+        state->previewMode != LINE_DRAWING_PREVIEW_MODE_WIREFRAME) {
+        Layout_RenderObjectSurfaces(layout, renderer);
+    }
     Layout_RenderObjects3D(layout, renderer);
     if (state &&
         state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT &&

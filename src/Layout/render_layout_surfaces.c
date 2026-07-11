@@ -221,13 +221,14 @@ static void LayoutSurface_FillPlane(const Object3D* object,
     LayoutSurface_RenderQuad(renderer, &quad);
 }
 
-static size_t LayoutSurface_BuildRectPrismFaces(const Object3D* object,
-                                                const SpaceViewContext* view_ctx,
-                                                const Grid* grid,
-                                                Vec3 view_dir,
-                                                SDL_Color base_color,
-                                                Uint8 alpha,
-                                                LayoutSurfaceQuad out_faces[6]) {
+static size_t LayoutSurface_BuildBoxFaces(const Vec3 corners3[8],
+                                          const SpaceViewContext* view_ctx,
+                                          const Grid* grid,
+                                          Vec3 view_dir,
+                                          Vec3 depth_reference,
+                                          SDL_Color base_color,
+                                          Uint8 alpha,
+                                          LayoutSurfaceQuad out_faces[6]) {
     static const int face_corners[6][4] = {
         {0, 1, 2, 3},
         {4, 5, 6, 7},
@@ -244,14 +245,12 @@ static size_t LayoutSurface_BuildRectPrismFaces(const Object3D* object,
         OBJECT3D_FACE_RECT_PRISM_NEG_U,
         OBJECT3D_FACE_RECT_PRISM_POS_U
     };
-    Vec3 corners3[8];
     size_t face_count = 0u;
     float depth_factor = 1.0f;
-    if (!object || !view_ctx || !grid || !out_faces) return 0u;
-    if (!Layout_Object3D_ComputeRectPrismCorners(object, corners3)) return 0u;
+    if (!corners3 || !view_ctx || !grid || !out_faces) return 0u;
 
-    depth_factor = LayoutSurface_DepthVisualFactor(ViewPlane_AbsDistance(view_ctx->plane,
-                                                                         object->transform.position));
+    depth_factor =
+        LayoutSurface_DepthVisualFactor(ViewPlane_AbsDistance(view_ctx->plane, depth_reference));
     for (int face_index = 0; face_index < 6; ++face_index) {
         LayoutSurfaceQuad quad = {0};
         Vec3 edge_a = {0};
@@ -291,7 +290,8 @@ void Layout_RenderObjectSurfaces(const Layout* layout, SDL_Renderer* renderer) {
     Vec3 view_dir = {0.0f, 0.0f, 1.0f};
 
     if (!layout || !renderer || !state) return;
-    if (Global_GetWorkspaceMode() != LINE_DRAWING_WORKSPACE_MODE_OBJECT) return;
+    if (state->spaceMode != SPACE_MODE_3D) return;
+    if (state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME) return;
 
     view_ctx = SpaceAdapter_BuildViewContext(state);
     view_dir = LayoutSurface_ViewDirection(&view_ctx);
@@ -315,6 +315,9 @@ void Layout_RenderObjectSurfaces(const Layout* layout, SDL_Renderer* renderer) {
 
         if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
             base_color = (SDL_Color){ 112, 158, 224, 122 };
+        } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+            base_color = (SDL_Color){ 170, 132, 226, 82 };
+            alpha = 76u;
         }
         if (is_hovered) {
             base_color = (SDL_Color){ 118, 214, 242, (Uint8)(base_color.a + 26u) };
@@ -342,14 +345,18 @@ void Layout_RenderObjectSurfaces(const Layout* layout, SDL_Renderer* renderer) {
                                                : alpha),
                                     renderer);
         } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
+            Vec3 corners3[8];
             LayoutSurfaceQuad faces[6];
-            const size_t face_count = LayoutSurface_BuildRectPrismFaces(object,
-                                                                        &view_ctx,
-                                                                        &state->grid,
-                                                                        view_dir,
-                                                                        base_color,
-                                                                        alpha,
-                                                                        faces);
+            size_t face_count = 0u;
+            if (!Layout_Object3D_ComputeRectPrismCorners(object, corners3)) continue;
+            face_count = LayoutSurface_BuildBoxFaces(corners3,
+                                                     &view_ctx,
+                                                     &state->grid,
+                                                     view_dir,
+                                                     object->transform.position,
+                                                     base_color,
+                                                     alpha,
+                                                     faces);
             qsort(faces, face_count, sizeof(faces[0]), LayoutSurface_CompareBackToFront);
             for (size_t face_index = 0; face_index < face_count; ++face_index) {
                 if (faces[face_index].face == hovered_face) {
@@ -364,6 +371,25 @@ void Layout_RenderObjectSurfaces(const Layout* layout, SDL_Renderer* renderer) {
                     faces[face_index].color.b = LayoutSurface_ClampColor(faces[face_index].color.b + 12);
                     faces[face_index].color.a = (Uint8)SDL_min(255, faces[face_index].color.a + 36);
                 }
+                LayoutSurface_RenderQuad(renderer, &faces[face_index]);
+            }
+        } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+            Vec3 corners3[8];
+            Vec3 visual_center = object->transform.position;
+            LayoutSurfaceQuad faces[6];
+            size_t face_count = 0u;
+            if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners3)) continue;
+            (void)Layout_Object3D_ComputeVisualCenter(object, &visual_center);
+            face_count = LayoutSurface_BuildBoxFaces(corners3,
+                                                     &view_ctx,
+                                                     &state->grid,
+                                                     view_dir,
+                                                     visual_center,
+                                                     base_color,
+                                                     alpha,
+                                                     faces);
+            qsort(faces, face_count, sizeof(faces[0]), LayoutSurface_CompareBackToFront);
+            for (size_t face_index = 0; face_index < face_count; ++face_index) {
                 LayoutSurface_RenderQuad(renderer, &faces[face_index]);
             }
         }

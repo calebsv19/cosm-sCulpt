@@ -4,6 +4,23 @@
 #include "UI/ui_panel_edit_layout.h"
 #include "UI/ui_panel_object_inspector.h"
 #include "UI/ui_panel_object_layout.h"
+#include "UI/ui_panel_scene_authoring_inspector.h"
+
+static const UIButton* ld_test_find_button(const UIPanelState* ui, int button_id) {
+    if (!ui) return NULL;
+    for (int i = 0; i < ui->count; ++i) {
+        if (ui->buttons[i].id == button_id) return &ui->buttons[i];
+    }
+    return NULL;
+}
+
+static bool ld_test_click_button_center(const UIButton* button) {
+    TEST_ASSERT(button != NULL);
+    TEST_ASSERT(button->bounds.w > 0);
+    TEST_ASSERT(button->bounds.h > 0);
+    return UIPanel_HandleClick(button->bounds.x + button->bounds.w / 2,
+                               button->bounds.y + button->bounds.h / 2);
+}
 
 static bool test_object_inspector_reserves_space_for_selected_object(void) {
     GlobalState* state = NULL;
@@ -372,6 +389,98 @@ static bool test_object_edit_tab_exposes_selection_modes(void) {
     return true;
 }
 
+static bool test_scene_authoring_light_selection_uses_authoring_inspector_controls(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    SDL_Rect summary_rect = {0, 0, 0, 0};
+    SDL_Rect details_rect = {0, 0, 0, 0};
+    SDL_Rect actions_rect = {0, 0, 0, 0};
+    SDL_Rect prism_rect = {0, 0, 0, 0};
+    SDL_Rect gizmo_rect = {0, 0, 0, 0};
+    const UIButton* edit_button = NULL;
+    const UIButton* enabled_button = NULL;
+    const UIButton* kind_button = NULL;
+    const UIButton* path_button = NULL;
+    const UIButton* path_kind_button = NULL;
+    const UIButton* material_color_button = NULL;
+    const UIButton* object_clear_button = NULL;
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    TEST_ASSERT(state != NULL);
+    ui = UIPanel_Get();
+    TEST_ASSERT(ui != NULL);
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(&state->layout.sceneAuthoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT,
+                                                  0u));
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_OBJECT);
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+
+    TEST_ASSERT(UIPanel_SceneAuthoringInspectorHasSelection());
+    TEST_ASSERT(UIPanel_SceneAuthoringInspectorReservedHeight(ui) > 0);
+    TEST_ASSERT(UIPanel_SceneAuthoringInspectorDetailsHeight(ui) > 0);
+    TEST_ASSERT(UIPanel_GetObjectPaneRects(ui,
+                                           &summary_rect,
+                                           &details_rect,
+                                           &actions_rect,
+                                           &prism_rect,
+                                           &gizmo_rect,
+                                           NULL));
+    TEST_ASSERT(summary_rect.h == UIPanel_SceneAuthoringInspectorReservedHeight(ui));
+    TEST_ASSERT(details_rect.h <= UIPanel_SceneAuthoringInspectorDetailsHeight(ui));
+
+    edit_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_EDIT_MODE);
+    enabled_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED);
+    kind_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_KIND);
+    path_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_PATH);
+    object_clear_button = ld_test_find_button(ui, UI_BTN_OBJECT_CLEAR_SELECTION);
+    TEST_ASSERT(edit_button && enabled_button && kind_button && path_button && object_clear_button);
+    TEST_ASSERT(edit_button->bounds.y >= actions_rect.y);
+    TEST_ASSERT(enabled_button->bounds.y >= actions_rect.y);
+    TEST_ASSERT(kind_button->bounds.y >= prism_rect.y);
+    TEST_ASSERT(path_button->bounds.y >= gizmo_rect.y);
+    TEST_ASSERT(object_clear_button->bounds.w == 0);
+
+    TEST_ASSERT(ld_test_click_button_center(edit_button));
+    TEST_ASSERT(state->editor.sceneAuthoringEditMode == SCENE_AUTHORING_EDIT_MODE_LIGHT);
+    TEST_ASSERT(ld_test_click_button_center(edit_button));
+    TEST_ASSERT(state->editor.sceneAuthoringEditMode == SCENE_AUTHORING_EDIT_MODE_NONE);
+
+    TEST_ASSERT(state->layout.sceneAuthoring.lights[0].enabled);
+    TEST_ASSERT(ld_test_click_button_center(enabled_button));
+    TEST_ASSERT(!state->layout.sceneAuthoring.lights[0].enabled);
+
+    TEST_ASSERT(state->layout.sceneAuthoring.lights[0].kind ==
+                LINE_DRAWING_SCENE_LIGHT_DIRECTIONAL);
+    TEST_ASSERT(ld_test_click_button_center(kind_button));
+    TEST_ASSERT(state->layout.sceneAuthoring.lights[0].kind ==
+                LINE_DRAWING_SCENE_LIGHT_POINT);
+    TEST_ASSERT(ld_test_click_button_center(path_button));
+    TEST_ASSERT(strcmp(state->layout.sceneAuthoring.lights[0].path_id, "path_camera_main") == 0);
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(&state->layout.sceneAuthoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  0u));
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    path_kind_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_PATH_KIND);
+    TEST_ASSERT(path_kind_button && path_kind_button->bounds.w > 0);
+    TEST_ASSERT(ld_test_click_button_center(path_kind_button));
+    TEST_ASSERT(strcmp(state->layout.sceneAuthoring.camera_paths[0].path_kind, "linear") == 0);
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(&state->layout.sceneAuthoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL,
+                                                  0u));
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    material_color_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_MATERIAL_COLOR);
+    TEST_ASSERT(material_color_button && material_color_button->bounds.w > 0);
+    TEST_ASSERT(ld_test_click_button_center(material_color_button));
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.materials[0].rgba[0], 0.45f));
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 bool ui_panel_object_inspector_run_tests(void) {
     const TestCase cases[] = {
         { "object_inspector_reserves_space_for_selected_object",
@@ -386,6 +495,8 @@ bool ui_panel_object_inspector_run_tests(void) {
           test_object_buttons_use_uniform_grid_rows },
         { "object_edit_tab_exposes_selection_modes",
           test_object_edit_tab_exposes_selection_modes },
+        { "scene_authoring_light_selection_uses_authoring_inspector_controls",
+          test_scene_authoring_light_selection_uses_authoring_inspector_controls },
     };
     return run_test_cases("UIPanelObjectInspector", cases, sizeof(cases) / sizeof(cases[0]));
 }

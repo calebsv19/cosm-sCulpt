@@ -23,6 +23,12 @@ typedef enum {
     LINE_DRAWING_WORKSPACE_MODE_OBJECT = 1
 } LineDrawingWorkspaceMode;
 
+typedef enum {
+    LINE_DRAWING_PREVIEW_MODE_WIREFRAME = 0,
+    LINE_DRAWING_PREVIEW_MODE_FLAT = 1,
+    LINE_DRAWING_PREVIEW_MODE_MATERIAL = 2
+} LineDrawingPreviewMode;
+
 typedef struct {
     char* layoutSnapshot;
     char* savedSnapshot;
@@ -48,6 +54,7 @@ typedef struct GlobalState {
     EditorState editor;
     SpaceMode spaceMode;
     LineDrawingWorkspaceMode workspaceMode;
+    LineDrawingPreviewMode previewMode;
     ViewPlane activePlane;
     FreeViewCamera freeViewCamera;
     bool centerCrosshairEnabled;
@@ -135,6 +142,11 @@ LineDrawingWorkspaceMode Global_GetWorkspaceMode(void);
 const char* Global_GetWorkspaceModeLabel(LineDrawingWorkspaceMode mode);
 bool Global_SetWorkspaceMode(LineDrawingWorkspaceMode mode);
 bool Global_ToggleWorkspaceMode(void);
+LineDrawingPreviewMode Global_GetPreviewMode(void);
+const char* Global_GetPreviewModeLabel(LineDrawingPreviewMode mode);
+const char* Global_GetPreviewModeExportValue(LineDrawingPreviewMode mode);
+bool Global_SetPreviewMode(LineDrawingPreviewMode mode);
+bool Global_TogglePreviewMode(void);
 bool Global_IsCenterCrosshairEnabled(void);
 bool Global_SetCenterCrosshairEnabled(bool enabled);
 bool Global_ToggleCenterCrosshair(void);

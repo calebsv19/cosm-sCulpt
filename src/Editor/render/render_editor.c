@@ -5,6 +5,7 @@
 #include "Editor/object_face_extrude.h"
 #include "Editor/object_face_sketch.h"
 #include "Editor/object_handle_gizmo.h"
+#include "Editor/scene_authoring_path_handles.h"
 #include "Editor/space_gizmo_drag.h"
 #include "Layout/Grid/grid.h"
 #include "Math/math_util.h"
@@ -162,6 +163,7 @@ void Render_EditorOverlay(EditorState* editor, AppContext* ctx) {
     Render_EditorObjectFaceSketch(editor, ctx);
     Render_EditorObjectFaceExtrude(editor, ctx);
     Render_Editor_AxisGizmo(editor, ctx);
+    Render_Editor_SceneAuthoringPathHandles(editor, ctx);
     Render_Editor_Anchor(editor, ctx);
     Render_Editor_GhostWall(editor, ctx);
     // Future:

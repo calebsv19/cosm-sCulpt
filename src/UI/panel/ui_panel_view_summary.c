@@ -207,7 +207,8 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
              Global_GetSpaceModeLabel(state->spaceMode));
     snprintf(line_zoom,
              sizeof(line_zoom),
-             "Zoom  %.2fx   Grid %.2f",
+             "Preview  %s   Zoom %.2fx   Grid %.2f",
+             Global_GetPreviewModeLabel(Global_GetPreviewMode()),
              state->grid.scale,
              state->grid.gridSize);
     snprintf(line_plane,
@@ -254,9 +255,10 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
                  : "Viewport  origin reset and zoom controls stay in the bottom lane");
     snprintf(work_mode,
              sizeof(work_mode),
-             object_mode ? "Mode  %s / %s" : "Editing mode  %s with %s space active",
+             object_mode ? "Mode  %s / %s / %s" : "Editing mode  %s with %s space active",
              UIPanelViewSummary_DeleteModeLabel(state->editor.deleteMode),
-             Global_GetSpaceModeLabel(state->spaceMode));
+             Global_GetSpaceModeLabel(state->spaceMode),
+             Global_GetPreviewModeLabel(Global_GetPreviewMode()));
     snprintf(work_plane,
              sizeof(work_plane),
              "Construction plane  %s at %s=%.2f",

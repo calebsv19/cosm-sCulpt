@@ -5,7 +5,8 @@
 #include "UI/ui_panel_create_summary.h"
 
 enum {
-    UI_CREATE_PANE_SECTION_GAP = 8
+    UI_CREATE_PANE_SECTION_GAP = 8,
+    UI_CREATE_PANE_SCENE_WORKSPACE_MAX_H = 184
 };
 
 void UIPanel_UpdateCreatePaneLayout(UIPanelState* ui) {
@@ -65,9 +66,15 @@ void UIPanel_UpdateCreatePaneLayout(UIPanelState* ui) {
             ui->rightBodyRect.w,
             construction_height
         };
+        ui->createPane.operationsRect = (SDL_Rect){
+            ui->rightBodyRect.x,
+            ui->createPane.constructionRect.y - UI_CREATE_PANE_SECTION_GAP - operations_height,
+            ui->rightBodyRect.w,
+            operations_height
+        };
         ui->createPane.primitivesRect = (SDL_Rect){
             ui->rightBodyRect.x,
-            ui->createPane.constructionRect.y - UI_CREATE_PANE_SECTION_GAP - primitives_height,
+            ui->createPane.operationsRect.y - UI_CREATE_PANE_SECTION_GAP - primitives_height,
             ui->rightBodyRect.w,
             primitives_height
         };
@@ -86,6 +93,10 @@ void UIPanel_UpdateCreatePaneLayout(UIPanelState* ui) {
         ui->rightBodyRect.w,
         workspace_bottom - workspace_top
     };
+    if (!object_mode &&
+        ui->createPane.workspaceRect.h > UI_CREATE_PANE_SCENE_WORKSPACE_MAX_H) {
+        ui->createPane.workspaceRect.h = UI_CREATE_PANE_SCENE_WORKSPACE_MAX_H;
+    }
 }
 
 bool UIPanel_GetCreatePaneRects(const UIPanelState* ui,

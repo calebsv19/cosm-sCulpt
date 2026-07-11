@@ -4,6 +4,8 @@
 
 #include "Core/space_mode_adapter.h"
 
+#include "Editor/scene_authoring_path_handles.h"
+
 #include "Layout/Grid/grid.h"
 
 #include "Math/math_util.h"
@@ -23,6 +25,7 @@ bool draggingObjectTranslate = false;
 bool draggingObjectRotate = false;
 bool draggingObjectScale = false;
 bool draggingSceneBoundsGizmo = false;
+bool draggingSceneAuthoringPathHandle = false;
 bool draggingSelectionBox = false;
 int draggingAnchorIndex = -1;
 bool anchorDragCaptured = false;
@@ -1227,6 +1230,10 @@ bool ObjectCenterGizmoDrag_FormatLiveOperationReport(char* out, size_t out_size)
 }
 
 void HandleMouseDrag(const SDL_MouseMotionEvent* motion) {
+    if (draggingSceneAuthoringPathHandle) {
+        UpdateSceneAuthoringPathHandleDragPosition(motion->x, motion->y);
+        return;
+    }
     if (draggingObjectScale) {
         UpdateObjectScaleDragPosition(motion->x, motion->y);
         return;

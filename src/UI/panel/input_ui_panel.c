@@ -3,6 +3,7 @@
 #include "UI/ui_panel_internal.h"
 #include "UI/ui_panel_object_workspace_summary.h"
 #include "UI/ui_panel_scene_list.h"
+#include "UI/ui_panel_scene_authoring_inspector.h"
 #include "UI/ui_panel_shell.h"
 
 #include "Core/global_state.h"
@@ -393,6 +394,57 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     if (!object_mode) {
                         (void)UIPanel_PlaceLastRuntimeMeshAsSceneInstance();
                     }
+                    break;
+                }
+                case UI_BTN_CREATE_LIGHT: {
+                    UIPanel_CloseFileBrowser(ui);
+                    if (!object_mode) {
+                        (void)UIPanel_CreateSceneAuthoringLight();
+                    }
+                    break;
+                }
+                case UI_BTN_CREATE_CAMERA_PATH: {
+                    UIPanel_CloseFileBrowser(ui);
+                    if (!object_mode) {
+                        (void)UIPanel_CreateSceneAuthoringCameraPath();
+                    }
+                    break;
+                }
+                case UI_BTN_CREATE_MATERIAL: {
+                    UIPanel_CloseFileBrowser(ui);
+                    if (!object_mode) {
+                        (void)UIPanel_CreateSceneAuthoringMaterial();
+                    }
+                    break;
+                }
+                case UI_BTN_SCENE_AUTHORING_EDIT_MODE: {
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_ToggleSceneAuthoringEditMode();
+                    break;
+                }
+                case UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED: {
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_ToggleSelectedSceneAuthoringLightEnabled();
+                    break;
+                }
+                case UI_BTN_SCENE_AUTHORING_LIGHT_KIND: {
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringLightKind();
+                    break;
+                }
+                case UI_BTN_SCENE_AUTHORING_LIGHT_PATH: {
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringLightPath();
+                    break;
+                }
+                case UI_BTN_SCENE_AUTHORING_PATH_KIND: {
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringCameraPathKind();
+                    break;
+                }
+                case UI_BTN_SCENE_AUTHORING_MATERIAL_COLOR: {
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringMaterialColor();
                     break;
                 }
                 case UI_BTN_OBJECT_FACE_SELECT: {

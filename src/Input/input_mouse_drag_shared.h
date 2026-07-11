@@ -79,6 +79,7 @@ extern bool draggingObjectTranslate;
 extern bool draggingObjectRotate;
 extern bool draggingObjectScale;
 extern bool draggingSceneBoundsGizmo;
+extern bool draggingSceneAuthoringPathHandle;
 extern bool draggingSelectionBox;
 extern int draggingAnchorIndex;
 extern bool anchorDragCaptured;

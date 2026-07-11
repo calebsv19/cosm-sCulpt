@@ -2,6 +2,7 @@
 
 #include "UI/ui_panel_right_controls.h"
 #include "UI/ui_panel_object_inspector.h"
+#include "UI/ui_panel_scene_authoring_inspector.h"
 
 enum {
     UI_OBJECT_PANE_SECTION_GAP = 6
@@ -38,8 +39,13 @@ void UIPanel_UpdateObjectPaneLayout(UIPanelState* ui) {
     if (ui->rightBodyRect.w <= 0 || ui->rightBodyRect.h <= 0) return;
 
     UIPanel_GetLayoutMetrics(&metrics);
-    summary_height = UIPanel_ObjectInspectorReservedHeight(ui);
-    details_height = UIPanel_ObjectInspectorDetailsHeight(ui);
+    if (UIPanel_SceneAuthoringInspectorHasSelection()) {
+        summary_height = UIPanel_SceneAuthoringInspectorReservedHeight(ui);
+        details_height = UIPanel_SceneAuthoringInspectorDetailsHeight(ui);
+    } else {
+        summary_height = UIPanel_ObjectInspectorReservedHeight(ui);
+        details_height = UIPanel_ObjectInspectorDetailsHeight(ui);
+    }
     actions_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS);
     prism_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_PRISM);
     gizmo_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_GIZMO);

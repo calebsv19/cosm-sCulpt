@@ -1,5 +1,83 @@
 #include "test_layout_internal.h"
 
+static cJSON* ld_test_find_path_by_id(cJSON* paths, const char* path_id) {
+    int count = 0;
+    int i = 0;
+    if (!cJSON_IsArray(paths) || !path_id) return NULL;
+    count = cJSON_GetArraySize(paths);
+    for (i = 0; i < count; ++i) {
+        cJSON* path = cJSON_GetArrayItem(paths, i);
+        cJSON* id = cJSON_GetObjectItem(path, "path_id");
+        if (cJSON_IsString(id) && id->valuestring && strcmp(id->valuestring, path_id) == 0) {
+            return path;
+        }
+    }
+    return NULL;
+}
+
+static cJSON* ld_test_find_camera_by_id(cJSON* cameras, const char* camera_id) {
+    int count = 0;
+    int i = 0;
+    if (!cJSON_IsArray(cameras) || !camera_id) return NULL;
+    count = cJSON_GetArraySize(cameras);
+    for (i = 0; i < count; ++i) {
+        cJSON* camera = cJSON_GetArrayItem(cameras, i);
+        cJSON* id = cJSON_GetObjectItem(camera, "camera_id");
+        if (cJSON_IsString(id) && id->valuestring && strcmp(id->valuestring, camera_id) == 0) {
+            return camera;
+        }
+    }
+    return NULL;
+}
+
+static cJSON* ld_test_find_light_by_id(cJSON* lights, const char* light_id) {
+    int count = 0;
+    int i = 0;
+    if (!cJSON_IsArray(lights) || !light_id) return NULL;
+    count = cJSON_GetArraySize(lights);
+    for (i = 0; i < count; ++i) {
+        cJSON* light = cJSON_GetArrayItem(lights, i);
+        cJSON* id = cJSON_GetObjectItem(light, "light_id");
+        if (cJSON_IsString(id) && id->valuestring && strcmp(id->valuestring, light_id) == 0) {
+            return light;
+        }
+    }
+    return NULL;
+}
+
+static cJSON* ld_test_find_material_binding(cJSON* bindings,
+                                            const char* target_kind,
+                                            const char* object_id,
+                                            const char* material_id,
+                                            const char* target_key,
+                                            const char* target_value) {
+    int count = 0;
+    int i = 0;
+    if (!cJSON_IsArray(bindings) || !target_kind || !object_id || !material_id) return NULL;
+    count = cJSON_GetArraySize(bindings);
+    for (i = 0; i < count; ++i) {
+        cJSON* binding = cJSON_GetArrayItem(bindings, i);
+        cJSON* kind = cJSON_GetObjectItem(binding, "target_kind");
+        cJSON* object = cJSON_GetObjectItem(binding, "object_id");
+        cJSON* material = cJSON_GetObjectItem(binding, "material_id");
+        cJSON* target = target_key ? cJSON_GetObjectItem(binding, target_key) : NULL;
+        if (!cJSON_IsString(kind) || !cJSON_IsString(object) || !cJSON_IsString(material)) {
+            continue;
+        }
+        if (strcmp(kind->valuestring, target_kind) != 0 ||
+            strcmp(object->valuestring, object_id) != 0 ||
+            strcmp(material->valuestring, material_id) != 0) {
+            continue;
+        }
+        if (target_key &&
+            (!cJSON_IsString(target) || strcmp(target->valuestring, target_value) != 0)) {
+            continue;
+        }
+        return binding;
+    }
+    return NULL;
+}
+
 static bool test_shape_export_projection_axis_mapping(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
@@ -115,7 +193,7 @@ static bool test_canonical_scene_export_2d_payload(void) {
         TEST_ASSERT(cJSON_IsString(projection_policy));
         TEST_ASSERT(cJSON_IsString(extrusion_policy));
         TEST_ASSERT(cJSON_IsObject(material_ref));
-        TEST_ASSERT(strcmp(cJSON_GetObjectItem(material_ref, "id")->valuestring, "mat_line_drawing_default") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(material_ref, "id")->valuestring, "mat_default") == 0);
         TEST_ASSERT(strcmp(object_mode_intent->valuestring, "2d") == 0);
         TEST_ASSERT(strcmp(object_id->valuestring, "obj_line_drawing_layout") == 0);
         TEST_ASSERT(strcmp(dimensional_mode->valuestring, "plane_locked") == 0);
@@ -286,6 +364,260 @@ static bool test_canonical_scene_export_preserves_existing_extensions(void) {
     }
 
     remove(path);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_canonical_scene_export_preserves_camera_path_authoring_metadata(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    const char* path = "/tmp/line_drawing_scene_export_camera_path_authoring.json";
+    LineDrawingSceneAuthoringOptions options = {
+        .camera_id = "cam_review_path",
+        .camera_type = "perspective",
+    };
+
+    const char* seed_json =
+        "{"
+        "\"schema_family\":\"codework_scene\","
+        "\"schema_variant\":\"scene_authoring_v1\","
+        "\"schema_version\":1,"
+        "\"scene_id\":\"scene_camera_path_seed\","
+        "\"space_mode_default\":\"3d\","
+        "\"unit_system\":\"meters\","
+        "\"world_scale\":1.0,"
+        "\"objects\":[],"
+        "\"constraints\":[],"
+        "\"extensions\":{"
+            "\"ray_tracing\":{"
+                "\"authoring\":{"
+                    "\"camera_path\":{"
+                        "\"camera_id\":\"cam_review_path\","
+                        "\"points\":["
+                            "{\"x\":-2.0,\"y\":-3.0,\"z\":2.5},"
+                            "{\"x\":1.5,\"y\":-2.0,\"z\":2.1}"
+                        "]"
+                    "},"
+                    "\"camera_path_depth\":{"
+                        "\"camera_id\":\"cam_review_path\","
+                        "\"samples\":["
+                            "{\"frame\":0,\"lookPitch\":-0.2},"
+                            "{\"frame\":12,\"lookPitch\":-0.1}"
+                        "]"
+                    "}"
+                "}"
+            "}"
+        "}"
+        "}";
+
+    TEST_ASSERT(ld_test_write_text_file_basic(path, seed_json));
+    Layout_AddWall3(layout, (Vec3){ -1.0f, -1.0f, 0.0f }, (Vec3){ 1.0f, 1.0f, 1.0f });
+    TEST_ASSERT(LineDrawingCanonicalScene_ExportLayoutToFileWithOptions(
+        layout, "scene_camera_path_round_trip", path, &options));
+
+    {
+        char* scene_json = ld_test_read_text_file(path);
+        cJSON* root = NULL;
+        cJSON* cameras = NULL;
+        cJSON* camera = NULL;
+        cJSON* extensions = NULL;
+        cJSON* ray_tracing = NULL;
+        cJSON* authoring = NULL;
+        cJSON* camera_path = NULL;
+        cJSON* camera_path_depth = NULL;
+        cJSON* points = NULL;
+        cJSON* samples = NULL;
+
+        TEST_ASSERT(scene_json != NULL);
+        root = cJSON_Parse(scene_json);
+        free(scene_json);
+        TEST_ASSERT(root != NULL);
+
+        cameras = cJSON_GetObjectItem(root, "cameras");
+        TEST_ASSERT(cJSON_IsArray(cameras));
+        TEST_ASSERT(cJSON_GetArraySize(cameras) == 1);
+        camera = cJSON_GetArrayItem(cameras, 0);
+        TEST_ASSERT(cJSON_IsObject(camera));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera, "camera_id")->valuestring,
+                           "cam_review_path") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera, "camera_type")->valuestring,
+                           "perspective") == 0);
+        TEST_ASSERT(cJSON_GetObjectItem(camera, "camera_path") == NULL);
+        TEST_ASSERT(cJSON_GetObjectItem(camera, "camera_path_depth") == NULL);
+
+        extensions = cJSON_GetObjectItem(root, "extensions");
+        ray_tracing = cJSON_IsObject(extensions)
+            ? cJSON_GetObjectItem(extensions, "ray_tracing")
+            : NULL;
+        authoring = cJSON_IsObject(ray_tracing)
+            ? cJSON_GetObjectItem(ray_tracing, "authoring")
+            : NULL;
+        camera_path = cJSON_IsObject(authoring)
+            ? cJSON_GetObjectItem(authoring, "camera_path")
+            : NULL;
+        camera_path_depth = cJSON_IsObject(authoring)
+            ? cJSON_GetObjectItem(authoring, "camera_path_depth")
+            : NULL;
+        TEST_ASSERT(cJSON_IsObject(camera_path));
+        TEST_ASSERT(cJSON_IsObject(camera_path_depth));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera_path, "camera_id")->valuestring,
+                           "cam_review_path") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera_path_depth, "camera_id")->valuestring,
+                           "cam_review_path") == 0);
+        points = cJSON_GetObjectItem(camera_path, "points");
+        samples = cJSON_GetObjectItem(camera_path_depth, "samples");
+        TEST_ASSERT(cJSON_IsArray(points));
+        TEST_ASSERT(cJSON_GetArraySize(points) == 2);
+        TEST_ASSERT(cJSON_IsArray(samples));
+        TEST_ASSERT(cJSON_GetArraySize(samples) == 2);
+
+        cJSON_Delete(root);
+    }
+
+    remove(path);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_canonical_scene_export_emits_canonical_camera_and_light_paths(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    LineDrawingSceneAuthoringOptions options = {
+        .light_id = "light_sweep",
+        .light_type = "point",
+        .camera_id = "cam_orbit",
+        .camera_type = "perspective",
+        .camera_path_id = "path_camera_orbit",
+        .camera_path_label = "Camera Orbit",
+        .light_path_id = "path_light_sweep",
+        .light_path_label = "Light Sweep",
+    };
+
+    Layout_AddWall3(layout, (Vec3){ -2.0f, -1.0f, 0.0f }, (Vec3){ 2.0f, 1.0f, 2.0f });
+
+    char* scene_json =
+        LineDrawingCanonicalScene_ExportLayoutToStringWithOptions(layout, "scene_canonical_paths", &options);
+    TEST_ASSERT(scene_json != NULL);
+
+    cJSON* root = cJSON_Parse(scene_json);
+    TEST_ASSERT(root != NULL);
+    free(scene_json);
+
+    {
+        cJSON* paths = cJSON_GetObjectItem(root, "paths");
+        cJSON* cameras = cJSON_GetObjectItem(root, "cameras");
+        cJSON* lights = cJSON_GetObjectItem(root, "lights");
+        cJSON* camera = cJSON_GetArrayItem(cameras, 0);
+        cJSON* light = cJSON_GetArrayItem(lights, 0);
+        cJSON* camera_path = ld_test_find_path_by_id(paths, "path_camera_orbit");
+        cJSON* light_path = ld_test_find_path_by_id(paths, "path_light_sweep");
+        cJSON* camera_control_points = NULL;
+        cJSON* light_control_points = NULL;
+
+        TEST_ASSERT(cJSON_IsArray(paths));
+        TEST_ASSERT(cJSON_GetArraySize(paths) == 2);
+        TEST_ASSERT(cJSON_IsObject(camera));
+        TEST_ASSERT(cJSON_IsObject(light));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera, "camera_id")->valuestring, "cam_orbit") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera, "path_id")->valuestring, "path_camera_orbit") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "light_id")->valuestring, "light_sweep") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "path_id")->valuestring, "path_light_sweep") == 0);
+
+        TEST_ASSERT(cJSON_IsObject(camera_path));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera_path, "path_kind")->valuestring, "camera") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera_path, "label")->valuestring, "Camera Orbit") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera_path, "camera_id")->valuestring, "cam_orbit") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera_path, "curve_type")->valuestring, "bezier") == 0);
+        camera_control_points = cJSON_GetObjectItem(camera_path, "control_points");
+        TEST_ASSERT(cJSON_IsArray(camera_control_points));
+        TEST_ASSERT(cJSON_GetArraySize(camera_control_points) == 3);
+
+        TEST_ASSERT(cJSON_IsObject(light_path));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light_path, "path_kind")->valuestring, "light") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light_path, "label")->valuestring, "Light Sweep") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light_path, "light_id")->valuestring, "light_sweep") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light_path, "curve_type")->valuestring, "bezier") == 0);
+        light_control_points = cJSON_GetObjectItem(light_path, "control_points");
+        TEST_ASSERT(cJSON_IsArray(light_control_points));
+        TEST_ASSERT(cJSON_GetArraySize(light_control_points) == 3);
+    }
+
+    cJSON_Delete(root);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_canonical_scene_export_emits_preview_mode_authoring_state(void) {
+    static const char* const modes[] = { "wireframe", "flat", "material" };
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+
+    Layout_AddWall3(layout, (Vec3){ 0.0f, 0.0f, 0.0f }, (Vec3){ 2.0f, 1.0f, 1.0f });
+
+    for (size_t i = 0u; i < sizeof(modes) / sizeof(modes[0]); ++i) {
+        LineDrawingSceneAuthoringOptions options = {
+            .preview_mode = modes[i],
+        };
+        char* scene_json =
+            LineDrawingCanonicalScene_ExportLayoutToStringWithOptions(layout, "scene_preview_mode", &options);
+        cJSON* root = NULL;
+        cJSON* extensions = NULL;
+        cJSON* line_drawing = NULL;
+        cJSON* authoring = NULL;
+        cJSON* preview_mode = NULL;
+
+        TEST_ASSERT(scene_json != NULL);
+        root = cJSON_Parse(scene_json);
+        free(scene_json);
+        TEST_ASSERT(root != NULL);
+
+        extensions = cJSON_GetObjectItem(root, "extensions");
+        line_drawing = cJSON_IsObject(extensions)
+            ? cJSON_GetObjectItem(extensions, "line_drawing")
+            : NULL;
+        authoring = cJSON_IsObject(line_drawing)
+            ? cJSON_GetObjectItem(line_drawing, "authoring")
+            : NULL;
+        preview_mode = cJSON_IsObject(authoring)
+            ? cJSON_GetObjectItem(authoring, "preview_mode")
+            : NULL;
+        TEST_ASSERT(cJSON_IsString(preview_mode));
+        TEST_ASSERT(strcmp(preview_mode->valuestring, modes[i]) == 0);
+
+        cJSON_Delete(root);
+    }
+
+    {
+        char* scene_json =
+            LineDrawingCanonicalScene_ExportLayoutToString(layout, "scene_preview_default");
+        cJSON* root = NULL;
+        cJSON* extensions = NULL;
+        cJSON* line_drawing = NULL;
+        cJSON* authoring = NULL;
+        cJSON* preview_mode = NULL;
+
+        TEST_ASSERT(scene_json != NULL);
+        root = cJSON_Parse(scene_json);
+        free(scene_json);
+        TEST_ASSERT(root != NULL);
+        extensions = cJSON_GetObjectItem(root, "extensions");
+        line_drawing = cJSON_IsObject(extensions)
+            ? cJSON_GetObjectItem(extensions, "line_drawing")
+            : NULL;
+        authoring = cJSON_IsObject(line_drawing)
+            ? cJSON_GetObjectItem(line_drawing, "authoring")
+            : NULL;
+        preview_mode = cJSON_IsObject(authoring)
+            ? cJSON_GetObjectItem(authoring, "preview_mode")
+            : NULL;
+        TEST_ASSERT(cJSON_IsString(preview_mode));
+        TEST_ASSERT(strcmp(preview_mode->valuestring, "wireframe") == 0);
+        cJSON_Delete(root);
+    }
+
     ld_test_shutdown_runtime();
     return true;
 }
@@ -722,6 +1054,226 @@ static bool test_canonical_scene_export_applies_scene_authoring_options(void) {
     return true;
 }
 
+static bool test_canonical_scene_export_emits_material_binding_authoring_data(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    PlanePrimitiveCreateParams plane_params;
+    RectPrismPrimitiveCreateParams prism_params;
+    uint32_t plane_id = 0u;
+    uint32_t prism_id = 0u;
+    char plane_object_id[64];
+    char prism_object_id[64];
+    LineDrawingSceneMaterialBindingOption binding_options[2] = {
+        {
+            .binding_id = "bind_plane_surface",
+            .target_kind = "face",
+            .object_id = plane_object_id,
+            .face_role = "plane_surface",
+            .material_id = "mat_s5_base",
+            .binding_role = "face_override",
+        },
+        {
+            .binding_id = "bind_prism_surface_group",
+            .target_kind = "surface_group",
+            .object_id = prism_object_id,
+            .surface_group_id = "face_18",
+            .material_id = "mat_s5_base",
+            .binding_role = "surface_group_override",
+        },
+    };
+    LineDrawingSceneAuthoringOptions options = {
+        .material_id = "mat_s5_base",
+        .material_type = "flat_color",
+        .material_bindings = binding_options,
+        .material_binding_count = 2u,
+    };
+
+    Layout_PlanePrimitiveCreateParams_SetDefaults(&plane_params);
+    TEST_ASSERT(Layout_CreatePlanePrimitive(layout, &plane_params, &plane_id, NULL));
+    Layout_RectPrismPrimitiveCreateParams_SetDefaults(&prism_params);
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(layout, &prism_params, &prism_id, NULL));
+
+    snprintf(plane_object_id, sizeof(plane_object_id), "obj3d_%u", plane_id);
+    snprintf(prism_object_id, sizeof(prism_object_id), "obj3d_%u", prism_id);
+
+    char* scene_json =
+        LineDrawingCanonicalScene_ExportLayoutToStringWithOptions(layout, "scene_material_bindings", &options);
+    TEST_ASSERT(scene_json != NULL);
+    cJSON* root = cJSON_Parse(scene_json);
+    TEST_ASSERT(root != NULL);
+    free(scene_json);
+
+    {
+        cJSON* materials = cJSON_GetObjectItem(root, "materials");
+        cJSON* material_bindings = cJSON_GetObjectItem(root, "material_bindings");
+        cJSON* objects = cJSON_GetObjectItem(root, "objects");
+        cJSON* material = cJSON_GetArrayItem(materials, 0);
+        cJSON* plane_obj = ld_test_find_object_by_id(objects, plane_object_id);
+        cJSON* prism_obj = ld_test_find_object_by_id(objects, prism_object_id);
+        cJSON* default_layout_binding = NULL;
+        cJSON* default_plane_binding = NULL;
+        cJSON* face_binding = NULL;
+        cJSON* surface_binding = NULL;
+
+        TEST_ASSERT(cJSON_IsArray(materials));
+        TEST_ASSERT(cJSON_IsObject(material));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(material, "material_id")->valuestring, "mat_s5_base") == 0);
+        TEST_ASSERT(cJSON_IsArray(material_bindings));
+        TEST_ASSERT(cJSON_IsObject(plane_obj));
+        TEST_ASSERT(cJSON_IsObject(prism_obj));
+
+        default_layout_binding =
+            ld_test_find_material_binding(material_bindings,
+                                          "object",
+                                          "obj_line_drawing_layout",
+                                          "mat_s5_base",
+                                          NULL,
+                                          NULL);
+        default_plane_binding =
+            ld_test_find_material_binding(material_bindings,
+                                          "object",
+                                          plane_object_id,
+                                          "mat_s5_base",
+                                          NULL,
+                                          NULL);
+        face_binding =
+            ld_test_find_material_binding(material_bindings,
+                                          "face",
+                                          plane_object_id,
+                                          "mat_s5_base",
+                                          "face_role",
+                                          "plane_surface");
+        surface_binding =
+            ld_test_find_material_binding(material_bindings,
+                                          "surface_group",
+                                          prism_object_id,
+                                          "mat_s5_base",
+                                          "surface_group_id",
+                                          "face_18");
+
+        TEST_ASSERT(cJSON_IsObject(default_layout_binding));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(default_layout_binding, "binding_role")->valuestring,
+                           "default") == 0);
+        TEST_ASSERT(cJSON_IsObject(default_plane_binding));
+        TEST_ASSERT(cJSON_IsObject(face_binding));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(face_binding, "binding_id")->valuestring,
+                           "bind_plane_surface") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(face_binding, "binding_role")->valuestring,
+                           "face_override") == 0);
+        TEST_ASSERT(cJSON_IsObject(surface_binding));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(surface_binding, "binding_id")->valuestring,
+                           "bind_prism_surface_group") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(surface_binding, "binding_role")->valuestring,
+                           "surface_group_override") == 0);
+        TEST_ASSERT(cJSON_GetObjectItem(face_binding, "extensions") == NULL);
+        TEST_ASSERT(cJSON_GetObjectItem(surface_binding, "extensions") == NULL);
+    }
+
+    cJSON_Delete(root);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_canonical_scene_export_uses_live_scene_authoring_records(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout* layout = &state->layout;
+    LineDrawingSceneAuthoringState* authoring = &layout->sceneAuthoring;
+    size_t material_index = 0u;
+    Vec3 edited_point = { 3.25f, -4.5f, 6.75f };
+
+    Layout_AddWall3(layout, (Vec3){ -1.0f, -1.0f, 0.0f }, (Vec3){ 1.0f, 1.0f, 1.0f });
+    TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultMaterial(authoring, &material_index));
+    TEST_ASSERT(material_index == 1u);
+    TEST_ASSERT(Layout_SceneAuthoringState_SetCameraPathControlPoint(authoring,
+                                                                     0u,
+                                                                     1u,
+                                                                     edited_point));
+    snprintf(authoring->lights[0].path_id,
+             sizeof(authoring->lights[0].path_id),
+             "%s",
+             authoring->camera_paths[0].path_id);
+    snprintf(authoring->camera_paths[0].bound_light_id,
+             sizeof(authoring->camera_paths[0].bound_light_id),
+             "%s",
+             authoring->lights[0].light_id);
+
+    char* scene_json =
+        LineDrawingCanonicalScene_ExportLayoutToString(layout, "scene_live_authoring");
+    TEST_ASSERT(scene_json != NULL);
+    cJSON* root = cJSON_Parse(scene_json);
+    TEST_ASSERT(root != NULL);
+    free(scene_json);
+
+    {
+        cJSON* materials = cJSON_GetObjectItem(root, "materials");
+        cJSON* material_bindings = cJSON_GetObjectItem(root, "material_bindings");
+        cJSON* lights = cJSON_GetObjectItem(root, "lights");
+        cJSON* cameras = cJSON_GetObjectItem(root, "cameras");
+        cJSON* paths = cJSON_GetObjectItem(root, "paths");
+        cJSON* material0 = cJSON_GetArrayItem(materials, 0);
+        cJSON* material1 = cJSON_GetArrayItem(materials, 1);
+        cJSON* light = ld_test_find_light_by_id(lights, "light_key");
+        cJSON* camera = ld_test_find_camera_by_id(cameras, "camera_main");
+        cJSON* path = ld_test_find_path_by_id(paths, "path_camera_main");
+        cJSON* control_points = NULL;
+        cJSON* edited_point_json = NULL;
+        cJSON* default_binding = NULL;
+
+        TEST_ASSERT(cJSON_IsArray(materials));
+        TEST_ASSERT(cJSON_GetArraySize(materials) == 2);
+        TEST_ASSERT(cJSON_IsObject(material0));
+        TEST_ASSERT(cJSON_IsObject(material1));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(material0, "material_id")->valuestring,
+                           "mat_default") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(material1, "material_id")->valuestring,
+                           "mat_002") == 0);
+        TEST_ASSERT(cJSON_IsArray(material_bindings));
+        default_binding =
+            ld_test_find_material_binding(material_bindings,
+                                          "object",
+                                          "obj_line_drawing_layout",
+                                          "mat_default",
+                                          NULL,
+                                          NULL);
+        TEST_ASSERT(cJSON_IsObject(default_binding));
+
+        TEST_ASSERT(cJSON_IsArray(lights));
+        TEST_ASSERT(cJSON_IsObject(light));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "light_type")->valuestring,
+                           "directional") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "path_id")->valuestring,
+                           "path_camera_main") == 0);
+        TEST_ASSERT(cJSON_IsTrue(cJSON_GetObjectItem(light, "enabled")));
+
+        TEST_ASSERT(cJSON_IsArray(cameras));
+        TEST_ASSERT(cJSON_IsObject(camera));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera, "path_id")->valuestring,
+                           "path_camera_main") == 0);
+
+        TEST_ASSERT(cJSON_IsArray(paths));
+        TEST_ASSERT(cJSON_IsObject(path));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(path, "path_kind")->valuestring,
+                           "camera") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(path, "curve_type")->valuestring,
+                           "bezier") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(path, "camera_id")->valuestring,
+                           "camera_main") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(path, "light_id")->valuestring,
+                           "light_key") == 0);
+        control_points = cJSON_GetObjectItem(path, "control_points");
+        TEST_ASSERT(cJSON_IsArray(control_points));
+        TEST_ASSERT(cJSON_GetArraySize(control_points) == 3);
+        edited_point_json = cJSON_GetArrayItem(control_points, 1);
+        TEST_ASSERT(ld_test_json_vec3_matches(edited_point_json, edited_point));
+    }
+
+    cJSON_Delete(root);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_canonical_scene_export_emits_mesh_asset_instance_reference(void) {
     const char* runtime_path = "/tmp/ld_mesh_asset_instance_scene_export.runtime.json";
     const char* runtime_json =
@@ -813,6 +1365,26 @@ static bool test_canonical_scene_export_rejects_invalid_scene_authoring_options(
                     layout, "scene_bad_options", &bad_options) == NULL);
     TEST_ASSERT(!LineDrawingCanonicalScene_ExportLayoutToFileWithOptions(
         layout, "scene_bad_options", path, &bad_options));
+    {
+        LineDrawingSceneAuthoringOptions bad_preview_options = {
+            .preview_mode = "raytrace_final",
+        };
+        TEST_ASSERT(LineDrawingCanonicalScene_ExportLayoutToStringWithOptions(
+                        layout, "scene_bad_preview_options", &bad_preview_options) == NULL);
+    }
+    {
+        LineDrawingSceneMaterialBindingOption bad_binding = {
+            .target_kind = "face",
+            .object_id = "obj3d_1",
+            .material_id = "mat_default",
+        };
+        LineDrawingSceneAuthoringOptions bad_binding_options = {
+            .material_bindings = &bad_binding,
+            .material_binding_count = 1u,
+        };
+        TEST_ASSERT(LineDrawingCanonicalScene_ExportLayoutToStringWithOptions(
+                        layout, "scene_bad_binding_options", &bad_binding_options) == NULL);
+    }
     remove(path);
     ld_test_shutdown_runtime();
     return true;
@@ -827,6 +1399,12 @@ bool test_layout_scene_export_run_tests(void) {
         { "CanonicalSceneExport3DPayload", test_canonical_scene_export_3d_payload },
         { "CanonicalSceneExportPreservesExistingExtensions",
           test_canonical_scene_export_preserves_existing_extensions },
+        { "CanonicalSceneExportPreservesCameraPathAuthoringMetadata",
+          test_canonical_scene_export_preserves_camera_path_authoring_metadata },
+        { "CanonicalSceneExportEmitsCanonicalCameraAndLightPaths",
+          test_canonical_scene_export_emits_canonical_camera_and_light_paths },
+        { "CanonicalSceneExportEmitsPreviewModeAuthoringState",
+          test_canonical_scene_export_emits_preview_mode_authoring_state },
         { "CanonicalSceneExportPreservesExistingSceneIdAndCanonicalObjectIds",
           test_canonical_scene_export_preserves_existing_scene_id_and_canonical_object_ids },
         { "CanonicalSceneExportIncludesScene3DAndPrimitivePayloads",
@@ -837,6 +1415,10 @@ bool test_layout_scene_export_run_tests(void) {
           test_layout_fixture_mixed_2d_3d_export_contract },
         { "CanonicalSceneExportAppliesSceneAuthoringOptions",
           test_canonical_scene_export_applies_scene_authoring_options },
+        { "CanonicalSceneExportEmitsMaterialBindingAuthoringData",
+          test_canonical_scene_export_emits_material_binding_authoring_data },
+        { "CanonicalSceneExportUsesLiveSceneAuthoringRecords",
+          test_canonical_scene_export_uses_live_scene_authoring_records },
         { "CanonicalSceneExportEmitsMeshAssetInstanceReference",
           test_canonical_scene_export_emits_mesh_asset_instance_reference },
         { "CanonicalSceneExportRejectsInvalidSceneAuthoringOptions",

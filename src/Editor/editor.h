@@ -53,6 +53,12 @@ typedef enum {
     OBJECT_EDIT_SELECTION_VERTEX = 3
 } ObjectEditSelectionMode;
 
+typedef enum {
+    SCENE_AUTHORING_EDIT_MODE_NONE = 0,
+    SCENE_AUTHORING_EDIT_MODE_LIGHT = 1,
+    SCENE_AUTHORING_EDIT_MODE_CAMERA_PATH = 2
+} SceneAuthoringEditMode;
+
 typedef struct {
     char** entries;
     size_t count;
@@ -102,6 +108,9 @@ typedef struct {
     int hoveredObject3DResizeHandle; // PlaneResizeHandleKind or PLANE_RESIZE_HANDLE_NONE
     int hoveredObject3DPrismHandle;  // RectPrismResizeHandleKind or RECT_PRISM_RESIZE_HANDLE_NONE
     int hoveredSceneBoundsHandle;    // SceneBoundsHandleKind or SCENE_BOUNDS_HANDLE_NONE
+    int selectedSceneAuthoringPathIndex;
+    int selectedSceneAuthoringControlPointIndex;
+    bool selectedSceneAuthoringLightPosition;
 
     DeleteMode deleteMode;
 
@@ -121,6 +130,7 @@ typedef struct {
     bool object3DSizeMode;
     bool sceneBoundsHandlesVisible;
     PrimitivePlacementPreviewKind primitivePlacementPreview;
+    SceneAuthoringEditMode sceneAuthoringEditMode;
     ObjectAuthoringMode objectAuthoringMode;
     ObjectEditSelectionMode objectEditSelectionMode;
     bool objectFaceSketchToolArmed;
@@ -177,6 +187,9 @@ const char* Editor_ObjectAuthoringModeLabel(ObjectAuthoringMode mode);
 const char* Editor_ObjectEditSelectionModeLabel(ObjectEditSelectionMode mode);
 const char* Editor_ObjectAuthoringStageLabel(const EditorState* editor);
 const char* Editor_ObjectAuthoringPromptLabel(const EditorState* editor);
+bool Editor_SetSceneAuthoringEditMode(EditorState* editor, SceneAuthoringEditMode mode);
+void Editor_ClearSceneAuthoringEditMode(EditorState* editor);
+const char* Editor_SceneAuthoringEditModeLabel(SceneAuthoringEditMode mode);
 
 void Editor_ClearAnchorSelection(EditorState* editor);
 void Editor_SelectAnchor(EditorState* editor, int anchorIndex, bool additive);

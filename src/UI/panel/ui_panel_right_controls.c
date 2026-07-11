@@ -1,5 +1,6 @@
 #include "UI/ui_panel_right_controls.h"
 #include "Core/global_state.h"
+#include "UI/ui_panel_scene_authoring_inspector.h"
 
 typedef struct UIPanelRightControlRowSpec {
     int row_key;
@@ -9,16 +10,52 @@ typedef struct UIPanelRightControlRowSpec {
 
 static bool UIPanel_RightControlButtonVisible(int button_id) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+    const bool scene_authoring_selected =
+        !object_mode && UIPanel_SceneAuthoringInspectorHasSelection();
+    const GlobalState* state = Global_Get();
+    const LineDrawingSceneAuthoringSelectionKind authoring_kind =
+        scene_authoring_selected && state
+            ? state->layout.sceneAuthoring.selected_kind
+            : LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE;
     switch (button_id) {
+        case UI_BTN_SCENE_AUTHORING_EDIT_MODE:
+            return authoring_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT ||
+                   authoring_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH;
+        case UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED:
+        case UI_BTN_SCENE_AUTHORING_LIGHT_KIND:
+        case UI_BTN_SCENE_AUTHORING_LIGHT_PATH:
+            return authoring_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT;
+        case UI_BTN_SCENE_AUTHORING_PATH_KIND:
+            return authoring_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH;
+        case UI_BTN_SCENE_AUTHORING_MATERIAL_COLOR:
+            return authoring_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL;
+        case UI_BTN_OBJECT_CLEAR_SELECTION:
+        case UI_BTN_OBJECT_DELETE_SELECTED:
+        case UI_BTN_EDIT_PRISM_WIDTH:
+        case UI_BTN_EDIT_PRISM_HEIGHT:
+        case UI_BTN_EDIT_PRISM_DEPTH:
+        case UI_BTN_CYCLE_DISPLAY_UNITS:
+        case UI_BTN_TOGGLE_OBJECT_GIZMO_MODE:
+        case UI_BTN_EDIT_OBJECT_POSITION:
+        case UI_BTN_EDIT_OBJECT_ROTATION_X:
+        case UI_BTN_EDIT_OBJECT_ROTATION_Y:
+        case UI_BTN_EDIT_OBJECT_ROTATION_Z:
+            return !scene_authoring_selected;
         case UI_BTN_CREATE_RECT_PRISM:
             return !object_mode;
         case UI_BTN_PLACE_MESH_INSTANCE:
+            return !object_mode;
+        case UI_BTN_CREATE_LIGHT:
+        case UI_BTN_CREATE_CAMERA_PATH:
+        case UI_BTN_CREATE_MATERIAL:
             return !object_mode;
         case UI_BTN_CREATE_PLANE:
             return true;
         case UI_BTN_OBJECT_FACE_SELECT:
         case UI_BTN_OBJECT_SKETCH_SELECT:
         case UI_BTN_OBJECT_SKETCH_CLEAR:
+        case UI_BTN_EXTRUDE_ADD:
+        case UI_BTN_EXTRUDE_CUT:
         case UI_BTN_EXTRUDE_DEPTH_DEC:
         case UI_BTN_EXTRUDE_DEPTH_INC:
         case UI_BTN_OBJECT_EDIT_BODY_MODE:
@@ -51,6 +88,9 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
             break;
         case UI_BTN_CREATE_RECT_PRISM: spec = (UIPanelRightControlRowSpec){ 4, 2, 1 }; break;
         case UI_BTN_PLACE_MESH_INSTANCE: spec = (UIPanelRightControlRowSpec){ 5, 1, 0 }; break;
+        case UI_BTN_CREATE_LIGHT: spec = (UIPanelRightControlRowSpec){ 1, 3, 0 }; break;
+        case UI_BTN_CREATE_CAMERA_PATH: spec = (UIPanelRightControlRowSpec){ 1, 3, 1 }; break;
+        case UI_BTN_CREATE_MATERIAL: spec = (UIPanelRightControlRowSpec){ 1, 3, 2 }; break;
         case UI_BTN_OBJECT_FACE_SELECT: spec = (UIPanelRightControlRowSpec){ 4, 2, 0 }; break;
         case UI_BTN_OBJECT_SKETCH_SELECT: spec = (UIPanelRightControlRowSpec){ 5, 2, 0 }; break;
         case UI_BTN_OBJECT_SKETCH_CLEAR: spec = (UIPanelRightControlRowSpec){ 5, 2, 1 }; break;
@@ -68,10 +108,18 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
 
         case UI_BTN_OBJECT_CLEAR_SELECTION: spec = (UIPanelRightControlRowSpec){ 7, 2, 0 }; break;
         case UI_BTN_OBJECT_DELETE_SELECTED: spec = (UIPanelRightControlRowSpec){ 7, 2, 1 }; break;
+        case UI_BTN_SCENE_AUTHORING_EDIT_MODE: spec = (UIPanelRightControlRowSpec){ 7, 2, 0 }; break;
+        case UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED: spec = (UIPanelRightControlRowSpec){ 7, 2, 1 }; break;
         case UI_BTN_EDIT_PRISM_WIDTH: spec = (UIPanelRightControlRowSpec){ 8, 4, 0 }; break;
         case UI_BTN_EDIT_PRISM_HEIGHT: spec = (UIPanelRightControlRowSpec){ 8, 4, 1 }; break;
         case UI_BTN_EDIT_PRISM_DEPTH: spec = (UIPanelRightControlRowSpec){ 8, 4, 2 }; break;
         case UI_BTN_CYCLE_DISPLAY_UNITS: spec = (UIPanelRightControlRowSpec){ 8, 4, 3 }; break;
+        case UI_BTN_SCENE_AUTHORING_LIGHT_KIND: spec = (UIPanelRightControlRowSpec){ 8, 1, 0 }; break;
+        case UI_BTN_SCENE_AUTHORING_PATH_KIND:
+        case UI_BTN_SCENE_AUTHORING_MATERIAL_COLOR:
+            spec = (UIPanelRightControlRowSpec){ 8, 1, 0 };
+            break;
+        case UI_BTN_SCENE_AUTHORING_LIGHT_PATH: spec = (UIPanelRightControlRowSpec){ 9, 1, 0 }; break;
         case UI_BTN_TOGGLE_OBJECT_GIZMO_MODE: spec = (UIPanelRightControlRowSpec){ 9, 1, 0 }; break;
         case UI_BTN_EDIT_OBJECT_POSITION: spec = (UIPanelRightControlRowSpec){ 10, 1, 0 }; break;
         case UI_BTN_EDIT_OBJECT_ROTATION_X: spec = (UIPanelRightControlRowSpec){ 11, 3, 0 }; break;
@@ -89,10 +137,38 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
 
 static int UIPanel_RightControlsRowCount(UIPanelGroup group) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
+    const bool scene_authoring_selected =
+        !object_mode && UIPanel_SceneAuthoringInspectorHasSelection();
+    const GlobalState* state = Global_Get();
+    const LineDrawingSceneAuthoringSelectionKind authoring_kind =
+        scene_authoring_selected && state
+            ? state->layout.sceneAuthoring.selected_kind
+            : LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE;
+    if (scene_authoring_selected) {
+        switch (group) {
+            case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS:
+                return authoring_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT ||
+                       authoring_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH
+                           ? 1
+                           : 0;
+            case UI_PANEL_GROUP_RIGHT_PRISM:
+                return authoring_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT ||
+                       authoring_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH ||
+                       authoring_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL
+                           ? 1
+                           : 0;
+            case UI_PANEL_GROUP_RIGHT_GIZMO:
+                return authoring_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT ? 1 : 0;
+            case UI_PANEL_GROUP_RIGHT_TRANSFORM:
+                return 0;
+            default:
+                break;
+        }
+    }
     switch (group) {
         case UI_PANEL_GROUP_RIGHT_VIEW: return 1;
         case UI_PANEL_GROUP_RIGHT_MODES: return 2;
-        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return 2;
+        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return object_mode ? 2 : 2;
         case UI_PANEL_GROUP_RIGHT_OPERATIONS: return object_mode ? 2 : 1;
         case UI_PANEL_GROUP_RIGHT_CONSTRUCTION: return 2;
         case UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS: return 1;
@@ -231,6 +307,7 @@ void UIPanel_LayoutRightPaneButtons(UIPanelState* ui, const UIPanelLayoutMetrics
             if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) {
                 UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_OPERATIONS, metrics);
             } else {
+                UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_OPERATIONS, metrics);
                 UIPanel_RightControlsLayoutGroup(ui, UI_PANEL_GROUP_RIGHT_CONSTRUCTION, metrics);
             }
             break;

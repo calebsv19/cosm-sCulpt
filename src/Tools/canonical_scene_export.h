@@ -3,10 +3,22 @@
 #include "Layout/layout.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct LineDrawingSceneMaterialBindingOption {
+    const char* binding_id;
+    const char* target_kind;
+    const char* object_id;
+    const char* face_id;
+    const char* face_role;
+    const char* surface_group_id;
+    const char* material_id;
+    const char* binding_role;
+} LineDrawingSceneMaterialBindingOption;
 
 typedef struct LineDrawingSceneAuthoringOptions {
     const char* material_id;
@@ -15,6 +27,13 @@ typedef struct LineDrawingSceneAuthoringOptions {
     const char* light_type;
     const char* camera_id;
     const char* camera_type;
+    const char* camera_path_id;
+    const char* camera_path_label;
+    const char* light_path_id;
+    const char* light_path_label;
+    const char* preview_mode;
+    const LineDrawingSceneMaterialBindingOption* material_bindings;
+    size_t material_binding_count;
     double world_scale;
     const char* unit_system;
     const char* conversion_policy;
