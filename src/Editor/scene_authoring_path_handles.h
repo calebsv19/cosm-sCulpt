@@ -3,6 +3,7 @@
 #include "Core/SDLApp/sdl_app_framework.h"
 #include "Core/global_state.h"
 #include "Editor/editor.h"
+#include "Editor/space_gizmo_drag.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -20,9 +21,25 @@ typedef struct {
     size_t control_index;
 } SceneAuthoringPathHandleRef;
 
+typedef enum {
+    SCENE_AUTHORING_GIZMO_PART_NONE = 0,
+    SCENE_AUTHORING_GIZMO_PART_CENTER = 1,
+    SCENE_AUTHORING_GIZMO_PART_AXIS = 2
+} SceneAuthoringGizmoPart;
+
+typedef struct {
+    SceneAuthoringPathHandleRef handle;
+    SceneAuthoringGizmoPart part;
+    GizmoAxisDirection axis;
+} SceneAuthoringGizmoPickResult;
+
 typedef struct {
     bool active;
-    SceneAuthoringPathHandleRef handle;
+    SceneAuthoringGizmoPickResult pick;
+    Vec2 mouseStartScreen;
+    Vec3 startWorld;
+    Vec2 projectedAxisVector;
+    float worldUnitsPerPixel;
     bool historyCaptured;
 } SceneAuthoringPathHandleDragState;
 
@@ -30,11 +47,13 @@ extern SceneAuthoringPathHandleDragState sceneAuthoringPathHandleDrag;
 
 SceneAuthoringPathHandleRef SceneAuthoringPathHandleRef_None(void);
 bool SceneAuthoringPathHandleRef_IsActive(SceneAuthoringPathHandleRef handle);
+SceneAuthoringGizmoPickResult SceneAuthoringGizmoPickResult_None(void);
+bool SceneAuthoringGizmoPickResult_IsActive(SceneAuthoringGizmoPickResult pick);
 bool SceneAuthoringPathHandles_ShouldShow(const GlobalState* state);
 bool SceneAuthoringPathHandles_Pick(const GlobalState* state,
                                     int mouse_x,
                                     int mouse_y,
-                                    SceneAuthoringPathHandleRef* out_handle);
+                                    SceneAuthoringGizmoPickResult* out_pick);
 bool SceneAuthoringPathHandles_InsertControlPointAtScreen(GlobalState* state,
                                                           EditorState* editor,
                                                           int mouse_x,
@@ -49,7 +68,9 @@ void SceneAuthoringPathHandles_Select(EditorState* editor,
                                       SceneAuthoringPathHandleRef handle);
 bool BeginSceneAuthoringPathHandleDragSession(GlobalState* state,
                                               EditorState* editor,
-                                              SceneAuthoringPathHandleRef handle);
+                                              SceneAuthoringGizmoPickResult pick,
+                                              int mouse_x,
+                                              int mouse_y);
 void ResetSceneAuthoringPathHandleDrag(EditorState* editor);
 void UpdateSceneAuthoringPathHandleDragPosition(int mouse_x, int mouse_y);
 void Render_Editor_SceneAuthoringPathHandles(EditorState* editor, AppContext* ctx);

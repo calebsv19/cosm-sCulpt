@@ -831,6 +831,264 @@ static bool test_scene_authoring_path_handles_follow_selected_records(void) {
     return true;
 }
 
+static bool test_scene_authoring_path_handles_pick_selected_camera_path_point(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+    SpaceViewContext view_ctx = {0};
+    Vec2 screen = {0};
+    SceneAuthoringGizmoPickResult pick = SceneAuthoringGizmoPickResult_None();
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  0u));
+    TEST_ASSERT(authoring->camera_path_count > 0u);
+    TEST_ASSERT(authoring->camera_paths[0].control_point_count > 0u);
+    TEST_ASSERT(SceneAuthoringPathHandles_ShouldShow(state));
+
+    view_ctx = SpaceAdapter_BuildViewContext(state);
+    screen = WorldToScreen(
+        SpaceAdapter_ProjectToView(authoring->camera_paths[0].control_points[0], &view_ctx),
+        &state->grid);
+
+    TEST_ASSERT(SceneAuthoringPathHandles_Pick(state,
+                                               (int)lroundf(screen.x),
+                                               (int)lroundf(screen.y),
+                                               &pick));
+    TEST_ASSERT(pick.part == SCENE_AUTHORING_GIZMO_PART_CENTER);
+    TEST_ASSERT(pick.handle.kind == SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT);
+    TEST_ASSERT(pick.handle.path_index == 0u);
+    TEST_ASSERT(pick.handle.control_index == 0u);
+
+    SceneAuthoringPathHandles_Select(&state->editor, pick.handle);
+    TEST_ASSERT(state->editor.selectedSceneAuthoringPathIndex == 0);
+    TEST_ASSERT(state->editor.selectedSceneAuthoringControlPointIndex == 0);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_scene_authoring_path_gizmo_pick_stays_screen_sized_across_zoom(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+    const float scales[] = { 2.0f, 80.0f };
+    SceneAuthoringPathHandleRef selected = {
+        .kind = SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT,
+        .light_index = 0u,
+        .path_index = 0u,
+        .control_index = 0u
+    };
+
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  0u));
+    TEST_ASSERT(authoring->camera_path_count > 0u);
+    TEST_ASSERT(authoring->camera_paths[0].control_point_count > 0u);
+    SceneAuthoringPathHandles_Select(&state->editor, selected);
+
+    for (size_t i = 0u; i < sizeof(scales) / sizeof(scales[0]); ++i) {
+        SpaceViewContext view_ctx = {0};
+        Vec3 origin = authoring->camera_paths[0].control_points[0];
+        Vec2 center = {0};
+        Vec2 projected_x = {0};
+        Vec2 direction = {0};
+        float direction_length = 0.0f;
+        SceneAuthoringGizmoPickResult pick = SceneAuthoringGizmoPickResult_None();
+
+        state->grid.scale = scales[i];
+        view_ctx = SpaceAdapter_BuildViewContext(state);
+        center = WorldToScreen(SpaceAdapter_ProjectToView(origin, &view_ctx), &state->grid);
+        projected_x = WorldToScreen(
+            SpaceAdapter_ProjectToView(Vec3_Add(origin, (Vec3){1.0f, 0.0f, 0.0f}), &view_ctx),
+            &state->grid);
+        direction = (Vec2){ projected_x.x - center.x, projected_x.y - center.y };
+        direction_length = sqrtf(direction.x * direction.x + direction.y * direction.y);
+        TEST_ASSERT(direction_length > 0.001f);
+        direction.x /= direction_length;
+        direction.y /= direction_length;
+
+        TEST_ASSERT(SceneAuthoringPathHandles_Pick(
+            state,
+            (int)lroundf(center.x + direction.x * 48.0f),
+            (int)lroundf(center.y + direction.y * 48.0f),
+            &pick));
+        TEST_ASSERT(pick.part == SCENE_AUTHORING_GIZMO_PART_AXIS);
+        TEST_ASSERT(pick.axis == GIZMO_AXIS_DIR_POS_X);
+        TEST_ASSERT(pick.handle.kind == SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT);
+        TEST_ASSERT(pick.handle.path_index == 0u);
+        TEST_ASSERT(pick.handle.control_index == 0u);
+    }
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool scene_authoring_test_axis_drag(bool light, GizmoAxisDirection axis) {
+    GlobalState* state = Global_Get();
+    LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+    SceneAuthoringPathHandleRef handle = {
+        .kind = light ? SCENE_AUTHORING_PATH_HANDLE_LIGHT_POSITION
+                      : SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT,
+        .light_index = 0u,
+        .path_index = 0u,
+        .control_index = 0u
+    };
+    Vec3* point = light ? &authoring->lights[0].position
+                        : &authoring->camera_paths[0].control_points[0];
+    Vec3 start = {1.25f, -2.5f, 3.75f};
+    SpaceViewContext view_ctx = {0};
+    Vec2 center = {0};
+    Vec2 projected = {0};
+    Vec2 direction = {0};
+    float length = 0.0f;
+    SceneAuthoringGizmoPickResult pick = SceneAuthoringGizmoPickResult_None();
+    size_t undo_before = Editor_UndoCount(&state->editor);
+
+    *point = start;
+    SceneAuthoringPathHandles_Select(&state->editor, handle);
+    view_ctx = SpaceAdapter_BuildViewContext(state);
+    center = WorldToScreen(SpaceAdapter_ProjectToView(start, &view_ctx), &state->grid);
+    projected = WorldToScreen(
+        SpaceAdapter_ProjectToView(Vec3_Add(start, GizmoAxisDirection_WorldVector(axis)),
+                                   &view_ctx),
+        &state->grid);
+    direction = (Vec2){projected.x - center.x, projected.y - center.y};
+    length = sqrtf(direction.x * direction.x + direction.y * direction.y);
+    TEST_ASSERT(length > 0.001f);
+    direction.x /= length;
+    direction.y /= length;
+    const int down_x = (int)lroundf(center.x + direction.x * 48.0f);
+    const int down_y = (int)lroundf(center.y + direction.y * 48.0f);
+    TEST_ASSERT(SceneAuthoringPathHandles_Pick(state, down_x, down_y, &pick));
+    TEST_ASSERT(pick.part == SCENE_AUTHORING_GIZMO_PART_AXIS);
+    TEST_ASSERT(pick.axis == axis);
+    TEST_ASSERT(BeginSceneAuthoringPathHandleDragSession(state,
+                                                         &state->editor,
+                                                         pick,
+                                                         down_x,
+                                                         down_y));
+    TEST_ASSERT(sceneAuthoringPathHandleDrag.pick.axis == axis);
+    TEST_ASSERT(state->editor.activeSceneAuthoringGizmoAxis == (int)axis);
+    UpdateSceneAuthoringPathHandleDragPosition(
+        (int)lroundf((float)down_x + direction.x * 20.0f),
+        (int)lroundf((float)down_y + direction.y * 20.0f));
+    UpdateSceneAuthoringPathHandleDragPosition(
+        (int)lroundf((float)down_x + direction.x * 30.0f),
+        (int)lroundf((float)down_y + direction.y * 30.0f));
+    TEST_ASSERT(Editor_UndoCount(&state->editor) == undo_before + 1u);
+    if (axis == GIZMO_AXIS_DIR_POS_X) {
+        TEST_ASSERT(!ld_test_nearly_equal(point->x, start.x));
+        TEST_ASSERT(ld_test_nearly_equal(point->y, start.y));
+        TEST_ASSERT(ld_test_nearly_equal(point->z, start.z));
+    } else if (axis == GIZMO_AXIS_DIR_POS_Y) {
+        TEST_ASSERT(ld_test_nearly_equal(point->x, start.x));
+        TEST_ASSERT(!ld_test_nearly_equal(point->y, start.y));
+        TEST_ASSERT(ld_test_nearly_equal(point->z, start.z));
+    } else {
+        TEST_ASSERT(ld_test_nearly_equal(point->x, start.x));
+        TEST_ASSERT(ld_test_nearly_equal(point->y, start.y));
+        TEST_ASSERT(!ld_test_nearly_equal(point->z, start.z));
+    }
+    ResetSceneAuthoringPathHandleDrag(&state->editor);
+    return true;
+}
+
+static bool test_scene_authoring_axis_drags_isolate_camera_and_light_coordinates(void) {
+    const GizmoAxisDirection axes[] = {
+        GIZMO_AXIS_DIR_POS_X, GIZMO_AXIS_DIR_POS_Y, GIZMO_AXIS_DIR_POS_Z
+    };
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+    state->freeViewCamera.enabled = true;
+    state->freeViewCamera.yawDeg = 35.0f;
+    state->freeViewCamera.pitchDeg = 20.0f;
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  0u));
+    for (size_t i = 0u; i < 3u; ++i) TEST_ASSERT(scene_authoring_test_axis_drag(false, axes[i]));
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT,
+                                                  0u));
+    for (size_t i = 0u; i < 3u; ++i) TEST_ASSERT(scene_authoring_test_axis_drag(true, axes[i]));
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_scene_authoring_center_drag_uses_construction_plane(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+    SceneAuthoringPathHandleRef handle = {
+        .kind = SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT,
+        .path_index = 0u,
+        .control_index = 0u
+    };
+    SpaceViewContext view_ctx = {0};
+    Vec2 center = {0};
+    Vec3 expected = {0};
+    SceneAuthoringGizmoPickResult pick = SceneAuthoringGizmoPickResult_None();
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  0u));
+    SceneAuthoringPathHandles_Select(&state->editor, handle);
+    view_ctx = SpaceAdapter_BuildViewContext(state);
+    center = WorldToScreen(SpaceAdapter_ProjectToView(authoring->camera_paths[0].control_points[0],
+                                                       &view_ctx),
+                           &state->grid);
+    TEST_ASSERT(SceneAuthoringPathHandles_Pick(state, (int)center.x, (int)center.y, &pick));
+    TEST_ASSERT(pick.part == SCENE_AUTHORING_GIZMO_PART_CENTER);
+    TEST_ASSERT(BeginSceneAuthoringPathHandleDragSession(state, &state->editor, pick,
+                                                         (int)center.x, (int)center.y));
+    TEST_ASSERT(SpaceAdapter_ScreenToWorld((int)center.x + 37, (int)center.y + 23,
+                                           &state->grid, &view_ctx, true, &expected));
+    UpdateSceneAuthoringPathHandleDragPosition((int)center.x + 37, (int)center.y + 23);
+    TEST_ASSERT(ld_test_nearly_equal(authoring->camera_paths[0].control_points[0].x, expected.x));
+    TEST_ASSERT(ld_test_nearly_equal(authoring->camera_paths[0].control_points[0].y, expected.y));
+    TEST_ASSERT(ld_test_nearly_equal(authoring->camera_paths[0].control_points[0].z, expected.z));
+    ResetSceneAuthoringPathHandleDrag(&state->editor);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_scene_authoring_gizmo_pick_priority_and_degenerate_axis_policy(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+    SceneAuthoringPathHandleRef handle = {
+        .kind = SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT,
+        .path_index = 0u,
+        .control_index = 0u
+    };
+    SpaceViewContext view_ctx = {0};
+    Vec3 origin = authoring->camera_paths[0].control_points[0];
+    Vec2 center = {0};
+    SceneAuthoringGizmoPickResult pick = SceneAuthoringGizmoPickResult_None();
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(authoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  0u));
+    SceneAuthoringPathHandles_Select(&state->editor, handle);
+    view_ctx = SpaceAdapter_BuildViewContext(state);
+    center = WorldToScreen(SpaceAdapter_ProjectToView(origin, &view_ctx), &state->grid);
+    TEST_ASSERT(SceneAuthoringPathHandles_Pick(state, (int)center.x, (int)center.y, &pick));
+    TEST_ASSERT(pick.part == SCENE_AUTHORING_GIZMO_PART_CENTER);
+
+    state->freeViewCamera.enabled = true;
+    state->freeViewCamera.yawDeg = 0.0f;
+    state->freeViewCamera.pitchDeg = 0.0f;
+    view_ctx = SpaceAdapter_BuildViewContext(state);
+    center = WorldToScreen(SpaceAdapter_ProjectToView(origin, &view_ctx), &state->grid);
+    pick = SceneAuthoringGizmoPickResult_None();
+    TEST_ASSERT(!SceneAuthoringPathHandles_Pick(state,
+                                                (int)lroundf(center.x + 48.0f),
+                                                (int)lroundf(center.y),
+                                                &pick) ||
+                pick.axis != GIZMO_AXIS_DIR_POS_Z);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_scene_authoring_deletes_selected_records_and_clears_references(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
@@ -1129,6 +1387,16 @@ bool test_layout_core_run_tests(void) {
           test_layout_scene_authoring_defaults_seed_authoring_entities },
         { "SceneAuthoringPathHandlesFollowSelectedRecords",
           test_scene_authoring_path_handles_follow_selected_records },
+        { "SceneAuthoringPathHandlesPickSelectedCameraPathPoint",
+          test_scene_authoring_path_handles_pick_selected_camera_path_point },
+        { "SceneAuthoringPathGizmoPickStaysScreenSizedAcrossZoom",
+          test_scene_authoring_path_gizmo_pick_stays_screen_sized_across_zoom },
+        { "SceneAuthoringAxisDragsIsolateCameraAndLightCoordinates",
+          test_scene_authoring_axis_drags_isolate_camera_and_light_coordinates },
+        { "SceneAuthoringCenterDragUsesConstructionPlane",
+          test_scene_authoring_center_drag_uses_construction_plane },
+        { "SceneAuthoringGizmoPickPriorityAndDegenerateAxisPolicy",
+          test_scene_authoring_gizmo_pick_priority_and_degenerate_axis_policy },
         { "SceneAuthoringDeletesSelectedRecordsAndClearsReferences",
           test_scene_authoring_deletes_selected_records_and_clears_references },
         { "LayoutJsonPersistsSceneAuthoringRecords",

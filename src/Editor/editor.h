@@ -111,6 +111,10 @@ typedef struct {
     int selectedSceneAuthoringPathIndex;
     int selectedSceneAuthoringControlPointIndex;
     bool selectedSceneAuthoringLightPosition;
+    int hoveredSceneAuthoringGizmoPart;
+    int hoveredSceneAuthoringGizmoAxis;
+    int activeSceneAuthoringGizmoPart;
+    int activeSceneAuthoringGizmoAxis;
 
     DeleteMode deleteMode;
 

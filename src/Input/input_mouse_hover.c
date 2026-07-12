@@ -7,6 +7,7 @@
 #include "Editor/object_face_sketch.h"
 #include "Editor/object_face_sketch_edit.h"
 #include "Editor/object3d_origin_pick.h"
+#include "Editor/scene_authoring_path_handles.h"
 
 #include "UI/ui_panel.h"
 
@@ -115,6 +116,8 @@ void ClearHoverState(EditorState* editor) {
     editor->hoveredSceneBoundsHandle = SCENE_BOUNDS_HANDLE_NONE;
     editor->hoveredSceneBoundsGizmoAxis = -1;
     editor->hoveredObjectFaceSketchHandle = OBJECT_FACE_SKETCH_HANDLE_NONE;
+    editor->hoveredSceneAuthoringGizmoPart = SCENE_AUTHORING_GIZMO_PART_NONE;
+    editor->hoveredSceneAuthoringGizmoAxis = -1;
 }
 
 bool InputMouse_ObjectModeEnabled(void) {
@@ -239,6 +242,7 @@ void UpdateHover(int mx, int my) {
     if (!state) return;
     EditorState* editor = &state->editor;
     ViewportPickResult pick = {0};
+    SceneAuthoringGizmoPickResult authoring_pick = SceneAuthoringGizmoPickResult_None();
 
     if (UIPanel_IsCapturingKeyboard()) {
         ClearHoverState(editor);
@@ -247,6 +251,16 @@ void UpdateHover(int mx, int my) {
     pick = ViewportPick_ResolveObjectWorkspaceHit(state, mx, my, true);
     if (pick.paneLane != POINTER_PANE_CENTER) {
         ClearHoverState(editor);
+        return;
+    }
+
+    if (SceneAuthoringPathHandles_Pick(state, mx, my, &authoring_pick)) {
+        ClearHoverState(editor);
+        editor->hoveredSceneAuthoringGizmoPart = (int)authoring_pick.part;
+        editor->hoveredSceneAuthoringGizmoAxis =
+            authoring_pick.part == SCENE_AUTHORING_GIZMO_PART_AXIS
+                ? (int)authoring_pick.axis
+                : -1;
         return;
     }
 

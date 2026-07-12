@@ -358,6 +358,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     bool startedSceneBoundsGizmoDrag = false;
     bool startedSceneAuthoringPathDrag = false;
     SceneAuthoringPathHandleRef sceneAuthoringHandle = SceneAuthoringPathHandleRef_None();
+    SceneAuthoringGizmoPickResult sceneAuthoringPick = SceneAuthoringGizmoPickResult_None();
 
     if (shiftSelect &&
         SceneAuthoringPathHandles_InsertControlPointAtScreen(state,
@@ -368,7 +369,13 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         startedSceneAuthoringPathDrag =
             BeginSceneAuthoringPathHandleDragSession(state,
                                                      editor,
-                                                     sceneAuthoringHandle);
+                                                     (SceneAuthoringGizmoPickResult){
+                                                         .handle = sceneAuthoringHandle,
+                                                         .part = SCENE_AUTHORING_GIZMO_PART_CENTER,
+                                                         .axis = GIZMO_AXIS_DIR_POS_X
+                                                     },
+                                                     btn->x,
+                                                     btn->y);
         draggingHandle = false;
         draggingPan = false;
         draggingSceneAuthoringPathHandle = startedSceneAuthoringPathDrag;
@@ -377,11 +384,13 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         return;
     }
 
-    if (SceneAuthoringPathHandles_Pick(state, btn->x, btn->y, &sceneAuthoringHandle)) {
+    if (SceneAuthoringPathHandles_Pick(state, btn->x, btn->y, &sceneAuthoringPick)) {
         startedSceneAuthoringPathDrag =
             BeginSceneAuthoringPathHandleDragSession(state,
                                                      editor,
-                                                     sceneAuthoringHandle);
+                                                     sceneAuthoringPick,
+                                                     btn->x,
+                                                     btn->y);
         draggingHandle = false;
         draggingPan = false;
         draggingSceneAuthoringPathHandle = startedSceneAuthoringPathDrag;

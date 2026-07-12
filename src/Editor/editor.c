@@ -152,6 +152,10 @@ void Editor_Init(EditorState* editor) {
     editor->selectedSceneAuthoringPathIndex = -1;
     editor->selectedSceneAuthoringControlPointIndex = -1;
     editor->selectedSceneAuthoringLightPosition = false;
+    editor->hoveredSceneAuthoringGizmoPart = 0;
+    editor->hoveredSceneAuthoringGizmoAxis = -1;
+    editor->activeSceneAuthoringGizmoPart = 0;
+    editor->activeSceneAuthoringGizmoAxis = -1;
     editor->deleteMode = DELETE_MODE_SAFE;
     editor->isDraggingAnchor = false;
     editor->isResizingObject3D = false;
