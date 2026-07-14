@@ -45,7 +45,35 @@ bool UIPanel_CreateSceneAuthoringCameraPath(void) {
     }
     UIPanel_ClearEditorSelectionForSceneAuthoring(state);
     SDL_Log("[UI] Scene authoring camera path created (%s)",
-            state->layout.sceneAuthoring.camera_paths[index].path_id);
+            state->layout.sceneAuthoring.paths[index].path_id);
+    return true;
+}
+
+bool UIPanel_CreateSceneAuthoringLightPath(void) {
+    GlobalState* state = Global_Get();
+    size_t index = 0u;
+    if (!state) return false;
+    if (!Layout_SceneAuthoringState_AddDefaultLightPath(&state->layout.sceneAuthoring, &index)) {
+        SDL_Log("[UI] Light path creation blocked: create/select a light or free path capacity.");
+        return false;
+    }
+    UIPanel_ClearEditorSelectionForSceneAuthoring(state);
+    SDL_Log("[UI] Scene authoring light path created (%s)",
+            state->layout.sceneAuthoring.paths[index].path_id);
+    return true;
+}
+
+bool UIPanel_CreateSceneAuthoringGenericPath(void) {
+    GlobalState* state = Global_Get();
+    size_t index = 0u;
+    if (!state) return false;
+    if (!Layout_SceneAuthoringState_AddDefaultGenericPath(&state->layout.sceneAuthoring, &index)) {
+        SDL_Log("[UI] Generic path creation blocked: authoring path limit reached.");
+        return false;
+    }
+    UIPanel_ClearEditorSelectionForSceneAuthoring(state);
+    SDL_Log("[UI] Scene authoring generic path created (%s)",
+            state->layout.sceneAuthoring.paths[index].path_id);
     return true;
 }
 

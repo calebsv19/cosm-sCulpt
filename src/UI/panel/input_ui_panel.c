@@ -336,6 +336,18 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     }
                     break;
                 }
+                case UI_BTN_PREVIEW_WIREFRAME:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_WIREFRAME);
+                    break;
+                case UI_BTN_PREVIEW_FLAT:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_FLAT);
+                    break;
+                case UI_BTN_PREVIEW_MATERIAL:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_MATERIAL);
+                    break;
                 case UI_BTN_TOGGLE_DELETE: { // Toggle Delete Mode
                     UIPanel_CloseFileBrowser(ui);
                     if (editor->deleteMode == DELETE_MODE_SAFE)
@@ -410,6 +422,16 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     }
                     break;
                 }
+                case UI_BTN_CREATE_LIGHT_PATH: {
+                    UIPanel_CloseFileBrowser(ui);
+                    if (!object_mode) (void)UIPanel_CreateSceneAuthoringLightPath();
+                    break;
+                }
+                case UI_BTN_CREATE_GENERIC_PATH: {
+                    UIPanel_CloseFileBrowser(ui);
+                    if (!object_mode) (void)UIPanel_CreateSceneAuthoringGenericPath();
+                    break;
+                }
                 case UI_BTN_CREATE_MATERIAL: {
                     UIPanel_CloseFileBrowser(ui);
                     if (!object_mode) {
@@ -442,6 +464,71 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     (void)UIPanel_CycleSelectedSceneAuthoringCameraPathKind();
                     break;
                 }
+                case UI_BTN_SCENE_AUTHORING_TANGENT_MODE: {
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringTangentMode();
+                    break;
+                }
+                case UI_BTN_SCENE_AUTHORING_CAMERA_ORIENTATION:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringCameraOrientation();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_CAMERA_ROLL:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringCameraRoll();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_CAMERA_FOV:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringCameraFov();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_CAMERA_CLIP:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringCameraClip();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_PATH_PLAY:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_ToggleSelectedSceneAuthoringPathPlayback();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_PATH_SCRUB:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_AdvanceSelectedSceneAuthoringPathScrub();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_PATH_PLAYBACK_MODE:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringPathPlaybackMode();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_PATH_DURATION:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringPathDuration();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_PATH_CLOSED:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_ToggleSelectedSceneAuthoringPathClosed();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_LIGHT_POSITION_MODE:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringLightPositionMode();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_LIGHT_COLOR:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringLightColor();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_LIGHT_INTENSITY:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringLightIntensity();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_LIGHT_SIZE:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringLightSize();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_LIGHT_CONE:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringLightCone();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_LIGHT_FALLOFF:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_CycleSelectedSceneAuthoringLightFalloff();
+                    break;
                 case UI_BTN_SCENE_AUTHORING_MATERIAL_COLOR: {
                     UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_CycleSelectedSceneAuthoringMaterialColor();

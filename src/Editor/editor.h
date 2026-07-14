@@ -6,6 +6,7 @@
 #include "Layout/layout.h"
 #include "Math/math_util.h"
 #include "Editor/space_gizmo_drag.h"
+#include "Layout/scene/layout_scene_path_edit.h"
 
 typedef enum {
     DELETE_MODE_SAFE,      // Only delete selected wall or anchor
@@ -56,7 +57,7 @@ typedef enum {
 typedef enum {
     SCENE_AUTHORING_EDIT_MODE_NONE = 0,
     SCENE_AUTHORING_EDIT_MODE_LIGHT = 1,
-    SCENE_AUTHORING_EDIT_MODE_CAMERA_PATH = 2
+    SCENE_AUTHORING_EDIT_MODE_PATH = 2
 } SceneAuthoringEditMode;
 
 typedef struct {
@@ -110,9 +111,18 @@ typedef struct {
     int hoveredSceneBoundsHandle;    // SceneBoundsHandleKind or SCENE_BOUNDS_HANDLE_NONE
     int selectedSceneAuthoringPathIndex;
     int selectedSceneAuthoringControlPointIndex;
+    int selectedSceneAuthoringPathElementKind;
+    int selectedSceneAuthoringPathSegmentIndex;
     bool selectedSceneAuthoringLightPosition;
+    bool selectedSceneAuthoringLightAim;
+    bool selectedSceneAuthoringCameraAim;
+    int hoveredSceneAuthoringHandleKind;
     int hoveredSceneAuthoringGizmoPart;
     int hoveredSceneAuthoringGizmoAxis;
+    int hoveredSceneAuthoringPathElementKind;
+    int hoveredSceneAuthoringPathIndex;
+    int hoveredSceneAuthoringControlPointIndex;
+    int hoveredSceneAuthoringPathSegmentIndex;
     int activeSceneAuthoringGizmoPart;
     int activeSceneAuthoringGizmoAxis;
 

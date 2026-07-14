@@ -8,6 +8,7 @@
 #include "UI/shared_theme_font_adapter.h"
 #include "Core/global_state.h"
 #include "Editor/editor.h"
+#include "Editor/scene_authoring_path_handles.h"
 
 #include <SDL2/SDL.h>
 #include <stdio.h>
@@ -75,7 +76,7 @@ typedef enum {
     UI_SCENE_LIST_ROW_NONE = 0,
     UI_SCENE_LIST_ROW_OBJECT = 1,
     UI_SCENE_LIST_ROW_LIGHT = 2,
-    UI_SCENE_LIST_ROW_CAMERA_PATH = 3,
+    UI_SCENE_LIST_ROW_PATH = 3,
     UI_SCENE_LIST_ROW_MATERIAL = 4
 } UIPanelSceneListRowKind;
 
@@ -105,7 +106,7 @@ static size_t UIPanelSceneList_TotalRowCount(const Layout* layout) {
     if (!layout) return 0u;
     return UIPanelSceneList_LiveObjectCount(&layout->objectStore) +
            layout->sceneAuthoring.light_count +
-           layout->sceneAuthoring.camera_path_count +
+           layout->sceneAuthoring.path_count +
            layout->sceneAuthoring.material_count;
 }
 
@@ -128,12 +129,12 @@ static UIPanelSceneListRow UIPanelSceneList_RowAtVisibleIndex(const Layout* layo
         return row;
     }
     offset -= layout->sceneAuthoring.light_count;
-    if (offset < layout->sceneAuthoring.camera_path_count) {
-        row.kind = UI_SCENE_LIST_ROW_CAMERA_PATH;
+    if (offset < layout->sceneAuthoring.path_count) {
+        row.kind = UI_SCENE_LIST_ROW_PATH;
         row.index = offset;
         return row;
     }
-    offset -= layout->sceneAuthoring.camera_path_count;
+    offset -= layout->sceneAuthoring.path_count;
     if (offset < layout->sceneAuthoring.material_count) {
         row.kind = UI_SCENE_LIST_ROW_MATERIAL;
         row.index = offset;
@@ -428,6 +429,11 @@ bool UIPanel_SceneListDeleteSelectedObject(void) {
     if (!state) return false;
     authoring = &state->layout.sceneAuthoring;
     if (authoring->selected_kind != LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE) {
+        if (state->editor.selectedSceneAuthoringPathElementKind !=
+            LINE_DRAWING_SCENE_PATH_ELEMENT_NONE) {
+            return SceneAuthoringPathHandles_DeleteSelectedControlPoint(
+                state, &state->editor);
+        }
         Editor_HistoryCapture(&state->editor, &state->layout);
         if (!Layout_SceneAuthoringState_DeleteSelected(authoring)) {
             return false;
@@ -435,7 +441,12 @@ bool UIPanel_SceneListDeleteSelectedObject(void) {
         Editor_ClearSceneAuthoringEditMode(&state->editor);
         state->editor.selectedSceneAuthoringPathIndex = -1;
         state->editor.selectedSceneAuthoringControlPointIndex = -1;
+        state->editor.selectedSceneAuthoringPathElementKind =
+            LINE_DRAWING_SCENE_PATH_ELEMENT_NONE;
+        state->editor.selectedSceneAuthoringPathSegmentIndex = -1;
         state->editor.selectedSceneAuthoringLightPosition = false;
+        state->editor.selectedSceneAuthoringLightAim = false;
+        state->editor.selectedSceneAuthoringCameraAim = false;
         Global_FlagLayoutChanged();
         Global_FlagHitboxesDirty();
         return true;
@@ -500,8 +511,8 @@ bool UIPanel_HandleSceneListClick(int mouseX, int mouseY) {
             UIPanelSceneList_SelectAuthoringEntity(LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT,
                                                    row.index);
             UIPanelSceneList_ClearClickMemory(ui);
-        } else if (row.kind == UI_SCENE_LIST_ROW_CAMERA_PATH) {
-            UIPanelSceneList_SelectAuthoringEntity(LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+        } else if (row.kind == UI_SCENE_LIST_ROW_PATH) {
+            UIPanelSceneList_SelectAuthoringEntity(LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH,
                                                    row.index);
             UIPanelSceneList_ClearClickMemory(ui);
         } else if (row.kind == UI_SCENE_LIST_ROW_MATERIAL) {
@@ -672,9 +683,9 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
                     isSelected = state->layout.sceneAuthoring.selected_kind ==
                                      LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT &&
                                  state->layout.sceneAuthoring.selected_index == row.index;
-                } else if (row.kind == UI_SCENE_LIST_ROW_CAMERA_PATH) {
+                } else if (row.kind == UI_SCENE_LIST_ROW_PATH) {
                     isSelected = state->layout.sceneAuthoring.selected_kind ==
-                                     LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH &&
+                                     LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH &&
                                  state->layout.sceneAuthoring.selected_index == row.index;
                 } else if (row.kind == UI_SCENE_LIST_ROW_MATERIAL) {
                     isSelected = state->layout.sceneAuthoring.selected_kind ==
@@ -750,19 +761,21 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
                          light->position.y,
                          light->position.z,
                          light->path_id[0] ? light->path_id : "none");
-            } else if (row.kind == UI_SCENE_LIST_ROW_CAMERA_PATH) {
-                const LineDrawingSceneCameraPath* path =
-                    &state->layout.sceneAuthoring.camera_paths[row.index];
-                snprintf(line0, sizeof(line0), "Camera Path  %s", path->label);
+            } else if (row.kind == UI_SCENE_LIST_ROW_PATH) {
+                const LineDrawingScenePath* path =
+                    &state->layout.sceneAuthoring.paths[row.index];
+                snprintf(line0, sizeof(line0), "%s Path  %s",
+                         Layout_ScenePathRole_Name(path->role), path->label);
                 snprintf(line1,
                          sizeof(line1),
                          "Kind %s   %zu control points",
-                         path->path_kind,
+                         path->curve_type,
                          path->control_point_count);
                 snprintf(line2,
                          sizeof(line2),
-                         "Camera %s",
-                         path->bound_camera_id[0] ? path->bound_camera_id : "unbound");
+                         "Binding %s",
+                         path->bound_camera_id[0] ? path->bound_camera_id :
+                         path->bound_light_id[0] ? path->bound_light_id : "unbound");
             } else if (row.kind == UI_SCENE_LIST_ROW_MATERIAL) {
                 const LineDrawingSceneMaterial* material =
                     &state->layout.sceneAuthoring.materials[row.index];

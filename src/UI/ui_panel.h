@@ -6,7 +6,7 @@
 #include "Math/math_util.h"
 #include "core_units.h"
 
-#define MAX_UI_BUTTONS 80
+#define MAX_UI_BUTTONS 100
 
 typedef enum {
     UI_PANEL_LEFT,
@@ -130,6 +130,27 @@ typedef struct {
 #define UI_BTN_SCENE_AUTHORING_LIGHT_PATH 64
 #define UI_BTN_SCENE_AUTHORING_PATH_KIND 65
 #define UI_BTN_SCENE_AUTHORING_MATERIAL_COLOR 66
+#define UI_BTN_CREATE_LIGHT_PATH 67
+#define UI_BTN_CREATE_GENERIC_PATH 68
+#define UI_BTN_SCENE_AUTHORING_TANGENT_MODE 69
+#define UI_BTN_SCENE_AUTHORING_CAMERA_ORIENTATION 70
+#define UI_BTN_SCENE_AUTHORING_CAMERA_ROLL 71
+#define UI_BTN_SCENE_AUTHORING_CAMERA_FOV 72
+#define UI_BTN_SCENE_AUTHORING_CAMERA_CLIP 73
+#define UI_BTN_SCENE_AUTHORING_LIGHT_POSITION_MODE 74
+#define UI_BTN_SCENE_AUTHORING_LIGHT_COLOR 75
+#define UI_BTN_SCENE_AUTHORING_LIGHT_INTENSITY 76
+#define UI_BTN_SCENE_AUTHORING_LIGHT_SIZE 77
+#define UI_BTN_SCENE_AUTHORING_LIGHT_CONE 78
+#define UI_BTN_SCENE_AUTHORING_LIGHT_FALLOFF 79
+#define UI_BTN_SCENE_AUTHORING_PATH_PLAY 80
+#define UI_BTN_SCENE_AUTHORING_PATH_SCRUB 81
+#define UI_BTN_SCENE_AUTHORING_PATH_PLAYBACK_MODE 82
+#define UI_BTN_SCENE_AUTHORING_PATH_DURATION 83
+#define UI_BTN_SCENE_AUTHORING_PATH_CLOSED 84
+#define UI_BTN_PREVIEW_WIREFRAME 85
+#define UI_BTN_PREVIEW_FLAT 86
+#define UI_BTN_PREVIEW_MATERIAL 87
 
 #define MAX_CONFIG_FILES 128
 #define MAX_CONFIG_PATH 512
@@ -498,5 +519,7 @@ bool UIPanel_CreatePlanePrimitiveFromActiveContext(bool disable_bounds_lock);
 bool UIPanel_CreateRectPrismPrimitiveFromActiveContext(bool disable_bounds_lock);
 bool UIPanel_CreateSceneAuthoringLight(void);
 bool UIPanel_CreateSceneAuthoringCameraPath(void);
+bool UIPanel_CreateSceneAuthoringLightPath(void);
+bool UIPanel_CreateSceneAuthoringGenericPath(void);
 bool UIPanel_CreateSceneAuthoringMaterial(void);
 bool UIPanel_FitSceneBoundsToSelectedObject(void);

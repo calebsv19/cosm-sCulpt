@@ -12,7 +12,7 @@ KIT_WORKSPACE_AUTHORING_SRCS := \
 APP_SRCS := $(shell find $(SRC_DIR) -name '*.c' ! -path '$(TOOLS_DIR)/*')
 VK_RENDERER_SRCS := $(shell find $(VK_RENDERER_DIR)/src -name '*.c')
 SHAPE_LIB_SRCS := $(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
-SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c $(TOOLS_DIR)/canonical_scene_export.c $(TOOLS_DIR)/canonical_scene_export_authoring.c $(TOOLS_DIR)/canonical_scene_export_materials.c $(TOOLS_DIR)/canonical_scene_export_primitives.c $(TOOLS_DIR)/scene_export.c $(TOOLS_DIR)/scene_project_export.c $(TOOLS_DIR)/scene_import.c
+SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c $(TOOLS_DIR)/canonical_scene_export.c $(TOOLS_DIR)/canonical_scene_export_authoring.c $(TOOLS_DIR)/canonical_scene_export_materials.c $(TOOLS_DIR)/canonical_scene_export_primitives.c $(TOOLS_DIR)/scene_export.c $(TOOLS_DIR)/scene_project_export.c $(TOOLS_DIR)/scene_import.c $(TOOLS_DIR)/scene_authoring_import.c
 EXT_SRCS := $(EXT_DIR)/cjson/cJSON.c
 CORE_TIME_SRCS := $(CORE_TIME_DIR)/src/core_time.c
 ifeq ($(UNAME_S),Darwin)
@@ -59,6 +59,11 @@ SHAPE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/layout.c \
 	$(SRC_DIR)/Layout/layout_json.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_authoring.c \
+	$(SRC_DIR)/Layout/scene/layout_scene_camera_authoring.c \
+	$(SRC_DIR)/Layout/scene/layout_scene_light_authoring.c \
+	$(SRC_DIR)/Layout/scene/layout_scene_path_geometry.c \
+	$(SRC_DIR)/Layout/scene/layout_scene_path_traversal.c \
+	$(SRC_DIR)/Layout/scene/layout_scene_path_edit.c \
 	$(SRC_DIR)/Layout/scene/layout_scene3d.c \
 	$(SRC_DIR)/Layout/scene/layout_mesh_asset_instance.c \
 	$(SRC_DIR)/Layout/scene/layout_mesh_preview_sidecar.c \
@@ -96,6 +101,11 @@ AGENT_SCENE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/layout.c \
 	$(SRC_DIR)/Layout/layout_json.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_authoring.c \
+	$(SRC_DIR)/Layout/scene/layout_scene_camera_authoring.c \
+	$(SRC_DIR)/Layout/scene/layout_scene_light_authoring.c \
+	$(SRC_DIR)/Layout/scene/layout_scene_path_geometry.c \
+	$(SRC_DIR)/Layout/scene/layout_scene_path_traversal.c \
+	$(SRC_DIR)/Layout/scene/layout_scene_path_edit.c \
 	$(SRC_DIR)/Layout/scene/layout_scene3d.c \
 	$(SRC_DIR)/Layout/scene/layout_mesh_asset_instance.c \
 	$(SRC_DIR)/Layout/scene/layout_mesh_preview_sidecar.c \

@@ -1,6 +1,7 @@
 #include "test_framework.h"
 
 #include "Layout/layout.h"
+#include "Layout/layout_json.h"
 #include "Tools/canonical_scene_export.h"
 #include "Tools/scene_import.h"
 #include "Tools/scene_export.h"
@@ -661,6 +662,65 @@ static bool test_scene_import_rejects_runtime_scene_file(void) {
     return true;
 }
 
+static bool test_scene_import_normalizes_top_level_camera_light_and_path_records(void) {
+    Layout imported;
+    Layout reloaded;
+    char diagnostics[256];
+    char* layout_json = NULL;
+    const char* path = "/tmp/line_drawing_scene_import_authoring_records.json";
+    const char* json =
+        "{"
+        "\"schema_variant\":\"scene_authoring_v1\","
+        "\"unit_system\":\"meters\","
+        "\"paths\":[{\"path_id\":\"path_loaded\",\"path_kind\":\"camera\","
+        "\"curve_type\":\"linear\",\"camera_id\":\"camera_loaded\","
+        "\"closed\":false,\"playback_mode\":\"loop\",\"duration_seconds\":8.0,"
+        "\"normalized_distance\":0.25,\"playing\":true,"
+        "\"control_points\":[{\"x\":0,\"y\":0,\"z\":2},{\"x\":10,\"y\":0,\"z\":2}]}],"
+        "\"cameras\":[{\"camera_id\":\"camera_loaded\",\"label\":\"Loaded Camera\","
+        "\"path_id\":\"path_loaded\",\"transform\":{\"position\":{\"x\":0,\"y\":0,\"z\":2}},"
+        "\"orientation\":{\"mode\":\"look_at_target\",\"look_at_target\":{\"x\":5,\"y\":3,\"z\":2},"
+        "\"fixed_forward\":{\"x\":0,\"y\":1,\"z\":0},\"roll_degrees\":5},"
+        "\"vertical_fov_degrees\":60,\"near_clip\":0.2,\"far_clip\":500}],"
+        "\"lights\":[{\"light_id\":\"light_loaded\",\"label\":\"Loaded Light\","
+        "\"light_type\":\"spot\",\"path_id\":\"path_loaded\",\"enabled\":true,"
+        "\"position_mode\":\"path_start\",\"transform\":{\"position\":{\"x\":1,\"y\":2,\"z\":3}},"
+        "\"direction\":{\"x\":0,\"y\":0,\"z\":-1},\"aim_target\":{\"x\":1,\"y\":2,\"z\":0},"
+        "\"color\":{\"x\":1,\"y\":0.5,\"z\":0.25},\"intensity\":4,\"radius\":0.5}]"
+        "}";
+
+    Layout_Init(&imported, 1.0f);
+    Layout_Init(&reloaded, 1.0f);
+    TEST_ASSERT(write_text_file(path, json));
+    TEST_ASSERT(LineDrawingSceneImport_LoadLayoutFromAuthoringFile(&imported,
+                                                                   path,
+                                                                   diagnostics,
+                                                                   sizeof(diagnostics)));
+    TEST_ASSERT(imported.sceneAuthoring.path_count == 1u);
+    TEST_ASSERT(imported.sceneAuthoring.camera_count == 1u);
+    TEST_ASSERT(imported.sceneAuthoring.light_count == 1u);
+    TEST_ASSERT(strcmp(imported.sceneAuthoring.paths[0].path_id, "path_loaded") == 0);
+    TEST_ASSERT(strcmp(imported.sceneAuthoring.cameras[0].camera_id, "camera_loaded") == 0);
+    TEST_ASSERT(strcmp(imported.sceneAuthoring.lights[0].light_id, "light_loaded") == 0);
+    TEST_ASSERT(imported.sceneAuthoring.paths[0].playback_mode ==
+                LINE_DRAWING_SCENE_PATH_PLAYBACK_LOOP);
+    TEST_ASSERT(fabsf(imported.sceneAuthoring.paths[0].duration_seconds - 8.0f) < 0.001f);
+    TEST_ASSERT(Layout_SceneAuthoringState_SetPathControlPoint(&imported.sceneAuthoring,
+                                                               0u,
+                                                               1u,
+                                                               (Vec3){12.0f, 1.0f, 2.0f}));
+    layout_json = Layout_SaveToString(&imported);
+    TEST_ASSERT(layout_json != NULL);
+    TEST_ASSERT(Layout_LoadFromString(&reloaded, layout_json));
+    TEST_ASSERT(strcmp(reloaded.sceneAuthoring.cameras[0].camera_id, "camera_loaded") == 0);
+    TEST_ASSERT(fabsf(reloaded.sceneAuthoring.paths[0].control_points[1].x - 12.0f) < 0.001f);
+    free(layout_json);
+    remove(path);
+    Layout_Free(&imported);
+    Layout_Free(&reloaded);
+    return true;
+}
+
 bool scene_export_run_tests(void) {
     const TestCase cases[] = {
         { "scene_export_emits_authoring_and_runtime_files", test_scene_export_emits_authoring_and_runtime_files },
@@ -684,6 +744,8 @@ bool scene_export_run_tests(void) {
           test_scene_import_rejects_unsupported_authoring_unit_metadata },
         { "scene_import_rejects_runtime_scene_file",
           test_scene_import_rejects_runtime_scene_file },
+        { "scene_import_normalizes_top_level_camera_light_and_path_records",
+          test_scene_import_normalizes_top_level_camera_light_and_path_records },
     };
     return run_test_cases("SceneExport", cases, sizeof(cases) / sizeof(cases[0]));
 }

@@ -1,4 +1,5 @@
 #include "Tools/scene_import.h"
+#include "Tools/scene_authoring_import.h"
 
 #include "Layout/layout_json.h"
 #include "core_io.h"
@@ -426,6 +427,8 @@ static bool import_legacy_scene_object(Layout* layout,
 
 static bool import_legacy_scene_authoring(Layout* layout,
                                           cJSON* root,
+                                          const LineDrawingSceneAuthoringState* canonical_authoring,
+                                          bool has_canonical_authoring,
                                           char* diagnostics,
                                           size_t diagnostics_size) {
     Layout temp;
@@ -436,6 +439,10 @@ static bool import_legacy_scene_authoring(Layout* layout,
 
     Layout_Init(&temp, layout->gridSize > 0.0f ? layout->gridSize : 1.0f);
     apply_legacy_scene3d_settings(&temp, root);
+    if (has_canonical_authoring && canonical_authoring) {
+        temp.sceneAuthoring = *canonical_authoring;
+        imported_any = true;
+    }
 
     objects = cJSON_GetObjectItemCaseSensitive(root, "objects");
     if (cJSON_IsArray(objects)) {
@@ -474,6 +481,8 @@ bool LineDrawingSceneImport_LoadLayoutFromAuthoringFile(Layout* layout,
     cJSON* layout_snapshot = NULL;
     char* snapshot_text = NULL;
     bool ok = false;
+    LineDrawingSceneAuthoringState canonical_authoring;
+    bool has_canonical_authoring = false;
 
     write_diagnostics(diagnostics, diagnostics_size, NULL);
     if (!layout || !authoring_path || !authoring_path[0]) {
@@ -500,10 +509,22 @@ bool LineDrawingSceneImport_LoadLayoutFromAuthoringFile(Layout* layout,
     if (!validate_authoring_units_metadata(root, diagnostics, diagnostics_size)) {
         goto cleanup;
     }
+    if (!LineDrawingSceneAuthoringImport_ParseCanonical(root,
+                                                        &canonical_authoring,
+                                                        &has_canonical_authoring)) {
+        write_diagnostics(diagnostics, diagnostics_size,
+                          "canonical camera/light/path records could not be normalized");
+        goto cleanup;
+    }
 
     layout_snapshot = find_layout_snapshot(root);
     if (!cJSON_IsObject(layout_snapshot)) {
-        ok = import_legacy_scene_authoring(layout, root, diagnostics, diagnostics_size);
+        ok = import_legacy_scene_authoring(layout,
+                                           root,
+                                           &canonical_authoring,
+                                           has_canonical_authoring,
+                                           diagnostics,
+                                           diagnostics_size);
         goto cleanup;
     }
 
@@ -516,6 +537,8 @@ bool LineDrawingSceneImport_LoadLayoutFromAuthoringFile(Layout* layout,
     ok = Layout_LoadFromString(layout, snapshot_text);
     if (!ok) {
         write_diagnostics(diagnostics, diagnostics_size, "embedded layout snapshot could not be loaded");
+    } else if (has_canonical_authoring) {
+        layout->sceneAuthoring = canonical_authoring;
     }
 
 cleanup:

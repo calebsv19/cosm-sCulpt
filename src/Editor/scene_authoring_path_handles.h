@@ -4,6 +4,7 @@
 #include "Core/global_state.h"
 #include "Editor/editor.h"
 #include "Editor/space_gizmo_drag.h"
+#include "Layout/scene/layout_scene_path_edit.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -11,14 +12,19 @@
 typedef enum {
     SCENE_AUTHORING_PATH_HANDLE_NONE = 0,
     SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT = 1,
-    SCENE_AUTHORING_PATH_HANDLE_LIGHT_POSITION = 2
+    SCENE_AUTHORING_PATH_HANDLE_LIGHT_POSITION = 2,
+    SCENE_AUTHORING_PATH_HANDLE_CAMERA_AIM = 3,
+    SCENE_AUTHORING_PATH_HANDLE_LIGHT_AIM = 4
 } SceneAuthoringPathHandleKind;
 
 typedef struct {
     SceneAuthoringPathHandleKind kind;
     size_t light_index;
+    size_t camera_index;
     size_t path_index;
     size_t control_index;
+    size_t segment_index;
+    LineDrawingScenePathElementKind element_kind;
 } SceneAuthoringPathHandleRef;
 
 typedef enum {
@@ -64,6 +70,8 @@ bool SceneAuthoringPathHandles_DeleteSelectedControlPoint(GlobalState* state,
 bool SceneAuthoringPathHandles_SetWorldPoint(GlobalState* state,
                                              SceneAuthoringPathHandleRef handle,
                                              Vec3 point);
+bool SceneAuthoringPathHandles_CycleSelectedTangentMode(GlobalState* state,
+                                                        EditorState* editor);
 void SceneAuthoringPathHandles_Select(EditorState* editor,
                                       SceneAuthoringPathHandleRef handle);
 bool BeginSceneAuthoringPathHandleDragSession(GlobalState* state,

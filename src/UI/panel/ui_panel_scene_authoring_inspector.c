@@ -1,7 +1,12 @@
 #include "UI/ui_panel_scene_authoring_inspector.h"
+#include "Layout/scene/layout_scene_path_geometry.h"
+#include "Layout/scene/layout_scene_path_traversal.h"
+#include "Layout/scene/layout_scene_camera_authoring.h"
+#include "Layout/scene/layout_scene_light_authoring.h"
 
 #include "Core/global_state.h"
 #include "Editor/editor.h"
+#include "Editor/scene_authoring_path_handles.h"
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
 #include "UI/ui_panel_object_layout.h"
@@ -40,7 +45,7 @@ static bool UIPanelSceneAuthoringInspector_SelectedKind(
     if (state) kind = state->layout.sceneAuthoring.selected_kind;
     if (out_kind) *out_kind = kind;
     return kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT ||
-           kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH ||
+           kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH ||
            kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL;
 }
 
@@ -85,8 +90,8 @@ bool UIPanel_ToggleSceneAuthoringEditMode(void) {
     kind = state->layout.sceneAuthoring.selected_kind;
     if (kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT) {
         target = SCENE_AUTHORING_EDIT_MODE_LIGHT;
-    } else if (kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH) {
-        target = SCENE_AUTHORING_EDIT_MODE_CAMERA_PATH;
+    } else if (kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH) {
+        target = SCENE_AUTHORING_EDIT_MODE_PATH;
     } else {
         return false;
     }
@@ -129,11 +134,73 @@ bool UIPanel_CycleSelectedSceneAuthoringLightPath(void) {
 bool UIPanel_CycleSelectedSceneAuthoringCameraPathKind(void) {
     GlobalState* state = Global_Get();
     if (!state) return false;
-    if (!Layout_SceneAuthoringState_CycleSelectedCameraPathKind(&state->layout.sceneAuthoring)) {
+    if (!Layout_SceneAuthoringState_CycleSelectedPathCurveType(&state->layout.sceneAuthoring)) {
         return false;
     }
     Global_FlagLayoutChanged();
     return true;
+}
+
+bool UIPanel_CycleSelectedSceneAuthoringTangentMode(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    return SceneAuthoringPathHandles_CycleSelectedTangentMode(state, &state->editor);
+}
+
+typedef bool (*SceneAuthoringMutationFn)(LineDrawingSceneAuthoringState* state);
+
+static bool UIPanel_MutateSceneAuthoringState(SceneAuthoringMutationFn mutation) {
+    GlobalState* state = Global_Get();
+    LineDrawingSceneAuthoringState edited;
+    if (!state || !mutation) return false;
+    edited = state->layout.sceneAuthoring;
+    if (!mutation(&edited)) return false;
+    Editor_HistoryCapture(&state->editor, &state->layout);
+    state->layout.sceneAuthoring = edited;
+    Global_FlagLayoutChanged();
+    return true;
+}
+
+bool UIPanel_CycleSelectedSceneAuthoringCameraOrientation(void) {
+    return UIPanel_MutateSceneAuthoringState(
+        Layout_SceneAuthoringState_CycleSelectedCameraOrientation);
+}
+
+bool UIPanel_CycleSelectedSceneAuthoringCameraRoll(void) {
+    return UIPanel_MutateSceneAuthoringState(Layout_SceneAuthoringState_CycleSelectedCameraRoll);
+}
+
+bool UIPanel_CycleSelectedSceneAuthoringCameraFov(void) {
+    return UIPanel_MutateSceneAuthoringState(Layout_SceneAuthoringState_CycleSelectedCameraFov);
+}
+
+bool UIPanel_CycleSelectedSceneAuthoringCameraClip(void) {
+    return UIPanel_MutateSceneAuthoringState(Layout_SceneAuthoringState_CycleSelectedCameraClipPreset);
+}
+
+bool UIPanel_CycleSelectedSceneAuthoringLightPositionMode(void) {
+    return UIPanel_MutateSceneAuthoringState(
+        Layout_SceneAuthoringState_CycleSelectedLightPositionMode);
+}
+
+bool UIPanel_CycleSelectedSceneAuthoringLightColor(void) {
+    return UIPanel_MutateSceneAuthoringState(Layout_SceneAuthoringState_CycleSelectedLightColor);
+}
+
+bool UIPanel_CycleSelectedSceneAuthoringLightIntensity(void) {
+    return UIPanel_MutateSceneAuthoringState(Layout_SceneAuthoringState_CycleSelectedLightIntensity);
+}
+
+bool UIPanel_CycleSelectedSceneAuthoringLightSize(void) {
+    return UIPanel_MutateSceneAuthoringState(Layout_SceneAuthoringState_CycleSelectedLightRadiusOrSize);
+}
+
+bool UIPanel_CycleSelectedSceneAuthoringLightCone(void) {
+    return UIPanel_MutateSceneAuthoringState(Layout_SceneAuthoringState_CycleSelectedLightCone);
+}
+
+bool UIPanel_CycleSelectedSceneAuthoringLightFalloff(void) {
+    return UIPanel_MutateSceneAuthoringState(Layout_SceneAuthoringState_CycleSelectedLightFalloff);
 }
 
 bool UIPanel_CycleSelectedSceneAuthoringMaterialColor(void) {
@@ -144,6 +211,67 @@ bool UIPanel_CycleSelectedSceneAuthoringMaterialColor(void) {
     }
     Global_FlagLayoutChanged();
     return true;
+}
+
+static LineDrawingScenePath* UIPanel_SelectedPath(LineDrawingSceneAuthoringState* state) {
+    if (!state || state->selected_kind != LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH ||
+        state->selected_index >= state->path_count) return NULL;
+    return &state->paths[state->selected_index];
+}
+
+static bool TogglePathPlayback(LineDrawingSceneAuthoringState* state) {
+    LineDrawingScenePath* path = UIPanel_SelectedPath(state);
+    if (!path) return false;
+    path->playing = !path->playing;
+    return true;
+}
+
+static bool AdvancePathScrub(LineDrawingSceneAuthoringState* state) {
+    LineDrawingScenePath* path = UIPanel_SelectedPath(state);
+    if (!path) return false;
+    path->normalized_distance += 0.25f;
+    if (path->normalized_distance > 1.0001f) path->normalized_distance = 0.0f;
+    path->playing = false;
+    return true;
+}
+
+static bool CyclePathPlaybackMode(LineDrawingSceneAuthoringState* state) {
+    LineDrawingScenePath* path = UIPanel_SelectedPath(state);
+    if (!path) return false;
+    path->playback_mode = path->playback_mode == LINE_DRAWING_SCENE_PATH_PLAYBACK_ONCE
+        ? LINE_DRAWING_SCENE_PATH_PLAYBACK_LOOP : LINE_DRAWING_SCENE_PATH_PLAYBACK_ONCE;
+    return true;
+}
+
+static bool CyclePathDuration(LineDrawingSceneAuthoringState* state) {
+    LineDrawingScenePath* path = UIPanel_SelectedPath(state);
+    if (!path) return false;
+    path->duration_seconds = path->duration_seconds < 3.0f ? 5.0f
+        : path->duration_seconds < 7.0f ? 10.0f : 2.0f;
+    return true;
+}
+
+static bool TogglePathClosed(LineDrawingSceneAuthoringState* state) {
+    LineDrawingScenePath* path = UIPanel_SelectedPath(state);
+    if (!path) return false;
+    path->closed = !path->closed;
+    return true;
+}
+
+bool UIPanel_ToggleSelectedSceneAuthoringPathPlayback(void) {
+    return UIPanel_MutateSceneAuthoringState(TogglePathPlayback);
+}
+bool UIPanel_AdvanceSelectedSceneAuthoringPathScrub(void) {
+    return UIPanel_MutateSceneAuthoringState(AdvancePathScrub);
+}
+bool UIPanel_CycleSelectedSceneAuthoringPathPlaybackMode(void) {
+    return UIPanel_MutateSceneAuthoringState(CyclePathPlaybackMode);
+}
+bool UIPanel_CycleSelectedSceneAuthoringPathDuration(void) {
+    return UIPanel_MutateSceneAuthoringState(CyclePathDuration);
+}
+bool UIPanel_ToggleSelectedSceneAuthoringPathClosed(void) {
+    return UIPanel_MutateSceneAuthoringState(TogglePathClosed);
 }
 
 static void UIPanelSceneAuthoringInspector_DrawLine(SDL_Renderer* renderer,
@@ -177,18 +305,35 @@ static void UIPanelSceneAuthoringInspector_FormatSummary(const GlobalState* stat
         snprintf(line0, line0_size, "Light  %s", light->label);
         snprintf(line1, line1_size, "Id %s   Kind %s", light->light_id,
                  Layout_SceneLightKind_Label(light->kind));
-        snprintf(line2, line2_size, "Mode %s   %s",
-                 Editor_SceneAuthoringEditModeLabel(state->editor.sceneAuthoringEditMode),
-                 light->enabled ? "Enabled" : "Disabled");
-    } else if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH &&
-               authoring->selected_index < authoring->camera_path_count) {
-        const LineDrawingSceneCameraPath* path =
-            &authoring->camera_paths[authoring->selected_index];
-        snprintf(line0, line0_size, "Camera Path  %s", path->label);
-        snprintf(line1, line1_size, "Id %s   Kind %s", path->path_id, path->path_kind);
-        snprintf(line2, line2_size, "Mode %s   Points %zu",
-                 Editor_SceneAuthoringEditModeLabel(state->editor.sceneAuthoringEditMode),
-                 path->control_point_count);
+        snprintf(line2, line2_size, "%s   %s   I %.1f",
+                 Layout_SceneLightPositionMode_Name(light->position_mode),
+                 light->enabled ? "Enabled" : "Disabled",
+                 light->intensity);
+    } else if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH &&
+               authoring->selected_index < authoring->path_count) {
+        const LineDrawingScenePath* path =
+            &authoring->paths[authoring->selected_index];
+        LineDrawingScenePathGeometry geometry = {0};
+        LineDrawingScenePathTraversalTable traversal = {0};
+        (void)Layout_ScenePathGeometry_Build(path, &geometry);
+        (void)Layout_ScenePathTraversal_Build(path, &traversal);
+        snprintf(line0, line0_size, "%s Path  %s",
+                 Layout_ScenePathRole_Name(path->role), path->label);
+        snprintf(line1, line1_size, "Id %s   Curve %s", path->path_id, path->curve_type);
+        if (path->role == LINE_DRAWING_SCENE_PATH_ROLE_CAMERA) {
+            const LineDrawingSceneCamera* camera =
+                Layout_SceneAuthoringState_FindCameraForPathConst(authoring, path);
+            snprintf(line2, line2_size, "Camera %s   %.1fu   %.0f%%",
+                     camera ? Layout_SceneCameraOrientationMode_Name(camera->orientation_mode)
+                            : "unbound",
+                     traversal.total_distance,
+                     path->normalized_distance * 100.0f);
+        } else {
+            snprintf(line2, line2_size, "Mode %s   %.1fu   %.0f%%",
+                     Editor_SceneAuthoringEditModeLabel(state->editor.sceneAuthoringEditMode),
+                     traversal.total_distance,
+                     path->normalized_distance * 100.0f);
+        }
     } else if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL &&
                authoring->selected_index < authoring->material_count) {
         const LineDrawingSceneMaterial* material =
@@ -274,39 +419,86 @@ void Render_UIPanelSceneAuthoringInspector(const UIPanelState* ui, SDL_Renderer*
         if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT &&
             authoring->selected_index < authoring->light_count) {
             const LineDrawingSceneLight* light = &authoring->lights[authoring->selected_index];
-            snprintf(detail0, sizeof(detail0), "Position  %.2f, %.2f, %.2f",
-                     light->position.x, light->position.y, light->position.z);
-            snprintf(detail1, sizeof(detail1), "Direction  %.2f, %.2f, %.2f",
-                     light->direction.x, light->direction.y, light->direction.z);
+            const LineDrawingScenePath* light_path =
+                Layout_SceneAuthoringState_FindPathByIdConst(authoring, light->path_id);
+            const Vec3 effective_position =
+                Layout_SceneLight_EffectivePosition(light, light_path);
+            snprintf(detail0, sizeof(detail0), "Position %.2f %.2f %.2f   %s",
+                     effective_position.x, effective_position.y, effective_position.z,
+                     Layout_SceneLightPositionMode_Name(light->position_mode));
+            snprintf(detail1, sizeof(detail1), "RGB %.2f %.2f %.2f   I %.1f   %s",
+                     light->color_rgb[0], light->color_rgb[1], light->color_rgb[2],
+                     light->intensity, Layout_SceneLightFalloff_Name(light->falloff));
             if (state->editor.selectedSceneAuthoringLightPosition) {
                 snprintf(detail2, sizeof(detail2), "Selected  light position handle");
+            } else if (state->editor.selectedSceneAuthoringLightAim) {
+                snprintf(detail2, sizeof(detail2), "Selected  light aim handle");
             } else if (state->editor.selectedSceneAuthoringControlPointIndex >= 0) {
-                snprintf(detail2,
-                         sizeof(detail2),
-                         "Selected  path point %d",
-                         state->editor.selectedSceneAuthoringControlPointIndex + 1);
+                const size_t path_index =
+                    (size_t)state->editor.selectedSceneAuthoringPathIndex;
+                if (state->editor.selectedSceneAuthoringPathIndex >= 0 &&
+                    path_index < authoring->path_count) {
+                    const LineDrawingScenePathElementRef element =
+                        Layout_ScenePathEdit_ElementForControl(
+                            &authoring->paths[path_index],
+                            (size_t)state->editor.selectedSceneAuthoringControlPointIndex);
+                    snprintf(detail2, sizeof(detail2), "Selected  %s   Tangent %s",
+                             Layout_ScenePathEdit_ElementKindName(element.kind),
+                             Layout_ScenePathTangentMode_Name(
+                                 Layout_ScenePathEdit_AnchorMode(
+                                     &authoring->paths[path_index], element.anchor_index)));
+                } else {
+                    snprintf(detail2, sizeof(detail2), "Selected  path handle");
+                }
             } else {
                 snprintf(detail2, sizeof(detail2), "Path  %s",
                          light->path_id[0] ? light->path_id : "none");
             }
-        } else if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH &&
-                   authoring->selected_index < authoring->camera_path_count) {
-            const LineDrawingSceneCameraPath* path =
-                &authoring->camera_paths[authoring->selected_index];
-            snprintf(detail0, sizeof(detail0), "Camera  %s",
-                     path->bound_camera_id[0] ? path->bound_camera_id : "unbound");
-            snprintf(detail1, sizeof(detail1), "Light  %s",
-                     path->bound_light_id[0] ? path->bound_light_id : "unbound");
-            if (state->editor.selectedSceneAuthoringPathIndex == (int)authoring->selected_index &&
+        } else if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH &&
+                   authoring->selected_index < authoring->path_count) {
+            const LineDrawingScenePath* path =
+                &authoring->paths[authoring->selected_index];
+            const LineDrawingSceneCamera* camera =
+                Layout_SceneAuthoringState_FindCameraForPathConst(authoring, path);
+            if (camera) {
+                snprintf(detail0, sizeof(detail0), "Orientation %s   Roll %.0f deg",
+                         Layout_SceneCameraOrientationMode_Name(camera->orientation_mode),
+                         camera->roll_degrees);
+                snprintf(detail1, sizeof(detail1), "FOV %.0f deg   Clip %.2g / %.0f",
+                         camera->vertical_fov_degrees,
+                         camera->near_clip,
+                         camera->far_clip);
+            } else {
+                snprintf(detail0, sizeof(detail0), "Camera  unbound");
+                snprintf(detail1, sizeof(detail1), "Role  %s",
+                         Layout_ScenePathRole_Name(path->role));
+            }
+            if (state->editor.selectedSceneAuthoringCameraAim) {
+                snprintf(detail2, sizeof(detail2), "Selected  camera aim handle");
+            } else if (state->editor.selectedSceneAuthoringPathIndex ==
+                           (int)authoring->selected_index &&
                 state->editor.selectedSceneAuthoringControlPointIndex >= 0) {
+                const LineDrawingScenePathElementRef element =
+                    Layout_ScenePathEdit_ElementForControl(
+                        path,
+                        (size_t)state->editor.selectedSceneAuthoringControlPointIndex);
                 snprintf(detail2,
                          sizeof(detail2),
-                         "Selected  point %d of %zu",
-                         state->editor.selectedSceneAuthoringControlPointIndex + 1,
-                         path->control_point_count);
+                         "Selected  %s %zu   Tangent %s",
+                         Layout_ScenePathEdit_ElementKindName(element.kind),
+                         element.kind == LINE_DRAWING_SCENE_PATH_ELEMENT_ANCHOR
+                             ? element.anchor_index + 1u : element.control_index + 1u,
+                         Layout_ScenePathTangentMode_Name(
+                             Layout_ScenePathEdit_AnchorMode(path, element.anchor_index)));
+            } else if (state->editor.selectedSceneAuthoringPathIndex ==
+                           (int)authoring->selected_index &&
+                       state->editor.selectedSceneAuthoringPathElementKind ==
+                           LINE_DRAWING_SCENE_PATH_ELEMENT_SEGMENT) {
+                snprintf(detail2, sizeof(detail2), "Selected  segment %d",
+                         state->editor.selectedSceneAuthoringPathSegmentIndex + 1);
             } else {
                 snprintf(detail2, sizeof(detail2), "Controls  Edit mode %s",
-                         state->editor.sceneAuthoringEditMode == SCENE_AUTHORING_EDIT_MODE_CAMERA_PATH
+                         state->editor.sceneAuthoringEditMode == SCENE_AUTHORING_EDIT_MODE_PATH
                              ? "active"
                              : "off");
             }

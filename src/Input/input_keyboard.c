@@ -517,6 +517,10 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
             if (SceneAuthoringPathHandles_DeleteSelectedControlPoint(state, &state->editor)) {
                 return;
             }
+            if (state->editor.selectedSceneAuthoringPathElementKind !=
+                LINE_DRAWING_SCENE_PATH_ELEMENT_NONE) {
+                return;
+            }
             if (state->layout.sceneAuthoring.selected_kind !=
                 LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE) {
                 if (UIPanel_SceneListDeleteSelectedObject()) {

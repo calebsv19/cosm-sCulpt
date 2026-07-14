@@ -163,7 +163,7 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
              "Objects %zu   Lights %zu   Paths %zu   Materials %zu",
              total,
              state->layout.sceneAuthoring.light_count,
-             state->layout.sceneAuthoring.camera_path_count,
+             state->layout.sceneAuthoring.path_count,
              state->layout.sceneAuthoring.material_count);
     UIPanelSummary_DrawTextClipped(renderer, font, line_counts, panel.x + metrics.pad_x, y, panel.w - (metrics.pad_x * 2), font_h + 4, accent_color);
     y += font_h + line_gap;
@@ -184,16 +184,16 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
                      light->enabled ? "Enabled" : "Disabled",
                      light->path_id[0] ? light->path_id : "none");
         } else if (state->layout.sceneAuthoring.selected_kind ==
-                       LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH &&
+                       LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH &&
                    state->layout.sceneAuthoring.selected_index <
-                       state->layout.sceneAuthoring.camera_path_count) {
-            const LineDrawingSceneCameraPath* path =
-                &state->layout.sceneAuthoring.camera_paths[state->layout.sceneAuthoring.selected_index];
+                       state->layout.sceneAuthoring.path_count) {
+            const LineDrawingScenePath* path =
+                &state->layout.sceneAuthoring.paths[state->layout.sceneAuthoring.selected_index];
             snprintf(line_selected, sizeof(line_selected), "Selection  Camera Path  %s", path->label);
             snprintf(line_locks,
                      sizeof(line_locks),
                      "Kind %s   Points %zu   Camera %s",
-                     path->path_kind,
+                     path->curve_type,
                      path->control_point_count,
                      path->bound_camera_id[0] ? path->bound_camera_id : "unbound");
         } else if (state->layout.sceneAuthoring.selected_kind ==

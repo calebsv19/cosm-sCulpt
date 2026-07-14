@@ -1104,19 +1104,27 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON* light = cJSON_CreateObject();
         cJSON* light_transform = cJSON_CreateObject();
         cJSON* light_position = cJSON_CreateObject();
+        cJSON* light_direction = cJSON_CreateObject();
+        cJSON* light_aim_target = cJSON_CreateObject();
+        cJSON* light_color = cJSON_CreateObject();
+        cJSON* light_area_size = cJSON_CreateObject();
+        cJSON* light_cone = cJSON_CreateObject();
         float scene_focus_x = scene_focus.x;
         float scene_focus_y = scene_focus.y;
         float scene_focus_z = scene_focus.z;
         float light_offset_x = 3.0f;
         float light_offset_y = 4.0f;
         float light_offset_z = is_3d ? 5.0f : 2.0f;
-        if (!light || !light_transform || !light_position) {
+        if (!light || !light_transform || !light_position || !light_direction ||
+            !light_aim_target || !light_color || !light_area_size || !light_cone) {
             cJSON_Delete(root);
             return NULL;
         }
         cJSON_AddItemToArray(lights, light);
         cJSON_AddStringToObject(light, "light_id", resolved_light_id);
         cJSON_AddStringToObject(light, "light_type", resolved_light_type);
+        cJSON_AddBoolToObject(light, "enabled", true);
+        cJSON_AddStringToObject(light, "position_mode", "independent");
         if (has_light_path) {
             cJSON_AddStringToObject(light, "path_id", resolved_light_path_id);
         }
@@ -1125,17 +1133,53 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_AddNumberToObject(light_position, "x", scene_focus_x + light_offset_x);
         cJSON_AddNumberToObject(light_position, "y", scene_focus_y + light_offset_y);
         cJSON_AddNumberToObject(light_position, "z", scene_focus_z + light_offset_z);
+        cJSON_AddItemToObject(light, "direction", light_direction);
+        cJSON_AddNumberToObject(light_direction, "x", 0.0);
+        cJSON_AddNumberToObject(light_direction, "y", 0.0);
+        cJSON_AddNumberToObject(light_direction, "z", -1.0);
+        cJSON_AddItemToObject(light, "aim_target", light_aim_target);
+        cJSON_AddNumberToObject(light_aim_target, "x", scene_focus_x + light_offset_x);
+        cJSON_AddNumberToObject(light_aim_target, "y", scene_focus_y + light_offset_y);
+        cJSON_AddNumberToObject(light_aim_target, "z", scene_focus_z + light_offset_z - 4.0f);
+        cJSON_AddItemToObject(light, "color", light_color);
+        cJSON_AddNumberToObject(light_color, "x", 1.0);
+        cJSON_AddNumberToObject(light_color, "y", 1.0);
+        cJSON_AddNumberToObject(light_color, "z", 1.0);
+        cJSON_AddNumberToObject(light, "intensity", 1.0);
+        cJSON_AddNumberToObject(light, "radius", 0.25);
+        cJSON_AddItemToObject(light, "area_size", light_area_size);
+        cJSON_AddNumberToObject(light_area_size, "width", 2.0);
+        cJSON_AddNumberToObject(light_area_size, "height", 2.0);
+        cJSON_AddItemToObject(light, "cone", light_cone);
+        cJSON_AddNumberToObject(light_cone, "inner_degrees", 25.0);
+        cJSON_AddNumberToObject(light_cone, "outer_degrees", 40.0);
+        cJSON_AddStringToObject(light, "falloff", "inverse_square");
     }
 
     if (!use_live_scene_authoring) {
         cJSON* camera = cJSON_CreateObject();
         cJSON* camera_transform = cJSON_CreateObject();
         cJSON* camera_position = cJSON_CreateObject();
+        cJSON* camera_forward = cJSON_CreateObject();
+        cJSON* camera_up = cJSON_CreateObject();
+        cJSON* camera_orientation = cJSON_CreateObject();
+        cJSON* camera_look_at = cJSON_CreateObject();
+        cJSON* camera_fixed_forward = cJSON_CreateObject();
         float scene_focus_x = scene_focus.x;
         float scene_focus_y = scene_focus.y;
         float scene_focus_z = scene_focus.z;
         float camera_offset_z = is_3d ? 8.0f : 3.0f;
-        if (!camera || !camera_transform || !camera_position) {
+        if (!camera || !camera_transform || !camera_position || !camera_forward ||
+            !camera_up || !camera_orientation || !camera_look_at ||
+            !camera_fixed_forward) {
+            cJSON_Delete(camera);
+            cJSON_Delete(camera_transform);
+            cJSON_Delete(camera_position);
+            cJSON_Delete(camera_forward);
+            cJSON_Delete(camera_up);
+            cJSON_Delete(camera_orientation);
+            cJSON_Delete(camera_look_at);
+            cJSON_Delete(camera_fixed_forward);
             cJSON_Delete(root);
             return NULL;
         }
@@ -1147,9 +1191,31 @@ static cJSON* build_scene_json(const Layout* layout,
         }
         cJSON_AddItemToObject(camera, "transform", camera_transform);
         cJSON_AddItemToObject(camera_transform, "position", camera_position);
+        cJSON_AddItemToObject(camera_transform, "forward", camera_forward);
+        cJSON_AddItemToObject(camera_transform, "up", camera_up);
         cJSON_AddNumberToObject(camera_position, "x", scene_focus_x);
         cJSON_AddNumberToObject(camera_position, "y", scene_focus_y);
         cJSON_AddNumberToObject(camera_position, "z", scene_focus_z + camera_offset_z);
+        cJSON_AddNumberToObject(camera_forward, "x", 0.0f);
+        cJSON_AddNumberToObject(camera_forward, "y", 0.0f);
+        cJSON_AddNumberToObject(camera_forward, "z", -1.0f);
+        cJSON_AddNumberToObject(camera_up, "x", 0.0f);
+        cJSON_AddNumberToObject(camera_up, "y", 1.0f);
+        cJSON_AddNumberToObject(camera_up, "z", 0.0f);
+        cJSON_AddItemToObject(camera, "orientation", camera_orientation);
+        cJSON_AddStringToObject(camera_orientation, "mode", "path_facing");
+        cJSON_AddNumberToObject(camera_orientation, "roll_degrees", 0.0f);
+        cJSON_AddItemToObject(camera_orientation, "look_at_target", camera_look_at);
+        cJSON_AddNumberToObject(camera_look_at, "x", scene_focus_x);
+        cJSON_AddNumberToObject(camera_look_at, "y", scene_focus_y);
+        cJSON_AddNumberToObject(camera_look_at, "z", scene_focus_z);
+        cJSON_AddItemToObject(camera_orientation, "fixed_forward", camera_fixed_forward);
+        cJSON_AddNumberToObject(camera_fixed_forward, "x", 0.0f);
+        cJSON_AddNumberToObject(camera_fixed_forward, "y", 0.0f);
+        cJSON_AddNumberToObject(camera_fixed_forward, "z", -1.0f);
+        cJSON_AddNumberToObject(camera, "vertical_fov_degrees", 50.0f);
+        cJSON_AddNumberToObject(camera, "near_clip", 0.1f);
+        cJSON_AddNumberToObject(camera, "far_clip", 250.0f);
     }
 
     if (!use_live_scene_authoring && has_camera_path) {

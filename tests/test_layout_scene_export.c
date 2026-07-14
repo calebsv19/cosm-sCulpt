@@ -522,6 +522,14 @@ static bool test_canonical_scene_export_emits_canonical_camera_and_light_paths(v
         TEST_ASSERT(cJSON_IsObject(light));
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera, "camera_id")->valuestring, "cam_orbit") == 0);
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera, "path_id")->valuestring, "path_camera_orbit") == 0);
+        TEST_ASSERT(cJSON_IsObject(cJSON_GetObjectItem(camera, "transform")));
+        TEST_ASSERT(cJSON_IsObject(cJSON_GetObjectItem(camera, "orientation")));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(
+                               cJSON_GetObjectItem(camera, "orientation"), "mode")->valuestring,
+                           "path_facing") == 0);
+        TEST_ASSERT(cJSON_IsNumber(cJSON_GetObjectItem(camera, "vertical_fov_degrees")));
+        TEST_ASSERT(cJSON_IsNumber(cJSON_GetObjectItem(camera, "near_clip")));
+        TEST_ASSERT(cJSON_IsNumber(cJSON_GetObjectItem(camera, "far_clip")));
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "light_id")->valuestring, "light_sweep") == 0);
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "path_id")->valuestring, "path_light_sweep") == 0);
 
@@ -1186,18 +1194,21 @@ static bool test_canonical_scene_export_uses_live_scene_authoring_records(void) 
     Layout_AddWall3(layout, (Vec3){ -1.0f, -1.0f, 0.0f }, (Vec3){ 1.0f, 1.0f, 1.0f });
     TEST_ASSERT(Layout_SceneAuthoringState_AddDefaultMaterial(authoring, &material_index));
     TEST_ASSERT(material_index == 1u);
-    TEST_ASSERT(Layout_SceneAuthoringState_SetCameraPathControlPoint(authoring,
+    TEST_ASSERT(Layout_SceneAuthoringState_SetPathControlPoint(authoring,
                                                                      0u,
                                                                      1u,
                                                                      edited_point));
-    snprintf(authoring->lights[0].path_id,
-             sizeof(authoring->lights[0].path_id),
-             "%s",
-             authoring->camera_paths[0].path_id);
-    snprintf(authoring->camera_paths[0].bound_light_id,
-             sizeof(authoring->camera_paths[0].bound_light_id),
-             "%s",
-             authoring->lights[0].light_id);
+    authoring->lights[0].kind = LINE_DRAWING_SCENE_LIGHT_AREA;
+    authoring->lights[0].aim_target = (Vec3){2.0f, 3.0f, 4.0f};
+    authoring->lights[0].color_rgb[0] = 1.0f;
+    authoring->lights[0].color_rgb[1] = 0.78f;
+    authoring->lights[0].color_rgb[2] = 0.55f;
+    authoring->lights[0].intensity = 5.0f;
+    authoring->lights[0].radius = 1.0f;
+    authoring->lights[0].area_size = (Vec2){4.0f, 8.0f};
+    authoring->lights[0].inner_cone_degrees = 35.0f;
+    authoring->lights[0].outer_cone_degrees = 60.0f;
+    authoring->lights[0].falloff = LINE_DRAWING_SCENE_LIGHT_FALLOFF_LINEAR;
 
     char* scene_json =
         LineDrawingCanonicalScene_ExportLayoutToString(layout, "scene_live_authoring");
@@ -1217,7 +1228,9 @@ static bool test_canonical_scene_export_uses_live_scene_authoring_records(void) 
         cJSON* light = ld_test_find_light_by_id(lights, "light_key");
         cJSON* camera = ld_test_find_camera_by_id(cameras, "camera_main");
         cJSON* path = ld_test_find_path_by_id(paths, "path_camera_main");
+        cJSON* light_path = ld_test_find_path_by_id(paths, "path_light_key");
         cJSON* control_points = NULL;
+        cJSON* tangent_modes = NULL;
         cJSON* edited_point_json = NULL;
         cJSON* default_binding = NULL;
 
@@ -1242,10 +1255,26 @@ static bool test_canonical_scene_export_uses_live_scene_authoring_records(void) 
         TEST_ASSERT(cJSON_IsArray(lights));
         TEST_ASSERT(cJSON_IsObject(light));
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "light_type")->valuestring,
-                           "directional") == 0);
+                           "area") == 0);
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "path_id")->valuestring,
-                           "path_camera_main") == 0);
+                           "path_light_key") == 0);
         TEST_ASSERT(cJSON_IsTrue(cJSON_GetObjectItem(light, "enabled")));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "position_mode")->valuestring,
+                           "independent") == 0);
+        TEST_ASSERT(ld_test_json_vec3_matches(cJSON_GetObjectItem(light, "aim_target"),
+                                              (Vec3){2.0f, 3.0f, 4.0f}));
+        TEST_ASSERT(ld_test_json_vec3_matches(cJSON_GetObjectItem(light, "color"),
+                                              (Vec3){1.0f, 0.78f, 0.55f}));
+        TEST_ASSERT(fabs(cJSON_GetObjectItem(light, "intensity")->valuedouble - 5.0) < 0.001);
+        TEST_ASSERT(fabs(cJSON_GetObjectItem(light, "radius")->valuedouble - 1.0) < 0.001);
+        TEST_ASSERT(fabs(cJSON_GetObjectItem(
+            cJSON_GetObjectItem(light, "area_size"), "width")->valuedouble - 4.0) < 0.001);
+        TEST_ASSERT(fabs(cJSON_GetObjectItem(
+            cJSON_GetObjectItem(light, "area_size"), "height")->valuedouble - 8.0) < 0.001);
+        TEST_ASSERT(fabs(cJSON_GetObjectItem(
+            cJSON_GetObjectItem(light, "cone"), "outer_degrees")->valuedouble - 60.0) < 0.001);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "falloff")->valuestring,
+                           "linear") == 0);
 
         TEST_ASSERT(cJSON_IsArray(cameras));
         TEST_ASSERT(cJSON_IsObject(camera));
@@ -1260,11 +1289,20 @@ static bool test_canonical_scene_export_uses_live_scene_authoring_records(void) 
                            "bezier") == 0);
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(path, "camera_id")->valuestring,
                            "camera_main") == 0);
-        TEST_ASSERT(strcmp(cJSON_GetObjectItem(path, "light_id")->valuestring,
+        TEST_ASSERT(cJSON_GetObjectItem(path, "light_id") == NULL);
+        TEST_ASSERT(cJSON_IsObject(light_path));
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light_path, "path_kind")->valuestring,
+                           "light") == 0);
+        TEST_ASSERT(strcmp(cJSON_GetObjectItem(light_path, "light_id")->valuestring,
                            "light_key") == 0);
         control_points = cJSON_GetObjectItem(path, "control_points");
         TEST_ASSERT(cJSON_IsArray(control_points));
-        TEST_ASSERT(cJSON_GetArraySize(control_points) == 3);
+        TEST_ASSERT(cJSON_GetArraySize(control_points) == 4);
+        tangent_modes = cJSON_GetObjectItem(path, "tangent_modes");
+        TEST_ASSERT(cJSON_IsArray(tangent_modes));
+        TEST_ASSERT(cJSON_GetArraySize(tangent_modes) == 2);
+        TEST_ASSERT(strcmp(cJSON_GetArrayItem(tangent_modes, 0)->valuestring,
+                           "smooth") == 0);
         edited_point_json = cJSON_GetArrayItem(control_points, 1);
         TEST_ASSERT(ld_test_json_vec3_matches(edited_point_json, edited_point));
     }

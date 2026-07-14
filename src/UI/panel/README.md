@@ -35,6 +35,9 @@ This subtree owns the editor-local pane shell and pane-scoped controls.
 
 - Keep pane layout, button routing, summary surfaces, browser state, and
   panel-local click handling here.
+- Right-pane row placement and section height must use the same visible-row
+  inventory. Tests should assert containment inside the owning group, not only
+  containment inside the overall pane.
 - Keep File-pane wording and transient status presentation UI-panel-local; the
   import/export/tool operations still own their diagnostics, while runtime mesh
   session path/status storage is updated through Core `Global_*ObjectRuntimeMesh*`

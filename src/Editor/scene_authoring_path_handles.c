@@ -2,6 +2,10 @@
 
 #include "Core/space_mode_adapter.h"
 #include "Layout/Grid/grid.h"
+#include "Layout/scene/layout_scene_path_geometry.h"
+#include "Layout/scene/layout_scene_path_edit.h"
+#include "Layout/scene/layout_scene_camera_authoring.h"
+#include "Layout/scene/layout_scene_light_authoring.h"
 
 #include <SDL2/SDL.h>
 #include <math.h>
@@ -21,14 +25,28 @@ SceneAuthoringPathHandleRef SceneAuthoringPathHandleRef_None(void) {
     return (SceneAuthoringPathHandleRef){
         .kind = SCENE_AUTHORING_PATH_HANDLE_NONE,
         .light_index = 0u,
+        .camera_index = 0u,
         .path_index = 0u,
-        .control_index = 0u
+        .control_index = 0u,
+        .segment_index = 0u,
+        .element_kind = LINE_DRAWING_SCENE_PATH_ELEMENT_NONE
     };
 }
 
 bool SceneAuthoringPathHandleRef_IsActive(SceneAuthoringPathHandleRef handle) {
     return handle.kind == SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT ||
-           handle.kind == SCENE_AUTHORING_PATH_HANDLE_LIGHT_POSITION;
+           handle.kind == SCENE_AUTHORING_PATH_HANDLE_LIGHT_POSITION ||
+           handle.kind == SCENE_AUTHORING_PATH_HANDLE_CAMERA_AIM ||
+           handle.kind == SCENE_AUTHORING_PATH_HANDLE_LIGHT_AIM;
+}
+
+static LineDrawingScenePathElementRef SceneAuthoringPathHandles_ElementForHandle(
+    const LineDrawingScenePath* path,
+    SceneAuthoringPathHandleRef handle) {
+    if (handle.element_kind == LINE_DRAWING_SCENE_PATH_ELEMENT_SEGMENT) {
+        return Layout_ScenePathEdit_Segment(handle.segment_index);
+    }
+    return Layout_ScenePathEdit_ElementForControl(path, handle.control_index);
 }
 
 SceneAuthoringGizmoPickResult SceneAuthoringGizmoPickResult_None(void) {
@@ -52,8 +70,8 @@ static bool SceneAuthoringPathHandles_SelectedPathIndex(const LineDrawingSceneAu
                                                        size_t* out_path_index) {
     if (out_path_index) *out_path_index = 0u;
     if (!authoring) return false;
-    if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH) {
-        if (authoring->selected_index >= authoring->camera_path_count) return false;
+    if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH) {
+        if (authoring->selected_index >= authoring->path_count) return false;
         if (out_path_index) *out_path_index = authoring->selected_index;
         return true;
     }
@@ -62,10 +80,10 @@ static bool SceneAuthoringPathHandles_SelectedPathIndex(const LineDrawingSceneAu
         if (authoring->selected_index >= authoring->light_count) return false;
         light = &authoring->lights[authoring->selected_index];
         if (light->path_id[0] == '\0') return false;
-        for (size_t i = 0u; i < authoring->camera_path_count; ++i) {
-            if (strncmp(authoring->camera_paths[i].path_id,
+        for (size_t i = 0u; i < authoring->path_count; ++i) {
+            if (strncmp(authoring->paths[i].path_id,
                         light->path_id,
-                        sizeof(authoring->camera_paths[i].path_id)) == 0) {
+                        sizeof(authoring->paths[i].path_id)) == 0) {
                 if (out_path_index) *out_path_index = i;
                 return true;
             }
@@ -90,9 +108,9 @@ bool SceneAuthoringPathHandles_ShouldShow(const GlobalState* state) {
     const LineDrawingSceneAuthoringState* authoring = NULL;
     if (!state || state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT) return false;
     authoring = &state->layout.sceneAuthoring;
-    if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH) {
-        return authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH &&
-               authoring->selected_index < authoring->camera_path_count;
+    if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH) {
+        return authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH &&
+               authoring->selected_index < authoring->path_count;
     }
     if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT) {
         return authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT &&
@@ -118,16 +136,38 @@ static bool SceneAuthoringPathHandles_PointForHandle(const GlobalState* state,
     if (!state || !out_point) return false;
     authoring = &state->layout.sceneAuthoring;
     if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT) {
-        const LineDrawingSceneCameraPath* path = NULL;
-        if (handle.path_index >= authoring->camera_path_count) return false;
-        path = &authoring->camera_paths[handle.path_index];
+        const LineDrawingScenePath* path = NULL;
+        if (handle.path_index >= authoring->path_count) return false;
+        path = &authoring->paths[handle.path_index];
+        if (handle.element_kind == LINE_DRAWING_SCENE_PATH_ELEMENT_SEGMENT) return false;
         if (handle.control_index >= path->control_point_count) return false;
         *out_point = path->control_points[handle.control_index];
         return true;
     }
     if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_LIGHT_POSITION) {
         if (handle.light_index >= authoring->light_count) return false;
+        if (authoring->lights[handle.light_index].position_mode !=
+            LINE_DRAWING_SCENE_LIGHT_POSITION_INDEPENDENT) return false;
         *out_point = authoring->lights[handle.light_index].position;
+        return true;
+    }
+    if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_LIGHT_AIM) {
+        const LineDrawingSceneLight* light = NULL;
+        const LineDrawingScenePath* path = NULL;
+        if (handle.light_index >= authoring->light_count) return false;
+        light = &authoring->lights[handle.light_index];
+        path = Layout_SceneAuthoringState_FindPathByIdConst(authoring, light->path_id);
+        *out_point = Layout_SceneLight_AimPoint(light, path);
+        return true;
+    }
+    if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_CAMERA_AIM) {
+        const LineDrawingSceneCamera* camera = NULL;
+        const LineDrawingScenePath* path = NULL;
+        if (handle.camera_index >= authoring->camera_count ||
+            handle.path_index >= authoring->path_count) return false;
+        camera = &authoring->cameras[handle.camera_index];
+        path = &authoring->paths[handle.path_index];
+        *out_point = Layout_SceneCamera_AimPoint(camera, path);
         return true;
     }
     return false;
@@ -145,20 +185,30 @@ static bool SceneAuthoringPathHandles_SelectedHandle(const GlobalState* state,
         editor->selectedSceneAuthoringControlPointIndex >= 0) {
         size_t path_index = (size_t)editor->selectedSceneAuthoringPathIndex;
         size_t control_index = (size_t)editor->selectedSceneAuthoringControlPointIndex;
-        if (path_index >= authoring->camera_path_count) return false;
-        if (control_index >= authoring->camera_paths[path_index].control_point_count) return false;
+        if (path_index >= authoring->path_count) return false;
+        if (control_index >= authoring->paths[path_index].control_point_count) return false;
         handle = (SceneAuthoringPathHandleRef){
             .kind = SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT,
             .light_index = 0u,
             .path_index = path_index,
-            .control_index = control_index
+            .control_index = control_index,
+            .segment_index = editor->selectedSceneAuthoringPathSegmentIndex >= 0
+                                 ? (size_t)editor->selectedSceneAuthoringPathSegmentIndex : 0u,
+            .element_kind = (LineDrawingScenePathElementKind)
+                editor->selectedSceneAuthoringPathElementKind
         };
+        if (handle.element_kind == LINE_DRAWING_SCENE_PATH_ELEMENT_NONE) {
+            handle.element_kind = Layout_ScenePathEdit_ElementForControl(
+                &authoring->paths[path_index], control_index).kind;
+        }
         if (out_handle) *out_handle = handle;
         return true;
     }
     if (editor->selectedSceneAuthoringLightPosition &&
         authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT &&
         authoring->selected_index < authoring->light_count) {
+        if (authoring->lights[authoring->selected_index].position_mode !=
+            LINE_DRAWING_SCENE_LIGHT_POSITION_INDEPENDENT) return false;
         handle = (SceneAuthoringPathHandleRef){
             .kind = SCENE_AUTHORING_PATH_HANDLE_LIGHT_POSITION,
             .light_index = authoring->selected_index,
@@ -167,6 +217,33 @@ static bool SceneAuthoringPathHandles_SelectedHandle(const GlobalState* state,
         };
         if (out_handle) *out_handle = handle;
         return true;
+    }
+    if (editor->selectedSceneAuthoringLightAim &&
+        authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT &&
+        authoring->selected_index < authoring->light_count) {
+        const LineDrawingSceneLight* light = &authoring->lights[authoring->selected_index];
+        if (light->kind != LINE_DRAWING_SCENE_LIGHT_POINT) {
+            handle.kind = SCENE_AUTHORING_PATH_HANDLE_LIGHT_AIM;
+            handle.light_index = authoring->selected_index;
+            if (out_handle) *out_handle = handle;
+            return true;
+        }
+    }
+    if (editor->selectedSceneAuthoringCameraAim &&
+        authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH &&
+        authoring->selected_index < authoring->path_count) {
+        const LineDrawingScenePath* path = &authoring->paths[authoring->selected_index];
+        const LineDrawingSceneCamera* camera =
+            Layout_SceneAuthoringState_FindCameraForPathConst(authoring, path);
+        if (camera &&
+            (camera->orientation_mode == LINE_DRAWING_SCENE_CAMERA_ORIENTATION_LOOK_AT_TARGET ||
+             camera->orientation_mode == LINE_DRAWING_SCENE_CAMERA_ORIENTATION_FIXED)) {
+            handle.kind = SCENE_AUTHORING_PATH_HANDLE_CAMERA_AIM;
+            handle.path_index = authoring->selected_index;
+            handle.camera_index = (size_t)(camera - authoring->cameras);
+            if (out_handle) *out_handle = handle;
+            return true;
+        }
     }
     return false;
 }
@@ -308,12 +385,25 @@ void SceneAuthoringPathHandles_Select(EditorState* editor,
     if (!editor) return;
     editor->selectedSceneAuthoringPathIndex = -1;
     editor->selectedSceneAuthoringControlPointIndex = -1;
+    editor->selectedSceneAuthoringPathElementKind = LINE_DRAWING_SCENE_PATH_ELEMENT_NONE;
+    editor->selectedSceneAuthoringPathSegmentIndex = -1;
     editor->selectedSceneAuthoringLightPosition = false;
+    editor->selectedSceneAuthoringLightAim = false;
+    editor->selectedSceneAuthoringCameraAim = false;
     if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT) {
         editor->selectedSceneAuthoringPathIndex = (int)handle.path_index;
-        editor->selectedSceneAuthoringControlPointIndex = (int)handle.control_index;
+        editor->selectedSceneAuthoringPathElementKind = (int)handle.element_kind;
+        if (handle.element_kind == LINE_DRAWING_SCENE_PATH_ELEMENT_SEGMENT) {
+            editor->selectedSceneAuthoringPathSegmentIndex = (int)handle.segment_index;
+        } else {
+            editor->selectedSceneAuthoringControlPointIndex = (int)handle.control_index;
+        }
     } else if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_LIGHT_POSITION) {
         editor->selectedSceneAuthoringLightPosition = true;
+    } else if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_CAMERA_AIM) {
+        editor->selectedSceneAuthoringCameraAim = true;
+    } else if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_LIGHT_AIM) {
+        editor->selectedSceneAuthoringLightAim = true;
     }
 }
 
@@ -325,6 +415,7 @@ bool SceneAuthoringPathHandles_Pick(const GlobalState* state,
     SpaceViewContext viewCtx = {0};
     SceneAuthoringPathHandleRef best = SceneAuthoringPathHandleRef_None();
     float best_dist = 999999.0f;
+    int best_priority = 99;
     size_t light_index = 0u;
     size_t path_index = 0u;
     const float pick_radius = 12.0f;
@@ -342,6 +433,23 @@ bool SceneAuthoringPathHandles_Pick(const GlobalState* state,
     viewCtx = SpaceAdapter_BuildViewContext(state);
 
     if (SceneAuthoringPathHandles_SelectedLightIndex(authoring, &light_index)) {
+        const LineDrawingSceneLight* light = &authoring->lights[light_index];
+        if (light->kind != LINE_DRAWING_SCENE_LIGHT_POINT) {
+            SceneAuthoringPathHandleRef aim_candidate = {
+                .kind = SCENE_AUTHORING_PATH_HANDLE_LIGHT_AIM,
+                .light_index = light_index
+            };
+            Vec3 world = {0};
+            if (SceneAuthoringPathHandles_PointForHandle(state, aim_candidate, &world)) {
+                Vec2 screen = SceneAuthoringPathHandles_WorldToScreen(state, world, &viewCtx);
+                float dist = Vec2_Distance(screen, (Vec2){(float)mouse_x, (float)mouse_y});
+                if (dist < best_dist && dist <= pick_radius) {
+                    best = aim_candidate;
+                    best_dist = dist;
+                    best_priority = 0;
+                }
+            }
+        }
         SceneAuthoringPathHandleRef candidate = {
             .kind = SCENE_AUTHORING_PATH_HANDLE_LIGHT_POSITION,
             .light_index = light_index,
@@ -355,25 +463,83 @@ bool SceneAuthoringPathHandles_Pick(const GlobalState* state,
             if (dist < best_dist && dist <= pick_radius) {
                 best = candidate;
                 best_dist = dist;
+                best_priority = 1;
             }
         }
     }
 
     if (SceneAuthoringPathHandles_SelectedPathIndex(authoring, &path_index)) {
-        const LineDrawingSceneCameraPath* path = &authoring->camera_paths[path_index];
+        const LineDrawingScenePath* path = &authoring->paths[path_index];
+        const LineDrawingSceneCamera* camera =
+            Layout_SceneAuthoringState_FindCameraForPathConst(authoring, path);
+        if (camera &&
+            (camera->orientation_mode == LINE_DRAWING_SCENE_CAMERA_ORIENTATION_LOOK_AT_TARGET ||
+             camera->orientation_mode == LINE_DRAWING_SCENE_CAMERA_ORIENTATION_FIXED)) {
+            SceneAuthoringPathHandleRef candidate = {
+                .kind = SCENE_AUTHORING_PATH_HANDLE_CAMERA_AIM,
+                .camera_index = (size_t)(camera - authoring->cameras),
+                .path_index = path_index
+            };
+            Vec3 world = Layout_SceneCamera_AimPoint(camera, path);
+            Vec2 screen = SceneAuthoringPathHandles_WorldToScreen(state, world, &viewCtx);
+            float dist = Vec2_Distance(screen, (Vec2){(float)mouse_x, (float)mouse_y});
+            if (dist <= pick_radius &&
+                (0 < best_priority || (best_priority == 0 && dist < best_dist))) {
+                best = candidate;
+                best_dist = dist;
+                best_priority = 0;
+            }
+        }
         for (size_t i = 0u; i < path->control_point_count; ++i) {
+            const LineDrawingScenePathElementRef element =
+                Layout_ScenePathEdit_ElementForControl(path, i);
+            const int priority = element.kind == LINE_DRAWING_SCENE_PATH_ELEMENT_ANCHOR ? 0 : 1;
             SceneAuthoringPathHandleRef candidate = {
                 .kind = SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT,
                 .light_index = light_index,
                 .path_index = path_index,
-                .control_index = i
+                .control_index = i,
+                .segment_index = 0u,
+                .element_kind = element.kind
             };
             Vec2 screen =
                 SceneAuthoringPathHandles_WorldToScreen(state, path->control_points[i], &viewCtx);
             float dist = Vec2_Distance(screen, (Vec2){ (float)mouse_x, (float)mouse_y });
-            if (dist < best_dist && dist <= pick_radius) {
+            if (dist <= pick_radius &&
+                (priority < best_priority ||
+                 (priority == best_priority && dist < best_dist))) {
                 best = candidate;
                 best_dist = dist;
+                best_priority = priority;
+            }
+        }
+        if (!SceneAuthoringPathHandleRef_IsActive(best)) {
+            LineDrawingScenePathGeometry geometry = {0};
+            float rail_dist = 999999.0f;
+            size_t rail_segment = 0u;
+            if (Layout_ScenePathGeometry_Build(path, &geometry)) {
+                for (size_t i = 1u; i < geometry.sample_count; ++i) {
+                    Vec2 a = SceneAuthoringPathHandles_WorldToScreen(
+                        state, geometry.samples[i - 1u].world, &viewCtx);
+                    Vec2 b = SceneAuthoringPathHandles_WorldToScreen(
+                        state, geometry.samples[i].world, &viewCtx);
+                    const float dist = SceneAuthoringPathHandles_DistancePointToSegment(
+                        (Vec2){(float)mouse_x, (float)mouse_y}, a, b);
+                    if (dist < rail_dist) {
+                        rail_dist = dist;
+                        rail_segment = geometry.samples[i].source_segment;
+                    }
+                }
+            }
+            if (rail_dist <= 8.0f) {
+                best = (SceneAuthoringPathHandleRef){
+                    .kind = SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT,
+                    .path_index = path_index,
+                    .segment_index = rail_segment,
+                    .element_kind = LINE_DRAWING_SCENE_PATH_ELEMENT_SEGMENT
+                };
+                best_dist = rail_dist;
+                best_priority = 2;
             }
         }
     }
@@ -404,30 +570,52 @@ static float SceneAuthoringPathHandles_DistancePointToSegment(Vec2 p,
     return Vec2_Distance(p, closest);
 }
 
-static size_t SceneAuthoringPathHandles_InsertIndexForScreenPoint(
+static float SceneAuthoringPathHandles_ClosestSegmentParameter(Vec2 p, Vec2 a, Vec2 b) {
+    const Vec2 ab = { b.x - a.x, b.y - a.y };
+    const Vec2 ap = { p.x - a.x, p.y - a.y };
+    const float len2 = ab.x * ab.x + ab.y * ab.y;
+    float t = len2 > 0.0001f ? (ap.x * ab.x + ap.y * ab.y) / len2 : 0.0f;
+    if (t < 0.0f) t = 0.0f;
+    if (t > 1.0f) t = 1.0f;
+    return t;
+}
+
+static bool SceneAuthoringPathHandles_NearestGeometryForScreenPoint(
     const GlobalState* state,
-    const LineDrawingSceneCameraPath* path,
+    const LineDrawingScenePath* path,
     const SpaceViewContext* viewCtx,
     int mouse_x,
-    int mouse_y) {
+    int mouse_y,
+    LineDrawingScenePathGeometry* out_geometry,
+    size_t* out_sample_index,
+    float* out_sample_t) {
     Vec2 mouse = { (float)mouse_x, (float)mouse_y };
-    size_t insert_index = path ? path->control_point_count : 0u;
+    LineDrawingScenePathGeometry geometry = {0};
+    size_t best_index = 0u;
+    float best_t = 0.0f;
     float best_dist = 999999.0f;
-    if (!state || !path || !viewCtx || path->control_point_count < 2u) return insert_index;
-    for (size_t i = 1u; i < path->control_point_count; ++i) {
+    if (!state || !path || !viewCtx ||
+        !Layout_ScenePathGeometry_Build(path, &geometry) || geometry.sample_count < 2u) {
+        return false;
+    }
+    for (size_t i = 1u; i < geometry.sample_count; ++i) {
         Vec2 a = SceneAuthoringPathHandles_WorldToScreen(state,
-                                                         path->control_points[i - 1u],
+                                                         geometry.samples[i - 1u].world,
                                                          viewCtx);
         Vec2 b = SceneAuthoringPathHandles_WorldToScreen(state,
-                                                         path->control_points[i],
+                                                         geometry.samples[i].world,
                                                          viewCtx);
         float dist = SceneAuthoringPathHandles_DistancePointToSegment(mouse, a, b);
         if (dist < best_dist) {
             best_dist = dist;
-            insert_index = i;
+            best_index = i;
+            best_t = SceneAuthoringPathHandles_ClosestSegmentParameter(mouse, a, b);
         }
     }
-    return insert_index;
+    if (out_geometry) *out_geometry = geometry;
+    if (out_sample_index) *out_sample_index = best_index;
+    if (out_sample_t) *out_sample_t = best_t;
+    return true;
 }
 
 bool SceneAuthoringPathHandles_InsertControlPointAtScreen(GlobalState* state,
@@ -440,17 +628,15 @@ bool SceneAuthoringPathHandles_InsertControlPointAtScreen(GlobalState* state,
     Vec3 world = {0};
     size_t path_index = 0u;
     size_t insert_index = 0u;
+    size_t sample_index = 0u;
+    float sample_t = 0.0f;
+    LineDrawingScenePathGeometry geometry = {0};
     SceneAuthoringPathHandleRef inserted = SceneAuthoringPathHandleRef_None();
     if (out_handle) *out_handle = inserted;
     if (!state || !editor || !SceneAuthoringPathHandles_ShouldShow(state)) return false;
     authoring = &state->layout.sceneAuthoring;
     if (!SceneAuthoringPathHandles_SelectedPathIndex(authoring, &path_index)) return false;
-    if (path_index >= authoring->camera_path_count) return false;
-    if (authoring->camera_paths[path_index].control_point_count >=
-        (sizeof(authoring->camera_paths[path_index].control_points) /
-         sizeof(authoring->camera_paths[path_index].control_points[0]))) {
-        return false;
-    }
+    if (path_index >= authoring->path_count) return false;
     viewCtx = SpaceAdapter_BuildViewContext(state);
     if (!SpaceAdapter_ScreenToWorld(mouse_x,
                                     mouse_y,
@@ -460,24 +646,63 @@ bool SceneAuthoringPathHandles_InsertControlPointAtScreen(GlobalState* state,
                                     &world)) {
         return false;
     }
-    insert_index = SceneAuthoringPathHandles_InsertIndexForScreenPoint(
+    if (!SceneAuthoringPathHandles_NearestGeometryForScreenPoint(
         state,
-        &authoring->camera_paths[path_index],
+        &authoring->paths[path_index],
         &viewCtx,
         mouse_x,
-        mouse_y);
-    Editor_HistoryCapture(editor, &state->layout);
-    if (!Layout_SceneAuthoringState_InsertCameraPathControlPoint(authoring,
-                                                                 path_index,
-                                                                 insert_index,
-                                                                 world)) {
+        mouse_y,
+        &geometry,
+        &sample_index,
+        &sample_t)) {
         return false;
+    }
+    if (geometry.kind == LINE_DRAWING_SCENE_PATH_GEOMETRY_CUBIC_BEZIER) {
+        const LineDrawingScenePathSample* a = &geometry.samples[sample_index - 1u];
+        const LineDrawingScenePathSample* b = &geometry.samples[sample_index];
+        const float a_t = a->source_segment == b->source_segment ? a->segment_t : 0.0f;
+        const float curve_t = a_t + (b->segment_t - a_t) * sample_t;
+        if (authoring->paths[path_index].control_point_count + 3u >
+            LINE_DRAWING_SCENE_AUTHORING_MAX_PATH_POINTS) {
+            return false;
+        }
+        LineDrawingScenePath edited_path = authoring->paths[path_index];
+        LineDrawingScenePathElementRef inserted_element = {0};
+        if (!Layout_ScenePathEdit_SplitSegment(&edited_path,
+                                               b->source_segment,
+                                               curve_t,
+                                               &inserted_element)) {
+            return false;
+        }
+        Editor_HistoryCapture(editor, &state->layout);
+        authoring->paths[path_index] = edited_path;
+        insert_index = inserted_element.control_index;
+    } else {
+        if (authoring->paths[path_index].control_point_count >=
+            LINE_DRAWING_SCENE_AUTHORING_MAX_PATH_POINTS) {
+            return false;
+        }
+        insert_index = geometry.samples[sample_index].source_segment + 1u;
+        LineDrawingScenePath edited_path = authoring->paths[path_index];
+        if (edited_path.control_point_count >= LINE_DRAWING_SCENE_AUTHORING_MAX_PATH_POINTS) {
+            return false;
+        }
+        for (size_t i = edited_path.control_point_count; i > insert_index; --i) {
+            edited_path.control_points[i] = edited_path.control_points[i - 1u];
+        }
+        edited_path.control_points[insert_index] = world;
+        ++edited_path.control_point_count;
+        Editor_HistoryCapture(editor, &state->layout);
+        authoring->paths[path_index] = edited_path;
     }
     inserted = (SceneAuthoringPathHandleRef){
         .kind = SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT,
         .light_index = 0u,
         .path_index = path_index,
-        .control_index = insert_index
+        .control_index = insert_index,
+        .segment_index = 0u,
+        .element_kind = Layout_ScenePathEdit_ElementForControl(
+            &authoring->paths[path_index], insert_index).kind
     };
     SceneAuthoringPathHandles_Select(editor, inserted);
     Global_FlagLayoutChanged();
@@ -493,35 +718,42 @@ bool SceneAuthoringPathHandles_DeleteSelectedControlPoint(GlobalState* state,
     if (!state || !editor) return false;
     if (!SceneAuthoringPathHandles_ShouldShow(state)) return false;
     if (editor->selectedSceneAuthoringPathIndex < 0 ||
-        editor->selectedSceneAuthoringControlPointIndex < 0) {
+        editor->selectedSceneAuthoringPathElementKind ==
+            LINE_DRAWING_SCENE_PATH_ELEMENT_NONE) {
         return false;
     }
     path_index = (size_t)editor->selectedSceneAuthoringPathIndex;
-    control_index = (size_t)editor->selectedSceneAuthoringControlPointIndex;
+    control_index = editor->selectedSceneAuthoringControlPointIndex >= 0
+                        ? (size_t)editor->selectedSceneAuthoringControlPointIndex : 0u;
     authoring = &state->layout.sceneAuthoring;
-    if (path_index >= authoring->camera_path_count ||
-        control_index >= authoring->camera_paths[path_index].control_point_count ||
-        authoring->camera_paths[path_index].control_point_count <= 2u) {
+    if (path_index >= authoring->path_count ||
+        authoring->paths[path_index].control_point_count <= 2u) {
+        return false;
+    }
+    LineDrawingScenePathElementRef element = {0};
+    LineDrawingScenePathElementRef next_selection = {0};
+    if (editor->selectedSceneAuthoringPathElementKind ==
+        LINE_DRAWING_SCENE_PATH_ELEMENT_SEGMENT) {
+        element = Layout_ScenePathEdit_Segment(
+            (size_t)editor->selectedSceneAuthoringPathSegmentIndex);
+    } else {
+        if (control_index >= authoring->paths[path_index].control_point_count) return false;
+        element = Layout_ScenePathEdit_ElementForControl(
+            &authoring->paths[path_index], control_index);
+    }
+    LineDrawingScenePath edited_path = authoring->paths[path_index];
+    if (!Layout_ScenePathEdit_DeleteElement(&edited_path, element, &next_selection)) {
         return false;
     }
     Editor_HistoryCapture(editor, &state->layout);
-    if (!Layout_SceneAuthoringState_DeleteCameraPathControlPoint(authoring,
-                                                                 path_index,
-                                                                 control_index)) {
-        return false;
-    }
-    if (path_index < authoring->camera_path_count) {
-        size_t count = authoring->camera_paths[path_index].control_point_count;
-        if (count > 0u) {
-            if (control_index >= count) control_index = count - 1u;
-            editor->selectedSceneAuthoringPathIndex = (int)path_index;
-            editor->selectedSceneAuthoringControlPointIndex = (int)control_index;
-        } else {
-            editor->selectedSceneAuthoringPathIndex = -1;
-            editor->selectedSceneAuthoringControlPointIndex = -1;
-        }
-    }
-    editor->selectedSceneAuthoringLightPosition = false;
+    authoring->paths[path_index] = edited_path;
+    SceneAuthoringPathHandles_Select(editor, (SceneAuthoringPathHandleRef){
+        .kind = SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT,
+        .path_index = path_index,
+        .control_index = next_selection.control_index,
+        .segment_index = next_selection.segment_index,
+        .element_kind = next_selection.kind
+    });
     Global_FlagLayoutChanged();
     return true;
 }
@@ -531,17 +763,81 @@ bool SceneAuthoringPathHandles_SetWorldPoint(GlobalState* state,
                                              Vec3 point) {
     if (!state) return false;
     if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT) {
-        return Layout_SceneAuthoringState_SetCameraPathControlPoint(&state->layout.sceneAuthoring,
-                                                                    handle.path_index,
-                                                                    handle.control_index,
-                                                                    point);
+        LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+        LineDrawingScenePathElementRef element;
+        bool changed;
+        if (handle.path_index >= authoring->path_count) return false;
+        element = SceneAuthoringPathHandles_ElementForHandle(
+            &authoring->paths[handle.path_index], handle);
+        changed = Layout_ScenePathEdit_SetElementWorldPoint(
+            &authoring->paths[handle.path_index],
+            element,
+            point);
+        if (changed && element.kind == LINE_DRAWING_SCENE_PATH_ELEMENT_ANCHOR &&
+            element.control_index == 0u &&
+            authoring->paths[handle.path_index].role == LINE_DRAWING_SCENE_PATH_ROLE_CAMERA) {
+            LineDrawingSceneCamera* camera = Layout_SceneAuthoringState_FindCameraForPath(
+                authoring, &authoring->paths[handle.path_index]);
+            if (camera) camera->position = point;
+        }
+        return changed;
     }
     if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_LIGHT_POSITION) {
+        LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+        if (handle.light_index >= authoring->light_count ||
+            authoring->lights[handle.light_index].position_mode !=
+                LINE_DRAWING_SCENE_LIGHT_POSITION_INDEPENDENT) return false;
         return Layout_SceneAuthoringState_SetLightPosition(&state->layout.sceneAuthoring,
                                                            handle.light_index,
                                                            point);
     }
+    if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_LIGHT_AIM) {
+        LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+        LineDrawingScenePath* path = NULL;
+        if (handle.light_index >= authoring->light_count) return false;
+        path = Layout_SceneAuthoringState_FindPathById(
+            authoring, authoring->lights[handle.light_index].path_id);
+        return Layout_SceneLight_SetAimPoint(&authoring->lights[handle.light_index], path, point);
+    }
+    if (handle.kind == SCENE_AUTHORING_PATH_HANDLE_CAMERA_AIM) {
+        LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
+        LineDrawingSceneCameraPose pose = {0};
+        if (handle.camera_index >= authoring->camera_count ||
+            handle.path_index >= authoring->path_count ||
+            !Layout_SceneCamera_EvaluatePoseAtNormalizedDistance(
+                &authoring->cameras[handle.camera_index],
+                &authoring->paths[handle.path_index],
+                authoring->paths[handle.path_index].normalized_distance,
+                &pose)) return false;
+        return Layout_SceneCamera_SetAimPoint(&authoring->cameras[handle.camera_index],
+                                              pose.position,
+                                              point);
+    }
     return false;
+}
+
+bool SceneAuthoringPathHandles_CycleSelectedTangentMode(GlobalState* state,
+                                                        EditorState* editor) {
+    LineDrawingSceneAuthoringState* authoring = NULL;
+    LineDrawingScenePathElementRef element = {0};
+    size_t path_index = 0u;
+    size_t control_index = 0u;
+    if (!state || !editor || editor->selectedSceneAuthoringPathIndex < 0 ||
+        editor->selectedSceneAuthoringControlPointIndex < 0) return false;
+    authoring = &state->layout.sceneAuthoring;
+    path_index = (size_t)editor->selectedSceneAuthoringPathIndex;
+    control_index = (size_t)editor->selectedSceneAuthoringControlPointIndex;
+    if (path_index >= authoring->path_count ||
+        control_index >= authoring->paths[path_index].control_point_count) return false;
+    element = Layout_ScenePathEdit_ElementForControl(
+        &authoring->paths[path_index], control_index);
+    if (element.kind == LINE_DRAWING_SCENE_PATH_ELEMENT_NONE) return false;
+    LineDrawingScenePath edited_path = authoring->paths[path_index];
+    if (!Layout_ScenePathEdit_CycleAnchorMode(&edited_path, element.anchor_index)) return false;
+    Editor_HistoryCapture(editor, &state->layout);
+    authoring->paths[path_index] = edited_path;
+    Global_FlagLayoutChanged();
+    return true;
 }
 
 bool BeginSceneAuthoringPathHandleDragSession(GlobalState* state,
@@ -552,8 +848,8 @@ bool BeginSceneAuthoringPathHandleDragSession(GlobalState* state,
     Vec3 start_world = {0};
     if (!state || !editor || !SceneAuthoringGizmoPickResult_IsActive(pick)) return false;
     if (!SceneAuthoringPathHandles_ShouldShow(state)) return false;
-    if (!SceneAuthoringPathHandles_PointForHandle(state, pick.handle, &start_world)) return false;
     SceneAuthoringPathHandles_Select(editor, pick.handle);
+    if (!SceneAuthoringPathHandles_PointForHandle(state, pick.handle, &start_world)) return false;
     sceneAuthoringPathHandleDrag.active = true;
     sceneAuthoringPathHandleDrag.pick = pick;
     sceneAuthoringPathHandleDrag.mouseStartScreen = (Vec2){(float)mouse_x, (float)mouse_y};
@@ -679,21 +975,28 @@ static void SceneAuthoringPathHandles_DrawLineWithHalo(SDL_Renderer* renderer,
 static void SceneAuthoringPathHandles_DrawPath(SDL_Renderer* renderer,
                                                const GlobalState* state,
                                                const SpaceViewContext* viewCtx,
-                                               const LineDrawingSceneCameraPath* path) {
-    if (!renderer || !state || !viewCtx || !path) return;
-    if (path->control_point_count < 2u) return;
-    for (size_t i = 1u; i < path->control_point_count; ++i) {
+                                               const LineDrawingScenePath* path,
+                                               int selected_segment) {
+    LineDrawingScenePathGeometry geometry = {0};
+    if (!renderer || !state || !viewCtx || !path ||
+        !Layout_ScenePathGeometry_Build(path, &geometry) || geometry.sample_count < 2u) return;
+    for (size_t i = 1u; i < geometry.sample_count; ++i) {
         Vec2 a = SceneAuthoringPathHandles_WorldToScreen(state,
-                                                         path->control_points[i - 1u],
+                                                         geometry.samples[i - 1u].world,
                                                          viewCtx);
         Vec2 b = SceneAuthoringPathHandles_WorldToScreen(state,
-                                                         path->control_points[i],
+                                                         geometry.samples[i].world,
                                                          viewCtx);
+        const bool selected = selected_segment >= 0 &&
+                              geometry.samples[i].source_segment ==
+                                  (size_t)selected_segment;
         SceneAuthoringPathHandles_DrawLineWithHalo(renderer,
                                                    a,
                                                    b,
                                                    (SDL_Color){ 38, 26, 8, 220 },
-                                                   (SDL_Color){ 255, 218, 80, 245 });
+                                                   selected
+                                                       ? (SDL_Color){ 255, 245, 165, 255 }
+                                                       : (SDL_Color){ 255, 218, 80, 245 });
     }
 }
 
@@ -745,6 +1048,225 @@ static void SceneAuthoringPathHandles_DrawSelectedGizmo(SDL_Renderer* renderer,
     }
 }
 
+static void SceneAuthoringPathHandles_DrawCameraLine(SDL_Renderer* renderer,
+                                                     const GlobalState* state,
+                                                     const SpaceViewContext* view_ctx,
+                                                     Vec3 a,
+                                                     Vec3 b,
+                                                     SDL_Color color) {
+    SceneAuthoringPathHandles_DrawLineWithHalo(
+        renderer,
+        SceneAuthoringPathHandles_WorldToScreen(state, a, view_ctx),
+        SceneAuthoringPathHandles_WorldToScreen(state, b, view_ctx),
+        (SDL_Color){12, 18, 26, 220}, color);
+}
+
+static void SceneAuthoringPathHandles_DrawCamera(SDL_Renderer* renderer,
+                                                 const GlobalState* state,
+                                                 const SpaceViewContext* view_ctx,
+                                                 const LineDrawingScenePath* path,
+                                                 const LineDrawingSceneCamera* camera,
+                                                 bool aim_selected,
+                                                 bool aim_hovered,
+                                                 int hovered_axis,
+                                                 int active_axis) {
+    LineDrawingSceneCameraPose pose = {0};
+    LineDrawingScenePathGeometry geometry = {0};
+    Vec3 right;
+    Vec3 body_right;
+    Vec3 body_up;
+    Vec3 near_center;
+    Vec3 far_center;
+    Vec3 near_corners[4];
+    Vec3 far_corners[4];
+    const float aspect = 16.0f / 9.0f;
+    float half_angle;
+    float near_height;
+    float far_height;
+    const SDL_Color camera_color = {110, 225, 255, 245};
+    const SDL_Color frustum_color = {95, 175, 230, 220};
+    if (!renderer || !state || !view_ctx || !path || !camera ||
+        !Layout_SceneCamera_EvaluatePoseAtNormalizedDistance(
+            camera, path, path->normalized_distance, &pose)) return;
+    right = Vec3_Normalize(Vec3_Cross(pose.forward, pose.up));
+    body_right = Vec3_Scale(right, 0.42f);
+    body_up = Vec3_Scale(pose.up, 0.28f);
+    SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+        Vec3_Add(pose.position, Vec3_Add(body_right, body_up)),
+        Vec3_Add(pose.position, Vec3_Sub(body_right, body_up)), camera_color);
+    SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+        Vec3_Sub(pose.position, Vec3_Add(body_right, body_up)),
+        Vec3_Add(pose.position, Vec3_Sub(body_right, body_up)), camera_color);
+    SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+        Vec3_Sub(pose.position, Vec3_Add(body_right, body_up)),
+        Vec3_Add(pose.position, Vec3_Sub(body_up, body_right)), camera_color);
+    SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+        Vec3_Add(pose.position, Vec3_Add(body_right, body_up)),
+        Vec3_Add(pose.position, Vec3_Sub(body_up, body_right)), camera_color);
+
+    half_angle = camera->vertical_fov_degrees * 0.00872664625997164788f;
+    near_center = Vec3_Add(pose.position, Vec3_Scale(pose.forward, 1.0f));
+    far_center = Vec3_Add(pose.position, Vec3_Scale(pose.forward, 4.0f));
+    near_height = tanf(half_angle);
+    far_height = near_height * 4.0f;
+    for (int i = 0; i < 4; ++i) {
+        const float sx = (i == 0 || i == 3) ? -1.0f : 1.0f;
+        const float sy = i < 2 ? -1.0f : 1.0f;
+        near_corners[i] = Vec3_Add(near_center,
+            Vec3_Add(Vec3_Scale(right, sx * near_height * aspect),
+                     Vec3_Scale(pose.up, sy * near_height)));
+        far_corners[i] = Vec3_Add(far_center,
+            Vec3_Add(Vec3_Scale(right, sx * far_height * aspect),
+                     Vec3_Scale(pose.up, sy * far_height)));
+        SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+                                                  pose.position, far_corners[i],
+                                                  frustum_color);
+        SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+                                                  near_corners[i],
+                                                  near_corners[(i + 1) % 4],
+                                                  frustum_color);
+        SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+                                                  far_corners[i],
+                                                  far_corners[(i + 1) % 4],
+                                                  frustum_color);
+    }
+
+    if (Layout_ScenePathGeometry_Build(path, &geometry)) {
+        for (size_t i = 0u; i < geometry.sample_count; i += 6u) {
+            Vec2 marker = SceneAuthoringPathHandles_WorldToScreen(
+                state, geometry.samples[i].world, view_ctx);
+            SDL_SetRenderDrawColor(renderer, 100, 210, 245, 210);
+            (void)SDL_RenderDrawLine(renderer, (int)marker.x - 2, (int)marker.y,
+                                     (int)marker.x + 2, (int)marker.y);
+            (void)SDL_RenderDrawLine(renderer, (int)marker.x, (int)marker.y - 2,
+                                     (int)marker.x, (int)marker.y + 2);
+        }
+    }
+
+    if (camera->orientation_mode == LINE_DRAWING_SCENE_CAMERA_ORIENTATION_LOOK_AT_TARGET ||
+        camera->orientation_mode == LINE_DRAWING_SCENE_CAMERA_ORIENTATION_FIXED) {
+        Vec3 aim = Layout_SceneCamera_AimPoint(camera, path);
+        Vec2 screen = SceneAuthoringPathHandles_WorldToScreen(state, aim, view_ctx);
+        SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+                                                  pose.position, aim,
+                                                  aim_selected || aim_hovered
+                                                      ? (SDL_Color){255, 220, 110, 250}
+                                                      : (SDL_Color){190, 185, 105, 220});
+        SDL_SetRenderDrawColor(renderer, 255, 220, 110, 245);
+        SceneAuthoringPathHandles_DrawSquareMarker(renderer, (int)screen.x, (int)screen.y,
+                                                   aim_selected ? 5 : aim_hovered ? 4 : 3,
+                                                   aim_selected || aim_hovered);
+        if (aim_selected) {
+            SceneAuthoringPathHandles_DrawSelectedGizmo(renderer, state, view_ctx, aim,
+                                                        hovered_axis, active_axis);
+        }
+    }
+}
+
+/* Draws renderer-neutral light body, aim, spot cone, or area-size authoring previews. */
+static void SceneAuthoringPathHandles_DrawLight(SDL_Renderer* renderer,
+                                                const GlobalState* state,
+                                                const SpaceViewContext* view_ctx,
+                                                const LineDrawingScenePath* path,
+                                                const LineDrawingSceneLight* light,
+                                                bool position_selected,
+                                                bool aim_selected,
+                                                bool aim_hovered,
+                                                int hovered_axis,
+                                                int active_axis) {
+    Vec3 position;
+    Vec3 direction;
+    Vec3 aim;
+    Vec3 reference;
+    Vec3 right;
+    Vec3 up;
+    Vec2 screen;
+    SDL_Color color;
+    if (!renderer || !state || !view_ctx || !light) return;
+    if (!Layout_SceneLight_EvaluatePositionAtNormalizedDistance(
+            light, path, path ? path->normalized_distance : 0.0f, &position)) {
+        position = Layout_SceneLight_EffectivePosition(light, path);
+    }
+    direction = Vec3_Normalize(Vec3_Sub(light->aim_target, position));
+    if (Vec3_Length(direction) < 0.0001f)
+        direction = Layout_SceneLight_EffectiveDirection(light, path);
+    aim = Layout_SceneLight_AimPoint(light, path);
+    reference = fabsf(direction.z) < 0.9f ? (Vec3){0.0f, 0.0f, 1.0f}
+                                            : (Vec3){0.0f, 1.0f, 0.0f};
+    right = Vec3_Normalize(Vec3_Cross(direction, reference));
+    up = Vec3_Normalize(Vec3_Cross(right, direction));
+    color = (SDL_Color){
+        (Uint8)fminf(255.0f, fmaxf(0.0f, light->color_rgb[0] * 255.0f)),
+        (Uint8)fminf(255.0f, fmaxf(0.0f, light->color_rgb[1] * 255.0f)),
+        (Uint8)fminf(255.0f, fmaxf(0.0f, light->color_rgb[2] * 255.0f)),
+        245
+    };
+    screen = SceneAuthoringPathHandles_WorldToScreen(state, position, view_ctx);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SceneAuthoringPathHandles_DrawSquareMarker(renderer, (int)screen.x, (int)screen.y,
+                                               position_selected ? 5 : 4,
+                                               position_selected);
+
+    if (light->kind == LINE_DRAWING_SCENE_LIGHT_POINT) {
+        const Vec3 rx = Vec3_Scale(right, fmaxf(0.25f, light->radius));
+        const Vec3 uy = Vec3_Scale(up, fmaxf(0.25f, light->radius));
+        SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+            Vec3_Sub(position, rx), Vec3_Add(position, rx), color);
+        SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+            Vec3_Sub(position, uy), Vec3_Add(position, uy), color);
+    } else {
+        SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+                                                 position, aim, color);
+        if (light->kind == LINE_DRAWING_SCENE_LIGHT_SPOT) {
+            const float length = 3.0f;
+            const float radius = tanf(light->outer_cone_degrees * 0.01745329252f) * length;
+            const Vec3 center = Vec3_Add(position, Vec3_Scale(direction, length));
+            const Vec3 rr = Vec3_Scale(right, radius);
+            const Vec3 uu = Vec3_Scale(up, radius);
+            const Vec3 corners[4] = {
+                Vec3_Add(center, Vec3_Add(rr, uu)),
+                Vec3_Add(center, Vec3_Sub(rr, uu)),
+                Vec3_Sub(center, Vec3_Add(rr, uu)),
+                Vec3_Add(center, Vec3_Sub(uu, rr))
+            };
+            for (int i = 0; i < 4; ++i) {
+                SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+                                                         position, corners[i], color);
+                SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+                                                         corners[i], corners[(i + 1) % 4], color);
+            }
+        } else if (light->kind == LINE_DRAWING_SCENE_LIGHT_AREA) {
+            const Vec3 rr = Vec3_Scale(right, light->area_size.x * 0.5f);
+            const Vec3 uu = Vec3_Scale(up, light->area_size.y * 0.5f);
+            const Vec3 corners[4] = {
+                Vec3_Add(position, Vec3_Add(rr, uu)),
+                Vec3_Add(position, Vec3_Sub(rr, uu)),
+                Vec3_Sub(position, Vec3_Add(rr, uu)),
+                Vec3_Add(position, Vec3_Sub(uu, rr))
+            };
+            for (int i = 0; i < 4; ++i) {
+                SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
+                                                         corners[i], corners[(i + 1) % 4], color);
+            }
+        }
+        screen = SceneAuthoringPathHandles_WorldToScreen(state, aim, view_ctx);
+        SDL_SetRenderDrawColor(renderer, aim_hovered ? 255 : color.r,
+                              aim_hovered ? 255 : color.g, color.b, 245);
+        SceneAuthoringPathHandles_DrawSquareMarker(renderer, (int)screen.x, (int)screen.y,
+                                                   aim_selected ? 5 : 4,
+                                                   aim_selected || aim_hovered);
+        if (aim_selected) {
+            SceneAuthoringPathHandles_DrawSelectedGizmo(renderer, state, view_ctx, aim,
+                                                        hovered_axis, active_axis);
+        }
+    }
+    if (position_selected &&
+        light->position_mode == LINE_DRAWING_SCENE_LIGHT_POSITION_INDEPENDENT) {
+        SceneAuthoringPathHandles_DrawSelectedGizmo(renderer, state, view_ctx, position,
+                                                    hovered_axis, active_axis);
+    }
+}
+
 void Render_Editor_SceneAuthoringPathHandles(EditorState* editor, AppContext* ctx) {
     GlobalState* state = Global_Get();
     const LineDrawingSceneAuthoringState* authoring = NULL;
@@ -766,9 +1288,49 @@ void Render_Editor_SceneAuthoringPathHandles(EditorState* editor, AppContext* ct
     }
 
     if (SceneAuthoringPathHandles_SelectedPathIndex(authoring, &path_index)) {
-        const LineDrawingSceneCameraPath* path = &authoring->camera_paths[path_index];
-        SceneAuthoringPathHandles_DrawPath(ctx->renderer, state, &viewCtx, path);
+        const LineDrawingScenePath* path = &authoring->paths[path_index];
+        const int selected_segment = editor &&
+                                     editor->selectedSceneAuthoringPathIndex == (int)path_index &&
+                                     editor->selectedSceneAuthoringPathElementKind ==
+                                         LINE_DRAWING_SCENE_PATH_ELEMENT_SEGMENT
+                                         ? editor->selectedSceneAuthoringPathSegmentIndex : -1;
+        const int hovered_segment = editor &&
+                                    editor->hoveredSceneAuthoringPathIndex == (int)path_index &&
+                                    editor->hoveredSceneAuthoringPathElementKind ==
+                                        LINE_DRAWING_SCENE_PATH_ELEMENT_SEGMENT
+                                        ? editor->hoveredSceneAuthoringPathSegmentIndex : -1;
+        SceneAuthoringPathHandles_DrawPath(ctx->renderer,
+                                           state,
+                                           &viewCtx,
+                                           path,
+                                           selected_segment >= 0
+                                               ? selected_segment : hovered_segment);
+        if (Layout_ScenePathGeometry_IsCompleteCubic(path)) {
+            for (size_t anchor = 0u;
+                 anchor < Layout_ScenePathEdit_AnchorCount(path);
+                 ++anchor) {
+                const size_t control = anchor * 3u;
+                const Vec2 anchor_screen = SceneAuthoringPathHandles_WorldToScreen(
+                    state, path->control_points[control], &viewCtx);
+                if (control > 0u) {
+                    const Vec2 tangent = SceneAuthoringPathHandles_WorldToScreen(
+                        state, path->control_points[control - 1u], &viewCtx);
+                    SceneAuthoringPathHandles_DrawLineWithHalo(
+                        ctx->renderer, anchor_screen, tangent,
+                        (SDL_Color){16, 18, 24, 210}, (SDL_Color){130, 175, 235, 220});
+                }
+                if (control + 1u < path->control_point_count) {
+                    const Vec2 tangent = SceneAuthoringPathHandles_WorldToScreen(
+                        state, path->control_points[control + 1u], &viewCtx);
+                    SceneAuthoringPathHandles_DrawLineWithHalo(
+                        ctx->renderer, anchor_screen, tangent,
+                        (SDL_Color){16, 18, 24, 210}, (SDL_Color){130, 175, 235, 220});
+                }
+            }
+        }
         for (size_t i = 0u; i < path->control_point_count; ++i) {
+            const LineDrawingScenePathElementRef element =
+                Layout_ScenePathEdit_ElementForControl(path, i);
             Vec2 screen = SceneAuthoringPathHandles_WorldToScreen(state,
                                                                   path->control_points[i],
                                                                   &viewCtx);
@@ -776,16 +1338,22 @@ void Render_Editor_SceneAuthoringPathHandles(EditorState* editor, AppContext* ct
                 editor &&
                 editor->selectedSceneAuthoringPathIndex == (int)path_index &&
                 editor->selectedSceneAuthoringControlPointIndex == (int)i;
+            const bool hovered = editor &&
+                                 editor->hoveredSceneAuthoringPathIndex == (int)path_index &&
+                                 editor->hoveredSceneAuthoringControlPointIndex == (int)i;
+            const bool tangent = element.kind == LINE_DRAWING_SCENE_PATH_ELEMENT_INCOMING_TANGENT ||
+                                 element.kind == LINE_DRAWING_SCENE_PATH_ELEMENT_OUTGOING_TANGENT;
             SDL_SetRenderDrawColor(ctx->renderer,
-                                   255,
-                                   selected ? 238 : 210,
-                                   selected ? 125 : 70,
+                                   tangent ? (hovered ? 175 : 125) : 255,
+                                   tangent ? (hovered ? 225 : 190)
+                                           : (selected || hovered ? 238 : 210),
+                                   tangent ? 245 : (selected || hovered ? 125 : 70),
                                    245);
             SceneAuthoringPathHandles_DrawSquareMarker(ctx->renderer,
                                                        (int)screen.x,
                                                        (int)screen.y,
-                                                       selected ? 5 : 3,
-                                                       selected);
+                                                       selected ? 5 : hovered ? 4 : tangent ? 3 : 4,
+                                                       selected || hovered);
             if (selected) {
                 SceneAuthoringPathHandles_DrawSelectedGizmo(ctx->renderer,
                                                             state,
@@ -795,37 +1363,30 @@ void Render_Editor_SceneAuthoringPathHandles(EditorState* editor, AppContext* ct
                                                             active_axis);
             }
         }
+        if (path->role == LINE_DRAWING_SCENE_PATH_ROLE_CAMERA) {
+            const LineDrawingSceneCamera* camera =
+                Layout_SceneAuthoringState_FindCameraForPathConst(authoring, path);
+            if (camera) {
+                SceneAuthoringPathHandles_DrawCamera(
+                    ctx->renderer, state, &viewCtx, path, camera,
+                    editor && editor->selectedSceneAuthoringCameraAim,
+                    editor && editor->hoveredSceneAuthoringHandleKind ==
+                                  SCENE_AUTHORING_PATH_HANDLE_CAMERA_AIM,
+                    hovered_axis, active_axis);
+            }
+        }
     }
 
     if (SceneAuthoringPathHandles_SelectedLightIndex(authoring, &light_index)) {
         const LineDrawingSceneLight* light = &authoring->lights[light_index];
-        Vec2 screen = SceneAuthoringPathHandles_WorldToScreen(state, light->position, &viewCtx);
-        SDL_SetRenderDrawColor(ctx->renderer, 255, 245, 160, 245);
-        SceneAuthoringPathHandles_DrawSquareMarker(ctx->renderer,
-                                                   (int)screen.x,
-                                                   (int)screen.y,
-                                                   editor && editor->selectedSceneAuthoringLightPosition
-                                                       ? 5
-                                                       : 4,
-                                                   editor && editor->selectedSceneAuthoringLightPosition);
-        SDL_SetRenderDrawColor(ctx->renderer, 70, 60, 10, 240);
-        (void)SDL_RenderDrawLine(ctx->renderer,
-                                 (int)screen.x - 8,
-                                 (int)screen.y,
-                                 (int)screen.x + 8,
-                                 (int)screen.y);
-        (void)SDL_RenderDrawLine(ctx->renderer,
-                                 (int)screen.x,
-                                 (int)screen.y - 8,
-                                 (int)screen.x,
-                                 (int)screen.y + 8);
-        if (editor && editor->selectedSceneAuthoringLightPosition) {
-            SceneAuthoringPathHandles_DrawSelectedGizmo(ctx->renderer,
-                                                        state,
-                                                        &viewCtx,
-                                                        light->position,
-                                                        hovered_axis,
-                                                        active_axis);
-        }
+        const LineDrawingScenePath* path =
+            Layout_SceneAuthoringState_FindPathByIdConst(authoring, light->path_id);
+        SceneAuthoringPathHandles_DrawLight(
+            ctx->renderer, state, &viewCtx, path, light,
+            editor && editor->selectedSceneAuthoringLightPosition,
+            editor && editor->selectedSceneAuthoringLightAim,
+            editor && editor->hoveredSceneAuthoringHandleKind ==
+                          SCENE_AUTHORING_PATH_HANDLE_LIGHT_AIM,
+            hovered_axis, active_axis);
     }
 }

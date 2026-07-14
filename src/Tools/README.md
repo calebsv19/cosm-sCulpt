@@ -18,7 +18,11 @@ that either link into the runtime or build as focused command-line helpers.
   `scene_export.*` for project-root exports. It writes `scene_project.json`,
   `object_manifest.json`, downstream placeholder folders, and project-local
   runtime mesh sidecar copies for manifest mesh objects.
-- `scene_import.*` — authored-scene import and round-trip restore helpers.
+- `scene_import.*` and `scene_authoring_import.*` — authored-scene import and
+  round-trip restore helpers. Canonical top-level camera/light/path/material
+  records reconstruct editable LineDrawing authoring state even without an
+  embedded layout snapshot; when a snapshot exists, portable canonical records
+  overlay it and bindings are normalized.
 - `canonical_scene_export.*` and `canonical_scene_export_primitives.*` —
   canonical scene authoring/export seams and current compiler-unit dump
   customers for scene metadata and primitive payload contracts.

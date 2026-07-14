@@ -1,5 +1,6 @@
 // src/Core/global_state.c
 #include "Core/global_state.h"
+#include "Layout/scene/layout_scene_path_traversal.h"
 #include "Core/line_drawing_startup_config.h"
 #include "Core/space_mode_adapter.h"
 #include "Core/workspace/line_drawing_workspace_mode_handoff.h"
@@ -588,9 +589,17 @@ void Global_Shutdown(void) {
 
 
 void Global_TickSystems(AppContext* ctx) {
-    (void)ctx;
     GlobalState* state = Global_Get();
     if (!state) return;
+
+    if (ctx) {
+        bool traversal_changed = false;
+        for (size_t i = 0u; i < state->layout.sceneAuthoring.path_count; ++i) {
+            traversal_changed = Layout_ScenePathTraversal_Advance(
+                &state->layout.sceneAuthoring.paths[i], ctx->deltaTime) || traversal_changed;
+        }
+        if (traversal_changed) state->hitboxDirty = true;
+    }
 
     Global_ProcessLayoutChanges(state);
 

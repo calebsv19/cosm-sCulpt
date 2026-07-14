@@ -5,6 +5,7 @@
 #include "UI/ui_panel_object_inspector.h"
 #include "UI/ui_panel_object_layout.h"
 #include "UI/ui_panel_scene_authoring_inspector.h"
+#include "Layout/scene/layout_scene_camera_authoring.h"
 
 static const UIButton* ld_test_find_button(const UIPanelState* ui, int button_id) {
     if (!ui) return NULL;
@@ -401,6 +402,12 @@ static bool test_scene_authoring_light_selection_uses_authoring_inspector_contro
     const UIButton* enabled_button = NULL;
     const UIButton* kind_button = NULL;
     const UIButton* path_button = NULL;
+    const UIButton* position_mode_button = NULL;
+    const UIButton* color_button = NULL;
+    const UIButton* intensity_button = NULL;
+    const UIButton* size_button = NULL;
+    const UIButton* cone_button = NULL;
+    const UIButton* falloff_button = NULL;
     const UIButton* path_kind_button = NULL;
     const UIButton* material_color_button = NULL;
     const UIButton* object_clear_button = NULL;
@@ -434,12 +441,23 @@ static bool test_scene_authoring_light_selection_uses_authoring_inspector_contro
     enabled_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED);
     kind_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_KIND);
     path_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_PATH);
+    position_mode_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_POSITION_MODE);
+    color_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_COLOR);
+    intensity_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_INTENSITY);
+    size_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_SIZE);
+    cone_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_CONE);
+    falloff_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_LIGHT_FALLOFF);
     object_clear_button = ld_test_find_button(ui, UI_BTN_OBJECT_CLEAR_SELECTION);
-    TEST_ASSERT(edit_button && enabled_button && kind_button && path_button && object_clear_button);
+    TEST_ASSERT(edit_button && enabled_button && kind_button && path_button &&
+                position_mode_button && color_button && intensity_button && size_button &&
+                cone_button && falloff_button && object_clear_button);
     TEST_ASSERT(edit_button->bounds.y >= actions_rect.y);
     TEST_ASSERT(enabled_button->bounds.y >= actions_rect.y);
     TEST_ASSERT(kind_button->bounds.y >= prism_rect.y);
     TEST_ASSERT(path_button->bounds.y >= gizmo_rect.y);
+    TEST_ASSERT(position_mode_button->bounds.w > 0 && color_button->bounds.w > 0 &&
+                intensity_button->bounds.w > 0 && size_button->bounds.w > 0 &&
+                cone_button->bounds.w > 0 && falloff_button->bounds.w > 0);
     TEST_ASSERT(object_clear_button->bounds.w == 0);
 
     TEST_ASSERT(ld_test_click_button_center(edit_button));
@@ -456,17 +474,40 @@ static bool test_scene_authoring_light_selection_uses_authoring_inspector_contro
     TEST_ASSERT(ld_test_click_button_center(kind_button));
     TEST_ASSERT(state->layout.sceneAuthoring.lights[0].kind ==
                 LINE_DRAWING_SCENE_LIGHT_POINT);
+    {
+        const size_t undo_before = Editor_UndoCount(&state->editor);
+        TEST_ASSERT(ld_test_click_button_center(position_mode_button));
+        TEST_ASSERT(state->layout.sceneAuthoring.lights[0].position_mode ==
+                    LINE_DRAWING_SCENE_LIGHT_POSITION_PATH_START);
+        TEST_ASSERT(ld_test_click_button_center(color_button));
+        TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.lights[0].color_rgb[1],
+                                         0.78f));
+        TEST_ASSERT(ld_test_click_button_center(intensity_button));
+        TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.lights[0].intensity, 2.0f));
+        TEST_ASSERT(ld_test_click_button_center(size_button));
+        TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.lights[0].radius, 0.5f));
+        TEST_ASSERT(ld_test_click_button_center(cone_button));
+        TEST_ASSERT(ld_test_nearly_equal(
+            state->layout.sceneAuthoring.lights[0].outer_cone_degrees, 60.0f));
+        TEST_ASSERT(ld_test_click_button_center(falloff_button));
+        TEST_ASSERT(state->layout.sceneAuthoring.lights[0].falloff ==
+                    LINE_DRAWING_SCENE_LIGHT_FALLOFF_LINEAR);
+        TEST_ASSERT(Editor_UndoCount(&state->editor) == undo_before + 6u);
+    }
     TEST_ASSERT(ld_test_click_button_center(path_button));
-    TEST_ASSERT(strcmp(state->layout.sceneAuthoring.lights[0].path_id, "path_camera_main") == 0);
+    TEST_ASSERT(state->layout.sceneAuthoring.lights[0].path_id[0] == '\0');
+    TEST_ASSERT(state->layout.sceneAuthoring.lights[0].position_mode ==
+                LINE_DRAWING_SCENE_LIGHT_POSITION_INDEPENDENT);
+    TEST_ASSERT(state->layout.sceneAuthoring.paths[1].bound_light_id[0] == '\0');
 
     TEST_ASSERT(Layout_SceneAuthoringState_Select(&state->layout.sceneAuthoring,
-                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH,
                                                   0u));
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     path_kind_button = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_PATH_KIND);
     TEST_ASSERT(path_kind_button && path_kind_button->bounds.w > 0);
     TEST_ASSERT(ld_test_click_button_center(path_kind_button));
-    TEST_ASSERT(strcmp(state->layout.sceneAuthoring.camera_paths[0].path_kind, "linear") == 0);
+    TEST_ASSERT(strcmp(state->layout.sceneAuthoring.paths[0].curve_type, "linear") == 0);
 
     TEST_ASSERT(Layout_SceneAuthoringState_Select(&state->layout.sceneAuthoring,
                                                   LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL,
@@ -477,6 +518,47 @@ static bool test_scene_authoring_light_selection_uses_authoring_inspector_contro
     TEST_ASSERT(ld_test_click_button_center(material_color_button));
     TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.materials[0].rgba[0], 0.45f));
 
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_scene_authoring_camera_path_exposes_camera_controls(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    const UIButton* orientation = NULL;
+    const UIButton* roll = NULL;
+    const UIButton* fov = NULL;
+    const UIButton* clip = NULL;
+    size_t undo_before = 0u;
+    ld_test_init_runtime();
+    state = Global_Get();
+    ui = UIPanel_Get();
+    TEST_ASSERT(state && ui);
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(&state->layout.sceneAuthoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH,
+                                                  0u));
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_OBJECT);
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    orientation = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_CAMERA_ORIENTATION);
+    roll = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_CAMERA_ROLL);
+    fov = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_CAMERA_FOV);
+    clip = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_CAMERA_CLIP);
+    TEST_ASSERT(orientation && roll && fov && clip);
+    TEST_ASSERT(orientation->bounds.w > 0 && roll->bounds.w > 0 &&
+                fov->bounds.w > 0 && clip->bounds.w > 0);
+    undo_before = Editor_UndoCount(&state->editor);
+    TEST_ASSERT(ld_test_click_button_center(orientation));
+    TEST_ASSERT(state->layout.sceneAuthoring.cameras[0].orientation_mode ==
+                LINE_DRAWING_SCENE_CAMERA_ORIENTATION_LOOK_AT_TARGET);
+    TEST_ASSERT(ld_test_click_button_center(roll));
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.cameras[0].roll_degrees,
+                                     15.0f));
+    TEST_ASSERT(ld_test_click_button_center(fov));
+    TEST_ASSERT(ld_test_nearly_equal(
+        state->layout.sceneAuthoring.cameras[0].vertical_fov_degrees, 65.0f));
+    TEST_ASSERT(ld_test_click_button_center(clip));
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.cameras[0].near_clip, 0.5f));
+    TEST_ASSERT(Editor_UndoCount(&state->editor) == undo_before + 4u);
     ld_test_shutdown_runtime();
     return true;
 }
@@ -497,6 +579,8 @@ bool ui_panel_object_inspector_run_tests(void) {
           test_object_edit_tab_exposes_selection_modes },
         { "scene_authoring_light_selection_uses_authoring_inspector_controls",
           test_scene_authoring_light_selection_uses_authoring_inspector_controls },
+        { "scene_authoring_camera_path_exposes_camera_controls",
+          test_scene_authoring_camera_path_exposes_camera_controls },
     };
     return run_test_cases("UIPanelObjectInspector", cases, sizeof(cases) / sizeof(cases[0]));
 }

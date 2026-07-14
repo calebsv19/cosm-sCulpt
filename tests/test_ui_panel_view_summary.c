@@ -4,6 +4,7 @@
 #include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_view_layout.h"
 #include "UI/ui_panel_view_summary.h"
+#include "UI/input_ui_panel.h"
 
 static bool test_view_summary_reserves_space_for_view_controls(void) {
     GlobalState* state = NULL;
@@ -170,6 +171,9 @@ static bool test_view_buttons_use_uniform_grid_rows(void) {
     const UIButton* pin_button = NULL;
     const UIButton* link_button = NULL;
     const UIButton* mode_button = NULL;
+    const UIButton* wire_button = NULL;
+    const UIButton* flat_button = NULL;
+    const UIButton* material_button = NULL;
 
     ld_test_init_runtime();
     state = Global_Get();
@@ -189,16 +193,60 @@ static bool test_view_buttons_use_uniform_grid_rows(void) {
         else if (btn->id == UI_BTN_PIN_ANCHOR) pin_button = btn;
         else if (btn->id == UI_BTN_LINK_HANDLES) link_button = btn;
         else if (btn->id == UI_BTN_TOGGLE_SPACE_MODE) mode_button = btn;
+        else if (btn->id == UI_BTN_PREVIEW_WIREFRAME) wire_button = btn;
+        else if (btn->id == UI_BTN_PREVIEW_FLAT) flat_button = btn;
+        else if (btn->id == UI_BTN_PREVIEW_MATERIAL) material_button = btn;
     }
 
     TEST_ASSERT(reset_button && zoom_in_button && zoom_out_button);
     TEST_ASSERT(delete_button && pin_button && link_button && mode_button);
+    TEST_ASSERT(wire_button && flat_button && material_button);
     TEST_ASSERT(reset_button->bounds.w == zoom_in_button->bounds.w);
     TEST_ASSERT(zoom_in_button->bounds.w == zoom_out_button->bounds.w);
+    TEST_ASSERT(wire_button->bounds.y == flat_button->bounds.y);
+    TEST_ASSERT(flat_button->bounds.y == material_button->bounds.y);
+    TEST_ASSERT(wire_button->bounds.y > reset_button->bounds.y);
     TEST_ASSERT(delete_button->bounds.w == pin_button->bounds.w);
     TEST_ASSERT(pin_button->bounds.w == link_button->bounds.w);
     TEST_ASSERT(mode_button->bounds.x == ui->viewPane.modesRect.x);
     TEST_ASSERT(mode_button->bounds.w == ui->viewPane.modesRect.w);
+
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_view_preview_buttons_select_renderer_mode(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    const int button_ids[] = {
+        UI_BTN_PREVIEW_FLAT, UI_BTN_PREVIEW_MATERIAL, UI_BTN_PREVIEW_WIREFRAME
+    };
+    const LineDrawingPreviewMode expected_modes[] = {
+        LINE_DRAWING_PREVIEW_MODE_FLAT,
+        LINE_DRAWING_PREVIEW_MODE_MATERIAL,
+        LINE_DRAWING_PREVIEW_MODE_WIREFRAME
+    };
+
+    ld_test_init_runtime();
+    state = Global_Get();
+    ui = UIPanel_Get();
+    TEST_ASSERT(state != NULL && ui != NULL);
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_VIEW);
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+
+    for (size_t i = 0; i < sizeof(button_ids) / sizeof(button_ids[0]); ++i) {
+        const UIButton* btn = NULL;
+        for (int index = 0; index < ui->count; ++index) {
+            if (ui->buttons[index].id == button_ids[i]) {
+                btn = &ui->buttons[index];
+                break;
+            }
+        }
+        TEST_ASSERT(btn != NULL && btn->bounds.w > 0 && btn->bounds.h > 0);
+        TEST_ASSERT(UIPanel_HandleClick(btn->bounds.x + btn->bounds.w / 2,
+                                       btn->bounds.y + btn->bounds.h / 2));
+        TEST_ASSERT(Global_GetPreviewMode() == expected_modes[i]);
+    }
 
     ld_test_shutdown_runtime();
     return true;
@@ -229,6 +277,8 @@ bool ui_panel_view_summary_run_tests(void) {
           test_view_sections_fit_inside_pane_and_anchor_bottom },
         { "view_buttons_use_uniform_grid_rows",
           test_view_buttons_use_uniform_grid_rows },
+        { "view_preview_buttons_select_renderer_mode",
+          test_view_preview_buttons_select_renderer_mode },
         { "shared_summary_wrap_counts_multiple_lines_when_narrow",
           test_shared_summary_wrap_counts_multiple_lines_when_narrow },
     };

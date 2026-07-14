@@ -117,7 +117,12 @@ void ClearHoverState(EditorState* editor) {
     editor->hoveredSceneBoundsGizmoAxis = -1;
     editor->hoveredObjectFaceSketchHandle = OBJECT_FACE_SKETCH_HANDLE_NONE;
     editor->hoveredSceneAuthoringGizmoPart = SCENE_AUTHORING_GIZMO_PART_NONE;
+    editor->hoveredSceneAuthoringHandleKind = SCENE_AUTHORING_PATH_HANDLE_NONE;
     editor->hoveredSceneAuthoringGizmoAxis = -1;
+    editor->hoveredSceneAuthoringPathElementKind = LINE_DRAWING_SCENE_PATH_ELEMENT_NONE;
+    editor->hoveredSceneAuthoringPathIndex = -1;
+    editor->hoveredSceneAuthoringControlPointIndex = -1;
+    editor->hoveredSceneAuthoringPathSegmentIndex = -1;
 }
 
 bool InputMouse_ObjectModeEnabled(void) {
@@ -257,10 +262,24 @@ void UpdateHover(int mx, int my) {
     if (SceneAuthoringPathHandles_Pick(state, mx, my, &authoring_pick)) {
         ClearHoverState(editor);
         editor->hoveredSceneAuthoringGizmoPart = (int)authoring_pick.part;
+        editor->hoveredSceneAuthoringHandleKind = (int)authoring_pick.handle.kind;
         editor->hoveredSceneAuthoringGizmoAxis =
             authoring_pick.part == SCENE_AUTHORING_GIZMO_PART_AXIS
                 ? (int)authoring_pick.axis
                 : -1;
+        editor->hoveredSceneAuthoringPathElementKind =
+            (int)authoring_pick.handle.element_kind;
+        if (authoring_pick.handle.kind == SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT) {
+            editor->hoveredSceneAuthoringPathIndex = (int)authoring_pick.handle.path_index;
+            if (authoring_pick.handle.element_kind ==
+                LINE_DRAWING_SCENE_PATH_ELEMENT_SEGMENT) {
+                editor->hoveredSceneAuthoringPathSegmentIndex =
+                    (int)authoring_pick.handle.segment_index;
+            } else {
+                editor->hoveredSceneAuthoringControlPointIndex =
+                    (int)authoring_pick.handle.control_index;
+            }
+        }
         return;
     }
 

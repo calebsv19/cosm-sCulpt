@@ -1,6 +1,8 @@
 #include "UI/ui_panel_create_summary.h"
 #include "UI/ui_panel_edit_summary.h"
 #include "UI/render_ui_panel.h"
+#include "Layout/scene/layout_scene_camera_authoring.h"
+#include "Layout/scene/layout_scene_light_authoring.h"
 #include "UI/ui_panel_file_summary.h"
 #include "UI/ui_panel_file_layout.h"
 #include "UI/ui_panel.h"
@@ -16,6 +18,7 @@
 #include "UI/text_draw.h"
 #include "Core/global_state.h"
 #include "Layout/scene/layout_scene_authoring.h"
+#include "Layout/scene/layout_scene_path_edit.h"
 #include "Editor/object_face_sketch.h"
 
 #include <SDL2/SDL.h>
@@ -139,6 +142,13 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     const bool scene_authoring_edit_active = state &&
         btn->id == UI_BTN_SCENE_AUTHORING_EDIT_MODE &&
         state->editor.sceneAuthoringEditMode != SCENE_AUTHORING_EDIT_MODE_NONE;
+    const bool preview_mode_active = state &&
+        ((btn->id == UI_BTN_PREVIEW_WIREFRAME &&
+          state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME) ||
+         (btn->id == UI_BTN_PREVIEW_FLAT &&
+          state->previewMode == LINE_DRAWING_PREVIEW_MODE_FLAT) ||
+         (btn->id == UI_BTN_PREVIEW_MATERIAL &&
+          state->previewMode == LINE_DRAWING_PREVIEW_MODE_MATERIAL));
     const bool render_disabled =
         place_mesh_disabled ||
         (object_mode &&
@@ -161,7 +171,8 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         button_fill.a = 150;
         button_border = UIPanelVisual_AdjustColor(button_border, -24, 0);
         textColor = palette.text_muted;
-    } else if (pressed_live || edit_mode_active || scene_authoring_edit_active) {
+    } else if (pressed_live || edit_mode_active || scene_authoring_edit_active ||
+               preview_mode_active) {
         button_fill = UIPanelVisual_BlendColor(button_fill, palette.button_fill_active, 120);
         button_border = UIPanelVisual_AdjustColor(palette.accent, 10, 0);
         textColor = palette.text_primary;
@@ -267,7 +278,7 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         const GlobalState* state = Global_Get();
         const LineDrawingSceneAuthoringState* authoring = state ? &state->layout.sceneAuthoring : NULL;
         const char* mode_name = authoring &&
-            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH
+            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH
                 ? "Path Edit"
                 : "Light Edit";
         const bool active = state &&
@@ -323,16 +334,139 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     } else if (btn->id == UI_BTN_SCENE_AUTHORING_PATH_KIND) {
         const GlobalState* state = Global_Get();
         const LineDrawingSceneAuthoringState* authoring = state ? &state->layout.sceneAuthoring : NULL;
-        const LineDrawingSceneCameraPath* path = NULL;
+        const LineDrawingScenePath* path = NULL;
         if (authoring &&
-            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_CAMERA_PATH &&
-            authoring->selected_index < authoring->camera_path_count) {
-            path = &authoring->camera_paths[authoring->selected_index];
+            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH &&
+            authoring->selected_index < authoring->path_count) {
+            path = &authoring->paths[authoring->selected_index];
         }
         snprintf(dynamicLabel,
                  sizeof(dynamicLabel),
                  "Path Kind: %s",
-                 path && path->path_kind[0] ? path->path_kind : "bezier");
+                 path && path->curve_type[0] ? path->curve_type : "bezier");
+        label = dynamicLabel;
+    } else if (btn->id == UI_BTN_SCENE_AUTHORING_TANGENT_MODE) {
+        const GlobalState* state = Global_Get();
+        const LineDrawingSceneAuthoringState* authoring =
+            state ? &state->layout.sceneAuthoring : NULL;
+        const char* mode_name = "select handle";
+        if (authoring && state->editor.selectedSceneAuthoringPathIndex >= 0 &&
+            state->editor.selectedSceneAuthoringControlPointIndex >= 0 &&
+            (size_t)state->editor.selectedSceneAuthoringPathIndex < authoring->path_count) {
+            const LineDrawingScenePath* path =
+                &authoring->paths[state->editor.selectedSceneAuthoringPathIndex];
+            const LineDrawingScenePathElementRef element =
+                Layout_ScenePathEdit_ElementForControl(
+                    path,
+                    (size_t)state->editor.selectedSceneAuthoringControlPointIndex);
+            mode_name = Layout_ScenePathTangentMode_Name(
+                Layout_ScenePathEdit_AnchorMode(path, element.anchor_index));
+        }
+        snprintf(dynamicLabel, sizeof(dynamicLabel), "Tangent: %s", mode_name);
+        label = dynamicLabel;
+    } else if (btn->id == UI_BTN_SCENE_AUTHORING_PATH_PLAY ||
+               btn->id == UI_BTN_SCENE_AUTHORING_PATH_SCRUB ||
+               btn->id == UI_BTN_SCENE_AUTHORING_PATH_PLAYBACK_MODE ||
+               btn->id == UI_BTN_SCENE_AUTHORING_PATH_DURATION ||
+               btn->id == UI_BTN_SCENE_AUTHORING_PATH_CLOSED) {
+        const GlobalState* state = Global_Get();
+        const LineDrawingSceneAuthoringState* authoring =
+            state ? &state->layout.sceneAuthoring : NULL;
+        const LineDrawingScenePath* path = NULL;
+        if (authoring &&
+            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH &&
+            authoring->selected_index < authoring->path_count) {
+            path = &authoring->paths[authoring->selected_index];
+        }
+        if (btn->id == UI_BTN_SCENE_AUTHORING_PATH_PLAY) {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "%s",
+                     path && path->playing ? "Pause" : "Play");
+        } else if (btn->id == UI_BTN_SCENE_AUTHORING_PATH_SCRUB) {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Scrub %.0f%%",
+                     path ? path->normalized_distance * 100.0f : 0.0f);
+        } else if (btn->id == UI_BTN_SCENE_AUTHORING_PATH_PLAYBACK_MODE) {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Playback: %s",
+                     path ? Layout_ScenePathPlaybackMode_Name(path->playback_mode) : "once");
+        } else if (btn->id == UI_BTN_SCENE_AUTHORING_PATH_DURATION) {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Duration: %.0f s",
+                     path ? path->duration_seconds : 0.0f);
+        } else {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Path: %s",
+                     path && path->closed ? "closed" : "open");
+        }
+        label = dynamicLabel;
+    } else if (btn->id == UI_BTN_SCENE_AUTHORING_CAMERA_ORIENTATION ||
+               btn->id == UI_BTN_SCENE_AUTHORING_CAMERA_ROLL ||
+               btn->id == UI_BTN_SCENE_AUTHORING_CAMERA_FOV ||
+               btn->id == UI_BTN_SCENE_AUTHORING_CAMERA_CLIP) {
+        const GlobalState* state = Global_Get();
+        const LineDrawingSceneAuthoringState* authoring =
+            state ? &state->layout.sceneAuthoring : NULL;
+        const LineDrawingSceneCamera* camera = NULL;
+        if (authoring &&
+            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH &&
+            authoring->selected_index < authoring->path_count) {
+            camera = Layout_SceneAuthoringState_FindCameraForPathConst(
+                authoring, &authoring->paths[authoring->selected_index]);
+        }
+        if (btn->id == UI_BTN_SCENE_AUTHORING_CAMERA_ORIENTATION) {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Orientation: %s",
+                     camera ? Layout_SceneCameraOrientationMode_Name(camera->orientation_mode)
+                            : "unbound");
+        } else if (btn->id == UI_BTN_SCENE_AUTHORING_CAMERA_ROLL) {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Roll: %.0f deg",
+                     camera ? camera->roll_degrees : 0.0f);
+        } else if (btn->id == UI_BTN_SCENE_AUTHORING_CAMERA_FOV) {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "FOV: %.0f deg",
+                     camera ? camera->vertical_fov_degrees : 0.0f);
+        } else {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Clip: %.2g / %.0f",
+                     camera ? camera->near_clip : 0.0f,
+                     camera ? camera->far_clip : 0.0f);
+        }
+        label = dynamicLabel;
+    } else if (btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_POSITION_MODE ||
+               btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_COLOR ||
+               btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_INTENSITY ||
+               btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_SIZE ||
+               btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_CONE ||
+               btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_FALLOFF) {
+        const GlobalState* state = Global_Get();
+        const LineDrawingSceneAuthoringState* authoring =
+            state ? &state->layout.sceneAuthoring : NULL;
+        const LineDrawingSceneLight* light = NULL;
+        if (authoring &&
+            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_LIGHT &&
+            authoring->selected_index < authoring->light_count) {
+            light = &authoring->lights[authoring->selected_index];
+        }
+        if (btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_POSITION_MODE) {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Position: %s",
+                     light ? Layout_SceneLightPositionMode_Name(light->position_mode) : "none");
+        } else if (btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_COLOR) {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Color: %.2f %.2f %.2f",
+                     light ? light->color_rgb[0] : 0.0f,
+                     light ? light->color_rgb[1] : 0.0f,
+                     light ? light->color_rgb[2] : 0.0f);
+        } else if (btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_INTENSITY) {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Intensity: %.1f",
+                     light ? light->intensity : 0.0f);
+        } else if (btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_SIZE) {
+            if (light && light->kind == LINE_DRAWING_SCENE_LIGHT_AREA) {
+                snprintf(dynamicLabel, sizeof(dynamicLabel), "Area: %.1f x %.1f",
+                         light->area_size.x, light->area_size.y);
+            } else {
+                snprintf(dynamicLabel, sizeof(dynamicLabel), "Radius: %.2f",
+                         light ? light->radius : 0.0f);
+            }
+        } else if (btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_CONE) {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Cone: %.0f / %.0f",
+                     light ? light->inner_cone_degrees : 0.0f,
+                     light ? light->outer_cone_degrees : 0.0f);
+        } else {
+            snprintf(dynamicLabel, sizeof(dynamicLabel), "Falloff: %s",
+                     light ? Layout_SceneLightFalloff_Name(light->falloff) : "none");
+        }
         label = dynamicLabel;
     } else if (btn->id == UI_BTN_SCENE_AUTHORING_MATERIAL_COLOR) {
         const GlobalState* state = Global_Get();
