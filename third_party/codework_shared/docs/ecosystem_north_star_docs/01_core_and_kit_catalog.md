@@ -113,6 +113,7 @@ contract.
 - Preview quality, degraded reason, display flag, and pick-id vocabulary
 - Compact JSON readback validation for packet metadata
 - Shared readback structs for producer/consumer fixture parity
+- Compact summary derivation from validated packet readback metadata
 
 **Boundary:**
 - Owns packet meaning only
@@ -169,6 +170,8 @@ contract.
 - Bounded feature-edge preview generation from `mesh_asset_runtime_v1`
 - Runtime mesh preview metadata for source counts, local bounds, source asset
   ids, preview mode, and sampled drawable edge payloads
+- Renderer-neutral coherent indexed LOD construction with caller-selected
+  triangle budgets
 - File-backed preview save/load helpers
 
 **Boundary:**
