@@ -73,15 +73,15 @@ static bool test_mesh_solid_lod_preserves_coherent_indexed_surface(void) {
     TEST_ASSERT(ld_test_build_grid_mesh(&document, 33u));
     TEST_ASSERT(document.triangle_count == 2048u);
     TEST_ASSERT(Layout_MeshSolidPreviewBuildLod(&document, 180u, &lod));
-    TEST_ASSERT(lod.triangleCount > 0u);
-    TEST_ASSERT(lod.triangleCount <= 180u);
-    TEST_ASSERT(lod.triangleCount < lod.sourceTriangleCount);
-    TEST_ASSERT(lod.vertexCount > 3u);
-    TEST_ASSERT(lod.clusterResolution >= 2);
-    for (size_t i = 0u; i < lod.triangleCount * 3u; ++i) {
-        TEST_ASSERT(lod.indices[i] < lod.vertexCount);
+    TEST_ASSERT(lod.triangle_count > 0u);
+    TEST_ASSERT(lod.triangle_count <= 180u);
+    TEST_ASSERT(lod.triangle_count < lod.source_triangle_count);
+    TEST_ASSERT(lod.vertex_count > 3u);
+    TEST_ASSERT(lod.cluster_resolution >= 2);
+    for (size_t i = 0u; i < lod.triangle_count * 3u; ++i) {
+        TEST_ASSERT(lod.indices[i] < lod.vertex_count);
     }
-    for (size_t i = 0u; i < lod.triangleCount; ++i) {
+    for (size_t i = 0u; i < lod.triangle_count; ++i) {
         const uint32_t a = lod.indices[i * 3u + 0u];
         const uint32_t b = lod.indices[i * 3u + 1u];
         const uint32_t c = lod.indices[i * 3u + 2u];
@@ -97,9 +97,9 @@ static bool test_mesh_solid_lod_keeps_small_mesh_exact(void) {
     LayoutMeshSolidPreviewLod lod = {0};
     TEST_ASSERT(ld_test_build_grid_mesh(&document, 4u));
     TEST_ASSERT(Layout_MeshSolidPreviewBuildLod(&document, 100u, &lod));
-    TEST_ASSERT(lod.clusterResolution == 0);
-    TEST_ASSERT(lod.vertexCount == document.vertex_count);
-    TEST_ASSERT(lod.triangleCount == document.triangle_count);
+    TEST_ASSERT(lod.cluster_resolution == 0);
+    TEST_ASSERT(lod.vertex_count == document.vertex_count);
+    TEST_ASSERT(lod.triangle_count == document.triangle_count);
     Layout_MeshSolidPreviewFreeLod(&lod);
     core_mesh_asset_runtime_document_free(&document);
     return true;

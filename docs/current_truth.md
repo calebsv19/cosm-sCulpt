@@ -40,6 +40,10 @@ Last updated: 2026-07-14
   may briefly use an 8,000-triangle/60%-scale tier before returning to the
   18,000-triangle/75%-scale settled tier. Appearance changes retain the current
   tier, and hover/selection draw later without recoloring or demotion.
+- Shared `core_mesh_preview` `0.5.0` now owns the renderer-neutral coherent
+  indexed LOD builder used by complex-mesh editor previews. LineDrawing keeps
+  only its viewport quality policy, CPU depth rasterization, outline
+  composition, texture cache, and interaction overlays app-local.
 - Legacy saved scenes that still reference `Desktop/<mesh-library>` recover the
   known `Desktop/stls/<mesh-library>` relocation at read time. The scene file
   is not silently rewritten, and shared canonical mesh data remains unchanged.

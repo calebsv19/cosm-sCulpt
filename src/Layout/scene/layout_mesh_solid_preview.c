@@ -17,7 +17,6 @@
 #define LD_MESH_SOLID_ASSET_CACHE_CAPACITY 8u
 #define LD_MESH_SOLID_INTERACTIVE_TRIANGLES 8000u
 #define LD_MESH_SOLID_SETTLED_TRIANGLES 18000u
-#define LD_MESH_SOLID_MAX_CLUSTER_RESOLUTION 96
 #define LD_MESH_SOLID_SETTLE_NS 150000000ull
 #define LD_MESH_SOLID_INTERACTIVE_SCALE 0.60f
 #define LD_MESH_SOLID_SETTLED_SCALE 0.75f
@@ -62,308 +61,17 @@ typedef struct {
     float depth;
 } LayoutMeshSolidScreenVertex;
 
-typedef struct {
-    uint32_t keyA;
-    uint32_t keyB;
-    uint32_t keyC;
-    uint32_t a;
-    uint32_t b;
-    uint32_t c;
-} LayoutMeshSolidClusterTriangle;
-
 static LayoutMeshSolidPreviewCache g_solidPreview;
 
-// Clear one LOD descriptor after releasing its indexed buffers.
+// Keep the established app-local entry points as thin shared-core adapters.
 void Layout_MeshSolidPreviewFreeLod(LayoutMeshSolidPreviewLod* lod) {
-    if (!lod) return;
-    free(lod->vertices);
-    free(lod->indices);
-    memset(lod, 0, sizeof(*lod));
+    core_mesh_preview_lod_mesh_free(lod);
 }
 
-// Copy the authoritative runtime mesh when it already fits the requested budget.
-static bool LayoutMeshSolid_CopyRuntimeMesh(const CoreMeshAssetRuntimeDocument* document,
-                                            LayoutMeshSolidPreviewLod* outLod) {
-    if (!document || !outLod || document->vertex_count == 0u || document->triangle_count == 0u) {
-        return false;
-    }
-    if (document->vertex_count > UINT32_MAX ||
-        document->triangle_count > SIZE_MAX / (3u * sizeof(uint32_t))) {
-        return false;
-    }
-
-    outLod->vertices = (Vec3*)calloc(document->vertex_count, sizeof(Vec3));
-    outLod->indices = (uint32_t*)calloc(document->triangle_count * 3u, sizeof(uint32_t));
-    if (!outLod->vertices || !outLod->indices) {
-        Layout_MeshSolidPreviewFreeLod(outLod);
-        return false;
-    }
-
-    for (size_t i = 0u; i < document->vertex_count; ++i) {
-        outLod->vertices[i] = (Vec3){
-            (float)document->vertices[i].position.x,
-            (float)document->vertices[i].position.y,
-            (float)document->vertices[i].position.z
-        };
-    }
-    for (size_t i = 0u; i < document->triangle_count; ++i) {
-        const CoreMeshAssetRuntimeTriangle* triangle = &document->triangles[i];
-        if (triangle->a > UINT32_MAX || triangle->b > UINT32_MAX || triangle->c > UINT32_MAX) {
-            Layout_MeshSolidPreviewFreeLod(outLod);
-            return false;
-        }
-        outLod->indices[i * 3u + 0u] = (uint32_t)triangle->a;
-        outLod->indices[i * 3u + 1u] = (uint32_t)triangle->b;
-        outLod->indices[i * 3u + 2u] = (uint32_t)triangle->c;
-    }
-
-    outLod->vertexCount = document->vertex_count;
-    outLod->triangleCount = document->triangle_count;
-    outLod->sourceVertexCount = document->vertex_count;
-    outLod->sourceTriangleCount = document->triangle_count;
-    outLod->clusterResolution = 0;
-    return true;
-}
-
-// Quantize one coordinate into a bounded vertex-cluster grid cell.
-static int LayoutMeshSolid_ClusterCoordinate(double value,
-                                             double minimum,
-                                             double maximum,
-                                             int resolution) {
-    const double extent = maximum - minimum;
-    double normalized = 0.0;
-    int coordinate = 0;
-    if (resolution <= 1 || !isfinite(extent) || extent <= DBL_EPSILON) return 0;
-    normalized = (value - minimum) / extent;
-    if (normalized < 0.0) normalized = 0.0;
-    if (normalized > 1.0) normalized = 1.0;
-    coordinate = (int)floor(normalized * (double)resolution);
-    if (coordinate >= resolution) coordinate = resolution - 1;
-    if (coordinate < 0) coordinate = 0;
-    return coordinate;
-}
-
-// Order clustered triangle keys while retaining the first source winding for drawing.
-static int LayoutMeshSolid_CompareClusterTriangles(const void* lhs, const void* rhs) {
-    const LayoutMeshSolidClusterTriangle* a = (const LayoutMeshSolidClusterTriangle*)lhs;
-    const LayoutMeshSolidClusterTriangle* b = (const LayoutMeshSolidClusterTriangle*)rhs;
-    if (a->keyA != b->keyA) return a->keyA < b->keyA ? -1 : 1;
-    if (a->keyB != b->keyB) return a->keyB < b->keyB ? -1 : 1;
-    if (a->keyC != b->keyC) return a->keyC < b->keyC ? -1 : 1;
-    return 0;
-}
-
-// Build one complete clustered surface; all source triangles are remapped before degenerates are removed.
-static bool LayoutMeshSolid_BuildClusteredAtResolution(
-    const CoreMeshAssetRuntimeDocument* document,
-    int resolution,
-    LayoutMeshSolidPreviewLod* outLod) {
-    size_t cellCount = 0u;
-    int32_t* cellToCluster = NULL;
-    uint32_t* vertexMap = NULL;
-    Vec3* sums = NULL;
-    uint32_t* counts = NULL;
-    Vec3* vertices = NULL;
-    uint32_t* indices = NULL;
-    LayoutMeshSolidClusterTriangle* clusteredTriangles = NULL;
-    size_t clusterCount = 0u;
-    size_t triangleCount = 0u;
-    const CoreMeshAssetBounds3 bounds = document->contract.local_bounds;
-
-    if (!document || !outLod || resolution < 2 ||
-        document->vertex_count == 0u || document->triangle_count == 0u ||
-        document->vertex_count > UINT32_MAX) {
-        return false;
-    }
-    if ((size_t)resolution > SIZE_MAX / (size_t)resolution) return false;
-    cellCount = (size_t)resolution * (size_t)resolution;
-    if (cellCount > SIZE_MAX / (size_t)resolution) return false;
-    cellCount *= (size_t)resolution;
-
-    cellToCluster = (int32_t*)malloc(cellCount * sizeof(int32_t));
-    vertexMap = (uint32_t*)malloc(document->vertex_count * sizeof(uint32_t));
-    sums = (Vec3*)calloc(document->vertex_count, sizeof(Vec3));
-    counts = (uint32_t*)calloc(document->vertex_count, sizeof(uint32_t));
-    vertices = (Vec3*)calloc(document->vertex_count, sizeof(Vec3));
-    indices = (uint32_t*)malloc(document->triangle_count * 3u * sizeof(uint32_t));
-    clusteredTriangles = (LayoutMeshSolidClusterTriangle*)malloc(
-        document->triangle_count * sizeof(LayoutMeshSolidClusterTriangle));
-    if (!cellToCluster || !vertexMap || !sums || !counts || !vertices || !indices ||
-        !clusteredTriangles) goto fail;
-    for (size_t i = 0u; i < cellCount; ++i) cellToCluster[i] = -1;
-
-    for (size_t i = 0u; i < document->vertex_count; ++i) {
-        const CoreObjectVec3 position = document->vertices[i].position;
-        const int x = LayoutMeshSolid_ClusterCoordinate(position.x,
-                                                        bounds.min.x,
-                                                        bounds.max.x,
-                                                        resolution);
-        const int y = LayoutMeshSolid_ClusterCoordinate(position.y,
-                                                        bounds.min.y,
-                                                        bounds.max.y,
-                                                        resolution);
-        const int z = LayoutMeshSolid_ClusterCoordinate(position.z,
-                                                        bounds.min.z,
-                                                        bounds.max.z,
-                                                        resolution);
-        const size_t cell = (size_t)x +
-                            ((size_t)y * (size_t)resolution) +
-                            ((size_t)z * (size_t)resolution * (size_t)resolution);
-        int32_t cluster = cellToCluster[cell];
-        if (cluster < 0) {
-            if (clusterCount >= UINT32_MAX) goto fail;
-            cluster = (int32_t)clusterCount++;
-            cellToCluster[cell] = cluster;
-        }
-        vertexMap[i] = (uint32_t)cluster;
-        sums[cluster].x += (float)position.x;
-        sums[cluster].y += (float)position.y;
-        sums[cluster].z += (float)position.z;
-        counts[cluster]++;
-    }
-
-    for (size_t i = 0u; i < clusterCount; ++i) {
-        const float inverse = counts[i] > 0u ? 1.0f / (float)counts[i] : 1.0f;
-        vertices[i] = Vec3_Scale(sums[i], inverse);
-    }
-
-    for (size_t i = 0u; i < document->triangle_count; ++i) {
-        const CoreMeshAssetRuntimeTriangle* source = &document->triangles[i];
-        uint32_t a = 0u;
-        uint32_t b = 0u;
-        uint32_t c = 0u;
-        if (source->a >= document->vertex_count ||
-            source->b >= document->vertex_count ||
-            source->c >= document->vertex_count) {
-            continue;
-        }
-        a = vertexMap[source->a];
-        b = vertexMap[source->b];
-        c = vertexMap[source->c];
-        if (a == b || b == c || c == a) continue;
-        clusteredTriangles[triangleCount] = (LayoutMeshSolidClusterTriangle){
-            .keyA = a,
-            .keyB = b,
-            .keyC = c,
-            .a = a,
-            .b = b,
-            .c = c
-        };
-        if (clusteredTriangles[triangleCount].keyA > clusteredTriangles[triangleCount].keyB) {
-            const uint32_t swap = clusteredTriangles[triangleCount].keyA;
-            clusteredTriangles[triangleCount].keyA = clusteredTriangles[triangleCount].keyB;
-            clusteredTriangles[triangleCount].keyB = swap;
-        }
-        if (clusteredTriangles[triangleCount].keyB > clusteredTriangles[triangleCount].keyC) {
-            const uint32_t swap = clusteredTriangles[triangleCount].keyB;
-            clusteredTriangles[triangleCount].keyB = clusteredTriangles[triangleCount].keyC;
-            clusteredTriangles[triangleCount].keyC = swap;
-        }
-        if (clusteredTriangles[triangleCount].keyA > clusteredTriangles[triangleCount].keyB) {
-            const uint32_t swap = clusteredTriangles[triangleCount].keyA;
-            clusteredTriangles[triangleCount].keyA = clusteredTriangles[triangleCount].keyB;
-            clusteredTriangles[triangleCount].keyB = swap;
-        }
-        triangleCount++;
-    }
-    if (clusterCount == 0u || triangleCount == 0u) goto fail;
-
-    qsort(clusteredTriangles,
-          triangleCount,
-          sizeof(clusteredTriangles[0]),
-          LayoutMeshSolid_CompareClusterTriangles);
-    {
-        size_t uniqueCount = 0u;
-        for (size_t i = 0u; i < triangleCount; ++i) {
-            const bool duplicate = i > 0u &&
-                clusteredTriangles[i].keyA == clusteredTriangles[i - 1u].keyA &&
-                clusteredTriangles[i].keyB == clusteredTriangles[i - 1u].keyB &&
-                clusteredTriangles[i].keyC == clusteredTriangles[i - 1u].keyC;
-            if (duplicate) continue;
-            indices[uniqueCount * 3u + 0u] = clusteredTriangles[i].a;
-            indices[uniqueCount * 3u + 1u] = clusteredTriangles[i].b;
-            indices[uniqueCount * 3u + 2u] = clusteredTriangles[i].c;
-            uniqueCount++;
-        }
-        triangleCount = uniqueCount;
-    }
-
-    outLod->vertices = vertices;
-    outLod->indices = indices;
-    outLod->vertexCount = clusterCount;
-    outLod->triangleCount = triangleCount;
-    outLod->sourceVertexCount = document->vertex_count;
-    outLod->sourceTriangleCount = document->triangle_count;
-    outLod->clusterResolution = resolution;
-    free(cellToCluster);
-    free(vertexMap);
-    free(sums);
-    free(counts);
-    free(clusteredTriangles);
-    return true;
-
-fail:
-    free(cellToCluster);
-    free(vertexMap);
-    free(sums);
-    free(counts);
-    free(vertices);
-    free(indices);
-    free(clusteredTriangles);
-    return false;
-}
-
-// Select the most detailed clustered surface that stays within the triangle budget.
 bool Layout_MeshSolidPreviewBuildLod(const CoreMeshAssetRuntimeDocument* document,
                                      size_t targetTriangles,
                                      LayoutMeshSolidPreviewLod* outLod) {
-    int low = 2;
-    int high = LD_MESH_SOLID_MAX_CLUSTER_RESOLUTION;
-    LayoutMeshSolidPreviewLod best = {0};
-    LayoutMeshSolidPreviewLod smallest = {0};
-    if (!document || !outLod || targetTriangles == 0u) return false;
-    memset(outLod, 0, sizeof(*outLod));
-    if (core_mesh_asset_runtime_document_validate(document).code != CORE_OK) return false;
-    if (document->triangle_count <= targetTriangles) {
-        return LayoutMeshSolid_CopyRuntimeMesh(document, outLod);
-    }
-
-    while (low <= high) {
-        const int resolution = low + ((high - low) / 2);
-        LayoutMeshSolidPreviewLod candidate = {0};
-        if (!LayoutMeshSolid_BuildClusteredAtResolution(document, resolution, &candidate)) {
-            Layout_MeshSolidPreviewFreeLod(&best);
-            Layout_MeshSolidPreviewFreeLod(&smallest);
-            return false;
-        }
-        if (candidate.triangleCount <= targetTriangles) {
-            if (candidate.triangleCount > best.triangleCount) {
-                Layout_MeshSolidPreviewFreeLod(&best);
-                best = candidate;
-                memset(&candidate, 0, sizeof(candidate));
-            }
-            low = resolution + 1;
-        } else {
-            if (smallest.triangleCount == 0u || candidate.triangleCount < smallest.triangleCount) {
-                Layout_MeshSolidPreviewFreeLod(&smallest);
-                smallest = candidate;
-                memset(&candidate, 0, sizeof(candidate));
-            }
-            high = resolution - 1;
-        }
-        Layout_MeshSolidPreviewFreeLod(&candidate);
-    }
-
-    if (best.triangleCount > 0u) {
-        Layout_MeshSolidPreviewFreeLod(&smallest);
-        *outLod = best;
-        return true;
-    }
-    if (smallest.triangleCount > 0u) {
-        *outLod = smallest;
-        return true;
-    }
-    return false;
+    return core_mesh_preview_build_lod_mesh(document, targetTriangles, outLod).code == CORE_OK;
 }
 
 // Hash raw state bytes into the frame cache signature.
@@ -541,7 +249,7 @@ static void LayoutMeshSolid_RasterizeObject(const Object3D* object,
     const Vec3 lightDirection = Vec3_Normalize((Vec3){0.38f, -0.42f, -0.82f});
     if (!object || !lod || !viewContext || !grid || !rgba || !depth || !stats) return;
 
-    for (size_t triangleIndex = 0u; triangleIndex < lod->triangleCount; ++triangleIndex) {
+    for (size_t triangleIndex = 0u; triangleIndex < lod->triangle_count; ++triangleIndex) {
         const uint32_t ia = lod->indices[triangleIndex * 3u + 0u];
         const uint32_t ib = lod->indices[triangleIndex * 3u + 1u];
         const uint32_t ic = lod->indices[triangleIndex * 3u + 2u];
@@ -564,10 +272,16 @@ static void LayoutMeshSolid_RasterizeObject(const Object3D* object,
         int maxY = 0;
 
         stats->submittedTriangles++;
-        if (ia >= lod->vertexCount || ib >= lod->vertexCount || ic >= lod->vertexCount) continue;
-        worldA = Layout_Transform3D_ApplyLocalPoint(object->transform, lod->vertices[ia]);
-        worldB = Layout_Transform3D_ApplyLocalPoint(object->transform, lod->vertices[ib]);
-        worldC = Layout_Transform3D_ApplyLocalPoint(object->transform, lod->vertices[ic]);
+        if (ia >= lod->vertex_count || ib >= lod->vertex_count || ic >= lod->vertex_count) continue;
+        worldA = Layout_Transform3D_ApplyLocalPoint(
+            object->transform,
+            (Vec3){(float)lod->vertices[ia].x, (float)lod->vertices[ia].y, (float)lod->vertices[ia].z});
+        worldB = Layout_Transform3D_ApplyLocalPoint(
+            object->transform,
+            (Vec3){(float)lod->vertices[ib].x, (float)lod->vertices[ib].y, (float)lod->vertices[ib].z});
+        worldC = Layout_Transform3D_ApplyLocalPoint(
+            object->transform,
+            (Vec3){(float)lod->vertices[ic].x, (float)lod->vertices[ic].y, (float)lod->vertices[ic].z});
         a = LayoutMeshSolid_ProjectVertex(worldA, viewContext, grid, clip, rasterScale);
         b = LayoutMeshSolid_ProjectVertex(worldB, viewContext, grid, clip, rasterScale);
         c = LayoutMeshSolid_ProjectVertex(worldC, viewContext, grid, clip, rasterScale);

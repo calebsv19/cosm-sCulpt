@@ -12,14 +12,20 @@ Last updated: 2026-07-14
 - Complex-mesh quality-state separation is complete: hover/selection and
   appearance do not demote the mesh; zoom/pan retain settled geometry; only
   viewing-direction or mesh-geometry changes use the refined interaction tier.
-- Complete constrained-size/font and hands-on hover/select/drag conflict proof
-  before calling the LineDrawing editor stable.
-- Audit RayTracing only after that LineDrawing proof. Adopt renderer-neutral
-  identity, selection/readback, navigation, and shell behavior incrementally;
-  retain RayTracing-specific shading, lighting, render camera, and overlays.
-- Extract shared live-editor behavior only after LineDrawing and one consumer
-  demonstrate the same stable contract. Prefer existing core/kit boundaries
-  and keep renderer policy app-local.
+- Shared extraction of the proven coherent indexed LOD builder is complete in
+  `core_mesh_preview` `0.5.0`; LineDrawing consumes it through a thin adapter
+  while retaining renderer and interaction policy locally.
+- Complete the remaining constrained-size/font and hands-on
+  hover/select/drag conflict proof before calling every LineDrawing usability
+  boundary stable. That proof can proceed independently of mesh-preview
+  consumer adoption.
+- Audit and adopt the shared mesh-preview contract in RayTracing next. Reuse
+  renderer-neutral preview geometry and preserve Bounds/Wire/Solid/Material
+  meaning, while retaining RayTracing-specific native depth rendering,
+  shading, lighting, render camera, materials, and overlays.
+- Extract additional shared live-editor behavior only after LineDrawing and a
+  consumer demonstrate the same stable contract. Prefer existing core/kit
+  boundaries and keep renderer policy app-local.
 
 ## Scaffold Alignment Intent
 1. Keep existing 2D/3D parity behavior unchanged while normalizing scaffold contracts.

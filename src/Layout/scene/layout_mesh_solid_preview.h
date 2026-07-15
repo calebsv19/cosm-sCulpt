@@ -4,22 +4,15 @@
 #include "Layout/Grid/grid.h"
 #include "Layout/layout.h"
 #include "core_mesh_asset.h"
+#include "core_mesh_preview.h"
 
 #include <SDL2/SDL.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-// Coherent indexed surface used by the app-local interactive mesh preview.
-typedef struct {
-    Vec3* vertices;
-    uint32_t* indices;
-    size_t vertexCount;
-    size_t triangleCount;
-    size_t sourceVertexCount;
-    size_t sourceTriangleCount;
-    int clusterResolution;
-} LayoutMeshSolidPreviewLod;
+// App-local name for the shared renderer-neutral coherent indexed surface.
+typedef CoreMeshPreviewLodMesh LayoutMeshSolidPreviewLod;
 
 // Observable output from one software depth-buffer pass.
 typedef struct {

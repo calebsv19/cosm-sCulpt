@@ -14,9 +14,10 @@ and scene helper contracts.
 - `layout_mesh_preview_sidecar.*` and `layout_mesh_runtime_preview.*` own
   bounded mesh preview sidecar loading/render data.
 - `layout_mesh_solid_preview.*` owns the LineDrawing-local filled and
-  outline-only runtime-mesh preview. It builds coherent vertex-cluster
-  interactive/settled LODs from the
-  canonical `core_mesh_asset` document, rasterizes them through a CPU depth
+  outline-only runtime-mesh preview. It obtains coherent vertex-cluster
+  interactive/settled LODs from shared `core_mesh_preview` `0.5.0` through a
+  thin adapter over the canonical `core_mesh_asset` document, then rasterizes
+  them through a CPU depth
   buffer, adds view-dependent silhouette/depth outlines, and uploads one cached
   viewport texture. Orbit direction changes or scene-geometry changes use an
   8,000-triangle/60%-scale interaction tier; a stable view promotes to the
@@ -36,6 +37,7 @@ and scene helper contracts.
 - This subtree owns scene/runtime layout state, not reusable object-authoring
   documents.
 - The solid/outline preview is an app-local editor visualization, not downstream
-  simulation or final RayTracing material authority. Native GPU depth rendering,
-  smooth normals/material bindings, and any shared render-proxy contract remain
-  later refinements after this behavior is proven in LineDrawing and a consumer.
+  simulation or final RayTracing material authority. Shared code owns only the
+  renderer-neutral LOD mesh; native GPU depth rendering, smooth
+  normals/material bindings, display policy, and interaction overlays remain
+  consumer-owned.
