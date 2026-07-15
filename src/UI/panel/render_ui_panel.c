@@ -143,7 +143,9 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         btn->id == UI_BTN_SCENE_AUTHORING_EDIT_MODE &&
         state->editor.sceneAuthoringEditMode != SCENE_AUTHORING_EDIT_MODE_NONE;
     const bool preview_mode_active = state &&
-        ((btn->id == UI_BTN_PREVIEW_WIREFRAME &&
+        ((btn->id == UI_BTN_PREVIEW_BOUNDS &&
+          state->previewMode == LINE_DRAWING_PREVIEW_MODE_BOUNDS) ||
+         (btn->id == UI_BTN_PREVIEW_WIREFRAME &&
           state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME) ||
          (btn->id == UI_BTN_PREVIEW_FLAT &&
           state->previewMode == LINE_DRAWING_PREVIEW_MODE_FLAT) ||

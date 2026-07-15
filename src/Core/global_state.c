@@ -280,6 +280,7 @@ const char* Global_GetWorkspaceModeLabel(LineDrawingWorkspaceMode mode) {
 
 const char* Global_GetPreviewModeLabel(LineDrawingPreviewMode mode) {
     switch (mode) {
+        case LINE_DRAWING_PREVIEW_MODE_BOUNDS: return "Bounds";
         case LINE_DRAWING_PREVIEW_MODE_FLAT: return "Flat";
         case LINE_DRAWING_PREVIEW_MODE_MATERIAL: return "Material";
         case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
@@ -289,6 +290,7 @@ const char* Global_GetPreviewModeLabel(LineDrawingPreviewMode mode) {
 
 const char* Global_GetPreviewModeExportValue(LineDrawingPreviewMode mode) {
     switch (mode) {
+        case LINE_DRAWING_PREVIEW_MODE_BOUNDS: return "bounds";
         case LINE_DRAWING_PREVIEW_MODE_FLAT: return "flat";
         case LINE_DRAWING_PREVIEW_MODE_MATERIAL: return "material";
         case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
@@ -419,7 +421,8 @@ LineDrawingPreviewMode Global_GetPreviewMode(void) {
 
 bool Global_SetPreviewMode(LineDrawingPreviewMode mode) {
     if (!global) return false;
-    if (mode != LINE_DRAWING_PREVIEW_MODE_WIREFRAME &&
+    if (mode != LINE_DRAWING_PREVIEW_MODE_BOUNDS &&
+        mode != LINE_DRAWING_PREVIEW_MODE_WIREFRAME &&
         mode != LINE_DRAWING_PREVIEW_MODE_FLAT &&
         mode != LINE_DRAWING_PREVIEW_MODE_MATERIAL) {
         return false;
@@ -433,6 +436,9 @@ bool Global_TogglePreviewMode(void) {
     LineDrawingPreviewMode next = LINE_DRAWING_PREVIEW_MODE_WIREFRAME;
     if (!global) return false;
     switch (global->previewMode) {
+        case LINE_DRAWING_PREVIEW_MODE_BOUNDS:
+            next = LINE_DRAWING_PREVIEW_MODE_WIREFRAME;
+            break;
         case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
             next = LINE_DRAWING_PREVIEW_MODE_FLAT;
             break;
@@ -441,7 +447,7 @@ bool Global_TogglePreviewMode(void) {
             break;
         case LINE_DRAWING_PREVIEW_MODE_MATERIAL:
         default:
-            next = LINE_DRAWING_PREVIEW_MODE_WIREFRAME;
+            next = LINE_DRAWING_PREVIEW_MODE_BOUNDS;
             break;
     }
     return Global_SetPreviewMode(next);

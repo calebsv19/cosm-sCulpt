@@ -106,9 +106,10 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
         case UI_BTN_RESET_ORIGIN: spec = (UIPanelRightControlRowSpec){ 1, 3, 0 }; break;
         case UI_BTN_ZOOM_IN: spec = (UIPanelRightControlRowSpec){ 1, 3, 1 }; break;
         case UI_BTN_ZOOM_OUT: spec = (UIPanelRightControlRowSpec){ 1, 3, 2 }; break;
-        case UI_BTN_PREVIEW_WIREFRAME: spec = (UIPanelRightControlRowSpec){ 2, 3, 0 }; break;
-        case UI_BTN_PREVIEW_FLAT: spec = (UIPanelRightControlRowSpec){ 2, 3, 1 }; break;
-        case UI_BTN_PREVIEW_MATERIAL: spec = (UIPanelRightControlRowSpec){ 2, 3, 2 }; break;
+        case UI_BTN_PREVIEW_BOUNDS: spec = (UIPanelRightControlRowSpec){ 2, 4, 0 }; break;
+        case UI_BTN_PREVIEW_WIREFRAME: spec = (UIPanelRightControlRowSpec){ 2, 4, 1 }; break;
+        case UI_BTN_PREVIEW_FLAT: spec = (UIPanelRightControlRowSpec){ 2, 4, 2 }; break;
+        case UI_BTN_PREVIEW_MATERIAL: spec = (UIPanelRightControlRowSpec){ 2, 4, 3 }; break;
 
         case UI_BTN_TOGGLE_DELETE: spec = (UIPanelRightControlRowSpec){ 2, 3, 0 }; break;
         case UI_BTN_PIN_ANCHOR: spec = (UIPanelRightControlRowSpec){ 2, 3, 1 }; break;

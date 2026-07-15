@@ -840,6 +840,8 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "-", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_ZOOM_OUT);
     yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Bounds", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_PREVIEW_BOUNDS);
+    yR += btnH + spacing;
     AddButton(&g_uiPanel, "Wire", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_PREVIEW_WIREFRAME);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Solid", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_PREVIEW_FLAT);

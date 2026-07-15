@@ -172,6 +172,7 @@ static bool test_view_buttons_use_uniform_grid_rows(void) {
     const UIButton* link_button = NULL;
     const UIButton* mode_button = NULL;
     const UIButton* wire_button = NULL;
+    const UIButton* bounds_button = NULL;
     const UIButton* flat_button = NULL;
     const UIButton* material_button = NULL;
 
@@ -193,6 +194,7 @@ static bool test_view_buttons_use_uniform_grid_rows(void) {
         else if (btn->id == UI_BTN_PIN_ANCHOR) pin_button = btn;
         else if (btn->id == UI_BTN_LINK_HANDLES) link_button = btn;
         else if (btn->id == UI_BTN_TOGGLE_SPACE_MODE) mode_button = btn;
+        else if (btn->id == UI_BTN_PREVIEW_BOUNDS) bounds_button = btn;
         else if (btn->id == UI_BTN_PREVIEW_WIREFRAME) wire_button = btn;
         else if (btn->id == UI_BTN_PREVIEW_FLAT) flat_button = btn;
         else if (btn->id == UI_BTN_PREVIEW_MATERIAL) material_button = btn;
@@ -200,12 +202,13 @@ static bool test_view_buttons_use_uniform_grid_rows(void) {
 
     TEST_ASSERT(reset_button && zoom_in_button && zoom_out_button);
     TEST_ASSERT(delete_button && pin_button && link_button && mode_button);
-    TEST_ASSERT(wire_button && flat_button && material_button);
+    TEST_ASSERT(bounds_button && wire_button && flat_button && material_button);
     TEST_ASSERT(reset_button->bounds.w == zoom_in_button->bounds.w);
     TEST_ASSERT(zoom_in_button->bounds.w == zoom_out_button->bounds.w);
+    TEST_ASSERT(bounds_button->bounds.y == wire_button->bounds.y);
     TEST_ASSERT(wire_button->bounds.y == flat_button->bounds.y);
     TEST_ASSERT(flat_button->bounds.y == material_button->bounds.y);
-    TEST_ASSERT(wire_button->bounds.y > reset_button->bounds.y);
+    TEST_ASSERT(bounds_button->bounds.y > reset_button->bounds.y);
     TEST_ASSERT(delete_button->bounds.w == pin_button->bounds.w);
     TEST_ASSERT(pin_button->bounds.w == link_button->bounds.w);
     TEST_ASSERT(mode_button->bounds.x == ui->viewPane.modesRect.x);
@@ -219,11 +222,13 @@ static bool test_view_preview_buttons_select_renderer_mode(void) {
     GlobalState* state = NULL;
     UIPanelState* ui = NULL;
     const int button_ids[] = {
-        UI_BTN_PREVIEW_FLAT, UI_BTN_PREVIEW_MATERIAL, UI_BTN_PREVIEW_WIREFRAME
+        UI_BTN_PREVIEW_FLAT, UI_BTN_PREVIEW_MATERIAL,
+        UI_BTN_PREVIEW_BOUNDS, UI_BTN_PREVIEW_WIREFRAME
     };
     const LineDrawingPreviewMode expected_modes[] = {
         LINE_DRAWING_PREVIEW_MODE_FLAT,
         LINE_DRAWING_PREVIEW_MODE_MATERIAL,
+        LINE_DRAWING_PREVIEW_MODE_BOUNDS,
         LINE_DRAWING_PREVIEW_MODE_WIREFRAME
     };
 

@@ -12,6 +12,7 @@ bool test_layout_hitbox_run_tests(void);
 bool test_layout_scene_export_run_tests(void);
 bool test_layout_scene_view_packet_consumer_run_tests(void);
 bool test_layout_preview_mode_run_tests(void);
+bool test_layout_mesh_solid_preview_run_tests(void);
 bool math_run_tests(void);
 bool shape_dataset_run_tests(void);
 bool scene_export_run_tests(void);
@@ -54,6 +55,7 @@ static const TestGroup kTestGroups[] = {
     {"LayoutSceneExport", test_layout_scene_export_run_tests, false},
     {"LayoutSceneViewPacketConsumer", test_layout_scene_view_packet_consumer_run_tests, false},
     {"LayoutPreviewMode", test_layout_preview_mode_run_tests, true},
+    {"LayoutMeshSolidPreview", test_layout_mesh_solid_preview_run_tests, true},
     {"Math", math_run_tests, true},
     {"ShapeDataset", shape_dataset_run_tests, true},
     {"SceneExport", scene_export_run_tests, true},

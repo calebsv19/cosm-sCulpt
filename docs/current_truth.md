@@ -1,6 +1,6 @@
 # sCulpt Current Truth
 
-Last updated: 2026-06-09
+Last updated: 2026-07-14
 
 ## Program Identity
 - Repository directory: `line_drawing/`
@@ -26,6 +26,23 @@ Last updated: 2026-06-09
 - 2D/3D parity lane is complete (`LD-U0` through `LD-U6.6`).
 - Trio scene-authoring and deep 3D behavior foundation lanes are complete through `LD3D-F8`.
 - Primitive authoring contract is active for planes and rectangular prisms with typed object payloads.
+- Scene-editor display is now an explicit four-mode contract:
+  - `Bounds` renders only transform/bounds cages;
+  - `Wire` renders the real mesh preview feature edges plus a transparent,
+    view-dependent coherent-LOD outline so smooth complex meshes retain a
+    readable perimeter;
+  - `Solid` renders an opaque, depth-tested runtime-mesh surface through
+    coherent interactive/settled LODs;
+  - `Material` uses the same real surface path with app-local material tinting.
+- Complex-mesh quality state is separated from projection and interaction
+  feedback: zoom, pan, viewport resize, and plane-offset changes reraster the
+  established LOD without demotion; orbit direction and mesh-transform changes
+  may briefly use an 8,000-triangle/60%-scale tier before returning to the
+  18,000-triangle/75%-scale settled tier. Appearance changes retain the current
+  tier, and hover/selection draw later without recoloring or demotion.
+- Legacy saved scenes that still reference `Desktop/<mesh-library>` recover the
+  known `Desktop/stls/<mesh-library>` relocation at read time. The scene file
+  is not silently rewritten, and shared canonical mesh data remains unchanged.
 - Dense-scene object selection baseline is now improved:
   - plain object-body hover/click resolves to the nearest projected object
     origin instead of whichever overlapping object bounds happen to win the

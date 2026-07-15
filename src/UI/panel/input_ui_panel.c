@@ -336,6 +336,10 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     }
                     break;
                 }
+                case UI_BTN_PREVIEW_BOUNDS:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_BOUNDS);
+                    break;
                 case UI_BTN_PREVIEW_WIREFRAME:
                     UIPanel_CloseFileBrowser(ui);
                     (void)Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_WIREFRAME);

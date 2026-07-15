@@ -1,6 +1,25 @@
 # Line Drawing Future Intent
 
-Last updated: 2026-06-09
+Last updated: 2026-07-14
+
+## Scene Editor Stabilization Intent
+
+- Treat the current Bounds/Wire/Solid/Material split, collision-free pane
+  layout, contextual Create workflow, and validated property editing as the
+  LineDrawing usability baseline.
+- Loaded-scene lifecycle proof is complete: source identity, dirty state, Save,
+  Save As, Export Scene, close, and reopen retain stable ids/bindings.
+- Complex-mesh quality-state separation is complete: hover/selection and
+  appearance do not demote the mesh; zoom/pan retain settled geometry; only
+  viewing-direction or mesh-geometry changes use the refined interaction tier.
+- Complete constrained-size/font and hands-on hover/select/drag conflict proof
+  before calling the LineDrawing editor stable.
+- Audit RayTracing only after that LineDrawing proof. Adopt renderer-neutral
+  identity, selection/readback, navigation, and shell behavior incrementally;
+  retain RayTracing-specific shading, lighting, render camera, and overlays.
+- Extract shared live-editor behavior only after LineDrawing and one consumer
+  demonstrate the same stable contract. Prefer existing core/kit boundaries
+  and keep renderer policy app-local.
 
 ## Scaffold Alignment Intent
 1. Keep existing 2D/3D parity behavior unchanged while normalizing scaffold contracts.

@@ -13,6 +13,8 @@
 #include "Input/input_routing_policy.h"
 #include "Render/render_handler.h"
 #include "Core/global_state.h"
+#include "core_mesh_asset.h"
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -395,9 +397,109 @@ static bool LineDrawingVisualArtifactModeIsEditor(const char* mode) {
     return mode && strcmp(mode, "editor") == 0;
 }
 
+// Stage one normalized runtime mesh for deterministic Solid/Material artifact captures.
+static bool LineDrawingVisualArtifactStageMesh(const char* runtimePath) {
+    CoreMeshAssetRuntimeDocument document;
+    GlobalState* state = Global_Get();
+    Transform3D transform = Layout_Transform3D_Default();
+    Object3D* object = NULL;
+    uint32_t objectId = 0u;
+    double spanX = 0.0;
+    double spanY = 0.0;
+    double spanZ = 0.0;
+    double maxSpan = 0.0;
+    double scale = 1.0;
+    CoreObjectVec3 center = {0};
+    if (!state || !runtimePath || !runtimePath[0]) return false;
+    core_mesh_asset_runtime_document_init(&document);
+    if (core_mesh_asset_runtime_document_load_file(runtimePath, &document).code != CORE_OK) {
+        core_mesh_asset_runtime_document_free(&document);
+        return false;
+    }
+
+    spanX = document.contract.local_bounds.max.x - document.contract.local_bounds.min.x;
+    spanY = document.contract.local_bounds.max.y - document.contract.local_bounds.min.y;
+    spanZ = document.contract.local_bounds.max.z - document.contract.local_bounds.min.z;
+    maxSpan = fmax(spanX, fmax(spanY, spanZ));
+    if (!isfinite(maxSpan) || maxSpan <= 0.0) {
+        core_mesh_asset_runtime_document_free(&document);
+        return false;
+    }
+    scale = 10.0 / maxSpan;
+    center = (CoreObjectVec3){
+        0.5 * (document.contract.local_bounds.min.x + document.contract.local_bounds.max.x),
+        0.5 * (document.contract.local_bounds.min.y + document.contract.local_bounds.max.y),
+        0.5 * (document.contract.local_bounds.min.z + document.contract.local_bounds.max.z)
+    };
+    transform.scale = (Vec3){(float)scale, (float)scale, (float)scale};
+    transform.position = (Vec3){
+        (float)(-center.x * scale),
+        (float)(-center.y * scale),
+        (float)(-center.z * scale)
+    };
+    objectId = Layout_ObjectStore_Create(&state->layout.objectStore,
+                                         OBJECT3D_KIND_MESH_ASSET_INSTANCE,
+                                         &transform,
+                                         "visual_artifact_mesh",
+                                         CORE_OBJECT_DIMENSIONAL_MODE_FULL_3D,
+                                         CORE_OBJECT_PLANE_XY);
+    object = Layout_ObjectStore_Find(&state->layout.objectStore, objectId);
+    if (!object) {
+        core_mesh_asset_runtime_document_free(&document);
+        return false;
+    }
+    snprintf(object->meshInstance.assetId,
+             sizeof(object->meshInstance.assetId),
+             "%s",
+             document.contract.asset_id);
+    snprintf(object->meshInstance.sourceAssetId,
+             sizeof(object->meshInstance.sourceAssetId),
+             "%s",
+             document.contract.source_asset_id);
+    snprintf(object->meshInstance.runtimePath,
+             sizeof(object->meshInstance.runtimePath),
+             "%s",
+             runtimePath);
+    object->meshInstance.localBoundsMin = (Vec3){
+        (float)document.contract.local_bounds.min.x,
+        (float)document.contract.local_bounds.min.y,
+        (float)document.contract.local_bounds.min.z
+    };
+    object->meshInstance.localBoundsMax = (Vec3){
+        (float)document.contract.local_bounds.max.x,
+        (float)document.contract.local_bounds.max.y,
+        (float)document.contract.local_bounds.max.z
+    };
+    object->meshInstance.vertexCount = document.vertex_count;
+    object->meshInstance.triangleCount = document.triangle_count;
+    object->meshInstance.lockToBounds = false;
+    state->layout.scene3d.bounds.enabled = false;
+    state->spaceMode = SPACE_MODE_3D;
+    state->previewMode = LINE_DRAWING_PREVIEW_MODE_FLAT;
+    {
+        const char* previewMode = getenv("LINE_DRAWING_VISUAL_PREVIEW_MODE");
+        if (previewMode && strcmp(previewMode, "bounds") == 0) {
+            state->previewMode = LINE_DRAWING_PREVIEW_MODE_BOUNDS;
+        } else if (previewMode && strcmp(previewMode, "wire") == 0) {
+            state->previewMode = LINE_DRAWING_PREVIEW_MODE_WIREFRAME;
+        } else if (previewMode && strcmp(previewMode, "material") == 0) {
+            state->previewMode = LINE_DRAWING_PREVIEW_MODE_MATERIAL;
+        }
+    }
+    state->freeViewCamera.enabled = true;
+    state->freeViewCamera.yawDeg = 35.0f;
+    state->freeViewCamera.pitchDeg = 12.0f;
+    state->freeViewCamera.target = (Vec3){0.0f, 0.0f, 0.0f};
+    state->editor.selectedObject3DId = 0u;
+    state->editor.hoveredObject3DId = 0u;
+    core_mesh_asset_runtime_document_free(&document);
+    return true;
+}
+
 static int LineDrawingRunVisualArtifactProof(AppContext* app,
                                              const char* artifact_path,
                                              const char* proof_mode) {
+    const char* visualMeshPath = getenv("LINE_DRAWING_VISUAL_MESH_RUNTIME");
     VkResult capture_request = VK_ERROR_INITIALIZATION_FAILED;
     bool rendered = false;
     uint32_t draw_calls = 0u;
@@ -409,7 +511,22 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
 
     if (LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
         LineDrawingHostEnterEditor();
+        if (visualMeshPath && visualMeshPath[0] &&
+            !LineDrawingVisualArtifactStageMesh(visualMeshPath)) {
+            fprintf(stderr,
+                    "line_drawing: visual-artifact failed to stage mesh path=%s\n",
+                    visualMeshPath);
+            return 1;
+        }
         handleUpdate(app);
+    }
+
+    if (visualMeshPath && visualMeshPath[0]) {
+        if (!App_RenderOnce(app, handleRender)) {
+            fprintf(stderr, "line_drawing: visual-artifact mesh warmup render failed\n");
+            return 1;
+        }
+        SDL_Delay(180u);
     }
 
     capture_request = vk_renderer_request_capture(app->renderer, artifact_path);

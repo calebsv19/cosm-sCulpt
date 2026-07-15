@@ -373,25 +373,6 @@ void Layout_RenderObjectSurfaces(const Layout* layout, SDL_Renderer* renderer) {
                 }
                 LayoutSurface_RenderQuad(renderer, &faces[face_index]);
             }
-        } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
-            Vec3 corners3[8];
-            Vec3 visual_center = object->transform.position;
-            LayoutSurfaceQuad faces[6];
-            size_t face_count = 0u;
-            if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners3)) continue;
-            (void)Layout_Object3D_ComputeVisualCenter(object, &visual_center);
-            face_count = LayoutSurface_BuildBoxFaces(corners3,
-                                                     &view_ctx,
-                                                     &state->grid,
-                                                     view_dir,
-                                                     visual_center,
-                                                     base_color,
-                                                     alpha,
-                                                     faces);
-            qsort(faces, face_count, sizeof(faces[0]), LayoutSurface_CompareBackToFront);
-            for (size_t face_index = 0; face_index < face_count; ++face_index) {
-                LayoutSurface_RenderQuad(renderer, &faces[face_index]);
-            }
         }
     }
 }

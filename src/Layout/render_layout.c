@@ -6,6 +6,7 @@
 #include "Editor/editor.h"
 #include "Editor/primitive_placement_preview.h"
 #include "Layout/scene/layout_mesh_runtime_preview.h"
+#include "Layout/scene/layout_mesh_solid_preview.h"
 #include "Math/math_util.h"
 #include "ObjectAuthoring/object_authoring_document.h"
 #include <SDL2/SDL.h>
@@ -445,8 +446,12 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
             };
             if (!objectWorkspace) {
                 int thickness = 2;
+                const bool meshBoundsMode =
+                    object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
+                    state->previewMode == LINE_DRAWING_PREVIEW_MODE_BOUNDS;
                 const bool meshPreviewDrawn =
                     object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
+                    state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME &&
                     Layout_RenderMeshAssetInstanceWireframe(renderer,
                                                             object,
                                                             &viewCtx,
@@ -477,7 +482,9 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                     thickness = 2;
                 }
 
-                if (object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE || !meshPreviewDrawn) {
+                if (object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE ||
+                    (meshBoundsMode ||
+                     (!meshPreviewDrawn && (isSelected || isHovered)))) {
                     for (int e = 0; e < 12; ++e) {
                         const Vec2 a = corners2[kRectEdges[e][0]];
                         const Vec2 b = corners2[kRectEdges[e][1]];
@@ -488,7 +495,9 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                     }
                 }
 
-                if (!meshPreviewDrawn) {
+                if (!meshPreviewDrawn &&
+                    (object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE ||
+                     meshBoundsMode || isSelected || isHovered)) {
                     SDL_SetRenderDrawColor(renderer,
                                            ApplyDepthToChannel(95, depthFactor),
                                            ApplyDepthToChannel(140, depthFactor),
@@ -903,11 +912,34 @@ void Layout_Render(const Layout* layout, AppContext* ctx) {
     SDL_Renderer* renderer = ctx->renderer;
     GlobalState* state = Global_Get();
 
+    if (state &&
+        state->spaceMode == SPACE_MODE_3D &&
+        (state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME ||
+         state->previewMode == LINE_DRAWING_PREVIEW_MODE_FLAT ||
+         state->previewMode == LINE_DRAWING_PREVIEW_MODE_MATERIAL)) {
+        const SpaceViewContext viewContext = SpaceAdapter_BuildViewContext(state);
+        LayoutMeshSolidPreviewStyle style = LAYOUT_MESH_SOLID_STYLE_FLAT;
+        if (state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME) {
+            style = LAYOUT_MESH_SOLID_STYLE_WIRE_OUTLINE;
+        } else if (state->previewMode == LINE_DRAWING_PREVIEW_MODE_MATERIAL) {
+            style = LAYOUT_MESH_SOLID_STYLE_MATERIAL;
+        }
+        (void)Layout_RenderMeshSolidPreview(
+            renderer,
+            layout,
+            &viewContext,
+            &state->grid,
+            state->screenWidth,
+            state->screenHeight,
+            style,
+            NULL);
+    }
     Layout_RenderSceneBounds3D(layout, renderer);
     Layout_RenderPrimitivePlacementPreview(renderer);
     if (state &&
         state->spaceMode == SPACE_MODE_3D &&
-        state->previewMode != LINE_DRAWING_PREVIEW_MODE_WIREFRAME) {
+        (state->previewMode == LINE_DRAWING_PREVIEW_MODE_FLAT ||
+         state->previewMode == LINE_DRAWING_PREVIEW_MODE_MATERIAL)) {
         Layout_RenderObjectSurfaces(layout, renderer);
     }
     Layout_RenderObjects3D(layout, renderer);

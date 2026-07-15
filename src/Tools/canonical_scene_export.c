@@ -130,7 +130,8 @@ static bool is_allowed_camera_type(const char* value) {
 }
 
 static bool is_allowed_preview_mode(const char* value) {
-    return strcmp(value, "wireframe") == 0 ||
+    return strcmp(value, "bounds") == 0 ||
+           strcmp(value, "wireframe") == 0 ||
            strcmp(value, "flat") == 0 ||
            strcmp(value, "material") == 0;
 }

@@ -1,4 +1,5 @@
 #include "Layout/scene/layout_mesh_runtime_preview.h"
+#include "Layout/scene/layout_mesh_asset_path_resolver.h"
 
 #include "Layout/scene/layout_mesh_preview_sidecar.h"
 #include "core_io.h"
@@ -337,7 +338,13 @@ bool Layout_RenderMeshAssetInstanceWireframe(SDL_Renderer* renderer,
     Uint8 a = 210u;
     if (!renderer || !object || !viewCtx || !grid) return false;
     if (object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) return false;
-    cache = MeshPreview_CacheForPath(object->meshInstance.runtimePath);
+    char resolvedPath[512];
+    if (Layout_MeshAssetResolveRuntimePath(object->meshInstance.runtimePath,
+                                           resolvedPath,
+                                           sizeof(resolvedPath)) == LAYOUT_MESH_PATH_MISSING) {
+        return false;
+    }
+    cache = MeshPreview_CacheForPath(resolvedPath);
     if (!cache || cache->stats.edgeCount == 0u) return false;
 
     if (selected) {

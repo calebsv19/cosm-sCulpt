@@ -1,4 +1,5 @@
 #include "Render/vulkan_adapter.h"
+#include "Layout/scene/layout_mesh_solid_preview.h"
 #include "UI/text_draw.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
@@ -30,6 +31,7 @@ void VulkanAdapter_Shutdown(AppContext* ctx) {
     if (!ctx || !ctx->renderer) {
         return;
     }
+    Layout_MeshSolidPreviewShutdown((SDL_Renderer*)ctx->renderer);
     line_drawing_text_reset_renderer((SDL_Renderer*)ctx->renderer);
     vk_renderer_shutdown(ctx->renderer);
     ctx->renderer = NULL;

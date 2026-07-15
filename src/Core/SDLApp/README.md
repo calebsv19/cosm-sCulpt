@@ -12,3 +12,10 @@ This submodule wraps raw SDL2 setup and the main loop in a reusable interface.
 - `main.c` constructs an `AppContext`, sets the render mode to throttled 60 FPS, and hands function pointers to `App_Run`.
 - Input callbacks receive SDL events from wait+poll intake; update callbacks run once per loop; render callbacks run on dirty frames, interaction cadence, or bounded heartbeat.
 - When the window closes or `AppContext.quit` is set, `App_Shutdown` frees the renderer/window and calls `SDL_Quit`.
+- The existing visual-artifact lane can stage a real canonical runtime mesh by
+  setting `LINE_DRAWING_VISUAL_MESH_RUNTIME` alongside
+  `LINE_DRAWING_VISUAL_ARTIFACT`; it normalizes the mesh only in the temporary
+  proof scene, warms the adaptive preview into settled quality, and captures the
+  initialized renderer without changing normal startup behavior. Set
+  `LINE_DRAWING_VISUAL_PREVIEW_MODE` to `bounds`, `wire`, or `material` to prove
+  a non-default preview representation; unset values retain the flat default.

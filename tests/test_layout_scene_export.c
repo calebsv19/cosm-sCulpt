@@ -558,7 +558,7 @@ static bool test_canonical_scene_export_emits_canonical_camera_and_light_paths(v
 }
 
 static bool test_canonical_scene_export_emits_preview_mode_authoring_state(void) {
-    static const char* const modes[] = { "wireframe", "flat", "material" };
+    static const char* const modes[] = { "bounds", "wireframe", "flat", "material" };
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
     Layout* layout = &state->layout;

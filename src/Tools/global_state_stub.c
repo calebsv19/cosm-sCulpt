@@ -331,6 +331,7 @@ LineDrawingPreviewMode Global_GetPreviewMode(void) {
 
 const char* Global_GetPreviewModeLabel(LineDrawingPreviewMode mode) {
     switch (mode) {
+        case LINE_DRAWING_PREVIEW_MODE_BOUNDS: return "Bounds";
         case LINE_DRAWING_PREVIEW_MODE_FLAT: return "Flat";
         case LINE_DRAWING_PREVIEW_MODE_MATERIAL: return "Material";
         case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
@@ -340,6 +341,7 @@ const char* Global_GetPreviewModeLabel(LineDrawingPreviewMode mode) {
 
 const char* Global_GetPreviewModeExportValue(LineDrawingPreviewMode mode) {
     switch (mode) {
+        case LINE_DRAWING_PREVIEW_MODE_BOUNDS: return "bounds";
         case LINE_DRAWING_PREVIEW_MODE_FLAT: return "flat";
         case LINE_DRAWING_PREVIEW_MODE_MATERIAL: return "material";
         case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
@@ -348,7 +350,8 @@ const char* Global_GetPreviewModeExportValue(LineDrawingPreviewMode mode) {
 }
 
 bool Global_SetPreviewMode(LineDrawingPreviewMode mode) {
-    if (mode != LINE_DRAWING_PREVIEW_MODE_WIREFRAME &&
+    if (mode != LINE_DRAWING_PREVIEW_MODE_BOUNDS &&
+        mode != LINE_DRAWING_PREVIEW_MODE_WIREFRAME &&
         mode != LINE_DRAWING_PREVIEW_MODE_FLAT &&
         mode != LINE_DRAWING_PREVIEW_MODE_MATERIAL) {
         return false;
@@ -359,13 +362,15 @@ bool Global_SetPreviewMode(LineDrawingPreviewMode mode) {
 
 bool Global_TogglePreviewMode(void) {
     switch (g_stubState.previewMode) {
+        case LINE_DRAWING_PREVIEW_MODE_BOUNDS:
+            return Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_WIREFRAME);
         case LINE_DRAWING_PREVIEW_MODE_WIREFRAME:
             return Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_FLAT);
         case LINE_DRAWING_PREVIEW_MODE_FLAT:
             return Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_MATERIAL);
         case LINE_DRAWING_PREVIEW_MODE_MATERIAL:
         default:
-            return Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_WIREFRAME);
+            return Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_BOUNDS);
     }
 }
 
