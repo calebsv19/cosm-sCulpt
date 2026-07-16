@@ -2,6 +2,7 @@
 
 #include "Tools/shape_export.h"
 #include "cjson/cJSON.h"
+#include "core_mesh_asset.h"
 
 #include <errno.h>
 #include <ctype.h>
@@ -148,7 +149,17 @@ static bool copy_manifest_mesh_sidecars(const char* project_root,
         char filename[256];
         char relative_path[SHAPE_EXPORT_PATH_MAX];
         char dest_path[SHAPE_EXPORT_PATH_MAX];
+        CoreMeshAssetRuntimeDocument runtime_document;
+        CoreResult result;
         if (!object->source_mesh_sidecar_path || !object->source_mesh_sidecar_path[0]) continue;
+        core_mesh_asset_runtime_document_init(&runtime_document);
+        result = core_mesh_asset_runtime_document_load_file(object->source_mesh_sidecar_path,
+                                                            &runtime_document);
+        if (result.code == CORE_OK) {
+            result = core_mesh_asset_runtime_document_validate(&runtime_document);
+        }
+        core_mesh_asset_runtime_document_free(&runtime_document);
+        if (result.code != CORE_OK) return false;
         if (!build_mesh_sidecar_filename(object, filename, sizeof(filename))) return false;
         if (!build_mesh_sidecar_relative_path(filename, relative_path, sizeof(relative_path))) return false;
         if (!build_path(project_root, relative_path, dest_path, sizeof(dest_path))) return false;

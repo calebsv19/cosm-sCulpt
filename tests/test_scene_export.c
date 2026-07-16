@@ -7,6 +7,7 @@
 #include "Tools/scene_export.h"
 #include "Tools/scene_project_export.h"
 #include "cjson/cJSON.h"
+#include "core_mesh_asset.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -454,21 +455,44 @@ static bool test_scene_export_project_root_populates_mesh_manifest_sidecar(void)
     cJSON* manifest = NULL;
     const cJSON* objects = NULL;
     const cJSON* object = NULL;
+    CoreMeshAssetRuntimeDocument copied_runtime;
     Transform3D transform;
     uint32_t object_id = 0u;
     Layout layout;
     LineDrawingSceneExportPaths export_paths;
     const char* runtime_json =
         "{"
+        "\"schema_family\":\"codework_geometry\","
         "\"schema_variant\":\"mesh_asset_runtime_v1\","
+        "\"schema_version\":1,"
         "\"asset_id\":\"asset_project_mesh\","
         "\"source_asset_id\":\"source_project_mesh\","
-        "\"vertex_count\":8,"
-        "\"triangle_count\":12,"
+        "\"asset_type\":\"solid_mesh\","
         "\"local_bounds\":{"
-            "\"min\":{\"x\":-0.5,\"y\":-1.0,\"z\":-1.5},"
-            "\"max\":{\"x\":0.5,\"y\":1.0,\"z\":1.5}"
-        "}"
+            "\"min\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},"
+            "\"max\":{\"x\":1.0,\"y\":1.0,\"z\":1.0}"
+        "},"
+        "\"topology_flags\":{\"closed_volume\":true,\"manifold_expected\":true},"
+        "\"mesh\":{"
+            "\"vertex_count\":4,\"triangle_count\":4,"
+            "\"vertices\":["
+                "{\"x\":0.0,\"y\":0.0,\"z\":0.0},"
+                "{\"x\":1.0,\"y\":0.0,\"z\":0.0},"
+                "{\"x\":0.0,\"y\":1.0,\"z\":0.0},"
+                "{\"x\":0.0,\"y\":0.0,\"z\":1.0}"
+            "],"
+            "\"triangles\":["
+                "{\"a\":0,\"b\":1,\"c\":2,\"surface_group_id\":\"surface\"},"
+                "{\"a\":0,\"b\":3,\"c\":1,\"surface_group_id\":\"surface\"},"
+                "{\"a\":0,\"b\":2,\"c\":3,\"surface_group_id\":\"surface\"},"
+                "{\"a\":1,\"b\":3,\"c\":2,\"surface_group_id\":\"surface\"}"
+            "]"
+        "},"
+        "\"surface_groups\":[{"
+            "\"group_id\":\"surface\","
+            "\"triangle_span\":{\"start\":0,\"count\":4}"
+        "}],"
+        "\"extensions\":{}"
         "}";
 
     source_root = mkdtemp(source_template);
@@ -510,8 +534,8 @@ static bool test_scene_export_project_root_populates_mesh_manifest_sidecar(void)
     TEST_ASSERT(json_string_equals(object, "mesh_asset_id", "asset_project_mesh"));
     TEST_ASSERT(json_string_equals(object, "source_asset_id", "source_project_mesh"));
     TEST_ASSERT(json_string_equals(object, "mesh_sidecar_path", "assets/mesh_assets/asset_project_mesh.runtime.json"));
-    TEST_ASSERT(cJSON_GetObjectItem(object, "vertex_count")->valueint == 8);
-    TEST_ASSERT(cJSON_GetObjectItem(object, "triangle_count")->valueint == 12);
+    TEST_ASSERT(cJSON_GetObjectItem(object, "vertex_count")->valueint == 4);
+    TEST_ASSERT(cJSON_GetObjectItem(object, "triangle_count")->valueint == 4);
     TEST_ASSERT(cJSON_IsFalse(cJSON_GetObjectItem(object, "physics_extension_present")));
     TEST_ASSERT(cJSON_IsFalse(cJSON_GetObjectItem(object, "ray_tracing_extension_present")));
 
@@ -521,10 +545,60 @@ static bool test_scene_export_project_root_populates_mesh_manifest_sidecar(void)
                                    sizeof(copied_runtime_path)));
     TEST_ASSERT(path_exists(copied_runtime_path));
     TEST_ASSERT(file_contains(copied_runtime_path, "\"asset_id\":\"asset_project_mesh\""));
+    core_mesh_asset_runtime_document_init(&copied_runtime);
+    TEST_ASSERT(core_mesh_asset_runtime_document_load_file(copied_runtime_path,
+                                                           &copied_runtime).code == CORE_OK);
+    TEST_ASSERT(core_mesh_asset_runtime_document_validate(&copied_runtime).code == CORE_OK);
+    TEST_ASSERT(copied_runtime.vertex_count == 4u);
+    TEST_ASSERT(copied_runtime.triangle_count == 4u);
+    core_mesh_asset_runtime_document_free(&copied_runtime);
 
     cJSON_Delete(manifest);
     free(manifest_text);
     Layout_Free(&layout);
+    return true;
+}
+
+static bool test_scene_project_export_rejects_metadata_only_mesh_sidecar(void) {
+    char source_template[] = "/tmp/ld_scene_project_invalid_mesh_source_XXXXXX";
+    char project_template[] = "/tmp/ld_scene_project_invalid_mesh_export_XXXXXX";
+    char* source_root = mkdtemp(source_template);
+    char* project_root = mkdtemp(project_template);
+    char runtime_path[512];
+    char diagnostics[256];
+    LineDrawingSceneProjectManifestObject object = {0};
+    LineDrawingSceneProjectExportOptions options = {0};
+    const char* metadata_only_json =
+        "{"
+        "\"schema_variant\":\"mesh_asset_runtime_v1\","
+        "\"asset_id\":\"asset_metadata_only\","
+        "\"source_asset_id\":\"source_metadata_only\","
+        "\"vertex_count\":8,"
+        "\"triangle_count\":12"
+        "}";
+
+    TEST_ASSERT(source_root != NULL);
+    TEST_ASSERT(project_root != NULL);
+    TEST_ASSERT(build_fixture_path(source_root,
+                                   "metadata_only.runtime.json",
+                                   runtime_path,
+                                   sizeof(runtime_path)));
+    TEST_ASSERT(write_text_file(runtime_path, metadata_only_json));
+
+    object.object_id = "obj_metadata_only";
+    object.mesh_asset_id = "asset_metadata_only";
+    object.source_asset_id = "source_metadata_only";
+    object.source_mesh_sidecar_path = runtime_path;
+    object.vertex_count = 8u;
+    object.triangle_count = 12u;
+    options.objects = &object;
+    options.object_count = 1u;
+
+    TEST_ASSERT(!LineDrawingSceneProjectExport_WriteProjectFiles(project_root,
+                                                                 &options,
+                                                                 diagnostics,
+                                                                 sizeof(diagnostics)));
+    TEST_ASSERT(strcmp(diagnostics, "failed to copy project mesh sidecar") == 0);
     return true;
 }
 
@@ -736,6 +810,8 @@ bool scene_export_run_tests(void) {
           test_scene_export_project_root_writes_scene_and_project_files },
         { "scene_export_project_root_populates_mesh_manifest_sidecar",
           test_scene_export_project_root_populates_mesh_manifest_sidecar },
+        { "scene_project_export_rejects_metadata_only_mesh_sidecar",
+          test_scene_project_export_rejects_metadata_only_mesh_sidecar },
         { "scene_project_scaffold_keeps_authoring_as_editable_import",
           test_scene_project_scaffold_keeps_authoring_as_editable_import },
         { "scene_import_accepts_supported_authoring_unit_metadata",
