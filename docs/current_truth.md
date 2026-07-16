@@ -627,8 +627,9 @@ Last updated: 2026-07-14
   shared `kit_viewport3d >= 0.1.0` for the same stable object-accent and
   silhouette/depth/owner outline roles used by RayTracing; projection,
   rasterization, quality/cache policy, SDL upload, and authoring remain local.
-  The EVN2
-  contract remains a rollback oracle through CV3D4 hands-on acceptance.
+  Managed shared snapshot `a0714c0` now carries the matching core/kit
+  contracts without a workspace-root fallback. The EVN2 contract remains a
+  rollback oracle through CV3D4 hands-on acceptance.
 - `line_drawing` is closed as upstream authoring/export source for current primitive scope.
 - Current local drift now includes a durable app-host upgrade:
   - menu-first host split before the editor session
