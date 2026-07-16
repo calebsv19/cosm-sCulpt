@@ -294,6 +294,13 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
         }
 
         if (event->type == SDL_KEYDOWN &&
+            event->key.keysym.sym == SDLK_f &&
+            (mods & (KMOD_CTRL | KMOD_GUI | KMOD_SHIFT | KMOD_ALT)) == 0) {
+            (void)InputEditorAction_FrameViewport();
+            return;
+        }
+
+        if (event->type == SDL_KEYDOWN &&
             event->key.keysym.sym == SDLK_n &&
             (mods & (KMOD_CTRL | KMOD_GUI | KMOD_ALT)) == 0) {
             if (Global_TogglePreviewMode()) {

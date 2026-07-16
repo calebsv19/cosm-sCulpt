@@ -207,7 +207,7 @@ Low-risk theme preset persistence paths now use shared `core_io`:
 - `[` / `]` — move active plane offset by one grid unit (hold `Shift` for 10x step).
 - `V` — toggle between `PLANE_VIEW` and `FREE_VIEW`.
 - In `FREE_VIEW`: `Q`/`E` yaw, `T`/`G` pitch, `I`/`K` move view target up/down, `J`/`L` move view target left/right.
-- In `FREE_VIEW`: hold `Alt/Option` and move the mouse to orbit around the layout centroid (no click required).
+- In `FREE_VIEW`: `Alt/Option` + left drag orbits around the durable view target; middle-button drag pans in the camera screen basis; the mouse wheel zooms around the pointer; and `F` frames the selected 3D object or the full scene.
 - `O` — recenter the grid to the selected anchor.
 - `P` — toggle the selected anchor's persistence.
 - `C` — toggle the selected anchor between sharp corner and smooth curve (requires exactly two connected walls).

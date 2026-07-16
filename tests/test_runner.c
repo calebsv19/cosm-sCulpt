@@ -38,6 +38,9 @@ bool render_readonly_contract_run_tests(void);
 bool startup_config_run_tests(void);
 bool app_wrapper_diagnostics_run_tests(void);
 bool shutdown_lifetime_run_tests(void);
+bool viewport_navigation_input_run_tests(void);
+bool viewport_navigation_parity_run_tests(void);
+bool viewport3d_bridge_run_tests(void);
 
 typedef struct TestGroup {
     const char* name;
@@ -81,6 +84,9 @@ static const TestGroup kTestGroups[] = {
     {"StartupConfig", startup_config_run_tests, true},
     {"AppWrapperDiagnostics", app_wrapper_diagnostics_run_tests, true},
     {"ShutdownLifetime", shutdown_lifetime_run_tests, true},
+    {"ViewportNavigationInput", viewport_navigation_input_run_tests, true},
+    {"ViewportNavigationParity", viewport_navigation_parity_run_tests, true},
+    {"Viewport3DBridge", viewport3d_bridge_run_tests, true},
 };
 
 static bool test_group_name_matches(const char* lhs, const char* rhs) {

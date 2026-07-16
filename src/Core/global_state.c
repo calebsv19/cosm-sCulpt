@@ -3,6 +3,7 @@
 #include "Layout/scene/layout_scene_path_traversal.h"
 #include "Core/line_drawing_startup_config.h"
 #include "Core/space_mode_adapter.h"
+#include "Core/viewport3d_bridge.h"
 #include "Core/workspace/line_drawing_workspace_mode_handoff.h"
 #include "Layout/hitbox_system.h"
 #include "UI/ui_panel.h"
@@ -618,7 +619,14 @@ void Global_TickSystems(AppContext* ctx) {
 
 
 void Global_SetWindowSize(int w, int h) {
+    CorePaneRect old_viewport = {0};
+    CorePaneRect new_viewport = {0};
+    bool preserve_free_view_target = false;
+    FreeViewCamera resized_camera;
+    Grid resized_grid;
     if (!global) return;
+    preserve_free_view_target = global->freeViewCamera.enabled &&
+        LineDrawingPaneHost_GetViewportRect(&global->paneHost, &old_viewport);
     global->screenWidth = w;
     global->screenHeight = h;
     if (global->paneHost.target_top_height <= 0.0f ||
@@ -630,6 +638,25 @@ void Global_SetWindowSize(int w, int h) {
         !LineDrawingPaneHost_Rebuild(&global->paneHost, (float)w, (float)h)) {
         fprintf(stderr, "[Core] pane host rebuild failed: %s\n",
                 LineDrawingPaneHost_LastError(&global->paneHost));
+    }
+    if (preserve_free_view_target &&
+        LineDrawingPaneHost_GetViewportRect(&global->paneHost, &new_viewport)) {
+        resized_camera = global->freeViewCamera;
+        resized_grid = global->grid;
+        if (LineDrawingViewport3DBridgeApplyResize(
+                &global->freeViewCamera,
+                &global->grid,
+                (double)old_viewport.x + (double)old_viewport.width * 0.5,
+                (double)old_viewport.y + (double)old_viewport.height * 0.5,
+                (double)new_viewport.x + (double)new_viewport.width * 0.5,
+                (double)new_viewport.y + (double)new_viewport.height * 0.5,
+                0.01,
+                (double)GRID_DEFAULT_MAX_SCALE,
+                &resized_camera,
+                &resized_grid)) {
+            global->freeViewCamera = resized_camera;
+            global->grid = resized_grid;
+        }
     }
     UIPanel_OnWindowResized(w, h);
     Global_FlagGridChanged();

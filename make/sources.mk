@@ -4,6 +4,7 @@ KIT_RENDER_SRCS := \
 	$(KIT_RENDER_DIR)/src/kit_render_backend_vk.c \
 	$(KIT_RENDER_DIR)/src/kit_render_external_text.c
 KIT_PANE_SRCS := $(KIT_PANE_DIR)/src/kit_pane.c
+KIT_VIEWPORT3D_SRCS := $(KIT_VIEWPORT3D_DIR)/src/kit_viewport3d.c
 KIT_WORKSPACE_AUTHORING_SRCS := \
 	$(KIT_WORKSPACE_AUTHORING_DIR)/src/kit_workspace_authoring.c \
 	$(KIT_WORKSPACE_AUTHORING_DIR)/src/ui/kit_workspace_authoring_ui_overlay.c \
@@ -20,9 +21,9 @@ ifeq ($(UNAME_S),Darwin)
 else
 	CORE_TIME_SRCS += $(CORE_TIME_DIR)/src/core_time_posix.c
 endif
-CORE_SRCS := $(CORE_BASE_DIR)/src/core_base.c $(CORE_IO_DIR)/src/core_io.c $(CORE_DATA_DIR)/src/core_data.c $(CORE_PACK_DIR)/src/core_pack.c $(CORE_MATH_DIR)/src/core_math.c $(CORE_TIME_SRCS) $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset.c $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset_authoring_document.c $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset_runtime_document.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile_imported_mesh.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile_normals.c $(CORE_MESH_PREVIEW_DIR)/src/core_mesh_preview.c $(CORE_MESH_PREVIEW_DIR)/src/core_mesh_preview_lod.c $(CORE_SCENE_DIR)/src/core_scene.c $(CORE_SCENE_VIEW_DIR)/src/core_scene_view.c $(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile.c $(CORE_OBJECT_DIR)/src/core_object.c $(CORE_UNITS_DIR)/src/core_units.c $(CORE_LAYOUT_DIR)/src/core_layout.c $(CORE_PANE_DIR)/src/core_pane.c $(CORE_PANE_MODULE_DIR)/src/core_pane_module.c $(CORE_THEME_DIR)/src/core_theme.c $(CORE_FONT_DIR)/src/core_font.c
+CORE_SRCS := $(CORE_BASE_DIR)/src/core_base.c $(CORE_IO_DIR)/src/core_io.c $(CORE_DATA_DIR)/src/core_data.c $(CORE_PACK_DIR)/src/core_pack.c $(CORE_MATH_DIR)/src/core_math.c $(CORE_TIME_SRCS) $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset.c $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset_authoring_document.c $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset_runtime_document.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile_imported_mesh.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile_normals.c $(CORE_MESH_PREVIEW_DIR)/src/core_mesh_preview.c $(CORE_MESH_PREVIEW_DIR)/src/core_mesh_preview_lod.c $(CORE_SCENE_DIR)/src/core_scene.c $(CORE_SCENE_VIEW_DIR)/src/core_scene_view.c $(CORE_VIEWPORT3D_DIR)/src/core_viewport3d.c $(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile.c $(CORE_OBJECT_DIR)/src/core_object.c $(CORE_UNITS_DIR)/src/core_units.c $(CORE_LAYOUT_DIR)/src/core_layout.c $(CORE_PANE_DIR)/src/core_pane.c $(CORE_PANE_MODULE_DIR)/src/core_pane_module.c $(CORE_THEME_DIR)/src/core_theme.c $(CORE_FONT_DIR)/src/core_font.c
 TIMER_HUD_SRCS := $(shell find $(TIMER_HUD_DIR)/src -name '*.c')
-ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(KIT_RENDER_SRCS) $(KIT_PANE_SRCS) $(KIT_WORKSPACE_AUTHORING_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
+ALL_SRCS := $(APP_SRCS) $(VK_RENDERER_SRCS) $(KIT_RENDER_SRCS) $(KIT_PANE_SRCS) $(KIT_VIEWPORT3D_SRCS) $(KIT_WORKSPACE_AUTHORING_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
 
 TEST_SRCS := $(filter-out $(TEST_DIR)/shared_theme_font_adapter_test.c $(TEST_DIR)/test_input_policy_entry.c $(TEST_DIR)/line_drawing_folder_picker_test.c,$(shell find $(TEST_DIR) -name '*.c'))
 SHARED_THEME_FONT_ADAPTER_TEST_SRCS := tests/shared_theme_font_adapter_test.c

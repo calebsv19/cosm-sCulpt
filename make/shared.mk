@@ -9,6 +9,7 @@ SHARED_ASSETS_DIR := $(SHARED_ROOT)/assets
 SHAPE_DIR := $(SHARED_ROOT)/shape
 KIT_RENDER_DIR := $(SHARED_ROOT)/kit/kit_render
 KIT_PANE_DIR := $(SHARED_ROOT)/kit/kit_pane
+KIT_VIEWPORT3D_DIR := $(SHARED_ROOT)/kit/kit_viewport3d
 KIT_WORKSPACE_AUTHORING_DIR := $(SHARED_ROOT)/kit/kit_workspace_authoring
 VK_RENDERER_DIR := $(SHARED_ROOT)/vk_renderer
 CORE_BASE_DIR := $(SHARED_ROOT)/core/core_base
@@ -21,6 +22,7 @@ CORE_MESH_COMPILE_DIR := $(SHARED_ROOT)/core/core_mesh_compile
 CORE_MESH_PREVIEW_DIR := $(SHARED_ROOT)/core/core_mesh_preview
 CORE_SCENE_DIR := $(SHARED_ROOT)/core/core_scene
 CORE_SCENE_VIEW_DIR := $(SHARED_ROOT)/core/core_scene_view
+CORE_VIEWPORT3D_DIR := $(SHARED_ROOT)/core/core_viewport3d
 CORE_OBJECT_DIR := $(SHARED_ROOT)/core/core_object
 CORE_UNITS_DIR := $(SHARED_ROOT)/core/core_units
 CORE_LAYOUT_DIR := $(SHARED_ROOT)/core/core_layout
@@ -35,6 +37,12 @@ TIMER_HUD_DIR := $(SHARED_ROOT)/timer_hud
 
 ifeq ($(wildcard $(CORE_SCENE_VIEW_DIR)/include/core_scene_view.h),)
 CORE_SCENE_VIEW_DIR := $(SHARED_WORKSPACE_DIR)/core/core_scene_view
+endif
+ifeq ($(wildcard $(CORE_VIEWPORT3D_DIR)/include/core_viewport3d.h),)
+CORE_VIEWPORT3D_DIR := $(SHARED_WORKSPACE_DIR)/core/core_viewport3d
+endif
+ifeq ($(wildcard $(KIT_VIEWPORT3D_DIR)/include/kit_viewport3d.h),)
+KIT_VIEWPORT3D_DIR := $(SHARED_WORKSPACE_DIR)/kit/kit_viewport3d
 endif
 
 SHAPE_SYNC_SCRIPT := $(SHAPE_DIR)/sync_exports.sh

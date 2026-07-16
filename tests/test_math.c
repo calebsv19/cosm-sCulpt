@@ -1,6 +1,7 @@
 #include "test_framework.h"
 
 #include "Core/viewport_zoom.h"
+#include "Core/viewport_navigation_contract.h"
 #include "Editor/space_gizmo_drag.h"
 #include "Layout/Grid/grid.h"
 #include "Math/math_util.h"
@@ -320,6 +321,150 @@ static bool test_free_view_orbit_normalize_handles_pole_crossing(void) {
     return true;
 }
 
+static bool test_viewport_navigation_orbit_preserves_durable_target(void) {
+    const LineDrawingViewportNavState before = {
+        .target = { 4.0f, -3.0f, 2.0f },
+        .yaw_deg = 350.0f,
+        .pitch_deg = 15.0f,
+        .zoom_scale = 20.0f,
+        .view_offset_x = -2.0f,
+        .view_offset_y = 1.0f
+    };
+    const LineDrawingViewportNavCommand command = {
+        .kind = LINE_DRAWING_VIEWPORT_NAV_COMMAND_ORBIT,
+        .screen_dx = 40.0f,
+        .screen_dy = 10.0f,
+        .orbit_yaw_per_pixel = 0.5f,
+        .orbit_pitch_per_pixel = -0.25f
+    };
+    LineDrawingViewportNavState after = {0};
+    TEST_ASSERT(LineDrawingViewportNavApply(&before, &command, &after));
+    TEST_ASSERT(nearly_equal(after.target.x, before.target.x));
+    TEST_ASSERT(nearly_equal(after.target.y, before.target.y));
+    TEST_ASSERT(nearly_equal(after.target.z, before.target.z));
+    TEST_ASSERT(nearly_equal(after.yaw_deg, 10.0f));
+    TEST_ASSERT(nearly_equal(after.pitch_deg, 12.5f));
+    TEST_ASSERT(nearly_equal(after.zoom_scale, before.zoom_scale));
+    TEST_ASSERT(nearly_equal(after.view_offset_x, before.view_offset_x));
+    TEST_ASSERT(nearly_equal(after.view_offset_y, before.view_offset_y));
+    return true;
+}
+
+static bool test_viewport_navigation_pan_uses_camera_screen_basis(void) {
+    const LineDrawingViewportNavState before = {
+        .target = { 0.0f, 0.0f, 0.0f },
+        .yaw_deg = 0.0f,
+        .pitch_deg = 0.0f,
+        .zoom_scale = 10.0f,
+        .view_offset_x = 0.0f,
+        .view_offset_y = 0.0f
+    };
+    LineDrawingViewportNavCommand command = {
+        .kind = LINE_DRAWING_VIEWPORT_NAV_COMMAND_PAN,
+        .screen_dx = 20.0f,
+        .screen_dy = 10.0f,
+        .grid_size = 1.0f
+    };
+    LineDrawingViewportNavState after = {0};
+    LineDrawingViewportNavState sentinel = {
+        .target = { 8.0f, 9.0f, 10.0f },
+        .yaw_deg = 11.0f,
+        .pitch_deg = 12.0f,
+        .zoom_scale = 13.0f,
+        .view_offset_x = 14.0f,
+        .view_offset_y = 15.0f
+    };
+    TEST_ASSERT(LineDrawingViewportNavApply(&before, &command, &after));
+    TEST_ASSERT(nearly_equal(after.target.x, 0.0f));
+    TEST_ASSERT(nearly_equal(after.target.y, 2.0f));
+    TEST_ASSERT(nearly_equal(after.target.z, -1.0f));
+    command.grid_size = 0.0f;
+    after = sentinel;
+    TEST_ASSERT(!LineDrawingViewportNavApply(&before, &command, &after));
+    TEST_ASSERT(nearly_equal(after.target.x, sentinel.target.x));
+    TEST_ASSERT(nearly_equal(after.zoom_scale, sentinel.zoom_scale));
+    return true;
+}
+
+static bool test_viewport_navigation_zoom_preserves_screen_anchor(void) {
+    const LineDrawingViewportNavState before = {
+        .target = { 5.0f, 6.0f, 7.0f },
+        .yaw_deg = 35.0f,
+        .pitch_deg = 20.0f,
+        .zoom_scale = 10.0f,
+        .view_offset_x = -3.0f,
+        .view_offset_y = 4.0f
+    };
+    const LineDrawingViewportNavCommand command = {
+        .kind = LINE_DRAWING_VIEWPORT_NAV_COMMAND_ZOOM,
+        .zoom_factor = 2.0f,
+        .anchor_screen_x = 320.0f,
+        .anchor_screen_y = 180.0f,
+        .grid_size = 1.0f,
+        .min_zoom_scale = 1.0f,
+        .max_zoom_scale = 100.0f
+    };
+    const float before_x = command.anchor_screen_x /
+                               (before.zoom_scale * command.grid_size) +
+                           before.view_offset_x;
+    const float before_y = command.anchor_screen_y /
+                               (before.zoom_scale * command.grid_size) +
+                           before.view_offset_y;
+    LineDrawingViewportNavState after = {0};
+    float after_x = 0.0f;
+    float after_y = 0.0f;
+    TEST_ASSERT(LineDrawingViewportNavApply(&before, &command, &after));
+    after_x = command.anchor_screen_x / (after.zoom_scale * command.grid_size) +
+              after.view_offset_x;
+    after_y = command.anchor_screen_y / (after.zoom_scale * command.grid_size) +
+              after.view_offset_y;
+    TEST_ASSERT(nearly_equal(before_x, after_x));
+    TEST_ASSERT(nearly_equal(before_y, after_y));
+    TEST_ASSERT(nearly_equal(after.target.x, before.target.x));
+    TEST_ASSERT(nearly_equal(after.target.y, before.target.y));
+    TEST_ASSERT(nearly_equal(after.target.z, before.target.z));
+    return true;
+}
+
+static bool test_viewport_navigation_frame_and_resize_contract(void) {
+    const LineDrawingViewportNavState before = {
+        .target = { 1.0f, 2.0f, 3.0f },
+        .yaw_deg = 35.0f,
+        .pitch_deg = 20.0f,
+        .zoom_scale = 12.0f,
+        .view_offset_x = 4.0f,
+        .view_offset_y = 5.0f
+    };
+    LineDrawingViewportNavCommand command = {
+        .kind = LINE_DRAWING_VIEWPORT_NAV_COMMAND_FRAME,
+        .grid_size = 1.0f,
+        .frame_target = { 8.0f, 9.0f, 10.0f },
+        .frame_zoom_scale = 25.0f,
+        .viewport_center_x = 400.0f,
+        .viewport_center_y = 300.0f
+    };
+    LineDrawingViewportNavState framed = {0};
+    LineDrawingViewportNavState resized = {0};
+    TEST_ASSERT(LineDrawingViewportNavApply(&before, &command, &framed));
+    TEST_ASSERT(nearly_equal(framed.target.x, 8.0f));
+    TEST_ASSERT(nearly_equal(framed.target.y, 9.0f));
+    TEST_ASSERT(nearly_equal(framed.target.z, 10.0f));
+    TEST_ASSERT(nearly_equal(framed.zoom_scale, 25.0f));
+    TEST_ASSERT(nearly_equal(framed.view_offset_x, -16.0f));
+    TEST_ASSERT(nearly_equal(framed.view_offset_y, -12.0f));
+    command = (LineDrawingViewportNavCommand){
+        .kind = LINE_DRAWING_VIEWPORT_NAV_COMMAND_RESIZE
+    };
+    TEST_ASSERT(LineDrawingViewportNavApply(&framed, &command, &resized));
+    TEST_ASSERT(nearly_equal(resized.target.x, framed.target.x));
+    TEST_ASSERT(nearly_equal(resized.target.y, framed.target.y));
+    TEST_ASSERT(nearly_equal(resized.target.z, framed.target.z));
+    TEST_ASSERT(nearly_equal(resized.zoom_scale, framed.zoom_scale));
+    TEST_ASSERT(nearly_equal(resized.view_offset_x, framed.view_offset_x));
+    TEST_ASSERT(nearly_equal(resized.view_offset_y, framed.view_offset_y));
+    return true;
+}
+
 static bool test_gizmo_signed_pixels_axis_projection(void) {
     Vec2 start = { 100.0f, 50.0f };
     Vec2 nowForward = { 128.0f, 50.0f };
@@ -406,6 +551,10 @@ bool math_run_tests(void) {
         { "HandlePolarRoundtripXY", test_handle_polar_roundtrip_xy },
         { "HandlePolarRoundtripYZ", test_handle_polar_roundtrip_yz },
         { "FreeViewOrbitNormalizeHandlesPoleCrossing", test_free_view_orbit_normalize_handles_pole_crossing },
+        { "ViewportNavigationOrbitPreservesDurableTarget", test_viewport_navigation_orbit_preserves_durable_target },
+        { "ViewportNavigationPanUsesCameraScreenBasis", test_viewport_navigation_pan_uses_camera_screen_basis },
+        { "ViewportNavigationZoomPreservesScreenAnchor", test_viewport_navigation_zoom_preserves_screen_anchor },
+        { "ViewportNavigationFrameAndResizeContract", test_viewport_navigation_frame_and_resize_contract },
         { "GizmoSignedPixelsAxisProjection", test_gizmo_signed_pixels_axis_projection },
         { "GizmoSignedPixelsHandlesDegenerateAxis", test_gizmo_signed_pixels_handles_degenerate_axis },
         { "GizmoQuantizedDistanceRoundsSignedSteps", test_gizmo_quantized_distance_rounds_signed_steps },

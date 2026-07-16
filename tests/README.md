@@ -50,6 +50,13 @@ outside the host C runner.
 - `test_shutdown_lifetime.c` — covers `Global_Shutdown(...)` no-op/idempotent
   behavior and proves shutdown waits for and clears the File-pane async STL
   worker handle before releasing global state.
+- `test_viewport3d_bridge.c` — proves the exact `FreeViewCamera` + Grid
+  effective-target conversion, round-trip projection, shared pan/anchor zoom,
+  orbit storage, resize effective-target preservation, and invalid-input
+  nonmutation for the `core_viewport3d >= 0.1.0` adapter.
+- `test_viewport_navigation_input.c` and `test_viewport_navigation_parity.c`
+  — preserve LineDrawing input/arbitration and EVN rollback-oracle coverage
+  around the shared bridge cutover.
 - `test_imported_mesh_harness.sh` — covers deterministic imported mesh harness
   fixtures plus missing/invalid input diagnostics.
 - `test_agent_scene_tool.sh` and `test_agent_scene_refine_lighting_policy.py`
@@ -67,6 +74,9 @@ make test
 make test ARGS=StartupConfig
 make test ARGS=UIPanelFileBrowser
 make test ARGS=UIPanelFileBrowserSession
+make test ARGS=Viewport3DBridge
+make test ARGS=ViewportNavigationInput
+make test ARGS=ViewportNavigationParity
 make agent-scene-failure-smoke
 make agent-scene-smoke
 ```

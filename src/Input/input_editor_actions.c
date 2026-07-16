@@ -3,6 +3,8 @@
 #include "Core/global_state.h"
 #include "Core/line_drawing_pane_host.h"
 #include "Core/space_mode_adapter.h"
+#include "Core/viewport3d_bridge.h"
+#include "Core/viewport_navigation_contract.h"
 #include "Editor/editor.h"
 #include "Layout/layout.h"
 #include "Layout/scene/layout_object_faces.h"
@@ -97,17 +99,10 @@ static bool InputEditorAction_GetViewportRect(const GlobalState* state, CorePane
     return out_rect->width > 1.0f && out_rect->height > 1.0f;
 }
 
-static void InputEditorAction_RecenterFreeViewOnProjectedOrigin(GlobalState* state) {
-    CorePaneRect viewport = {0};
-    if (!state || state->grid.gridSize <= 0.0f || state->grid.scale <= 0.0f) return;
-    if (!InputEditorAction_GetViewportRect(state, &viewport)) return;
-    state->grid.offsetX = -(viewport.x + (viewport.width * 0.5f)) /
-                          (state->grid.gridSize * state->grid.scale);
-    state->grid.offsetY = -(viewport.y + (viewport.height * 0.5f)) /
-                          (state->grid.gridSize * state->grid.scale);
-}
-
-static void InputEditorAction_FitFreeViewObjectBounds(GlobalState* state, Vec3 min, Vec3 max) {
+static bool InputEditorAction_ResolveFreeViewFitScale(GlobalState* state,
+                                                      Vec3 min,
+                                                      Vec3 max,
+                                                      float* out_scale) {
     CorePaneRect viewport = {0};
     SpaceViewContext view_ctx = {0};
     float min_x = FLT_MAX;
@@ -120,8 +115,8 @@ static void InputEditorAction_FitFreeViewObjectBounds(GlobalState* state, Vec3 m
         { min.x, min.y, max.z }, { max.x, min.y, max.z },
         { min.x, max.y, max.z }, { max.x, max.y, max.z }
     };
-    if (!state || state->grid.gridSize <= 0.0f) return;
-    if (!InputEditorAction_GetViewportRect(state, &viewport)) return;
+    if (!state || !out_scale || state->grid.gridSize <= 0.0f) return false;
+    if (!InputEditorAction_GetViewportRect(state, &viewport)) return false;
     view_ctx = SpaceAdapter_BuildViewContext(state);
     for (size_t i = 0u; i < 8u; ++i) {
         const Vec2 projected = SpaceAdapter_ProjectToView(corners[i], &view_ctx);
@@ -135,37 +130,99 @@ static void InputEditorAction_FitFreeViewObjectBounds(GlobalState* state, Vec3 m
         const float span_y = max_y - min_y;
         const float usable_w = viewport.width * 0.84f;
         const float usable_h = viewport.height * 0.84f;
-        float fit_scale = state->grid.scale;
+        float fit_scale = GRID_DEFAULT_MAX_SCALE;
         if (span_x > 0.0001f) {
             fit_scale = fminf(fit_scale, usable_w / (state->grid.gridSize * span_x));
         }
         if (span_y > 0.0001f) {
             fit_scale = fminf(fit_scale, usable_h / (state->grid.gridSize * span_y));
         }
-        if (isfinite(fit_scale) && fit_scale > 0.01f && fit_scale < state->grid.scale) {
-            state->grid.scale = fit_scale;
+        if (!isfinite(fit_scale) || fit_scale <= 0.0f) return false;
+        if (fit_scale < 0.01f) fit_scale = 0.01f;
+        if (fit_scale > GRID_DEFAULT_MAX_SCALE) fit_scale = GRID_DEFAULT_MAX_SCALE;
+        *out_scale = fit_scale;
+    }
+    return true;
+}
+
+static bool InputEditorAction_FrameFreeViewCamera(GlobalState* state) {
+    Vec3 min = {0};
+    Vec3 max = {0};
+    Vec3 target = {0};
+    bool has_anchors = false;
+    bool has_bounds = false;
+    float fit_scale = 0.0f;
+    CorePaneRect viewport = {0};
+    CoreViewport3DCommand command = {0};
+    FreeViewCamera next_camera;
+    Grid next_grid;
+    if (!state || !InputEditorAction_GetViewportRect(state, &viewport)) return false;
+    has_bounds = InputEditorAction_LayoutObjectWorldBounds(&state->layout,
+                                                           state->editor.selectedObject3DId,
+                                                           &min,
+                                                           &max);
+    if (has_bounds) {
+        target = InputEditorAction_BoundsCenter(min, max);
+        if (!InputEditorAction_ResolveFreeViewFitScale(state, min, max, &fit_scale)) return false;
+    } else {
+        target = Layout_ComputeCentroid(&state->layout, &has_anchors);
+        if (!has_anchors) target = state->freeViewCamera.target;
+        fit_scale = state->grid.scale;
+    }
+    command.kind = CORE_VIEWPORT3D_COMMAND_FRAME;
+    command.value.frame.target = (CoreViewport3DVec3d){
+        (double)target.x, (double)target.y, (double)target.z
+    };
+    command.value.frame.scale_px_per_world_unit =
+        (double)state->grid.gridSize * (double)fit_scale;
+    next_camera = state->freeViewCamera;
+    next_grid = state->grid;
+    if (!LineDrawingViewport3DBridgeApply(
+            &state->freeViewCamera,
+            &state->grid,
+            (double)viewport.x + (double)viewport.width * 0.5,
+            (double)viewport.y + (double)viewport.height * 0.5,
+            0.01,
+            (double)GRID_DEFAULT_MAX_SCALE,
+            &command,
+            &next_camera,
+            &next_grid)) return false;
+    state->freeViewCamera = next_camera;
+    state->grid = next_grid;
+    Global_FlagHitboxesDirty();
+    return true;
+}
+
+bool InputEditorAction_FrameViewport(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    if (state->spaceMode == SPACE_MODE_3D && state->freeViewCamera.enabled) {
+        return InputEditorAction_FrameFreeViewCamera(state);
+    }
+    {
+        CorePaneRect viewport = {0};
+        bool has_anchors = false;
+        const Vec3 center = Layout_ComputeCentroid(&state->layout, &has_anchors);
+        if (!has_anchors || !InputEditorAction_GetViewportRect(state, &viewport) ||
+            state->grid.gridSize <= 0.0f || state->grid.scale <= 0.0f) {
+            return false;
         }
+        state->grid.offsetX = center.x -
+                              (viewport.x + viewport.width * 0.5f) /
+                                  (state->grid.gridSize * state->grid.scale);
+        state->grid.offsetY = center.y -
+                              (viewport.y + viewport.height * 0.5f) /
+                                  (state->grid.gridSize * state->grid.scale);
+        Global_FlagGridChanged();
+        return true;
     }
 }
 
-static void InputEditorAction_FocusFreeViewCamera(GlobalState* state) {
-    Vec3 min = {0};
-    Vec3 max = {0};
-    bool has_anchors = false;
+static void InputEditorAction_InitializeFreeViewCamera(GlobalState* state) {
     if (!state) return;
-    if (InputEditorAction_LayoutObjectWorldBounds(&state->layout,
-                                                 state->editor.selectedObject3DId,
-                                                 &min,
-                                                 &max)) {
-        state->freeViewCamera.target = InputEditorAction_BoundsCenter(min, max);
-        InputEditorAction_FitFreeViewObjectBounds(state, min, max);
-    } else {
-        Vec3 center = Layout_ComputeCentroid(&state->layout, &has_anchors);
-        if (has_anchors) {
-            state->freeViewCamera.target = center;
-        }
+    if (!InputEditorAction_FrameFreeViewCamera(state)) {
+        Global_FlagHitboxesDirty();
     }
-    InputEditorAction_RecenterFreeViewOnProjectedOrigin(state);
 }
 
 static const char* InputEditorAction_PlaneAxisLabel(ViewPlaneAxis axis) {
@@ -211,7 +268,7 @@ bool InputEditorAction_ToggleFreeView(void) {
 
     state->freeViewCamera.enabled = !state->freeViewCamera.enabled;
     if (state->freeViewCamera.enabled) {
-        InputEditorAction_FocusFreeViewCamera(state);
+        InputEditorAction_InitializeFreeViewCamera(state);
     }
     Global_FlagHitboxesDirty();
     printf("[Editor] View mode: %s\n", state->freeViewCamera.enabled ? "FREE_VIEW" : "PLANE_VIEW");

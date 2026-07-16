@@ -608,6 +608,27 @@ Last updated: 2026-07-14
   - `make -C line_drawing release-verify-notarized ...`
 
 ## Current Boundary
+
+- EVN2 normalizes viewport navigation behind an app-local typed contract:
+  Alt/Option+LMB orbits without recentering, MMB pans the durable target in the
+  camera screen basis, wheel/keyboard zoom preserve their anchor, and `F`
+  frames selection or scene. Existing empty-space LMB pan plus handle, gizmo,
+  topology, placement, modal, and splitter arbitration remain LineDrawing-owned.
+- EVN3 adds a focused canonical parity group matching RayTracing's camera-basis
+  pan and anchor-preservation invariants. CV3D3 now routes free-view pan,
+  orbit, anchor zoom, frame, and resize transitions through a thin adapter over shared
+  `core_viewport3d >= 0.1.0`. The adapter derives the effective 3D target from
+  float-degree `FreeViewCamera`, Grid scale/offsets, and pane center while
+  preserving LineDrawing's orientation-only orbit storage rule and effective
+  world target when pane centers move during resize. Projection,
+  selection/bounds resolution, input arbitration, authoring, picking, CPU
+  raster/cache policy, overlays, and rendering remain app-local. The CPU mesh
+  surface now supplies its existing depth plus object-owner buffer to optional
+  shared `kit_viewport3d >= 0.1.0` for the same stable object-accent and
+  silhouette/depth/owner outline roles used by RayTracing; projection,
+  rasterization, quality/cache policy, SDL upload, and authoring remain local.
+  The EVN2
+  contract remains a rollback oracle through CV3D4 hands-on acceptance.
 - `line_drawing` is closed as upstream authoring/export source for current primitive scope.
 - Current local drift now includes a durable app-host upgrade:
   - menu-first host split before the editor session

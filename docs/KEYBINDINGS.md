@@ -41,14 +41,16 @@ These controls apply when view mode is `FREE_VIEW`.
 - `T` / `G`: Pitch up / down.
 - `J` / `L`: Move view target left / right.
 - `I` / `K`: Move view target up / down.
-- `Alt/Option + Mouse Move`: Orbit camera around the current layout centroid (no mouse click required).
+- `Alt/Option + Left Drag`: Orbit camera around the current durable view target.
+- `Middle Mouse Drag`: Pan in the current camera screen basis.
+- `F`: Frame the selected 3D object, or all scene objects when none is selected.
 - In `SPACE_MODE_3D + FREE_VIEW`, selecting an anchor shows six translate gizmo handles (`+/-X`, `+/-Y`, `+/-Z`).
 
 ## Navigation
 - `Arrow Keys`: Pan the current view.
 - `=`: Zoom in.
 - `-`: Zoom out.
-- `Mouse Wheel`: Zoom in/out.
+- `Mouse Wheel`: Zoom in/out around the pointer anchor.
 - `Shift + C`: Toggle center crosshair overlay.
 
 ## Data Roots

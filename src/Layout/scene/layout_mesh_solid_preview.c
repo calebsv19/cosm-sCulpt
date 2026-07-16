@@ -4,6 +4,7 @@
 #include "Core/data_paths.h"
 #include "Math/math_util.h"
 #include "core_time.h"
+#include "kit_viewport3d.h"
 #include "vk_renderer.h"
 
 #include <float.h>
@@ -39,6 +40,7 @@ typedef struct {
     bool textureValid;
     uint8_t* rgba;
     float* depth;
+    int32_t* owner;
     int rasterWidth;
     int rasterHeight;
     uint64_t surfaceSignature;
@@ -242,12 +244,14 @@ static void LayoutMeshSolid_RasterizeObject(const Object3D* object,
                                             float rasterScale,
                                             int width,
                                             int height,
+                                            int32_t ownerId,
                                             bool materialMode,
                                             uint8_t* rgba,
                                             float* depth,
+                                            int32_t* owner,
                                             LayoutMeshSolidPreviewFrameStats* stats) {
     const Vec3 lightDirection = Vec3_Normalize((Vec3){0.38f, -0.42f, -0.82f});
-    if (!object || !lod || !viewContext || !grid || !rgba || !depth || !stats) return;
+    if (!object || !lod || !viewContext || !grid || !rgba || !depth || !owner || !stats) return;
 
     for (size_t triangleIndex = 0u; triangleIndex < lod->triangle_count; ++triangleIndex) {
         const uint32_t ia = lod->indices[triangleIndex * 3u + 0u];
@@ -313,6 +317,7 @@ static void LayoutMeshSolid_RasterizeObject(const Object3D* object,
                 pixelDepth = (w0 * a.depth) + (w1 * b.depth) + (w2 * c.depth);
                 if (!isfinite(pixelDepth) || pixelDepth >= depth[pixel]) continue;
                 depth[pixel] = pixelDepth;
+                owner[pixel] = ownerId;
                 rgba[pixel * 4u + 0u] = LayoutMeshSolid_Channel(baseR * light);
                 rgba[pixel * 4u + 1u] = LayoutMeshSolid_Channel(baseG * light);
                 rgba[pixel * 4u + 2u] = LayoutMeshSolid_Channel(baseB * light);
@@ -333,48 +338,29 @@ static size_t LayoutMeshSolid_ApplyOutline(uint8_t* rgba,
                                            uint8_t outlineB,
                                            uint8_t outlineA,
                                            bool outlineOnly) {
-    uint8_t* boundary = NULL;
+    KitViewport3dOutlinePalette palette = kit_viewport3d_outline_palette_default();
+    KitViewport3dOutlineParams params;
     size_t count = 0u;
-    if (!rgba || !depth || width <= 2 || height <= 2) return 0u;
-    boundary = (uint8_t*)calloc((size_t)width * (size_t)height, sizeof(uint8_t));
-    if (!boundary) return 0u;
-
-    for (int y = 1; y < height - 1; ++y) {
-        for (int x = 1; x < width - 1; ++x) {
-            const size_t pixel = (size_t)y * (size_t)width + (size_t)x;
-            static const int offsets[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-            if (rgba[pixel * 4u + 3u] == 0u) continue;
-            for (size_t n = 0u; n < 4u; ++n) {
-                const size_t neighbor = (size_t)(y + offsets[n][1]) * (size_t)width +
-                                        (size_t)(x + offsets[n][0]);
-                const bool empty = rgba[neighbor * 4u + 3u] == 0u;
-                const float threshold = 0.18f * (1.0f + fabsf(depth[pixel]));
-                const bool depthEdge = !empty &&
-                    isfinite(depth[neighbor]) &&
-                    fabsf(depth[pixel] - depth[neighbor]) > threshold;
-                if (empty || depthEdge) {
-                    boundary[pixel] = 1u;
-                    break;
-                }
-            }
-        }
+    const KitViewport3dColor color = {outlineR, outlineG, outlineB, outlineA};
+    for (size_t i = 0u; i < KIT_VIEWPORT3D_OBJECT_ACCENT_CAP; ++i) {
+        palette.object_accents[i] = color;
     }
-
-    for (size_t pixel = 0u; pixel < (size_t)width * (size_t)height; ++pixel) {
-        if (boundary[pixel]) {
-            rgba[pixel * 4u + 0u] = outlineR;
-            rgba[pixel * 4u + 1u] = outlineG;
-            rgba[pixel * 4u + 2u] = outlineB;
-            rgba[pixel * 4u + 3u] = outlineA;
-            count++;
-        } else if (outlineOnly) {
-            rgba[pixel * 4u + 0u] = 0u;
-            rgba[pixel * 4u + 1u] = 0u;
-            rgba[pixel * 4u + 2u] = 0u;
-            rgba[pixel * 4u + 3u] = 0u;
-        }
-    }
-    free(boundary);
+    palette.selected = color;
+    palette.hover = color;
+    params = (KitViewport3dOutlineParams){
+        .rgba = rgba,
+        .depth = depth,
+        .owner = NULL,
+        .width = width,
+        .height = height,
+        .depth_format = KIT_VIEWPORT3D_DEPTH_F32,
+        .relative_depth_threshold = 0.18,
+        .selected_owner = -1,
+        .hover_owner = -1,
+        .outline_only = outlineOnly,
+        .palette = &palette
+    };
+    if (!kit_viewport3d_apply_outline(&params, &count)) return 0u;
     return count;
 }
 
@@ -423,20 +409,27 @@ static bool LayoutMeshSolid_PrepareBuffers(int width, int height) {
     if (g_solidPreview.rasterWidth != width || g_solidPreview.rasterHeight != height) {
         uint8_t* rgba = (uint8_t*)malloc(pixels * 4u);
         float* depth = (float*)malloc(pixels * sizeof(float));
-        if (!rgba || !depth) {
+        int32_t* owner = (int32_t*)malloc(pixels * sizeof(*owner));
+        if (!rgba || !depth || !owner) {
             free(rgba);
             free(depth);
+            free(owner);
             return false;
         }
         free(g_solidPreview.rgba);
         free(g_solidPreview.depth);
+        free(g_solidPreview.owner);
         g_solidPreview.rgba = rgba;
         g_solidPreview.depth = depth;
+        g_solidPreview.owner = owner;
         g_solidPreview.rasterWidth = width;
         g_solidPreview.rasterHeight = height;
     }
     memset(g_solidPreview.rgba, 0, pixels * 4u);
-    for (size_t i = 0u; i < pixels; ++i) g_solidPreview.depth[i] = INFINITY;
+    for (size_t i = 0u; i < pixels; ++i) {
+        g_solidPreview.depth[i] = INFINITY;
+        g_solidPreview.owner[i] = -1;
+    }
     return true;
 }
 
@@ -608,9 +601,11 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
                                             rasterScale,
                                             rasterWidth,
                                             rasterHeight,
+                                            (int32_t)i,
                                             materialMode,
                                             g_solidPreview.rgba,
                                             g_solidPreview.depth,
+                                            g_solidPreview.owner,
                                             &stats);
             stats.meshCount++;
         }
@@ -618,26 +613,22 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
         for (size_t pixel = 0u; pixel < (size_t)rasterWidth * (size_t)rasterHeight; ++pixel) {
             if (g_solidPreview.rgba[pixel * 4u + 3u] != 0u) stats.coveredPixels++;
         }
-        if (outlineOnly) {
-            stats.silhouettePixels = Layout_MeshSolidPreviewApplyOutlineOnly(
-                g_solidPreview.rgba,
-                g_solidPreview.depth,
-                rasterWidth,
-                rasterHeight,
-                118u,
-                190u,
-                240u,
-                248u);
-        } else {
-            stats.silhouettePixels = Layout_MeshSolidPreviewApplySilhouette(
-                g_solidPreview.rgba,
-                g_solidPreview.depth,
-                rasterWidth,
-                rasterHeight,
-                materialMode ? 92u : 56u,
-                materialMode ? 58u : 92u,
-                materialMode ? 118u : 122u,
-                248u);
+        {
+            const KitViewport3dOutlineParams outlineParams = {
+                .rgba = g_solidPreview.rgba,
+                .depth = g_solidPreview.depth,
+                .owner = g_solidPreview.owner,
+                .width = rasterWidth,
+                .height = rasterHeight,
+                .depth_format = KIT_VIEWPORT3D_DEPTH_F32,
+                .relative_depth_threshold = 0.18,
+                .selected_owner = -1,
+                .hover_owner = -1,
+                .outline_only = outlineOnly,
+                .palette = NULL
+            };
+            (void)kit_viewport3d_apply_outline(&outlineParams,
+                                               &stats.silhouettePixels);
         }
         if (!LayoutMeshSolid_UpdateTexture(vk, rasterWidth, rasterHeight)) return false;
         g_solidPreview.renderer = vk;
@@ -664,5 +655,6 @@ void Layout_MeshSolidPreviewShutdown(SDL_Renderer* renderer) {
     }
     free(g_solidPreview.rgba);
     free(g_solidPreview.depth);
+    free(g_solidPreview.owner);
     memset(&g_solidPreview, 0, sizeof(g_solidPreview));
 }

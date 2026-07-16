@@ -4,6 +4,7 @@
 #include "Input/input_mouse_drag.h"
 #include "Input/input_mouse_drag_shared.h"
 #include "Input/input_viewport_pick.h"
+#include "Input/input_viewport_navigation.h"
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
 #include "Core/viewport_zoom.h"
@@ -129,41 +130,6 @@ static bool PreserveObjectWorkspaceBodyOnEmptyHit(GlobalState* state, uint32_t f
     SyncObjectFaceSketchTarget(editor);
     return true;
 }
-
-static bool HandleFreeViewOrbitMotion(const SDL_MouseMotionEvent* motion) {
-    if (!motion) return false;
-    if (draggingAnchor || draggingHandle || draggingSelectionBox || draggingGizmo ||
-        draggingObjectResize || draggingObjectGizmo ||
-        draggingObjectTranslate || draggingObjectRotate ||
-        draggingObjectScale ||
-        draggingSceneBoundsGizmo ||
-        draggingSceneAuthoringPathHandle) return false;
-    GlobalState* state = Global_Get();
-    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
-    if (!state || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
-    if (InputMouse_IsObjectFaceAuthoringModal(&state->editor)) return false;
-    if (UIPanel_IsCapturingKeyboard()) return false;
-    if (ResolvePointerPaneLane(motion->x, motion->y) != POINTER_PANE_CENTER) return false;
-
-    SDL_Keymod mods = SDL_GetModState();
-    if ((mods & KMOD_ALT) == 0) return false;
-
-    // Orbit around current layout centroid while Option/Alt is held.
-    bool hasAnchors = false;
-    Vec3 center = Layout_ComputeCentroid(&state->layout, &hasAnchors);
-    if (hasAnchors) {
-        state->freeViewCamera.target = center;
-        viewCtx.camera.target = center;
-    }
-
-    const float orbitSensitivity = 0.35f;
-    state->freeViewCamera.yawDeg += (float)motion->xrel * orbitSensitivity;
-    state->freeViewCamera.pitchDeg -= (float)motion->yrel * orbitSensitivity;
-    FreeView_NormalizeOrbitAngles(&state->freeViewCamera);
-    Global_FlagHitboxesDirty();
-    return true;
-}
-
 
 // 		Scroll to zoom in/out
 // ============================================================
@@ -404,6 +370,11 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
                                                                       btn->y,
                                                                       true);
     Hitbox hit = pick.finalHit;
+    const SpaceViewContext orbit_view_ctx = SpaceAdapter_BuildViewContext(state);
+    const bool reserve_alt_orbit =
+        SpaceAdapter_IsFreeViewEnabled(&orbit_view_ctx) &&
+        (SDL_GetModState() & KMOD_ALT) != 0 &&
+        (hit.type == HITBOX_NONE || hit.type == HITBOX_OBJECT3D);
 
     bool clickedHandle = (hit.type == HITBOX_HANDLE);
     bool clickedGizmo = (hit.type == HITBOX_GIZMO_AXIS);
@@ -419,6 +390,13 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
                             hit.type == HITBOX_OBJECT_TOPOLOGY_EDGE);
     bool doubleClick = (!shiftSelect && btn->clicks >= 2);
     const bool object_mode = InputMouse_ObjectModeEnabled();
+
+    if (reserve_alt_orbit) {
+        draggingPan = false;
+        Global_FlagHitboxesDirty();
+        UpdateHover(btn->x, btn->y);
+        return;
+    }
 
     // Priority: anchor selection overrides wall
     if (hit.type == HITBOX_OBJECT_FACE_SKETCH_HANDLE ||
@@ -799,6 +777,8 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
             break;
 
         case SDL_MOUSEBUTTONDOWN:
+            if (InputViewportNavigation_HandleMouseButton(&event->button))
+                break;
             if (event->button.button == SDL_BUTTON_LEFT)
                 HandleLeftMouseDown(&event->button);
             else if (event->button.button == SDL_BUTTON_RIGHT)
@@ -806,6 +786,9 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
             break;
 
         case SDL_MOUSEBUTTONUP:
+            if (InputViewportNavigation_HandleMouseButton(&event->button)) {
+                break;
+            }
             if (event->button.button == SDL_BUTTON_LEFT) {
                 UIPanel_HandleSceneListMouseUp();
                 UIPanel_ObjectWorkspaceHandleModelTreeMouseUp();
@@ -887,7 +870,7 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
                                                   (float)event->motion.x,
                                                   (float)event->motion.y);
             }
-            if (HandleFreeViewOrbitMotion(&event->motion)) {
+            if (InputViewportNavigation_HandleMouseMotion(&event->motion)) {
                 UpdateHover(event->motion.x, event->motion.y);
                 break;
             }

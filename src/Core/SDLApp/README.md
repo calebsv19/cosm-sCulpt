@@ -19,3 +19,7 @@ This submodule wraps raw SDL2 setup and the main loop in a reusable interface.
   initialized renderer without changing normal startup behavior. Set
   `LINE_DRAWING_VISUAL_PREVIEW_MODE` to `bounds`, `wire`, or `material` to prove
   a non-default preview representation; unset values retain the flat default.
+- Mesh surface post-processing uses optional shared `kit_viewport3d >= 0.1.0`
+  for stable object accents and silhouette/depth/object-owner outline roles.
+  The SDL app still owns projection, CPU raster/cache quality, buffer lifetime,
+  upload/drawing, picking, overlays, and all input/authoring arbitration.
