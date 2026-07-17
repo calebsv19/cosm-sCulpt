@@ -8,14 +8,17 @@ bool Editor_PickNearestObject3DOrigin(const Layout* layout,
                                       const SpaceViewContext* viewCtx,
                                       int mouseX,
                                       int mouseY,
-                                      float captureRadiusPx,
                                       uint32_t* outObjectId,
                                       float* outDistSq);
+
+bool Editor_RebuildObject3DOriginPickIndex(const Layout* layout,
+                                           const Grid* grid,
+                                           const SpaceViewContext* viewCtx);
+void Editor_ShutdownObject3DOriginPickIndex(void);
 
 Hitbox Editor_ResolveObject3DBodyPick(const Layout* layout,
                                       const Grid* grid,
                                       const SpaceViewContext* viewCtx,
                                       int mouseX,
                                       int mouseY,
-                                      Hitbox baseHit,
-                                      float captureRadiusPx);
+                                      Hitbox baseHit);

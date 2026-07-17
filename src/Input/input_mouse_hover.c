@@ -17,7 +17,6 @@
 #include <SDL2/SDL.h>
 #include <math.h>
 
-static const float kObject3DOriginPickCaptureRadiusPx = 28.0f;
 
 static SDL_Rect PaneRectToSDLRect(CorePaneRect rect) {
     SDL_Rect out = {0, 0, 0, 0};
@@ -206,15 +205,13 @@ Hitbox ResolveViewportObjectBodyHit(const GlobalState* state, int mx, int my, Hi
     SpaceViewContext view_ctx = {0};
 
     if (!state) return base_hit;
-    if (base_hit.type == HITBOX_OBJECT3D) return base_hit;
     view_ctx = SpaceAdapter_BuildViewContext(state);
     return Editor_ResolveObject3DBodyPick(&state->layout,
                                           &state->grid,
                                           &view_ctx,
                                           mx,
                                           my,
-                                          base_hit,
-                                          kObject3DOriginPickCaptureRadiusPx);
+                                          base_hit);
 }
 
 Object3DFaceKind ResolveObjectAuthoringFaceForSelection(const GlobalState* state,

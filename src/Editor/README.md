@@ -2,6 +2,11 @@
 
 The editor layer manages the wall-placement workflow, bezier anchor editing, multi-anchor selection/dragging, and overlay rendering for in-progress actions.
 
+Whole-object 3D hover/click uses the projected visual center of each eligible
+object through shared `core_screen_pick >= 0.1.0`. The app rebuilds that index
+with its hitbox lifecycle and retains FreeViewCamera/Grid projection, gizmo and
+resize-handle priority, topology picking, authoring arbitration, and rendering.
+
 ## Files
 - `editor.h` / `editor.c` — define `EditorState`, track the current tool mode, anchor/hover selections, object-handle selections, scene-bounds handle selections, scene-bounds handle visibility, delete mode, shift-state, marquee selection bounds, and multi-selection arrays. Maintain undo/redo stacks (JSON snapshots of the layout), expose `Editor_HistoryCapture`, `Editor_Undo`, `Editor_Redo`, `Editor_ClearHistory`, and implement helpers for selection editing (`Editor_SelectAnchor`, `Editor_SelectAnchorsInBox`, `Editor_BeginAnchorDrag`, etc.). The placement and drag paths are now 3D-ready (`Vec3` world positions), while current interaction behavior remains XY-constrained for compatibility. Projection/plane semantics now flow through `space_mode_adapter` so editor selection and placement use the same mode-aware view context as input/render.
 - `object_handle_gizmo.h` / `gizmo/object_handle_gizmo.c` — app-local manipulator target contract for selected plane/prism resize handles and selected object-authoring topology refs. Normalizes selected editor handles or `ObjectAuthoring` vertex/edge selections into an `ObjectHandleGizmoTarget`, exposes legal axis masks, handle/world target points, axis vectors, drag-handle resolution, and resize mutation for primitive handles so hitbox, render, and input drag paths do not duplicate plane-vs-prism policy. Topology targets currently provide visual/clickable constrained axes but are deliberately non-mutating until a semantic topology operation lands.

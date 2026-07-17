@@ -3,8 +3,14 @@
 #include "Layout/layout.h"
 #include "Layout/scene/layout_object_faces.h"
 #include "Math/math_util.h"
+#include "core_screen_pick.h"
 
 #include <math.h>
+#include <stdlib.h>
+
+static CoreScreenPickIndex s_origin_pick_index;
+static bool s_origin_pick_initialized = false;
+static uint64_t s_origin_pick_revision = 0u;
 
 static float Object3DOriginPick_SignedDepth(const SpaceViewContext* viewCtx,
                                             Vec3 point) {
@@ -13,7 +19,6 @@ static float Object3DOriginPick_SignedDepth(const SpaceViewContext* viewCtx,
         return Vec3_Dot(Vec3_Sub(point, viewCtx->camera.target),
                         FreeView_Forward(&viewCtx->camera));
     }
-
     switch (viewCtx->plane.axis) {
         case VIEW_PLANE_YZ: return point.x;
         case VIEW_PLANE_XZ: return point.y;
@@ -22,49 +27,60 @@ static float Object3DOriginPick_SignedDepth(const SpaceViewContext* viewCtx,
     }
 }
 
-static bool Editor_PickTopmostVisibleObject3DFace(const Layout* layout,
-                                                  const Grid* grid,
-                                                  const SpaceViewContext* viewCtx,
-                                                  int mouseX,
-                                                  int mouseY,
-                                                  uint32_t* outObjectId) {
-    bool found = false;
-    float bestDepth = 0.0f;
-    uint32_t bestObjectId = 0u;
-
-    if (!layout || !grid || !viewCtx || !outObjectId) return false;
-
-    for (size_t i = 0; i < layout->objectStore.count; ++i) {
-        const Object3D* object = &layout->objectStore.items[i];
-        Object3DFaceKind face = OBJECT3D_FACE_NONE;
-        PlaneFrame3 faceFrame = {0};
-        float depth = 0.0f;
-
-        if (!Layout_ObjectStore_ValidateObject(object)) continue;
-        if (!Layout_Object3D_PickVisibleFaceAtScreenPoint(object,
-                                                          viewCtx,
-                                                          grid,
-                                                          mouseX,
-                                                          mouseY,
-                                                          &face)) {
-            continue;
-        }
-        if (!Layout_Object3DFace_GetFrame(object, face, &faceFrame)) continue;
-
-        depth = Object3DOriginPick_SignedDepth(viewCtx, faceFrame.origin);
-        if (!found ||
-            depth > bestDepth + 1e-4f ||
-            (fabsf(depth - bestDepth) <= 1e-4f && object->objectId > bestObjectId)) {
-            found = true;
-            bestDepth = depth;
-            bestObjectId = object->objectId;
-        }
+static bool Editor_EnsureObject3DOriginPickIndex(void) {
+    if (s_origin_pick_initialized) return true;
+    if (core_screen_pick_index_init(&s_origin_pick_index,
+                                    core_screen_pick_config_default()).code != CORE_OK) {
+        return false;
     }
-
-    if (!found) return false;
-
-    *outObjectId = bestObjectId;
+    s_origin_pick_initialized = true;
     return true;
+}
+
+bool Editor_RebuildObject3DOriginPickIndex(const Layout* layout,
+                                           const Grid* grid,
+                                           const SpaceViewContext* viewCtx) {
+    CoreScreenPickCandidate* candidates = NULL;
+    size_t candidate_count = 0u;
+    bool ok = false;
+    if (!layout || !grid || !viewCtx || !Editor_EnsureObject3DOriginPickIndex()) return false;
+    if (layout->objectStore.count > 0u) {
+        candidates = malloc(layout->objectStore.count * sizeof(*candidates));
+        if (!candidates) return false;
+    }
+    for (size_t i = 0u; i < layout->objectStore.count; ++i) {
+        const Object3D* object = &layout->objectStore.items[i];
+        Vec3 center = {0};
+        Vec2 center_view = {0};
+        Vec2 center_screen = {0};
+        if (!Layout_ObjectStore_ValidateObject(object)) continue;
+        center = object->transform.position;
+        (void)Layout_Object3D_ComputeVisualCenter(object, &center);
+        center_view = SpaceAdapter_ProjectToView(center, viewCtx);
+        center_screen = WorldToScreen(center_view, grid);
+        if (!isfinite(center_screen.x) || !isfinite(center_screen.y)) continue;
+        candidates[candidate_count++] = (CoreScreenPickCandidate){
+            .stable_key = object->objectId,
+            .payload = (int64_t)object->objectId,
+            .screen_x = center_screen.x,
+            .screen_y = center_screen.y,
+            .view_depth = Object3DOriginPick_SignedDepth(viewCtx, center)
+        };
+    }
+    s_origin_pick_revision += 1u;
+    ok = core_screen_pick_index_rebuild(&s_origin_pick_index,
+                                        candidates,
+                                        candidate_count,
+                                        s_origin_pick_revision).code == CORE_OK;
+    free(candidates);
+    return ok;
+}
+
+void Editor_ShutdownObject3DOriginPickIndex(void) {
+    if (!s_origin_pick_initialized) return;
+    core_screen_pick_index_destroy(&s_origin_pick_index);
+    s_origin_pick_initialized = false;
+    s_origin_pick_revision = 0u;
 }
 
 bool Editor_PickNearestObject3DOrigin(const Layout* layout,
@@ -72,48 +88,22 @@ bool Editor_PickNearestObject3DOrigin(const Layout* layout,
                                       const SpaceViewContext* viewCtx,
                                       int mouseX,
                                       int mouseY,
-                                      float captureRadiusPx,
                                       uint32_t* outObjectId,
                                       float* outDistSq) {
-    bool found = false;
-    float bestDistSq = 0.0f;
-    uint32_t bestObjectId = 0u;
-    const float captureDistSq = captureRadiusPx * captureRadiusPx;
-
-    if (!layout || !grid || !viewCtx || !outObjectId || captureRadiusPx <= 0.0f) {
+    CoreScreenPickResult result = {0};
+    (void)layout;
+    (void)grid;
+    (void)viewCtx;
+    if (!outObjectId || !s_origin_pick_initialized) return false;
+    if (core_screen_pick_query_nearest(&s_origin_pick_index,
+                                       (double)mouseX,
+                                       (double)mouseY,
+                                       &result).code != CORE_OK ||
+        !result.found || result.payload < 0 || result.payload > UINT32_MAX) {
         return false;
     }
-
-    for (size_t i = 0; i < layout->objectStore.count; ++i) {
-        const Object3D* object = &layout->objectStore.items[i];
-        float dx = 0.0f;
-        float dy = 0.0f;
-        float distSq = 0.0f;
-
-        if (!Layout_ObjectStore_ValidateObject(object)) continue;
-
-        Vec3 originWorld = object->transform.position;
-        (void)Layout_Object3D_ComputeVisualCenter(object, &originWorld);
-        Vec2 originView = SpaceAdapter_ProjectToView(originWorld, viewCtx);
-        Vec2 originScreen = WorldToScreen(originView, grid);
-        dx = originScreen.x - (float)mouseX;
-        dy = originScreen.y - (float)mouseY;
-        distSq = dx * dx + dy * dy;
-        if (distSq > captureDistSq) continue;
-
-        if (!found ||
-            distSq + 0.25f < bestDistSq ||
-            (fabsf(distSq - bestDistSq) <= 0.25f && object->objectId > bestObjectId)) {
-            found = true;
-            bestDistSq = distSq;
-            bestObjectId = object->objectId;
-        }
-    }
-
-    if (!found) return false;
-
-    *outObjectId = bestObjectId;
-    if (outDistSq) *outDistSq = bestDistSq;
+    *outObjectId = (uint32_t)result.payload;
+    if (outDistSq) *outDistSq = (float)result.distance_sq;
     return true;
 }
 
@@ -122,47 +112,17 @@ Hitbox Editor_ResolveObject3DBodyPick(const Layout* layout,
                                       const SpaceViewContext* viewCtx,
                                       int mouseX,
                                       int mouseY,
-                                      Hitbox baseHit,
-                                      float captureRadiusPx) {
-    uint32_t objectId = 0u;
-
-    if (baseHit.type != HITBOX_NONE && baseHit.type != HITBOX_OBJECT3D) {
-        return baseHit;
-    }
-
-    if (baseHit.type == HITBOX_OBJECT3D) {
-        if (!Editor_PickNearestObject3DOrigin(layout,
-                                              grid,
-                                              viewCtx,
-                                              mouseX,
-                                              mouseY,
-                                              captureRadiusPx,
-                                              &objectId,
-                                              NULL)) {
-            return (Hitbox){ .type = HITBOX_NONE, .index = -1, .subIndex = -1 };
-        }
-        return (Hitbox){ .type = HITBOX_OBJECT3D, .index = (int)objectId, .subIndex = -1 };
-    }
-
-    if (Editor_PickTopmostVisibleObject3DFace(layout,
-                                              grid,
-                                              viewCtx,
-                                              mouseX,
-                                              mouseY,
-                                              &objectId)) {
-        return (Hitbox){ .type = HITBOX_OBJECT3D, .index = (int)objectId, .subIndex = -1 };
-    }
-
+                                      Hitbox baseHit) {
+    uint32_t object_id = 0u;
+    if (baseHit.type != HITBOX_NONE && baseHit.type != HITBOX_OBJECT3D) return baseHit;
     if (!Editor_PickNearestObject3DOrigin(layout,
                                           grid,
                                           viewCtx,
                                           mouseX,
                                           mouseY,
-                                          captureRadiusPx,
-                                          &objectId,
+                                          &object_id,
                                           NULL)) {
         return (Hitbox){ .type = HITBOX_NONE, .index = -1, .subIndex = -1 };
     }
-
-    return (Hitbox){ .type = HITBOX_OBJECT3D, .index = (int)objectId, .subIndex = -1 };
+    return (Hitbox){ .type = HITBOX_OBJECT3D, .index = (int)object_id, .subIndex = -1 };
 }

@@ -5,6 +5,7 @@
 #include "Core/space_mode_adapter.h"
 #include "Core/viewport3d_bridge.h"
 #include "Core/workspace/line_drawing_workspace_mode_handoff.h"
+#include "Editor/object3d_origin_pick.h"
 #include "Layout/hitbox_system.h"
 #include "UI/ui_panel.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
@@ -587,6 +588,7 @@ void Global_Shutdown(void) {
     ObjectAuthoringSession_Free(&global->objectAuthoring);
     ObjectAuthoringSession_Free(&global->sceneWorkspaceDocument.objectAuthoring);
     ObjectAuthoringSession_Free(&global->objectWorkspaceDocument.objectAuthoring);
+    Editor_ShutdownObject3DOriginPickIndex();
     Editor_Free(&global->editor);
     Layout_Free(&global->layout);
     free(global);
@@ -744,6 +746,9 @@ void Global_RebuildHitboxesIfDirty(void) {
                          state->editor.selectedSceneBoundsHandle,
                          state->editor.sceneBoundsHandlesVisible,
                          gizmoEnabled);
+    (void)Editor_RebuildObject3DOriginPickIndex(&state->layout,
+                                                &state->grid,
+                                                &viewCtx);
     state->hitboxDirty = false;
 }
 

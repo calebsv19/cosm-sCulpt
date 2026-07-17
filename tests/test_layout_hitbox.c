@@ -1081,8 +1081,7 @@ static bool test_object3d_origin_pick_prefers_nearest_center_in_overlap(void) {
                                                      &viewCtx,
                                                      (int)prismCenter.x,
                                                      (int)prismCenter.y,
-                                                     baseHit,
-                                                     28.0f);
+                                                     baseHit);
 
     TEST_ASSERT(resolved.type == HITBOX_OBJECT3D);
     TEST_ASSERT(resolved.index == (int)prismId);
@@ -1121,8 +1120,7 @@ static bool test_object3d_origin_pick_requires_mouse_near_center(void) {
                                                      &viewCtx,
                                                      farX,
                                                      farY,
-                                                     baseHit,
-                                                     28.0f);
+                                                     baseHit);
 
     TEST_ASSERT(baseHit.type == HITBOX_OBJECT3D);
     TEST_ASSERT(resolved.type == HITBOX_NONE);
@@ -1165,8 +1163,7 @@ static bool test_object3d_origin_pick_preserves_handle_priority(void) {
                                                      &viewCtx,
                                                      (int)cornerScreen.x,
                                                      (int)cornerScreen.y,
-                                                     baseHit,
-                                                     28.0f);
+                                                     baseHit);
 
     TEST_ASSERT(baseHit.type == HITBOX_OBJECT3D_PLANE_CORNER);
     TEST_ASSERT(resolved.type == HITBOX_OBJECT3D_PLANE_CORNER);

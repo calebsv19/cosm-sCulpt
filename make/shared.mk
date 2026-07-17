@@ -22,6 +22,7 @@ CORE_MESH_COMPILE_DIR := $(SHARED_ROOT)/core/core_mesh_compile
 CORE_MESH_PREVIEW_DIR := $(SHARED_ROOT)/core/core_mesh_preview
 CORE_SCENE_DIR := $(SHARED_ROOT)/core/core_scene
 CORE_SCENE_VIEW_DIR := $(SHARED_ROOT)/core/core_scene_view
+CORE_SCREEN_PICK_DIR := $(SHARED_ROOT)/core/core_screen_pick
 CORE_VIEWPORT3D_DIR := $(SHARED_ROOT)/core/core_viewport3d
 CORE_OBJECT_DIR := $(SHARED_ROOT)/core/core_object
 CORE_UNITS_DIR := $(SHARED_ROOT)/core/core_units
@@ -40,6 +41,9 @@ CORE_SCENE_VIEW_DIR := $(SHARED_WORKSPACE_DIR)/core/core_scene_view
 endif
 ifeq ($(wildcard $(CORE_VIEWPORT3D_DIR)/include/core_viewport3d.h),)
 CORE_VIEWPORT3D_DIR := $(SHARED_WORKSPACE_DIR)/core/core_viewport3d
+endif
+ifeq ($(wildcard $(CORE_SCREEN_PICK_DIR)/include/core_screen_pick.h),)
+CORE_SCREEN_PICK_DIR := $(SHARED_WORKSPACE_DIR)/core/core_screen_pick
 endif
 ifeq ($(wildcard $(KIT_VIEWPORT3D_DIR)/include/kit_viewport3d.h),)
 KIT_VIEWPORT3D_DIR := $(SHARED_WORKSPACE_DIR)/kit/kit_viewport3d
