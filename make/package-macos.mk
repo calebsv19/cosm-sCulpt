@@ -5,8 +5,9 @@ package-desktop:
 	@mkdir -p "$(PACKAGE_MACOS_DIR)" "$(PACKAGE_RESOURCES_DIR)" "$(PACKAGE_FRAMEWORKS_DIR)"
 	@cp "$(PACKAGE_INFO_PLIST_SRC)" "$(PACKAGE_CONTENTS_DIR)/Info.plist"
 	@cp "$(PACKAGE_SOURCE_BIN)" "$(PACKAGE_MACOS_DIR)/line-drawing-bin"
-	@cp "$(PACKAGE_LAUNCHER_SRC)" "$(PACKAGE_MACOS_DIR)/line-drawing-launcher"
-	@chmod +x "$(PACKAGE_MACOS_DIR)/line-drawing-bin" "$(PACKAGE_MACOS_DIR)/line-drawing-launcher"
+	@cp "$(PACKAGE_LAUNCHER_SCRIPT_SRC)" "$(PACKAGE_LAUNCHER_SCRIPT_PATH)"
+	@$(CLANG_CC) -std=c11 -Os -Wall -Wextra -Werror -Wpedantic "$(PACKAGE_LAUNCHER_NATIVE_SRC)" -o "$(PACKAGE_MACOS_DIR)/line-drawing-launcher"
+	@chmod +x "$(PACKAGE_MACOS_DIR)/line-drawing-bin" "$(PACKAGE_MACOS_DIR)/line-drawing-launcher" "$(PACKAGE_LAUNCHER_SCRIPT_PATH)"
 	@if [ -f "$(PACKAGE_APP_ICON_SRC)" ]; then \
 		cp "$(PACKAGE_APP_ICON_SRC)" "$(PACKAGE_BUNDLED_ICON_PATH)"; \
 		echo "Bundled app icon from $(PACKAGE_APP_ICON_SRC)"; \
@@ -38,6 +39,9 @@ package-desktop:
 package-desktop-smoke: package-desktop
 	@echo "Checking desktop package: app=$(PACKAGE_APP_DIR) resources=$(PACKAGE_RESOURCES_DIR)"
 	@test -x "$(PACKAGE_MACOS_DIR)/line-drawing-launcher" || (echo "Missing launcher at $(PACKAGE_MACOS_DIR)/line-drawing-launcher"; exit 1)
+	@test -x "$(PACKAGE_LAUNCHER_SCRIPT_PATH)" || (echo "Missing launcher resource at $(PACKAGE_LAUNCHER_SCRIPT_PATH)"; exit 1)
+	@file "$(PACKAGE_MACOS_DIR)/line-drawing-launcher" | rg -q 'Mach-O' || (echo "Launcher must be native Mach-O code"; exit 1)
+	@file "$(PACKAGE_LAUNCHER_SCRIPT_PATH)" | rg -q 'shell script' || (echo "Launcher resource must be a shell script"; exit 1)
 	@test -x "$(PACKAGE_MACOS_DIR)/line-drawing-bin" || (echo "Missing app binary at $(PACKAGE_MACOS_DIR)/line-drawing-bin"; exit 1)
 	@test -f "$(PACKAGE_CONTENTS_DIR)/Info.plist" || (echo "Missing Info.plist at $(PACKAGE_CONTENTS_DIR)/Info.plist"; exit 1)
 	@if [ -f "$(PACKAGE_APP_ICON_SRC)" ] || [ -d "$(PACKAGE_APP_ICONSET_SRC)" ]; then \

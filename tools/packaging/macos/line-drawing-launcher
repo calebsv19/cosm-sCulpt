@@ -4,6 +4,7 @@ set -eu
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
 APP_CONTENTS_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 RES_DIR="$APP_CONTENTS_DIR/Resources"
+PROGRAM_BIN="$APP_CONTENTS_DIR/MacOS/line-drawing-bin"
 RUNTIME_DIR_DEFAULT="${HOME}/Library/Application Support/LineDrawing/runtime"
 RUNTIME_DIR="${LINE_DRAWING_RUNTIME_DIR:-$RUNTIME_DIR_DEFAULT}"
 
@@ -114,7 +115,7 @@ if [ "${1:-}" = "--print-config" ]; then
 fi
 
 if [ "${1:-}" = "--self-test" ]; then
-    [ -x "$SCRIPT_DIR/line-drawing-bin" ] || self_test_fail "missing: line-drawing-bin"
+    [ -x "$PROGRAM_BIN" ] || self_test_fail "missing: line-drawing-bin"
     [ -f "$APP_CONTENTS_DIR/Info.plist" ] || self_test_fail "missing: Info.plist"
     [ -f "$RUNTIME_DIR/config/layout_config.json" ] || self_test_fail "missing: runtime config/layout_config.json"
     [ -f "$RUNTIME_DIR/include/fonts/Lato/Lato-Regular.ttf" ] || self_test_fail "missing: runtime include/fonts/Lato/Lato-Regular.ttf"
@@ -140,7 +141,7 @@ fi
 
 cd "$RUNTIME_DIR"
 printf '%s launch begin pid=%s cwd=%s runtime=%s shader_root=%s shape_asset_dir=%s args=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$$" "$RUNTIME_DIR" "$LINE_DRAWING_RUNTIME_DIR" "$VK_RENDERER_SHADER_ROOT" "$SHAPE_ASSET_DIR" "$*" >>"$LOG_FILE" 2>/dev/null || true
-"$SCRIPT_DIR/line-drawing-bin" "$@" >>"$LOG_FILE" 2>&1
+"$PROGRAM_BIN" "$@" >>"$LOG_FILE" 2>&1
 status=$?
 printf '%s launch end pid=%s status=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$$" "$status" >>"$LOG_FILE" 2>/dev/null || true
 exit "$status"

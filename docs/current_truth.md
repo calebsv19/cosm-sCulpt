@@ -1,6 +1,6 @@
 # sCulpt Current Truth
 
-Last updated: 2026-07-14
+Last updated: 2026-07-19
 
 ## Program Identity
 - Repository directory: `line_drawing/`
@@ -606,6 +606,11 @@ Last updated: 2026-07-14
   - `make -C line_drawing release-notarize ...`
   - `make -C line_drawing release-staple`
   - `make -C line_drawing release-verify-notarized ...`
+  - `make -C line_drawing release-artifact-roundtrip-test`
+  - the macOS bundle uses a native Mach-O launcher plus a sealed shell resource;
+    final release ZIPs must pass post-extraction codesign, launcher self-test,
+    detached-signature absence, Gatekeeper, stapler, and exact source-commit
+    verification
 
 ## Current Boundary
 

@@ -86,8 +86,9 @@ release-verify-signed: release-verify
 release-notarize: release-verify-signed
 	@test -n "$(APPLE_NOTARY_PROFILE)" || (echo "Missing APPLE_NOTARY_PROFILE"; exit 1)
 	@mkdir -p "$(RELEASE_DIR)"
-	@ditto -c -k --keepParent "$(PACKAGE_APP_DIR)" "$(RELEASE_APP_ZIP)"
-	@xcrun notarytool submit "$(RELEASE_APP_ZIP)" --keychain-profile "$(APPLE_NOTARY_PROFILE)" --wait --output-format json > "$(RELEASE_DIR)/notary_submit.json"
+	@rm -f "$(RELEASE_NOTARY_ZIP)"
+	@ditto -c -k --keepParent "$(PACKAGE_APP_DIR)" "$(RELEASE_NOTARY_ZIP)"
+	@xcrun notarytool submit "$(RELEASE_NOTARY_ZIP)" --keychain-profile "$(APPLE_NOTARY_PROFILE)" --wait --output-format json > "$(RELEASE_DIR)/notary_submit.json"
 	@rg -q '"status"[[:space:]]*:[[:space:]]*"Accepted"' "$(RELEASE_DIR)/notary_submit.json" || (cat "$(RELEASE_DIR)/notary_submit.json" && echo "Notary submission was not accepted" && exit 1)
 	@echo "release-notarize passed."
 
@@ -112,7 +113,9 @@ release-verify-notarized: release-staple
 
 release-artifact: release-verify-notarized
 	@mkdir -p "$(RELEASE_DIR)"
+	@rm -f "$(RELEASE_APP_ZIP)"
 	@ditto -c -k --keepParent "$(PACKAGE_APP_DIR)" "$(RELEASE_APP_ZIP)"
+	@"$(PACKAGE_RELEASE_ZIP_VERIFIER)" "$(RELEASE_APP_ZIP)" "$(PACKAGE_APP_NAME)" "$(RELEASE_CODESIGN_IDENTITY)" "$(RELEASE_ROUNDTRIP_RECEIPT)" "$(RELEASE_DIR)/notary_submit.json" "$(RELEASE_SOURCE_COMMIT)"
 	@shasum -a 256 "$(RELEASE_APP_ZIP)" > "$(RELEASE_APP_ZIP).sha256"
 	@{ \
 		echo "product=$(RELEASE_PRODUCT_NAME)"; \
@@ -122,6 +125,7 @@ release-artifact: release-verify-notarized
 		echo "platform=$(RELEASE_PLATFORM)"; \
 		echo "arch=$(RELEASE_ARCH)"; \
 		echo "bundle_id=$(RELEASE_BUNDLE_ID)"; \
+		echo "source_commit=$(RELEASE_SOURCE_COMMIT)"; \
 		echo "signed=1"; \
 		echo "notarized=1"; \
 		echo "zip=$(RELEASE_APP_ZIP)"; \
@@ -129,6 +133,14 @@ release-artifact: release-verify-notarized
 		echo "notary_json=$(RELEASE_DIR)/notary_submit.json"; \
 	} > "$(RELEASE_MANIFEST)"
 	@echo "release-artifact complete: $(RELEASE_APP_ZIP)"
+
+release-artifact-roundtrip-test: package-desktop-self-test
+	@mkdir -p "$(RELEASE_DIR)"
+	@rm -f "$(RELEASE_DIR)/roundtrip-test.zip"
+	@ditto -c -k --keepParent "$(PACKAGE_APP_DIR)" "$(RELEASE_DIR)/roundtrip-test.zip"
+	@"$(PACKAGE_RELEASE_ZIP_VERIFIER)" "$(RELEASE_DIR)/roundtrip-test.zip" "$(PACKAGE_APP_NAME)" "$(PACKAGE_ADHOC_SIGN_IDENTITY)"
+	@rm -f "$(RELEASE_DIR)/roundtrip-test.zip"
+	@echo "release-artifact-roundtrip-test passed."
 
 release-distribute: release-artifact
 	@echo "release-distribute passed."

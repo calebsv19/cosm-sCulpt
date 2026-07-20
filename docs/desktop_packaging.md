@@ -45,6 +45,12 @@ Desktop copy target:
 Launcher path:
 - `/Users/<user>/Desktop/sCulpt.app/Contents/MacOS/line-drawing-launcher`
 
+The executable launcher is a small native Mach-O shim. It invokes the sealed
+shell implementation at
+`Contents/Resources/line-drawing-launcher.sh`. The shell resource must not be
+signed as nested code: detached script signatures do not survive ZIP transport
+without invalidating the enclosing app seal.
+
 Diagnostics commands:
 - `.../line-drawing-launcher --print-config`
 - `.../line-drawing-launcher --self-test`
@@ -96,16 +102,24 @@ Failure diagnostics:
 - `make -C line_drawing release-notarize APPLE_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)" APPLE_NOTARY_PROFILE="<profile>"`
 - `make -C line_drawing release-staple`
 - `make -C line_drawing release-verify-notarized APPLE_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)"`
+- `make -C line_drawing release-artifact-roundtrip-test`
 - `make -C line_drawing release-distribute APPLE_SIGN_IDENTITY="Developer ID Application: <Name> (<TEAMID>)" APPLE_NOTARY_PROFILE="<profile>"`
+
+`release-artifact` now extracts the final ZIP into a disposable directory and
+requires deep codesign verification, native-launcher/resource identity,
+launcher self-test, no materialized detached-signature files, Gatekeeper
+acceptance, staple validation, and exact source-commit binding before writing
+checksum/manifest sidecars.
 
 ## Recommended Local Validation
 1. `make -C line_drawing clean && make -C line_drawing`
 2. `make -C line_drawing test`
 3. `make -C line_drawing package-desktop-self-test`
-4. `make -C line_drawing package-desktop-refresh`
-5. `/Users/<user>/Desktop/sCulpt.app/Contents/MacOS/line-drawing-launcher --print-config`
-6. `open /Users/<user>/Desktop/sCulpt.app`
-7. `tail -n 120 ~/Library/Logs/LineDrawing/launcher.log`
+4. `make -C line_drawing release-artifact-roundtrip-test`
+5. `make -C line_drawing package-desktop-refresh`
+6. `/Users/<user>/Desktop/sCulpt.app/Contents/MacOS/line-drawing-launcher --print-config`
+7. `open /Users/<user>/Desktop/sCulpt.app`
+8. `tail -n 120 ~/Library/Logs/LineDrawing/launcher.log`
 
 Note:
 - a fresh clone will still need an `AppIcon.icns` copied into `tools/packaging/macos/local_app_icon/` before plain packaging picks it up, because that lane is intentionally ignored.
