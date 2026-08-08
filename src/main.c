@@ -12,6 +12,8 @@
 #include "Input/input_handler.h"
 #include "Input/input_routing_policy.h"
 #include "Render/render_handler.h"
+#include "Render/vulkan_adapter.h"
+#include "Render/vulkan_rollout.h"
 #include "Core/global_state.h"
 #include "core_mesh_asset.h"
 #include <math.h>
@@ -554,11 +556,16 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
 }
 
 int line_drawing_app_main_legacy(int argc, char **argv) {
-    (void)argc;
-    (void)argv;
+    bool vulkan_rollout = false;
+    for (int arg_index = 1; arg_index < argc; ++arg_index) {
+        if (argv[arg_index] && strcmp(argv[arg_index], "--vulkan-rollout-self-test") == 0) {
+            vulkan_rollout = true;
+        }
+    }
     const char* visual_artifact_path = getenv("LINE_DRAWING_VISUAL_ARTIFACT");
     const char* visual_artifact_mode = getenv("LINE_DRAWING_VISUAL_ARTIFACT_MODE");
     AppContext app;
+    VulkanAdapter_SetValidationEnabled(vulkan_rollout);
     if (!App_Init(&app, "LineDrawing", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, true))
         return 1;
 
@@ -579,6 +586,14 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
         .handleRender = handleRender
     };
     App_SetRenderMode(&app, RENDER_THROTTLED, 1.0f / 60.0f);
+    if (vulkan_rollout) {
+        int proof_result = 1;
+        LineDrawingHostEnterEditor();
+        handleUpdate(&app);
+        proof_result = LineDrawingVulkanRollout_Run(&app, handleUpdate, handleRender) ? 0 : 1;
+        LineDrawingRuntimeShutdown(&app);
+        return proof_result;
+    }
     if (visual_artifact_path && visual_artifact_path[0]) {
         const int proof_result =
             LineDrawingRunVisualArtifactProof(&app, visual_artifact_path, visual_artifact_mode);

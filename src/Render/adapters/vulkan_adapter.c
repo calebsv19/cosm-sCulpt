@@ -4,6 +4,12 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 
+static bool g_validation_enabled = false;
+
+void VulkanAdapter_SetValidationEnabled(bool enabled) {
+    g_validation_enabled = enabled;
+}
+
 bool VulkanAdapter_Init(AppContext* ctx, SDL_Window* window) {
     if (!ctx || !window) {
         return false;
@@ -11,7 +17,7 @@ bool VulkanAdapter_Init(AppContext* ctx, SDL_Window* window) {
 
     VkRendererConfig cfg;
     vk_renderer_config_set_defaults(&cfg);
-    cfg.enable_validation = SDL_FALSE;
+    cfg.enable_validation = g_validation_enabled ? VK_TRUE : VK_FALSE;
     cfg.clear_color[0] = 20.0f / 255.0f;
     cfg.clear_color[1] = 20.0f / 255.0f;
     cfg.clear_color[2] = 23.0f / 255.0f;
@@ -31,6 +37,9 @@ void VulkanAdapter_Shutdown(AppContext* ctx) {
     if (!ctx || !ctx->renderer) {
         return;
     }
+    /* App-owned caches may release renderer textures during reset.  Make the
+       compatibility-wrapper lifetime explicit before those releases. */
+    vk_renderer_wait_idle(ctx->renderer);
     Layout_MeshSolidPreviewShutdown((SDL_Renderer*)ctx->renderer);
     line_drawing_text_reset_renderer((SDL_Renderer*)ctx->renderer);
     vk_renderer_shutdown(ctx->renderer);

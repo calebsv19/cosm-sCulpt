@@ -1,6 +1,27 @@
 # sCulpt Current Truth
 
-Last updated: 2026-07-19
+Last updated: 2026-08-08
+
+## Managed Vulkan Presentation Baseline
+
+- The default vendored shared subtree now carries canonical shared commit
+  `60084f90564105983c7c74e862a299d8b6775347`, including `vk_runtime 0.6.0`
+  beneath `vk_renderer 1.3.1`.
+- LineDrawing keeps its existing Vulkan adapter and editor/render ownership;
+  the renderer delegates instance/device/queue lifecycle to the runtime while
+  preserving the compatibility handles used by the app.
+- `make vulkan-rollout-contract` independently hashes every tracked canonical
+  Vulkan runtime/renderer source file against the managed copy.
+- `make vulkan-rollout-self-test` requires validation-clean startup, real
+  resize, shutdown/restart, shared runtime/device handle identity, nontrivial
+  capture readback, and high-DPI drawable extents. The Apple M2 proof passes at
+  2.0x scale from `2560x1440` to `2880x1800`, with zero validation warnings or
+  errors.
+- This is presentation lifecycle adoption only. Scene authoring, CPU mesh
+  preview/rasterization, editor policy, and application semantics remain
+  LineDrawing-owned; no Vulkan compute/residency/timing workload API is used.
+- LineDrawing remains version `0.3.0`. This source state is not a new release,
+  Registry promotion, Linux application proof, or RayTracing rollout.
 
 ## Program Identity
 - Repository directory: `line_drawing/`

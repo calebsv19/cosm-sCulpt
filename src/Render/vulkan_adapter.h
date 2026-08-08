@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 bool VulkanAdapter_Init(AppContext* ctx, SDL_Window* window);
+void VulkanAdapter_SetValidationEnabled(bool enabled);
 void VulkanAdapter_Shutdown(AppContext* ctx);
 bool VulkanAdapter_RecreateSwapchain(AppContext* ctx, int width, int height);
 bool VulkanAdapter_BeginFrame(AppContext* ctx, VkCommandBuffer* out_cmd);
