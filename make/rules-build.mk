@@ -54,7 +54,7 @@ $(APP_TARGET): $(APP_OBJS)
 
 $(PROGRAM_OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(APP_CFLAGS) -MMD -MP -c $< -o $@
+	$(CC) $(APP_CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 $(HOST_TEST_OBJ_DIR)/%.o: $(TEST_DIR)/%.c
 	@mkdir -p $(dir $@)

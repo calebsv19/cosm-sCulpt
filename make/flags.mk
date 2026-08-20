@@ -92,3 +92,17 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 LDFLAGS := $(ARCH_FLAGS) $(SDL_LDFLAGS) $(SDL_LIBS) $(SDL_TTF_LIB) $(SDL_FRAMEWORKS) $(VULKAN_LIBS) -lm
+
+# fisiCs consumes language, preprocessing, and link inputs directly, but does
+# not accept Clang-driver warning, optimisation, debug, architecture, or
+# dependency-generation flags. Keep the host-Clang command line unchanged.
+DEPFLAGS := -MMD -MP
+FISICS_DRIVER_ONLY_FLAGS := $(WARN_FLAGS) $(ARCH_FLAGS) -O0 -O2 -g
+ifeq ($(BUILD_TOOLCHAIN),fisics)
+BASE_CFLAGS := $(filter-out $(FISICS_DRIVER_ONLY_FLAGS),$(BASE_CFLAGS))
+CFLAGS := $(filter-out $(FISICS_DRIVER_ONLY_FLAGS),$(CFLAGS))
+APP_CFLAGS := $(filter-out $(FISICS_DRIVER_ONLY_FLAGS),$(APP_CFLAGS))
+APP_CFLAGS += -D__clang_version__=\"fisiCs\"
+LDFLAGS := $(filter-out $(ARCH_FLAGS),$(LDFLAGS))
+DEPFLAGS :=
+endif
