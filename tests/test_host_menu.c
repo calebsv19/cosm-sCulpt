@@ -129,6 +129,8 @@ static bool test_browse_click_switches_to_catalog_section(void) {
     LineDrawingHostMenuCommand command = {0};
     AppContext ctx = {0};
     SDL_Event event;
+    char prior_input_root[LINE_DRAWING_PATH_CAP];
+    LineDrawingRecentContexts prior_recents;
 
     root = mkdtemp(temp_template);
     TEST_ASSERT(root != NULL);
@@ -149,6 +151,11 @@ static bool test_browse_click_switches_to_catalog_section(void) {
     TEST_ASSERT(ld_test_artifact_write_text_file(sibling_runtime_file, "{}"));
 
     ld_test_init_runtime();
+    snprintf(prior_input_root,
+             sizeof(prior_input_root),
+             "%s",
+             Global_GetInputRoot());
+    prior_recents = *Global_GetRecentContexts();
     TEST_ASSERT(Global_SetInputRoot(current_dir, true));
 
     LineDrawingHostMenu_Init(&state);
@@ -167,7 +174,15 @@ static bool test_browse_click_switches_to_catalog_section(void) {
                 state.selected_section == LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS);
     TEST_ASSERT(state.focus_region == LINE_DRAWING_HOST_MENU_FOCUS_CONTENT);
 
+    TEST_ASSERT(Global_SetInputRoot(prior_input_root, true));
+    TEST_ASSERT(LineDrawingRecentContexts_Save(&prior_recents));
     ld_test_shutdown_runtime();
+    TEST_ASSERT(unlink(sibling_scene_file) == 0);
+    TEST_ASSERT(unlink(sibling_runtime_file) == 0);
+    TEST_ASSERT(rmdir(sibling_dir) == 0);
+    TEST_ASSERT(rmdir(current_dir) == 0);
+    TEST_ASSERT(rmdir(family_dir) == 0);
+    TEST_ASSERT(rmdir(root) == 0);
     return true;
 }
 
