@@ -1047,6 +1047,8 @@ static bool test_canonical_scene_export_applies_scene_authoring_options(void) {
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(material, "material_type")->valuestring, "flat_color") == 0);
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "light_id")->valuestring, "light_custom") == 0);
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(light, "light_type")->valuestring, "point") == 0);
+        TEST_ASSERT(cJSON_IsNumber(cJSON_GetObjectItem(light, "radius")));
+        TEST_ASSERT(fabs(cJSON_GetObjectItem(light, "radius")->valuedouble) < 0.001);
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera, "camera_id")->valuestring, "cam_custom") == 0);
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(camera, "camera_type")->valuestring, "perspective") == 0);
 

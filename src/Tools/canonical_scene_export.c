@@ -1147,7 +1147,13 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_AddNumberToObject(light_color, "y", 1.0);
         cJSON_AddNumberToObject(light_color, "z", 1.0);
         cJSON_AddNumberToObject(light, "intensity", 1.0);
-        cJSON_AddNumberToObject(light, "radius", 0.25);
+        /*
+         * Canonical point/directional/spot lights are not area lights. A
+         * positive default radius makes the RayTracing bridge promote them to
+         * sphere lights, changing both their visible shape and shadow model.
+         * Downstream render requests can still opt into an area radius.
+         */
+        cJSON_AddNumberToObject(light, "radius", 0.0);
         cJSON_AddItemToObject(light, "area_size", light_area_size);
         cJSON_AddNumberToObject(light_area_size, "width", 2.0);
         cJSON_AddNumberToObject(light_area_size, "height", 2.0);
