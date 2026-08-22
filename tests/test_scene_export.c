@@ -119,13 +119,19 @@ static bool test_scene_export_emits_authoring_and_runtime_files(void) {
     TEST_ASSERT(strstr(export_paths.scene_dir, "/demo room") != NULL);
     TEST_ASSERT(strstr(export_paths.authoring_path, "/demo room/scene_authoring.json") != NULL);
     TEST_ASSERT(strstr(export_paths.runtime_path, "/demo room/scene_runtime.json") != NULL);
+    TEST_ASSERT(strstr(export_paths.receipt_path, "/demo room/scene_export_receipt.json") != NULL);
+    TEST_ASSERT(strlen(export_paths.bundle_sha256) == 64u);
     TEST_ASSERT(strstr(export_paths.scene_id, "scene_line_drawing_demo_room") != NULL);
     TEST_ASSERT(file_contains(export_paths.authoring_path, "\"scene_authoring_v1\""));
     TEST_ASSERT(file_contains(export_paths.runtime_path, "\"schema_variant\":\"scene_runtime_v1\""));
+    TEST_ASSERT(file_contains(export_paths.runtime_path, "\"authoring_sha256\":"));
+    TEST_ASSERT(file_contains(export_paths.receipt_path, "\"scene_export_receipt_v1\""));
+    TEST_ASSERT(file_contains(export_paths.receipt_path, export_paths.bundle_sha256));
 
     Layout_Free(&layout);
     (void)unlink(export_paths.authoring_path);
     (void)unlink(export_paths.runtime_path);
+    (void)unlink(export_paths.receipt_path);
     (void)rmdir(export_paths.scene_dir);
     (void)rmdir(root);
     return true;
@@ -165,9 +171,62 @@ static bool test_scene_export_uses_parent_scene_name_for_authoring_hint(void) {
                        "imported bodyparts/scene_runtime.json") != NULL);
     TEST_ASSERT(file_contains(export_paths.authoring_path, "\"scene_authoring_v1\""));
     TEST_ASSERT(file_contains(export_paths.runtime_path, "\"schema_variant\":\"scene_runtime_v1\""));
+    TEST_ASSERT(file_contains(export_paths.receipt_path, "\"scene_export_receipt_v1\""));
 
     remove(export_paths.authoring_path);
     remove(export_paths.runtime_path);
+    remove(export_paths.receipt_path);
+    rmdir(export_paths.scene_dir);
+    rmdir(root);
+    Layout_Free(&layout);
+    return true;
+}
+
+static bool test_scene_export_refuses_to_replace_existing_bundle(void) {
+    char root_template[] = "/tmp/ld_scene_export_collision_XXXXXX";
+    char* root = mkdtemp(root_template);
+    Layout layout;
+    LineDrawingSceneExportPaths export_paths;
+    char diagnostics[256];
+    char* original_authoring = NULL;
+    char* original_receipt = NULL;
+    char* current_authoring = NULL;
+    char* current_receipt = NULL;
+
+    TEST_ASSERT(root != NULL);
+    Layout_Init(&layout, 1.0f);
+    TEST_ASSERT(Layout_AddAnchor3(&layout, (Vec3){0.0f, 0.0f, 0.0f}) >= 0);
+    TEST_ASSERT(LineDrawingSceneExport_ExportLayoutToOutputRoot(&layout,
+                                                                "iteration.json",
+                                                                root,
+                                                                &export_paths,
+                                                                diagnostics,
+                                                                sizeof(diagnostics)));
+    original_authoring = read_text_file(export_paths.authoring_path);
+    original_receipt = read_text_file(export_paths.receipt_path);
+    TEST_ASSERT(original_authoring != NULL);
+    TEST_ASSERT(original_receipt != NULL);
+
+    TEST_ASSERT(Layout_AddAnchor3(&layout, (Vec3){9.0f, 8.0f, 7.0f}) >= 0);
+    TEST_ASSERT(!LineDrawingSceneExport_ExportLayoutToOutputRoot(&layout,
+                                                                 "iteration.json",
+                                                                 root,
+                                                                 NULL,
+                                                                 diagnostics,
+                                                                 sizeof(diagnostics)));
+    TEST_ASSERT(strstr(diagnostics, "already exists") != NULL);
+    current_authoring = read_text_file(export_paths.authoring_path);
+    current_receipt = read_text_file(export_paths.receipt_path);
+    TEST_ASSERT(current_authoring != NULL && strcmp(original_authoring, current_authoring) == 0);
+    TEST_ASSERT(current_receipt != NULL && strcmp(original_receipt, current_receipt) == 0);
+
+    free(original_authoring);
+    free(original_receipt);
+    free(current_authoring);
+    free(current_receipt);
+    unlink(export_paths.receipt_path);
+    unlink(export_paths.runtime_path);
+    unlink(export_paths.authoring_path);
     rmdir(export_paths.scene_dir);
     rmdir(root);
     Layout_Free(&layout);
@@ -800,6 +859,8 @@ bool scene_export_run_tests(void) {
         { "scene_export_emits_authoring_and_runtime_files", test_scene_export_emits_authoring_and_runtime_files },
         { "scene_export_uses_parent_scene_name_for_authoring_hint",
           test_scene_export_uses_parent_scene_name_for_authoring_hint },
+        { "scene_export_refuses_to_replace_existing_bundle",
+          test_scene_export_refuses_to_replace_existing_bundle },
         { "scene_export_cleans_new_directory_on_authoring_failure",
           test_scene_export_cleans_new_directory_on_authoring_failure },
         { "scene_export_embeds_layout_snapshot_and_round_trips_import",

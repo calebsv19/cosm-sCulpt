@@ -12,8 +12,10 @@ that either link into the runtime or build as focused command-line helpers.
   `shape_dataset.*` — Shape export, diagnostics pack, trace, sanity, and
   dataset helpers.
 - `scene_export.*` — scene-directory export helper used by the File pane. It
-  writes authored scenes and compiles runtime scenes through shared
-  `core_scene_compile`.
+  renders canonical authoring JSON in memory and publishes the authoring,
+  deterministic runtime, and `scene_export_receipt_v1` files through shared
+  `core_scene_compile`'s create-only atomic bundle transaction. Existing scene
+  bundle directories are never replaced.
 - `scene_project_export.*` — scene-project metadata and scaffold helper used by
   `scene_export.*` for project-root exports. It writes `scene_project.json`,
   `object_manifest.json`, downstream placeholder folders, and project-local

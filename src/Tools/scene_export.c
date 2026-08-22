@@ -132,30 +132,6 @@ static bool ensure_directory_exists(const char* path) {
     return errno == EEXIST;
 }
 
-static bool ensure_directory_exists_with_created(const char* path, bool* out_created) {
-    struct stat st;
-    if (out_created) *out_created = false;
-    if (!path || !path[0]) return false;
-    if (stat(path, &st) == 0) {
-        return S_ISDIR(st.st_mode);
-    }
-    if (mkdir(path, 0755) == 0) {
-        if (out_created) *out_created = true;
-        return true;
-    }
-    return errno == EEXIST;
-}
-
-static void cleanup_failed_new_scene_dir(const char* scene_dir,
-                                         const char* authoring_path,
-                                         const char* runtime_path,
-                                         bool created_scene_dir) {
-    if (!created_scene_dir) return;
-    if (authoring_path && authoring_path[0]) (void)remove(authoring_path);
-    if (runtime_path && runtime_path[0]) (void)remove(runtime_path);
-    if (scene_dir && scene_dir[0]) (void)rmdir(scene_dir);
-}
-
 static bool build_path(const char* root,
                        const char* leaf,
                        char* out_path,
@@ -240,17 +216,14 @@ bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
                                                      size_t diagnostics_size) {
     char stem[128];
     char scene_dir[SHAPE_EXPORT_PATH_MAX];
-    char authoring_path[SHAPE_EXPORT_PATH_MAX];
-    char runtime_path[SHAPE_EXPORT_PATH_MAX];
     char scene_id[64];
-    CoreResult compile_result = {0};
+    char* authoring_json = NULL;
+    CoreSceneCompileBundlePaths bundle_paths = {0};
+    CoreResult publish_result = {0};
     const char* root = output_root;
-    bool created_scene_dir = false;
 
     write_diagnostics(diagnostics, diagnostics_size, NULL);
     scene_dir[0] = '\0';
-    authoring_path[0] = '\0';
-    runtime_path[0] = '\0';
     if (!layout) {
         write_diagnostics(diagnostics, diagnostics_size, "layout missing");
         return false;
@@ -263,48 +236,38 @@ bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
         write_diagnostics(diagnostics, diagnostics_size, "failed to build scene directory path");
         return false;
     }
-    if (!ensure_directory_exists_with_created(scene_dir, &created_scene_dir)) {
-        write_diagnostics(diagnostics, diagnostics_size, "failed to create scene directory");
-        return false;
-    }
-    if (!ShapeExport_BuildPathInRoot(scene_dir, k_authoring_filename, authoring_path, sizeof(authoring_path))) {
-        write_diagnostics(diagnostics, diagnostics_size, "failed to prepare authoring export path");
-        cleanup_failed_new_scene_dir(scene_dir, authoring_path, runtime_path, created_scene_dir);
-        return false;
-    }
-    if (!ShapeExport_BuildPathInRoot(scene_dir, k_runtime_filename, runtime_path, sizeof(runtime_path))) {
-        write_diagnostics(diagnostics, diagnostics_size, "failed to prepare runtime export path");
-        cleanup_failed_new_scene_dir(scene_dir, authoring_path, runtime_path, created_scene_dir);
-        return false;
-    }
-    if (!LineDrawingCanonicalScene_ExportLayoutToFile(layout, scene_id, authoring_path)) {
+    authoring_json = LineDrawingCanonicalScene_ExportLayoutToString(layout, scene_id);
+    if (!authoring_json) {
         write_diagnostics(diagnostics, diagnostics_size, "failed to export canonical authoring scene");
-        cleanup_failed_new_scene_dir(scene_dir, authoring_path, runtime_path, created_scene_dir);
         return false;
     }
     if (getenv("LINE_DRAWING_TEST_FORCE_SCENE_EXPORT_COMPILE_FAIL")) {
+        free(authoring_json);
         write_diagnostics(diagnostics, diagnostics_size, "forced scene compile failure");
-        cleanup_failed_new_scene_dir(scene_dir, authoring_path, runtime_path, created_scene_dir);
         return false;
     }
 
-    compile_result = core_scene_compile_authoring_file_to_runtime_file(authoring_path,
-                                                                       runtime_path,
-                                                                       diagnostics,
-                                                                       diagnostics_size);
-    if (compile_result.code != CORE_OK) {
+    publish_result = core_scene_compile_publish_bundle(authoring_json,
+                                                       NULL,
+                                                       scene_dir,
+                                                       &bundle_paths,
+                                                       diagnostics,
+                                                       diagnostics_size);
+    free(authoring_json);
+    if (publish_result.code != CORE_OK) {
         if (!diagnostics || diagnostics[0] == '\0') {
-            write_diagnostics(diagnostics, diagnostics_size, "scene compile failed");
+            write_diagnostics(diagnostics, diagnostics_size, "scene bundle publication failed");
         }
-        cleanup_failed_new_scene_dir(scene_dir, authoring_path, runtime_path, created_scene_dir);
         return false;
     }
 
     if (out_paths) {
         snprintf(out_paths->scene_id, sizeof(out_paths->scene_id), "%s", scene_id);
-        snprintf(out_paths->scene_dir, sizeof(out_paths->scene_dir), "%s", scene_dir);
-        snprintf(out_paths->authoring_path, sizeof(out_paths->authoring_path), "%s", authoring_path);
-        snprintf(out_paths->runtime_path, sizeof(out_paths->runtime_path), "%s", runtime_path);
+        snprintf(out_paths->scene_dir, sizeof(out_paths->scene_dir), "%s", bundle_paths.scene_dir);
+        snprintf(out_paths->authoring_path, sizeof(out_paths->authoring_path), "%s", bundle_paths.authoring_path);
+        snprintf(out_paths->runtime_path, sizeof(out_paths->runtime_path), "%s", bundle_paths.runtime_path);
+        snprintf(out_paths->receipt_path, sizeof(out_paths->receipt_path), "%s", bundle_paths.receipt_path);
+        snprintf(out_paths->bundle_sha256, sizeof(out_paths->bundle_sha256), "%s", bundle_paths.bundle_sha256);
     }
     return true;
 }

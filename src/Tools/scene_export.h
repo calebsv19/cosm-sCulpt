@@ -2,6 +2,7 @@
 
 #include "Layout/layout.h"
 #include "Tools/shape_export.h"
+#include "core_scene_compile.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -15,6 +16,8 @@ typedef struct LineDrawingSceneExportPaths {
     char scene_dir[SHAPE_EXPORT_PATH_MAX];
     char authoring_path[SHAPE_EXPORT_PATH_MAX];
     char runtime_path[SHAPE_EXPORT_PATH_MAX];
+    char receipt_path[SHAPE_EXPORT_PATH_MAX];
+    char bundle_sha256[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
 } LineDrawingSceneExportPaths;
 
 bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
