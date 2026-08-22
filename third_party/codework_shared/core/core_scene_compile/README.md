@@ -5,7 +5,7 @@ Shared authoring-to-runtime scene compiler for the CodeWork scene pipeline.
 ## Purpose
 Compile `scene_authoring_v1` JSON into deterministic `scene_runtime_v1` JSON that downstream apps such as `ray_tracing`, `physics_sim`, and `line_drawing` can consume.
 
-## Current Scope (v0.4.0)
+## Current Scope (v0.5.0)
 - owns the shared authoring-to-runtime normalization boundary only:
   - validates core authoring contract keys and semantic lanes,
   - emits deterministic runtime JSON with normalized canonical lanes,
@@ -18,7 +18,12 @@ Compile `scene_authoring_v1` JSON into deterministic `scene_runtime_v1` JSON tha
   - object/material uniqueness and `material_ref.id` resolution,
   - hierarchy parent/child object reference integrity,
   - additive fallback generation for missing light/camera ids.
-- emits runtime scene envelope with `compile_meta` including the current normalization marker.
+- emits a deterministic runtime scene envelope whose `compile_meta` binds the
+  compiler version, normalization version, authoring SHA-256, dependency-set
+  SHA-256, and dependency count. Publication time is deliberately excluded.
+- exposes SHA-256/provenance results and a create-only atomic directory
+  publisher for `scene_authoring.json`, `scene_runtime.json`, and
+  `scene_export_receipt.json`.
 - emits deterministic normalized runtime lanes:
   - `objects`, `hierarchy`, `materials`, `lights`, `cameras`,
   - stable ordering by ID (and parent/child pair for hierarchy).
@@ -58,6 +63,15 @@ Compile `scene_authoring_v1` JSON into deterministic `scene_runtime_v1` JSON tha
 - binary/pack output generation,
 - app-specific override merge policy,
 - retained runtime-scene ownership, renderer behavior, or editor UX.
+
+## 2026-08-22 Update (v0.5.0)
+- made compiled runtime bytes deterministic for identical authoring and
+  dependency inputs by moving publication time out of runtime metadata.
+- added authoring, runtime, dependency-set, and bundle SHA-256 provenance.
+- added durable staging-file writes followed by one create-only directory
+  rename, so consumers never observe a partially published bundle.
+- added the `scene_export_receipt_v1` publication receipt; see
+  `shared/docs/SCENE_EXPORT_RECEIPT_V1.md`.
 
 ## 2026-05-25 Update (v0.4.0)
 - extended the shared scene compiler to recognize `mesh_asset_instance` and shared `geometry_ref.kind` vocabulary.
