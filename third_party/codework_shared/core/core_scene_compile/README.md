@@ -5,7 +5,7 @@ Shared authoring-to-runtime scene compiler for the CodeWork scene pipeline.
 ## Purpose
 Compile `scene_authoring_v1` JSON into deterministic `scene_runtime_v1` JSON that downstream apps such as `ray_tracing`, `physics_sim`, and `line_drawing` can consume.
 
-## Current Scope (v0.5.0)
+## Current Scope (v0.6.0)
 - owns the shared authoring-to-runtime normalization boundary only:
   - validates core authoring contract keys and semantic lanes,
   - emits deterministic runtime JSON with normalized canonical lanes,
@@ -21,9 +21,10 @@ Compile `scene_authoring_v1` JSON into deterministic `scene_runtime_v1` JSON tha
 - emits a deterministic runtime scene envelope whose `compile_meta` binds the
   compiler version, normalization version, authoring SHA-256, dependency-set
   SHA-256, and dependency count. Publication time is deliberately excluded.
-- exposes SHA-256/provenance results and a create-only atomic directory
-  publisher for `scene_authoring.json`, `scene_runtime.json`, and
-  `scene_export_receipt.json`.
+- exposes canonical dependency-manifest construction, SHA-256/provenance
+  results, a create-only atomic directory publisher for
+  `scene_authoring.json`, `scene_runtime.json`, `scene_dependencies.json`, and
+  `scene_export_receipt.json`, plus a strict consumer verification API.
 - emits deterministic normalized runtime lanes:
   - `objects`, `hierarchy`, `materials`, `lights`, `cameras`,
   - stable ordering by ID (and parent/child pair for hierarchy).
@@ -72,6 +73,16 @@ Compile `scene_authoring_v1` JSON into deterministic `scene_runtime_v1` JSON tha
   rename, so consumers never observe a partially published bundle.
 - added the `scene_export_receipt_v1` publication receipt; see
   `shared/docs/SCENE_EXPORT_RECEIPT_V1.md`.
+
+## 2026-08-22 Update (v0.6.0)
+- added canonical `scene_dependency_manifest_v1` construction and inspection;
+  entries sort by dependency kind and stable identity before digesting.
+- publication now derives dependency provenance from the manifest and includes
+  `scene_dependencies.json` in the atomic directory transaction.
+- added strict bundle verification for required artifacts, receipt fields,
+  byte counts, dependency counts, artifact digests, runtime provenance,
+  compiler compatibility, bundle identity, and an optional externally expected
+  bundle digest.
 
 ## 2026-05-25 Update (v0.4.0)
 - extended the shared scene compiler to recognize `mesh_asset_instance` and shared `geometry_ref.kind` vocabulary.

@@ -894,6 +894,14 @@ Gaps:
 ### `line_drawing`
 Current shared profile:
 - Broad shared adoption: `core_base/core_scene/core_trace/core_math/core_time`, theme/font, and vendored shape dependencies.
+- `core_scene_compile >= 0.6.0` is now adopted through the managed subtree for
+  Sculpt's File-pane export boundary. Sculpt owns discovery and content hashing
+  for its file-backed runtime mesh dependencies; shared compilation owns
+  canonical manifest sorting/digesting and publishes authoring, runtime,
+  dependency manifest, and `scene_export_receipt_v1` with one create-only
+  atomic directory transaction. Shared receipt verification is the acceptance
+  gate for downstream consumers. Sculpt retains iteration naming, dependency
+  packaging/identity-to-payload mapping, UI status, and promotion policy.
 - the host now consumes that shared surface through a vendored `third_party/codework_shared` subtree instead of direct workspace-local `../shared` linkage.
 - first `kit_render` adoption slice is now in place for the font migration: Makefile wiring, shared role/tier/zoom bridge policy, active Vulkan UTF-8 draw/measure runtime, and packaged launcher/runtime default alignment to the shared `ide` font baseline.
 - first pane-host interaction slice is now in place for layout resizing: shared `core_pane` owns pane solve and shared `kit_pane` owns splitter hover/drag state while pane purpose stays app-local.

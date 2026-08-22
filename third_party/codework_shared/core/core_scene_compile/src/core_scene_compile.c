@@ -48,7 +48,7 @@ typedef struct NormalizedArray {
 static const char *k_schema_family = "codework_scene";
 static const char *k_authoring_variant = "scene_authoring_v1";
 static const char *k_compiler_version = CORE_SCENE_COMPILE_VERSION;
-static const char *k_normalization_version = "v0.5_digest_bound_sorted_lanes";
+static const char *k_normalization_version = "v0.6_manifest_bound_sorted_lanes";
 
 static bool is_sha256_hex(const char *text) {
     if (!text || strlen(text) != 64u) return false;
@@ -1328,6 +1328,7 @@ static CoreResult compile_inner(const char *authoring_json,
     char compile_meta[512];
     char authoring_sha256[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
     char dependency_sha256[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+    size_t dependency_count = 0u;
     double world_scale_number = 1.0;
     CoreResult validate_result;
 
@@ -1342,12 +1343,31 @@ static CoreResult compile_inner(const char *authoring_json,
         core_scene_compile_sha256("", 0u, dependency_sha256).code != CORE_OK) {
         return (CoreResult){ CORE_ERR_FORMAT, "failed to calculate scene digest" };
     }
-    if (options && options->dependency_digest_sha256) {
+    if (options && options->dependency_manifest_json) {
+        char manifest_sha256[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+        size_t manifest_count = 0u;
+        CoreResult manifest_result = core_scene_compile_dependency_manifest_inspect(
+            options->dependency_manifest_json,
+            &manifest_count,
+            manifest_sha256,
+            diagnostics,
+            diagnostics_size);
+        if (manifest_result.code != CORE_OK) return manifest_result;
+        if ((options->dependency_digest_sha256 &&
+             strcmp(options->dependency_digest_sha256, manifest_sha256) != 0) ||
+            (options->dependency_count != 0u && options->dependency_count != manifest_count)) {
+            diag_write(diagnostics, diagnostics_size, "dependency manifest metadata does not match supplied digest/count");
+            return (CoreResult){ CORE_ERR_INVALID_ARG, "dependency manifest metadata mismatch" };
+        }
+        memcpy(dependency_sha256, manifest_sha256, sizeof(dependency_sha256));
+        dependency_count = manifest_count;
+    } else if (options && options->dependency_digest_sha256) {
         if (!is_sha256_hex(options->dependency_digest_sha256)) {
             diag_write(diagnostics, diagnostics_size, "dependency digest must be lowercase SHA-256 hex");
             return (CoreResult){ CORE_ERR_INVALID_ARG, "invalid dependency digest" };
         }
         memcpy(dependency_sha256, options->dependency_digest_sha256, sizeof(dependency_sha256));
+        dependency_count = options->dependency_count;
     } else if (options && options->dependency_count != 0u) {
         diag_write(diagnostics, diagnostics_size, "dependency count requires a dependency digest");
         return (CoreResult){ CORE_ERR_INVALID_ARG, "missing dependency digest" };
@@ -1527,7 +1547,7 @@ static CoreResult compile_inner(const char *authoring_json,
              k_normalization_version,
              authoring_sha256,
              dependency_sha256,
-             options ? options->dependency_count : 0u);
+             dependency_count);
 
     sb_init(&out);
     if (!sb_append(&out, "{\n")) goto oom;
@@ -1578,7 +1598,7 @@ static CoreResult compile_inner(const char *authoring_json,
     if (out_provenance) {
         memcpy(out_provenance->authoring_sha256, authoring_sha256, sizeof(authoring_sha256));
         memcpy(out_provenance->dependency_sha256, dependency_sha256, sizeof(dependency_sha256));
-        out_provenance->dependency_count = options ? options->dependency_count : 0u;
+        out_provenance->dependency_count = dependency_count;
         out_provenance->compiler_version = k_compiler_version;
         out_provenance->normalization_version = k_normalization_version;
         if (core_scene_compile_sha256(out.data, out.len, out_provenance->runtime_sha256).code != CORE_OK) {

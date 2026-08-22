@@ -35,8 +35,13 @@ static bool build_path(const char *root, const char *leaf, char *out, size_t out
     return written > 0 && (size_t)written < out_size;
 }
 
-static void cleanup_staging(const char *dir, const char *authoring, const char *runtime, const char *receipt) {
+static void cleanup_staging(const char *dir,
+                            const char *authoring,
+                            const char *runtime,
+                            const char *dependencies,
+                            const char *receipt) {
     if (receipt && receipt[0]) (void)unlink(receipt);
+    if (dependencies && dependencies[0]) (void)unlink(dependencies);
     if (runtime && runtime[0]) (void)unlink(runtime);
     if (authoring && authoring[0]) (void)unlink(authoring);
     if (dir && dir[0]) (void)rmdir(dir);
@@ -88,11 +93,17 @@ CoreResult core_scene_compile_publish_bundle(const char *authoring_json,
     char staging_dir[1024] = {0};
     char authoring_path[1024] = {0};
     char runtime_path[1024] = {0};
+    char dependency_path[1024] = {0};
     char receipt_path[1024] = {0};
     char bundle_input[512];
     char bundle_sha256[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
-    char receipt[2048];
+    char receipt[2304];
     char *runtime_json = NULL;
+    char *owned_manifest_json = NULL;
+    const char *manifest_json = NULL;
+    char manifest_sha256[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+    size_t manifest_count = 0u;
+    CoreSceneCompileOptions resolved_options = {0};
     struct stat st;
     CoreResult result;
     int written;
@@ -114,19 +125,61 @@ CoreResult core_scene_compile_publish_bundle(const char *authoring_json,
     }
     if (!build_path(staging_dir, "scene_authoring.json", authoring_path, sizeof(authoring_path)) ||
         !build_path(staging_dir, "scene_runtime.json", runtime_path, sizeof(runtime_path)) ||
+        !build_path(staging_dir, "scene_dependencies.json", dependency_path, sizeof(dependency_path)) ||
         !build_path(staging_dir, "scene_export_receipt.json", receipt_path, sizeof(receipt_path))) {
-        cleanup_staging(staging_dir, authoring_path, runtime_path, receipt_path);
+        cleanup_staging(staging_dir, authoring_path, runtime_path, dependency_path, receipt_path);
         return (CoreResult){ CORE_ERR_INVALID_ARG, "bundle path too long" };
     }
 
+    if (options && options->dependency_manifest_json) {
+        manifest_json = options->dependency_manifest_json;
+        result = core_scene_compile_dependency_manifest_inspect(manifest_json,
+                                                                 &manifest_count,
+                                                                 manifest_sha256,
+                                                                 diagnostics,
+                                                                 diagnostics_size);
+        if (result.code != CORE_OK) {
+            cleanup_staging(staging_dir, authoring_path, runtime_path, dependency_path, receipt_path);
+            return result;
+        }
+        if ((options->dependency_digest_sha256 &&
+             strcmp(options->dependency_digest_sha256, manifest_sha256) != 0) ||
+            (options->dependency_count != 0u && options->dependency_count != manifest_count)) {
+            cleanup_staging(staging_dir, authoring_path, runtime_path, dependency_path, receipt_path);
+            write_diag(diagnostics, diagnostics_size, "dependency manifest metadata mismatch");
+            return (CoreResult){ CORE_ERR_INVALID_ARG, "dependency manifest metadata mismatch" };
+        }
+    } else {
+        if (options && (options->dependency_digest_sha256 || options->dependency_count != 0u)) {
+            cleanup_staging(staging_dir, authoring_path, runtime_path, dependency_path, receipt_path);
+            write_diag(diagnostics, diagnostics_size, "bundle publication requires the canonical dependency manifest");
+            return (CoreResult){ CORE_ERR_INVALID_ARG, "dependency manifest required" };
+        }
+        result = core_scene_compile_dependency_manifest_build(NULL,
+                                                               0u,
+                                                               &owned_manifest_json,
+                                                               manifest_sha256,
+                                                               diagnostics,
+                                                               diagnostics_size);
+        if (result.code != CORE_OK) {
+            cleanup_staging(staging_dir, authoring_path, runtime_path, dependency_path, receipt_path);
+            return result;
+        }
+        manifest_json = owned_manifest_json;
+    }
+    resolved_options.dependency_digest_sha256 = manifest_sha256;
+    resolved_options.dependency_count = manifest_count;
+    resolved_options.dependency_manifest_json = manifest_json;
+
     result = core_scene_compile_authoring_to_runtime_with_provenance(authoring_json,
-                                                                     options,
+                                                                     &resolved_options,
                                                                      &runtime_json,
                                                                      &provenance,
                                                                      diagnostics,
                                                                      diagnostics_size);
     if (result.code != CORE_OK) {
-        cleanup_staging(staging_dir, authoring_path, runtime_path, receipt_path);
+        core_free(owned_manifest_json);
+        cleanup_staging(staging_dir, authoring_path, runtime_path, dependency_path, receipt_path);
         return result;
     }
     written = snprintf(bundle_input, sizeof(bundle_input),
@@ -139,7 +192,8 @@ CoreResult core_scene_compile_publish_bundle(const char *authoring_json,
     if (written <= 0 || (size_t)written >= sizeof(bundle_input) ||
         core_scene_compile_sha256(bundle_input, (size_t)written, bundle_sha256).code != CORE_OK) {
         core_free(runtime_json);
-        cleanup_staging(staging_dir, authoring_path, runtime_path, receipt_path);
+        core_free(owned_manifest_json);
+        cleanup_staging(staging_dir, authoring_path, runtime_path, dependency_path, receipt_path);
         return (CoreResult){ CORE_ERR_FORMAT, "failed to calculate bundle digest" };
     }
     published_at_ns = (long long)time(NULL) * 1000000000LL;
@@ -150,25 +204,30 @@ CoreResult core_scene_compile_publish_bundle(const char *authoring_json,
         "  \"compiler\":{\"name\":\"core_scene_compile\",\"version\":\"%s\",\"normalization\":\"%s\"},\n"
         "  \"authoring\":{\"path\":\"scene_authoring.json\",\"sha256\":\"%s\",\"bytes\":%zu},\n"
         "  \"runtime\":{\"path\":\"scene_runtime.json\",\"sha256\":\"%s\",\"bytes\":%zu},\n"
-        "  \"dependencies\":{\"sha256\":\"%s\",\"count\":%zu},\n"
+        "  \"dependencies\":{\"path\":\"scene_dependencies.json\",\"sha256\":\"%s\",\"bytes\":%zu,\"count\":%zu},\n"
         "  \"bundle_sha256\":\"%s\"\n}\n",
         published_at_ns, provenance.compiler_version, provenance.normalization_version,
         provenance.authoring_sha256, strlen(authoring_json), provenance.runtime_sha256,
-        strlen(runtime_json), provenance.dependency_sha256, provenance.dependency_count, bundle_sha256);
+        strlen(runtime_json), provenance.dependency_sha256, strlen(manifest_json),
+        provenance.dependency_count, bundle_sha256);
     if (written <= 0 || (size_t)written >= sizeof(receipt) ||
         core_io_write_all_atomic(authoring_path, authoring_json, strlen(authoring_json)).code != CORE_OK ||
         core_io_write_all_atomic(runtime_path, runtime_json, strlen(runtime_json)).code != CORE_OK ||
+        core_io_write_all_atomic(dependency_path, manifest_json, strlen(manifest_json)).code != CORE_OK ||
         core_io_write_all_atomic(receipt_path, receipt, (size_t)written).code != CORE_OK ||
-        !sync_file(authoring_path) || !sync_file(runtime_path) || !sync_file(receipt_path) ||
+        !sync_file(authoring_path) || !sync_file(runtime_path) || !sync_file(dependency_path) ||
+        !sync_file(receipt_path) ||
         !sync_directory(staging_dir)) {
         core_free(runtime_json);
-        cleanup_staging(staging_dir, authoring_path, runtime_path, receipt_path);
+        core_free(owned_manifest_json);
+        cleanup_staging(staging_dir, authoring_path, runtime_path, dependency_path, receipt_path);
         write_diag(diagnostics, diagnostics_size, "failed to durably write scene bundle staging files");
         return (CoreResult){ CORE_ERR_IO, "failed to write bundle" };
     }
     core_free(runtime_json);
+    core_free(owned_manifest_json);
     if (publish_directory_create_only(staging_dir, final_scene_dir) != 0) {
-        cleanup_staging(staging_dir, authoring_path, runtime_path, receipt_path);
+        cleanup_staging(staging_dir, authoring_path, runtime_path, dependency_path, receipt_path);
         write_diag(diagnostics, diagnostics_size, "failed to atomically publish scene bundle");
         return (CoreResult){ CORE_ERR_IO, "failed to publish bundle" };
     }
@@ -176,6 +235,8 @@ CoreResult core_scene_compile_publish_bundle(const char *authoring_json,
         snprintf(out_paths->scene_dir, sizeof(out_paths->scene_dir), "%s", final_scene_dir);
         build_path(final_scene_dir, "scene_authoring.json", out_paths->authoring_path, sizeof(out_paths->authoring_path));
         build_path(final_scene_dir, "scene_runtime.json", out_paths->runtime_path, sizeof(out_paths->runtime_path));
+        build_path(final_scene_dir, "scene_dependencies.json", out_paths->dependency_manifest_path,
+                   sizeof(out_paths->dependency_manifest_path));
         build_path(final_scene_dir, "scene_export_receipt.json", out_paths->receipt_path, sizeof(out_paths->receipt_path));
         memcpy(out_paths->bundle_sha256, bundle_sha256, sizeof(bundle_sha256));
     }

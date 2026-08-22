@@ -63,7 +63,7 @@ static int test_compile_success_and_preserve_extensions(void) {
     if (!strstr(runtime_json, "\"schema_variant\":\"scene_runtime_v1\"")) return 1;
     if (!strstr(runtime_json, "\"source_scene_id\":\"scene_test\"")) return 1;
     if (!strstr(runtime_json, "\"compile_meta\":")) return 1;
-    if (!strstr(runtime_json, "\"normalization\":\"v0.5_digest_bound_sorted_lanes\"")) return 1;
+    if (!strstr(runtime_json, "\"normalization\":\"v0.6_manifest_bound_sorted_lanes\"")) return 1;
     if (!strstr(runtime_json, "\"authoring_sha256\":")) return 1;
     if (!strstr(runtime_json, "\"dependency_sha256\":")) return 1;
     if (!strstr(runtime_json, "\"hierarchy\":[]")) return 1;
@@ -77,7 +77,9 @@ static int test_sha256_and_provenance_are_deterministic(void) {
         "{\"schema_family\":\"codework_scene\",\"schema_variant\":\"scene_authoring_v1\","
         "\"schema_version\":1,\"scene_id\":\"scene_digest\",\"objects\":[]}";
     const CoreSceneCompileOptions options = {
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 2u
+        .dependency_digest_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        .dependency_count = 2u,
+        .dependency_manifest_json = NULL
     };
     CoreSceneCompileProvenance first = {0};
     CoreSceneCompileProvenance second = {0};
@@ -113,6 +115,38 @@ static int test_sha256_and_provenance_are_deterministic(void) {
     return 0;
 }
 
+static int test_dependency_manifest_is_canonical_and_digest_bound(void) {
+    const CoreSceneCompileDependency dependencies[] = {
+        { "texture_runtime", "texture_z", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 20u },
+        { "mesh_asset_runtime", "mesh_a", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 10u }
+    };
+    char *manifest = NULL;
+    char digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+    char inspected_digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+    char diagnostics[256];
+    size_t count = 0u;
+    const char *mesh_position;
+    const char *texture_position;
+    CoreResult result = core_scene_compile_dependency_manifest_build(dependencies,
+                                                                     2u,
+                                                                     &manifest,
+                                                                     digest,
+                                                                     diagnostics,
+                                                                     sizeof(diagnostics));
+    if (result.code != CORE_OK || !manifest) return 1;
+    mesh_position = strstr(manifest, "\"identity\":\"mesh_a\"");
+    texture_position = strstr(manifest, "\"identity\":\"texture_z\"");
+    if (!mesh_position || !texture_position || mesh_position >= texture_position) return 1;
+    result = core_scene_compile_dependency_manifest_inspect(manifest,
+                                                             &count,
+                                                             inspected_digest,
+                                                             diagnostics,
+                                                             sizeof(diagnostics));
+    if (result.code != CORE_OK || count != 2u || strcmp(digest, inspected_digest) != 0) return 1;
+    core_free(manifest);
+    return 0;
+}
+
 static int test_bundle_publication_is_atomic_create_only(void) {
     const char *authoring_json =
         "{\"schema_family\":\"codework_scene\",\"schema_variant\":\"scene_authoring_v1\","
@@ -122,20 +156,39 @@ static int test_bundle_publication_is_atomic_create_only(void) {
     char diagnostics[256];
     char receipt_text[4096];
     CoreSceneCompileBundlePaths paths = {0};
+    CoreSceneCompileVerification verification = {0};
+    const CoreSceneCompileDependency dependency = {
+        "mesh_asset_runtime", "mesh_bundle",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 42u
+    };
+    CoreSceneCompileOptions options = {0};
+    char *manifest = NULL;
+    char manifest_digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
     CoreResult result;
     FILE *receipt;
     json_object *receipt_json;
     size_t read_size;
     if (!mkdtemp(root_template)) return 1;
     if (snprintf(final_dir, sizeof(final_dir), "%s/published", root_template) >= (int)sizeof(final_dir)) return 1;
+    result = core_scene_compile_dependency_manifest_build(&dependency,
+                                                           1u,
+                                                           &manifest,
+                                                           manifest_digest,
+                                                           diagnostics,
+                                                           sizeof(diagnostics));
+    if (result.code != CORE_OK) return 1;
+    options.dependency_digest_sha256 = manifest_digest;
+    options.dependency_count = 1u;
+    options.dependency_manifest_json = manifest;
     result = core_scene_compile_publish_bundle(authoring_json,
-                                               NULL,
+                                               &options,
                                                final_dir,
                                                &paths,
                                                diagnostics,
                                                sizeof(diagnostics));
     if (result.code != CORE_OK || access(paths.authoring_path, F_OK) != 0 ||
-        access(paths.runtime_path, F_OK) != 0 || access(paths.receipt_path, F_OK) != 0) return 1;
+        access(paths.runtime_path, F_OK) != 0 || access(paths.dependency_manifest_path, F_OK) != 0 ||
+        access(paths.receipt_path, F_OK) != 0) return 1;
     receipt = fopen(paths.receipt_path, "rb");
     if (!receipt) return 1;
     read_size = fread(receipt_text, 1u, sizeof(receipt_text) - 1u, receipt);
@@ -145,15 +198,29 @@ static int test_bundle_publication_is_atomic_create_only(void) {
     if (!receipt_json) return 1;
     json_object_put(receipt_json);
     if (!strstr(receipt_text, "\"scene_export_receipt_v1\"") ||
-        !strstr(receipt_text, paths.bundle_sha256) || !strstr(receipt_text, CORE_SCENE_COMPILE_VERSION)) return 1;
+        !strstr(receipt_text, paths.bundle_sha256) || !strstr(receipt_text, CORE_SCENE_COMPILE_VERSION) ||
+        !strstr(receipt_text, "scene_dependencies.json")) return 1;
+    result = core_scene_compile_verify_bundle(final_dir,
+                                              paths.bundle_sha256,
+                                              &verification,
+                                              diagnostics,
+                                              sizeof(diagnostics));
+    if (result.code != CORE_OK || verification.dependency_count != 1u ||
+        strcmp(verification.dependency_sha256, manifest_digest) != 0) return 1;
+    if (write_text_file(paths.runtime_path, "tampered") != 0) return 1;
+    result = core_scene_compile_verify_bundle(final_dir, paths.bundle_sha256, NULL,
+                                              diagnostics, sizeof(diagnostics));
+    if (result.code == CORE_OK) return 1;
     result = core_scene_compile_publish_bundle(authoring_json,
-                                               NULL,
+                                               &options,
                                                final_dir,
                                                NULL,
                                                diagnostics,
                                                sizeof(diagnostics));
     if (result.code == CORE_OK || !strstr(diagnostics, "already exists")) return 1;
+    core_free(manifest);
     unlink(paths.receipt_path);
+    unlink(paths.dependency_manifest_path);
     unlink(paths.runtime_path);
     unlink(paths.authoring_path);
     rmdir(paths.scene_dir);
@@ -977,6 +1044,7 @@ int main(void) {
 #define RUN_TEST(fn) do { if (fn() != 0) { fprintf(stderr, "%s failed\n", #fn); return 1; } } while (0)
     RUN_TEST(test_compile_success_and_preserve_extensions);
     RUN_TEST(test_sha256_and_provenance_are_deterministic);
+    RUN_TEST(test_dependency_manifest_is_canonical_and_digest_bound);
     RUN_TEST(test_bundle_publication_is_atomic_create_only);
     RUN_TEST(test_reject_wrong_variant);
     RUN_TEST(test_reject_malformed_json_input);
