@@ -2,6 +2,7 @@
 
 #include "Tools/canonical_scene_export.h"
 #include "Tools/scene_project_export.h"
+#include "Tools/scene_export_dependencies.h"
 #include "Tools/shape_export.h"
 #include "core_scene_compile.h"
 
@@ -218,7 +219,12 @@ bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
     char scene_dir[SHAPE_EXPORT_PATH_MAX];
     char scene_id[64];
     char* authoring_json = NULL;
+    char* dependency_manifest_json = NULL;
+    char dependency_digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+    size_t dependency_count = 0u;
+    CoreSceneCompileOptions compile_options = {0};
     CoreSceneCompileBundlePaths bundle_paths = {0};
+    CoreSceneCompileVerification verification = {0};
     CoreResult publish_result = {0};
     const char* root = output_root;
 
@@ -247,26 +253,55 @@ bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
         return false;
     }
 
+    if (!LineDrawingSceneExportDependencies_Collect(layout,
+                                                    &dependency_manifest_json,
+                                                    dependency_digest,
+                                                    &dependency_count,
+                                                    diagnostics,
+                                                    diagnostics_size)) {
+        free(authoring_json);
+        return false;
+    }
+    compile_options.dependency_digest_sha256 = dependency_digest;
+    compile_options.dependency_count = dependency_count;
+    compile_options.dependency_manifest_json = dependency_manifest_json;
+
     publish_result = core_scene_compile_publish_bundle(authoring_json,
-                                                       NULL,
+                                                       &compile_options,
                                                        scene_dir,
                                                        &bundle_paths,
                                                        diagnostics,
                                                        diagnostics_size);
     free(authoring_json);
+    core_free(dependency_manifest_json);
     if (publish_result.code != CORE_OK) {
         if (!diagnostics || diagnostics[0] == '\0') {
             write_diagnostics(diagnostics, diagnostics_size, "scene bundle publication failed");
         }
         return false;
     }
+    publish_result = core_scene_compile_verify_bundle(bundle_paths.scene_dir,
+                                                      bundle_paths.bundle_sha256,
+                                                      &verification,
+                                                      diagnostics,
+                                                      diagnostics_size);
+    if (publish_result.code != CORE_OK) return false;
 
     if (out_paths) {
         snprintf(out_paths->scene_id, sizeof(out_paths->scene_id), "%s", scene_id);
         snprintf(out_paths->scene_dir, sizeof(out_paths->scene_dir), "%s", bundle_paths.scene_dir);
         snprintf(out_paths->authoring_path, sizeof(out_paths->authoring_path), "%s", bundle_paths.authoring_path);
         snprintf(out_paths->runtime_path, sizeof(out_paths->runtime_path), "%s", bundle_paths.runtime_path);
+        snprintf(out_paths->dependency_manifest_path,
+                 sizeof(out_paths->dependency_manifest_path),
+                 "%s",
+                 bundle_paths.dependency_manifest_path);
         snprintf(out_paths->receipt_path, sizeof(out_paths->receipt_path), "%s", bundle_paths.receipt_path);
+        snprintf(out_paths->dependency_sha256,
+                 sizeof(out_paths->dependency_sha256),
+                 "%s",
+                 verification.dependency_sha256);
+        out_paths->dependency_count = verification.dependency_count;
         snprintf(out_paths->bundle_sha256, sizeof(out_paths->bundle_sha256), "%s", bundle_paths.bundle_sha256);
     }
     return true;

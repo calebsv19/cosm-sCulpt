@@ -119,18 +119,25 @@ static bool test_scene_export_emits_authoring_and_runtime_files(void) {
     TEST_ASSERT(strstr(export_paths.scene_dir, "/demo room") != NULL);
     TEST_ASSERT(strstr(export_paths.authoring_path, "/demo room/scene_authoring.json") != NULL);
     TEST_ASSERT(strstr(export_paths.runtime_path, "/demo room/scene_runtime.json") != NULL);
+    TEST_ASSERT(strstr(export_paths.dependency_manifest_path,
+                       "/demo room/scene_dependencies.json") != NULL);
     TEST_ASSERT(strstr(export_paths.receipt_path, "/demo room/scene_export_receipt.json") != NULL);
     TEST_ASSERT(strlen(export_paths.bundle_sha256) == 64u);
+    TEST_ASSERT(strlen(export_paths.dependency_sha256) == 64u);
+    TEST_ASSERT(export_paths.dependency_count == 0u);
     TEST_ASSERT(strstr(export_paths.scene_id, "scene_line_drawing_demo_room") != NULL);
     TEST_ASSERT(file_contains(export_paths.authoring_path, "\"scene_authoring_v1\""));
     TEST_ASSERT(file_contains(export_paths.runtime_path, "\"schema_variant\":\"scene_runtime_v1\""));
     TEST_ASSERT(file_contains(export_paths.runtime_path, "\"authoring_sha256\":"));
+    TEST_ASSERT(file_contains(export_paths.dependency_manifest_path,
+                              "\"scene_dependency_manifest_v1\""));
     TEST_ASSERT(file_contains(export_paths.receipt_path, "\"scene_export_receipt_v1\""));
     TEST_ASSERT(file_contains(export_paths.receipt_path, export_paths.bundle_sha256));
 
     Layout_Free(&layout);
     (void)unlink(export_paths.authoring_path);
     (void)unlink(export_paths.runtime_path);
+    (void)unlink(export_paths.dependency_manifest_path);
     (void)unlink(export_paths.receipt_path);
     (void)rmdir(export_paths.scene_dir);
     (void)rmdir(root);
@@ -225,9 +232,76 @@ static bool test_scene_export_refuses_to_replace_existing_bundle(void) {
     free(current_authoring);
     free(current_receipt);
     unlink(export_paths.receipt_path);
+    unlink(export_paths.dependency_manifest_path);
     unlink(export_paths.runtime_path);
     unlink(export_paths.authoring_path);
     rmdir(export_paths.scene_dir);
+    rmdir(root);
+    Layout_Free(&layout);
+    return true;
+}
+
+static bool test_scene_export_collects_and_verifies_mesh_dependencies(void) {
+    char root_template[] = "/tmp/ld_scene_export_dependencies_XXXXXX";
+    char* root = mkdtemp(root_template);
+    char mesh_path[512];
+    char diagnostics[256];
+    const char* mesh_bytes = "fixture-runtime-mesh-bytes";
+    char expected_digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+    Layout layout;
+    Transform3D transform;
+    Object3D* object = NULL;
+    uint32_t object_id;
+    LineDrawingSceneExportPaths export_paths;
+    CoreSceneCompileVerification verification = {0};
+
+    TEST_ASSERT(root != NULL);
+    TEST_ASSERT(build_fixture_path(root, "mesh.runtime.json", mesh_path, sizeof(mesh_path)));
+    TEST_ASSERT(write_text_file(mesh_path, mesh_bytes));
+    TEST_ASSERT(core_scene_compile_sha256(mesh_bytes, strlen(mesh_bytes), expected_digest).code == CORE_OK);
+    Layout_Init(&layout, 1.0f);
+    transform = Layout_Transform3D_Default();
+    object_id = Layout_ObjectStore_Create(&layout.objectStore,
+                                          OBJECT3D_KIND_MESH_ASSET_INSTANCE,
+                                          &transform,
+                                          "mesh_asset_instance",
+                                          CORE_OBJECT_DIMENSIONAL_MODE_FULL_3D,
+                                          CORE_OBJECT_PLANE_XY);
+    TEST_ASSERT(object_id != 0u);
+    object = Layout_ObjectStore_Find(&layout.objectStore, object_id);
+    TEST_ASSERT(object != NULL);
+    snprintf(object->meshInstance.assetId, sizeof(object->meshInstance.assetId), "%s", "mesh_fixture");
+    snprintf(object->meshInstance.runtimePath, sizeof(object->meshInstance.runtimePath), "%s", mesh_path);
+    object->meshInstance.vertexCount = 3u;
+    object->meshInstance.triangleCount = 1u;
+    object->meshInstance.localBoundsMin = (Vec3){0.0f, 0.0f, 0.0f};
+    object->meshInstance.localBoundsMax = (Vec3){1.0f, 1.0f, 1.0f};
+    TEST_ASSERT(Layout_ObjectStore_ValidateObject(object));
+
+    TEST_ASSERT(LineDrawingSceneExport_ExportLayoutToOutputRoot(&layout,
+                                                                "mesh_dependency_scene.json",
+                                                                root,
+                                                                &export_paths,
+                                                                diagnostics,
+                                                                sizeof(diagnostics)));
+    TEST_ASSERT(export_paths.dependency_count == 1u);
+    TEST_ASSERT(file_contains(export_paths.dependency_manifest_path, "\"identity\":\"mesh_fixture\""));
+    TEST_ASSERT(file_contains(export_paths.dependency_manifest_path, expected_digest));
+    TEST_ASSERT(file_contains(export_paths.runtime_path, export_paths.dependency_sha256));
+    TEST_ASSERT(core_scene_compile_verify_bundle(export_paths.scene_dir,
+                                                 export_paths.bundle_sha256,
+                                                 &verification,
+                                                 diagnostics,
+                                                 sizeof(diagnostics)).code == CORE_OK);
+    TEST_ASSERT(verification.dependency_count == 1u);
+    TEST_ASSERT(strcmp(verification.dependency_sha256, export_paths.dependency_sha256) == 0);
+
+    unlink(export_paths.receipt_path);
+    unlink(export_paths.dependency_manifest_path);
+    unlink(export_paths.runtime_path);
+    unlink(export_paths.authoring_path);
+    rmdir(export_paths.scene_dir);
+    unlink(mesh_path);
     rmdir(root);
     Layout_Free(&layout);
     return true;
@@ -861,6 +935,8 @@ bool scene_export_run_tests(void) {
           test_scene_export_uses_parent_scene_name_for_authoring_hint },
         { "scene_export_refuses_to_replace_existing_bundle",
           test_scene_export_refuses_to_replace_existing_bundle },
+        { "scene_export_collects_and_verifies_mesh_dependencies",
+          test_scene_export_collects_and_verifies_mesh_dependencies },
         { "scene_export_cleans_new_directory_on_authoring_failure",
           test_scene_export_cleans_new_directory_on_authoring_failure },
         { "scene_export_embeds_layout_snapshot_and_round_trips_import",

@@ -17,7 +17,7 @@ ifeq ($(VK_RUNTIME_AVAILABLE),1)
 VK_RUNTIME_SRCS := $(shell find $(VK_RUNTIME_DIR)/src -name '*.c')
 endif
 SHAPE_LIB_SRCS := $(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
-SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c $(TOOLS_DIR)/canonical_scene_export.c $(TOOLS_DIR)/canonical_scene_export_authoring.c $(TOOLS_DIR)/canonical_scene_export_materials.c $(TOOLS_DIR)/canonical_scene_export_primitives.c $(TOOLS_DIR)/scene_export.c $(TOOLS_DIR)/scene_project_export.c $(TOOLS_DIR)/scene_import.c $(TOOLS_DIR)/scene_authoring_import.c
+SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c $(TOOLS_DIR)/canonical_scene_export.c $(TOOLS_DIR)/canonical_scene_export_authoring.c $(TOOLS_DIR)/canonical_scene_export_materials.c $(TOOLS_DIR)/canonical_scene_export_primitives.c $(TOOLS_DIR)/scene_export.c $(TOOLS_DIR)/scene_export_dependencies.c $(TOOLS_DIR)/scene_project_export.c $(TOOLS_DIR)/scene_import.c $(TOOLS_DIR)/scene_authoring_import.c
 EXT_SRCS := $(EXT_DIR)/cjson/cJSON.c
 CORE_TIME_SRCS := $(CORE_TIME_DIR)/src/core_time.c
 ifeq ($(UNAME_S),Darwin)
@@ -25,7 +25,7 @@ ifeq ($(UNAME_S),Darwin)
 else
 	CORE_TIME_SRCS += $(CORE_TIME_DIR)/src/core_time_posix.c
 endif
-CORE_SRCS := $(CORE_BASE_DIR)/src/core_base.c $(CORE_IO_DIR)/src/core_io.c $(CORE_DATA_DIR)/src/core_data.c $(CORE_PACK_DIR)/src/core_pack.c $(CORE_MATH_DIR)/src/core_math.c $(CORE_TIME_SRCS) $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset.c $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset_authoring_document.c $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset_runtime_document.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile_imported_mesh.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile_normals.c $(CORE_MESH_PREVIEW_DIR)/src/core_mesh_preview.c $(CORE_MESH_PREVIEW_DIR)/src/core_mesh_preview_lod.c $(CORE_SCENE_DIR)/src/core_scene.c $(CORE_SCENE_VIEW_DIR)/src/core_scene_view.c $(CORE_SCREEN_PICK_DIR)/src/core_screen_pick.c $(CORE_VIEWPORT3D_DIR)/src/core_viewport3d.c $(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile.c $(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile_digest.c $(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile_bundle.c $(CORE_OBJECT_DIR)/src/core_object.c $(CORE_UNITS_DIR)/src/core_units.c $(CORE_LAYOUT_DIR)/src/core_layout.c $(CORE_PANE_DIR)/src/core_pane.c $(CORE_PANE_MODULE_DIR)/src/core_pane_module.c $(CORE_THEME_DIR)/src/core_theme.c $(CORE_FONT_DIR)/src/core_font.c
+CORE_SRCS := $(CORE_BASE_DIR)/src/core_base.c $(CORE_IO_DIR)/src/core_io.c $(CORE_DATA_DIR)/src/core_data.c $(CORE_PACK_DIR)/src/core_pack.c $(CORE_MATH_DIR)/src/core_math.c $(CORE_TIME_SRCS) $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset.c $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset_authoring_document.c $(CORE_MESH_ASSET_DIR)/src/core_mesh_asset_runtime_document.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile_imported_mesh.c $(CORE_MESH_COMPILE_DIR)/src/core_mesh_compile_normals.c $(CORE_MESH_PREVIEW_DIR)/src/core_mesh_preview.c $(CORE_MESH_PREVIEW_DIR)/src/core_mesh_preview_lod.c $(CORE_SCENE_DIR)/src/core_scene.c $(CORE_SCENE_VIEW_DIR)/src/core_scene_view.c $(CORE_SCREEN_PICK_DIR)/src/core_screen_pick.c $(CORE_VIEWPORT3D_DIR)/src/core_viewport3d.c $(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile.c $(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile_digest.c $(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile_dependencies.c $(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile_bundle.c $(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile_verify.c $(CORE_OBJECT_DIR)/src/core_object.c $(CORE_UNITS_DIR)/src/core_units.c $(CORE_LAYOUT_DIR)/src/core_layout.c $(CORE_PANE_DIR)/src/core_pane.c $(CORE_PANE_MODULE_DIR)/src/core_pane_module.c $(CORE_THEME_DIR)/src/core_theme.c $(CORE_FONT_DIR)/src/core_font.c
 TIMER_HUD_SRCS := $(shell find $(TIMER_HUD_DIR)/src -name '*.c')
 ALL_SRCS := $(APP_SRCS) $(VK_RUNTIME_SRCS) $(VK_RENDERER_SRCS) $(KIT_RENDER_SRCS) $(KIT_PANE_SRCS) $(KIT_VIEWPORT3D_SRCS) $(KIT_WORKSPACE_AUTHORING_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
 
@@ -131,4 +131,6 @@ AGENT_SCENE_TOOL_SUPPORT_SRCS := \
 	$(CORE_UNITS_DIR)/src/core_units.c \
 	$(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile.c \
 	$(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile_digest.c \
-	$(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile_bundle.c
+	$(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile_dependencies.c \
+	$(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile_bundle.c \
+	$(CORE_SCENE_COMPILE_DIR)/src/core_scene_compile_verify.c
