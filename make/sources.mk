@@ -71,6 +71,7 @@ SHAPE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_scene_path_edit.c \
 	$(SRC_DIR)/Layout/scene/layout_scene3d.c \
 	$(SRC_DIR)/Layout/scene/layout_mesh_asset_instance.c \
+	$(SRC_DIR)/Layout/scene/layout_mesh_asset_path_resolver.c \
 	$(SRC_DIR)/Layout/scene/layout_mesh_preview_sidecar.c \
 	$(SRC_DIR)/Layout/scene/layout_object_store.c \
 	$(SRC_DIR)/Layout/primitives/layout_primitives_create.c \
@@ -114,6 +115,7 @@ AGENT_SCENE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_scene_path_edit.c \
 	$(SRC_DIR)/Layout/scene/layout_scene3d.c \
 	$(SRC_DIR)/Layout/scene/layout_mesh_asset_instance.c \
+	$(SRC_DIR)/Layout/scene/layout_mesh_asset_path_resolver.c \
 	$(SRC_DIR)/Layout/scene/layout_mesh_preview_sidecar.c \
 	$(SRC_DIR)/Layout/scene/layout_object_store.c \
 	$(SRC_DIR)/Layout/primitives/layout_primitives_create.c \
