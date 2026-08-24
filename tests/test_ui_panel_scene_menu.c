@@ -182,6 +182,7 @@ static bool test_scene_menu_discovers_direct_and_grouped_scene_dirs(void) {
     UIPanelState* ui = NULL;
     bool found_direct = false;
     bool found_grouped = false;
+    bool found_authoring_only = false;
 
     root = mkdtemp(root_template);
     TEST_ASSERT(root != NULL);
@@ -209,7 +210,7 @@ static bool test_scene_menu_discovers_direct_and_grouped_scene_dirs(void) {
     ui = UIPanel_Get();
     TEST_ASSERT(ui != NULL);
     TEST_ASSERT(ui->loadMenu.open);
-    TEST_ASSERT(ui->loadMenu.count == 2);
+    TEST_ASSERT(ui->loadMenu.count == 3);
 
     for (int i = 0; i < ui->loadMenu.count; ++i) {
         if (strcmp(ui->loadMenu.entries[i], "direct_scene") == 0 &&
@@ -220,10 +221,15 @@ static bool test_scene_menu_discovers_direct_and_grouped_scene_dirs(void) {
             strstr(ui->loadMenu.entryPaths[i], "/group_alpha/nested_scene/scene_authoring.json") != NULL) {
             found_grouped = true;
         }
+        if (strcmp(ui->loadMenu.entries[i], "not_a_scene_group/partial_scene") == 0 &&
+            strstr(ui->loadMenu.entryPaths[i], "/not_a_scene_group/partial_scene/scene_authoring.json") != NULL) {
+            found_authoring_only = true;
+        }
     }
 
     TEST_ASSERT(found_direct);
     TEST_ASSERT(found_grouped);
+    TEST_ASSERT(found_authoring_only);
 
     UIPanel_ToggleLoadMenu();
     ld_test_shutdown_runtime();
@@ -553,7 +559,7 @@ static bool test_scene_menu_click_loads_selection_and_stays_open(void) {
     return true;
 }
 
-static bool test_scene_export_promotes_exported_scene_as_active_session(void) {
+static bool test_scene_export_preserves_layout_source_and_dirty_state(void) {
     char root_template[] = "/tmp/ld_scene_export_active_XXXXXX";
     char* root = NULL;
     char expected_authoring[512];
@@ -572,6 +578,7 @@ static bool test_scene_export_promotes_exported_scene_as_active_session(void) {
     TEST_ASSERT(Layout_AddAnchor3(&state->layout, (Vec3){0.0f, 0.0f, 0.0f}) >= 0);
     TEST_ASSERT(Layout_AddAnchor3(&state->layout, (Vec3){2.0f, 0.0f, 1.0f}) >= 0);
     Layout_AddWall3(&state->layout, (Vec3){0.0f, 0.0f, 0.0f}, (Vec3){2.0f, 0.0f, 1.0f});
+    Global_FlagLayoutChanged();
 
     UIPanel_ExportScene();
 
@@ -589,10 +596,9 @@ static bool test_scene_export_promotes_exported_scene_as_active_session(void) {
                          expected_scene_dir) < (int)sizeof(expected_runtime));
     TEST_ASSERT(access(expected_authoring, F_OK) == 0);
     TEST_ASSERT(access(expected_runtime, F_OK) == 0);
-    TEST_ASSERT(strcmp(Global_GetCurrentSceneAuthoringPath(), expected_authoring) == 0);
-    TEST_ASSERT(strcmp(Global_GetLastSceneAuthoringPath(), expected_authoring) == 0);
+    TEST_ASSERT(Global_GetCurrentSceneAuthoringPath()[0] == '\0');
     TEST_ASSERT(strstr(Global_GetCurrentConfigPath(), "custom_layout.json") != NULL);
-    TEST_ASSERT(!Global_IsLayoutDirty());
+    TEST_ASSERT(Global_IsLayoutDirty());
 
     ld_test_shutdown_runtime();
     ld_test_remove_file_if_exists(expected_authoring);
@@ -635,6 +641,7 @@ static bool test_scene_export_uses_output_root_even_with_active_scene_session(vo
     TEST_ASSERT(Layout_AddAnchor3(&state->layout, (Vec3){0.0f, 0.0f, 0.0f}) >= 0);
     TEST_ASSERT(Layout_AddAnchor3(&state->layout, (Vec3){2.0f, 0.0f, 1.0f}) >= 0);
     Layout_AddWall3(&state->layout, (Vec3){0.0f, 0.0f, 0.0f}, (Vec3){2.0f, 0.0f, 1.0f});
+    Global_FlagLayoutChanged();
 
     UIPanel_ExportScene();
 
@@ -652,7 +659,8 @@ static bool test_scene_export_uses_output_root_even_with_active_scene_session(vo
                          expected_scene_dir) < (int)sizeof(expected_runtime));
     TEST_ASSERT(access(expected_authoring, F_OK) == 0);
     TEST_ASSERT(access(expected_runtime, F_OK) == 0);
-    TEST_ASSERT(strcmp(Global_GetCurrentSceneAuthoringPath(), expected_authoring) == 0);
+    TEST_ASSERT(strcmp(Global_GetCurrentSceneAuthoringPath(), session_authoring) == 0);
+    TEST_ASSERT(Global_IsLayoutDirty());
     TEST_ASSERT(access(session_authoring, F_OK) != 0);
 
     ld_test_shutdown_runtime();
@@ -1003,8 +1011,8 @@ bool ui_panel_scene_menu_run_tests(void) {
           test_scene_folder_selection_opens_menu_for_scene_root },
         { "scene_menu_click_loads_selection_and_stays_open",
           test_scene_menu_click_loads_selection_and_stays_open },
-        { "scene_export_promotes_exported_scene_as_active_session",
-          test_scene_export_promotes_exported_scene_as_active_session },
+        { "scene_export_preserves_layout_source_and_dirty_state",
+          test_scene_export_preserves_layout_source_and_dirty_state },
         { "scene_export_uses_output_root_even_with_active_scene_session",
           test_scene_export_uses_output_root_even_with_active_scene_session },
         { "scene_menu_failed_load_keeps_list_open",

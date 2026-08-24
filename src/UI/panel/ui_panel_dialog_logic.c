@@ -75,6 +75,7 @@ void UIPanel_CloseRootDialog(UIPanelState* ui) {
 void UIPanel_CloseSaveDialog(UIPanelState* ui) {
     if (!ui || !ui->saveDialog.active) return;
     ui->saveDialog.active = false;
+    ui->saveDialog.mode = UI_SAVE_DIALOG_LAYOUT;
     ui->saveDialog.buffer[0] = '\0';
     ui->saveDialog.length = 0;
     ui->saveDialog.cursor = 0;

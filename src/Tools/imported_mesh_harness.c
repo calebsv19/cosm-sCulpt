@@ -1,6 +1,7 @@
 #include "core_io.h"
 #include "core_mesh_asset.h"
 #include "core_mesh_compile.h"
+#include "core_mesh_preview.h"
 #include "core_units.h"
 #include "cjson/cJSON.h"
 
@@ -372,6 +373,15 @@ int main(int argc, char** argv) {
     result = core_mesh_asset_runtime_document_load_file(paths.runtime_path, &runtime);
     if (result.code != CORE_OK) {
         fprintf(stderr, "imported_mesh_harness: runtime reload failed: %s\n", result.message);
+        goto done;
+    }
+    result = core_mesh_preview_save_for_runtime_document(&runtime,
+                                                         paths.runtime_path,
+                                                         3072u,
+                                                         NULL,
+                                                         0u);
+    if (result.code != CORE_OK) {
+        fprintf(stderr, "imported_mesh_harness: preview save failed: %s\n", result.message);
         goto done;
     }
     if (!write_scene_runtime(&options, &paths) || !write_summary(&options, &paths, &runtime)) {

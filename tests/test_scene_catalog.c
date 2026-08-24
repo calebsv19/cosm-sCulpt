@@ -49,7 +49,7 @@ static bool test_catalog_refresh_collects_sorted_layouts_and_scenes(void) {
     TEST_ASSERT(ld_test_artifact_make_dir(grouped_dir));
     TEST_ASSERT(ld_test_artifact_make_dir(grouped_scene));
     TEST_ASSERT(ld_test_artifact_write_text_file(grouped_authoring, "{}"));
-    TEST_ASSERT(ld_test_artifact_write_text_file(grouped_runtime, "{}"));
+    /* Authoring-only packages must be discoverable before their first runtime export. */
     TEST_ASSERT(ld_test_artifact_make_dir(root_scene));
     TEST_ASSERT(ld_test_artifact_write_text_file(root_authoring, "{}"));
     TEST_ASSERT(ld_test_artifact_write_text_file(root_runtime, "{}"));
@@ -66,6 +66,7 @@ static bool test_catalog_refresh_collects_sorted_layouts_and_scenes(void) {
     TEST_ASSERT(strcmp(catalog.scenes[0].label, "group_a/scene_b") == 0);
     TEST_ASSERT(strcmp(catalog.scenes[1].label, "root_scene") == 0);
     TEST_ASSERT(catalog.active_scene_index == 0);
+    TEST_ASSERT(access(grouped_runtime, F_OK) != 0);
     return true;
 }
 

@@ -1,4 +1,5 @@
 #include "Core/line_drawing_file_catalog.h"
+#include "Core/sculpt_scene_package.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -159,50 +160,22 @@ static bool line_drawing_file_catalog_add_entry(LineDrawingFileCatalogEntry* ent
     return true;
 }
 
-static bool line_drawing_file_catalog_compose_scene_paths(const char* scene_dir,
-                                                          char* out_authoring_path,
-                                                          size_t out_authoring_path_size,
-                                                          char* out_runtime_path,
-                                                          size_t out_runtime_path_size) {
-    if (!scene_dir || !scene_dir[0]) return false;
-    if (!out_authoring_path || out_authoring_path_size == 0u) return false;
-    if (!out_runtime_path || out_runtime_path_size == 0u) return false;
-
-    if (snprintf(out_authoring_path,
-                 out_authoring_path_size,
-                 "%s/%s",
-                 scene_dir,
-                 k_scene_authoring_filename) >= (int)out_authoring_path_size) {
-        return false;
-    }
-    if (snprintf(out_runtime_path,
-                 out_runtime_path_size,
-                 "%s/%s",
-                 scene_dir,
-                 k_scene_runtime_filename) >= (int)out_runtime_path_size) {
-        return false;
-    }
-    return true;
-}
-
 bool LineDrawingFileCatalog_DirectoryHasSceneContract(const char* scene_dir,
                                                       char* out_authoring_path,
                                                       size_t out_authoring_path_size) {
-    char authoring_path[MAX_CONFIG_PATH];
-    char runtime_path[MAX_CONFIG_PATH];
-    if (!line_drawing_file_catalog_compose_scene_paths(scene_dir,
-                                                       authoring_path,
-                                                       sizeof(authoring_path),
-                                                       runtime_path,
-                                                       sizeof(runtime_path))) {
-        return false;
-    }
-    if (!LineDrawingFileCatalog_PathIsRegularFile(authoring_path) ||
-        !LineDrawingFileCatalog_PathIsRegularFile(runtime_path)) {
+    SculptScenePackageInputKind kind = SCULPT_SCENE_PACKAGE_INPUT_INVALID;
+    SculptScenePackagePaths paths;
+    char diagnostics[128];
+    if (!SculptScenePackage_ResolveInput(scene_dir,
+                                         &kind,
+                                         &paths,
+                                         diagnostics,
+                                         sizeof(diagnostics)) ||
+        kind != SCULPT_SCENE_PACKAGE_INPUT_AUTHORING) {
         return false;
     }
     if (out_authoring_path && out_authoring_path_size > 0u) {
-        snprintf(out_authoring_path, out_authoring_path_size, "%s", authoring_path);
+        snprintf(out_authoring_path, out_authoring_path_size, "%s", paths.authoring_path);
     }
     return true;
 }

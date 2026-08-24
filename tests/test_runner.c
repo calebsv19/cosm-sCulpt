@@ -16,6 +16,8 @@ bool test_layout_mesh_solid_preview_run_tests(void);
 bool math_run_tests(void);
 bool shape_dataset_run_tests(void);
 bool scene_export_run_tests(void);
+bool scene_document_lifecycle_run_tests(void);
+bool sculpt_scene_package_run_tests(void);
 bool ui_panel_scene_menu_run_tests(void);
 bool ui_panel_scene_list_run_tests(void);
 bool ui_panel_view_summary_run_tests(void);
@@ -62,6 +64,8 @@ static const TestGroup kTestGroups[] = {
     {"Math", math_run_tests, true},
     {"ShapeDataset", shape_dataset_run_tests, true},
     {"SceneExport", scene_export_run_tests, true},
+    {"SceneDocumentLifecycle", scene_document_lifecycle_run_tests, true},
+    {"SculptScenePackage", sculpt_scene_package_run_tests, true},
     {"UIPanelSceneMenu", ui_panel_scene_menu_run_tests, true},
     {"UIPanelSceneList", ui_panel_scene_list_run_tests, true},
     {"UIPanelViewSummary", ui_panel_view_summary_run_tests, true},

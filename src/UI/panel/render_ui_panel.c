@@ -208,13 +208,24 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
                btn->id == UI_BTN_EXPORT_SCENE &&
                ui_state &&
                UIPanel_FilePaneActionStatusIsLive(ui_state)) {
-        if (strncmp(ui_state->filePane.actionStatus, "Export Scene OK", 15) == 0) {
+        if (strncmp(ui_state->filePane.actionStatus, "Export Runtime OK", 17) == 0) {
             label = "Export OK";
-        } else if (strncmp(ui_state->filePane.actionStatus, "Export Scene failed", 19) == 0) {
+        } else if (strncmp(ui_state->filePane.actionStatus, "Export Runtime failed", 21) == 0) {
             label = "Export Failed";
         }
+    } else if (!object_mode && btn->id == UI_BTN_SAVE_JSON) {
+        label = Global_GetCurrentSceneAuthoringPath()[0] ? "Save Authoring" : "Save Layout";
+    } else if (!object_mode && btn->id == UI_BTN_SAVE_AS) {
+        label = Global_GetCurrentSceneAuthoringPath()[0] ? "Scene Save As" : "Layout Save As";
+    } else if (!object_mode && btn->id == UI_BTN_LOAD_JSON) {
+        label = "Load Layout";
+    } else if (!object_mode && btn->id == UI_BTN_LOAD_SCENE) {
+        label = "Load Package";
+    } else if (!object_mode && btn->id == UI_BTN_EXPORT_SCENE) {
+        label = "Export Runtime";
     } else if (object_mode &&
                (btn->id == UI_BTN_SAVE_JSON ||
+                btn->id == UI_BTN_SAVE_AS ||
                 btn->id == UI_BTN_LOAD_JSON ||
                 btn->id == UI_BTN_LOAD_SCENE ||
                 btn->id == UI_BTN_EXPORT_SCENE ||
@@ -234,6 +245,8 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
                 btn->id == UI_BTN_EXTRUDE_DEPTH_INC)) {
         if (btn->id == UI_BTN_SAVE_JSON) {
             label = "Save Asset";
+        } else if (btn->id == UI_BTN_SAVE_AS) {
+            label = "Asset Save As";
         } else if (btn->id == UI_BTN_LOAD_JSON) {
             label = "Load Asset";
         } else if (btn->id == UI_BTN_LOAD_SCENE) {

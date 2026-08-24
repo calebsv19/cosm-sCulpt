@@ -63,7 +63,7 @@ static int test_compile_success_and_preserve_extensions(void) {
     if (!strstr(runtime_json, "\"schema_variant\":\"scene_runtime_v1\"")) return 1;
     if (!strstr(runtime_json, "\"source_scene_id\":\"scene_test\"")) return 1;
     if (!strstr(runtime_json, "\"compile_meta\":")) return 1;
-    if (!strstr(runtime_json, "\"normalization\":\"v0.6_manifest_bound_sorted_lanes\"")) return 1;
+    if (!strstr(runtime_json, "\"normalization\":\"v0.7_content_addressed_dependency_payloads\"")) return 1;
     if (!strstr(runtime_json, "\"authoring_sha256\":")) return 1;
     if (!strstr(runtime_json, "\"dependency_sha256\":")) return 1;
     if (!strstr(runtime_json, "\"hierarchy\":[]")) return 1;
@@ -117,8 +117,12 @@ static int test_sha256_and_provenance_are_deterministic(void) {
 
 static int test_dependency_manifest_is_canonical_and_digest_bound(void) {
     const CoreSceneCompileDependency dependencies[] = {
-        { "texture_runtime", "texture_z", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 20u },
-        { "mesh_asset_runtime", "mesh_a", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 10u }
+        { .kind = "texture_runtime", .identity = "texture_z",
+          .content_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          .content_bytes = 20u, .payload_data = NULL },
+        { .kind = "mesh_asset_runtime", .identity = "mesh_a",
+          .content_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          .content_bytes = 10u, .payload_data = NULL }
     };
     char *manifest = NULL;
     char digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
@@ -136,7 +140,9 @@ static int test_dependency_manifest_is_canonical_and_digest_bound(void) {
     if (result.code != CORE_OK || !manifest) return 1;
     mesh_position = strstr(manifest, "\"identity\":\"mesh_a\"");
     texture_position = strstr(manifest, "\"identity\":\"texture_z\"");
-    if (!mesh_position || !texture_position || mesh_position >= texture_position) return 1;
+    if (!mesh_position || !texture_position || mesh_position >= texture_position ||
+        !strstr(manifest, "\"scene_dependency_manifest_v2\"") ||
+        !strstr(manifest, "\"path\":\"dependencies/mesh_asset_runtime/aaaaaaaa")) return 1;
     result = core_scene_compile_dependency_manifest_inspect(manifest,
                                                              &count,
                                                              inspected_digest,
@@ -155,14 +161,20 @@ static int test_bundle_publication_is_atomic_create_only(void) {
     char final_dir[512];
     char diagnostics[256];
     char receipt_text[4096];
+    char payload_path[1024];
+    char payload_relative[CORE_SCENE_COMPILE_DEPENDENCY_PATH_SIZE];
+    char staging_dir[1024];
     CoreSceneCompileBundlePaths paths = {0};
     CoreSceneCompileVerification verification = {0};
-    const CoreSceneCompileDependency dependency = {
-        "mesh_asset_runtime", "mesh_bundle",
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 42u
-    };
+    const char payload_bytes[] = "mesh-payload";
+    const char tampered_payload[] = "mesh-tampered";
+    const char package_manifest[] =
+        "{\"schema_variant\":\"sculpt_scene_package_v1\","
+        "\"authoring\":{\"path\":\"scene_authoring.json\"}}\n";
+    CoreSceneCompileDependency dependency = {0};
     CoreSceneCompileOptions options = {0};
     char *manifest = NULL;
+    char payload_digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
     char manifest_digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
     CoreResult result;
     FILE *receipt;
@@ -170,6 +182,14 @@ static int test_bundle_publication_is_atomic_create_only(void) {
     size_t read_size;
     if (!mkdtemp(root_template)) return 1;
     if (snprintf(final_dir, sizeof(final_dir), "%s/published", root_template) >= (int)sizeof(final_dir)) return 1;
+    dependency.kind = "mesh_asset_runtime";
+    dependency.identity = "mesh_bundle";
+    dependency.content_bytes = strlen(payload_bytes);
+    dependency.payload_data = payload_bytes;
+    if (core_scene_compile_sha256(payload_bytes,
+                                  dependency.content_bytes,
+                                  payload_digest).code != CORE_OK) return 1;
+    dependency.content_sha256 = payload_digest;
     result = core_scene_compile_dependency_manifest_build(&dependency,
                                                            1u,
                                                            &manifest,
@@ -180,6 +200,18 @@ static int test_bundle_publication_is_atomic_create_only(void) {
     options.dependency_digest_sha256 = manifest_digest;
     options.dependency_count = 1u;
     options.dependency_manifest_json = manifest;
+    if (snprintf(staging_dir, sizeof(staging_dir), "%s.staging-%ld", final_dir, (long)getpid()) >=
+        (int)sizeof(staging_dir)) return 1;
+    result = core_scene_compile_publish_bundle(authoring_json,
+                                               &options,
+                                               final_dir,
+                                               NULL,
+                                               diagnostics,
+                                               sizeof(diagnostics));
+    if (result.code == CORE_OK || access(final_dir, F_OK) == 0 || access(staging_dir, F_OK) == 0) return 1;
+    options.dependency_payloads = &dependency;
+    options.dependency_payload_count = 1u;
+    options.package_manifest_json = package_manifest;
     result = core_scene_compile_publish_bundle(authoring_json,
                                                &options,
                                                final_dir,
@@ -188,6 +220,7 @@ static int test_bundle_publication_is_atomic_create_only(void) {
                                                sizeof(diagnostics));
     if (result.code != CORE_OK || access(paths.authoring_path, F_OK) != 0 ||
         access(paths.runtime_path, F_OK) != 0 || access(paths.dependency_manifest_path, F_OK) != 0 ||
+        access(paths.package_manifest_path, F_OK) != 0 ||
         access(paths.receipt_path, F_OK) != 0) return 1;
     receipt = fopen(paths.receipt_path, "rb");
     if (!receipt) return 1;
@@ -199,14 +232,48 @@ static int test_bundle_publication_is_atomic_create_only(void) {
     json_object_put(receipt_json);
     if (!strstr(receipt_text, "\"scene_export_receipt_v1\"") ||
         !strstr(receipt_text, paths.bundle_sha256) || !strstr(receipt_text, CORE_SCENE_COMPILE_VERSION) ||
-        !strstr(receipt_text, "scene_dependencies.json")) return 1;
+        !strstr(receipt_text, "scene_dependencies.json") ||
+        !strstr(receipt_text, "scene_package.json")) return 1;
     result = core_scene_compile_verify_bundle(final_dir,
                                               paths.bundle_sha256,
                                               &verification,
                                               diagnostics,
                                               sizeof(diagnostics));
     if (result.code != CORE_OK || verification.dependency_count != 1u ||
+        verification.dependency_payload_bytes != strlen(payload_bytes) ||
+        verification.package_manifest_bytes != strlen(package_manifest) ||
+        strlen(verification.package_manifest_sha256) != 64u ||
         strcmp(verification.dependency_sha256, manifest_digest) != 0) return 1;
+    if (core_scene_compile_dependency_payload_path(dependency.kind,
+                                                   dependency.content_sha256,
+                                                   payload_relative).code != CORE_OK ||
+        snprintf(payload_path, sizeof(payload_path), "%s/%s", final_dir, payload_relative) >=
+            (int)sizeof(payload_path) || access(payload_path, F_OK) != 0) return 1;
+    if (write_text_file(payload_path, tampered_payload) != 0) return 1;
+    result = core_scene_compile_verify_bundle(final_dir, paths.bundle_sha256, NULL,
+                                              diagnostics, sizeof(diagnostics));
+    if (result.code == CORE_OK) return 1;
+    if (write_text_file(payload_path, payload_bytes) != 0) return 1;
+    result = core_scene_compile_verify_bundle(final_dir, paths.bundle_sha256, NULL,
+                                              diagnostics, sizeof(diagnostics));
+    if (result.code != CORE_OK) return 1;
+    if (write_text_file(paths.package_manifest_path, "tampered") != 0) return 1;
+    result = core_scene_compile_verify_bundle(final_dir, paths.bundle_sha256, NULL,
+                                              diagnostics, sizeof(diagnostics));
+    if (result.code == CORE_OK) return 1;
+    if (write_text_file(paths.package_manifest_path, package_manifest) != 0) return 1;
+    result = core_scene_compile_verify_bundle(final_dir, paths.bundle_sha256, NULL,
+                                              diagnostics, sizeof(diagnostics));
+    if (result.code != CORE_OK) return 1;
+    if (unlink(payload_path) != 0) return 1;
+    result = core_scene_compile_verify_bundle(final_dir, paths.bundle_sha256, NULL,
+                                              diagnostics, sizeof(diagnostics));
+    if (result.code == CORE_OK) return 1;
+    if (symlink("/etc/hosts", payload_path) != 0) return 1;
+    result = core_scene_compile_verify_bundle(final_dir, paths.bundle_sha256, NULL,
+                                              diagnostics, sizeof(diagnostics));
+    if (result.code == CORE_OK || unlink(payload_path) != 0) return 1;
+    if (write_text_file(payload_path, payload_bytes) != 0) return 1;
     if (write_text_file(paths.runtime_path, "tampered") != 0) return 1;
     result = core_scene_compile_verify_bundle(final_dir, paths.bundle_sha256, NULL,
                                               diagnostics, sizeof(diagnostics));
@@ -219,7 +286,20 @@ static int test_bundle_publication_is_atomic_create_only(void) {
                                                sizeof(diagnostics));
     if (result.code == CORE_OK || !strstr(diagnostics, "already exists")) return 1;
     core_free(manifest);
+    unlink(payload_path);
+    {
+        char kind_dir[1024];
+        char dependencies_dir[1024];
+        if (snprintf(kind_dir, sizeof(kind_dir), "%s/dependencies/mesh_asset_runtime", final_dir) <
+                (int)sizeof(kind_dir) &&
+            snprintf(dependencies_dir, sizeof(dependencies_dir), "%s/dependencies", final_dir) <
+                (int)sizeof(dependencies_dir)) {
+            rmdir(kind_dir);
+            rmdir(dependencies_dir);
+        }
+    }
     unlink(paths.receipt_path);
+    unlink(paths.package_manifest_path);
     unlink(paths.dependency_manifest_path);
     unlink(paths.runtime_path);
     unlink(paths.authoring_path);

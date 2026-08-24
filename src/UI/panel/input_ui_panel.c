@@ -212,11 +212,17 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 
             switch (btn->id) {
 		    // ─── LEFT PANEL ACTIONS ─────────────────────
-                case UI_BTN_SAVE_JSON: { // Save JSON
-                UIPanel_CloseFileBrowser(ui);
-                UIPanel_BeginSaveDialog();
-                break;
-	}
+                case UI_BTN_SAVE_JSON: {
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)UIPanel_SaveDocument();
+                    break;
+                }
+
+                case UI_BTN_SAVE_AS: {
+                    UIPanel_CloseFileBrowser(ui);
+                    UIPanel_BeginSaveAsDialog();
+                    break;
+                }
 
 	case UI_BTN_LOAD_JSON: { // Load JSON
                 (void)UIPanel_HandleFileBrowserModeButtonClick(ui, btn->id);

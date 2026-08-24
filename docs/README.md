@@ -1,11 +1,11 @@
-# sCulpt Docs Index
+# Sculpt Docs Index
 
 Last updated: 2026-06-20
 
 Start here for public repository documentation.
 
 Public identity:
-- packaged desktop product: `sCulpt`
+- packaged desktop product: `Sculpt`
 - repository/program key: `line_drawing`
 
 ## Scaffold State
@@ -66,7 +66,7 @@ Current verification contract:
 
 ## Current Published State
 - `line_drawing` remains the canonical upstream authoring/export source for the current primitive scope.
-- public product-facing docs should treat `sCulpt` as the primary app name and
+- public product-facing docs should treat `Sculpt` as the primary app name and
   use `line_drawing` where repo/runtime identifiers need to stay exact
 - the editor pane system is now structurally unified into five durable tabs:
   - left:
@@ -89,8 +89,8 @@ Current verification contract:
   - right detail space now shows selected-item context, cached metadata, and lightweight previews
   - `Esc` returns from the editor to the host menu instead of directly quitting the app
 - the current worktree also exposes a concrete scene-directory export path:
-  - `Export Scene` writes a named directory under the configured output root
-  - each scene directory contains `scene_authoring.json` and compiled `scene_runtime.json`
+  - `Export Runtime` writes one named package directory under the configured output root
+  - each package contains `scene_package.json`, editable `scene_authoring.json`, compiled `scene_runtime.json`, dependencies, and a receipt
   - runtime compilation flows through shared `core_scene_compile`
   - active scene paths are naming hints only; the configured output root owns
     the export destination

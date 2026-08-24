@@ -1,6 +1,7 @@
 #include "Layout/layout.h"
 
 #include "Core/global_state.h"
+#include "Layout/scene/layout_mesh_asset_path_resolver.h"
 #include "Layout/scene/layout_mesh_preview_sidecar.h"
 #include "core_io.h"
 
@@ -333,6 +334,95 @@ bool Layout_RefreshMeshAssetInstancesFromRuntimeAsset(Layout* layout,
         MeshInstance_SetDiagnostics(diagnostics,
                                     diagnostics_size,
                                     "one or more mesh asset instances failed validation");
+        return false;
+    }
+    MeshInstance_SetDiagnostics(diagnostics, diagnostics_size, NULL);
+    return true;
+}
+
+bool Layout_ReconcileMeshAssetInstancesForScene(Layout* layout,
+                                                const char* sceneAuthoringPath,
+                                                size_t* outResolvedCount,
+                                                size_t* outChangedCount,
+                                                size_t* outUnresolvedCount,
+                                                char* diagnostics,
+                                                size_t diagnostics_size) {
+    size_t resolved_count = 0u;
+    size_t changed_count = 0u;
+    size_t unresolved_count = 0u;
+
+    if (outResolvedCount) *outResolvedCount = 0u;
+    if (outChangedCount) *outChangedCount = 0u;
+    if (outUnresolvedCount) *outUnresolvedCount = 0u;
+    MeshInstance_SetDiagnostics(diagnostics, diagnostics_size, NULL);
+    if (!layout || !sceneAuthoringPath || !sceneAuthoringPath[0]) {
+        MeshInstance_SetDiagnostics(diagnostics,
+                                    diagnostics_size,
+                                    "mesh reconciliation requires a layout and scene authoring path");
+        return false;
+    }
+
+    for (size_t i = 0u; i < layout->objectStore.count; ++i) {
+        Object3D* object = &layout->objectStore.items[i];
+        MeshAssetInstance3D refreshed = {0};
+        MeshAssetInstance3D previous = {0};
+        char resolved_path[LINE_DRAWING_PATH_CAP];
+        char read_diagnostics[256];
+
+        if (object->isDeleted || object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+            continue;
+        }
+        if (Layout_MeshAssetResolveRuntimePathForScene(object->meshInstance.runtimePath,
+                                                       sceneAuthoringPath,
+                                                       resolved_path,
+                                                       sizeof(resolved_path)) ==
+            LAYOUT_MESH_PATH_MISSING) {
+            ++unresolved_count;
+            continue;
+        }
+        if (!MeshInstance_ReadRuntimeSidecar(resolved_path,
+                                             &refreshed,
+                                             read_diagnostics,
+                                             sizeof(read_diagnostics))) {
+            ++unresolved_count;
+            continue;
+        }
+        if (object->meshInstance.assetId[0] &&
+            strcmp(object->meshInstance.assetId, refreshed.assetId) != 0) {
+            ++unresolved_count;
+            continue;
+        }
+
+        ++resolved_count;
+        refreshed.lockToBounds = object->meshInstance.lockToBounds;
+        if (MeshInstance_PayloadEquals(&object->meshInstance, &refreshed)) {
+            continue;
+        }
+
+        previous = object->meshInstance;
+        object->meshInstance = refreshed;
+        if (!Layout_ObjectStore_ValidateObject(object)) {
+            object->meshInstance = previous;
+            --resolved_count;
+            ++unresolved_count;
+            continue;
+        }
+        ++changed_count;
+    }
+
+    if (outResolvedCount) *outResolvedCount = resolved_count;
+    if (outChangedCount) *outChangedCount = changed_count;
+    if (outUnresolvedCount) *outUnresolvedCount = unresolved_count;
+    if (changed_count > 0u) Global_FlagLayoutChanged();
+    if (unresolved_count > 0u) {
+        char message[160];
+        snprintf(message,
+                 sizeof(message),
+                 "mesh reconciliation incomplete: resolved=%zu changed=%zu unresolved=%zu",
+                 resolved_count,
+                 changed_count,
+                 unresolved_count);
+        MeshInstance_SetDiagnostics(diagnostics, diagnostics_size, message);
         return false;
     }
     MeshInstance_SetDiagnostics(diagnostics, diagnostics_size, NULL);

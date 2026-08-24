@@ -1,6 +1,7 @@
 #include "UI/ui_panel_file_summary.h"
 
 #include "Core/global_state.h"
+#include "Core/scene_document_lifecycle.h"
 #include "UI/font_manager.h"
 #include "UI/panel/ui_panel_file_browser_internal.h"
 #include "UI/ui_panel.h"
@@ -97,11 +98,18 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
                  "Asset %s",
                  UIPanel_FileStatusDisplayBaseName(Global_GetCurrentObjectAssetPath()));
     } else {
+        const char* scene_path = Global_GetCurrentSceneAuthoringPath();
+        const char* layout_path = Global_GetCurrentConfigPath();
+        const LineDrawingSceneDocumentSourceKind source_kind =
+            LineDrawingSceneDocument_Classify(scene_path, layout_path, NULL);
+        const char* source_path = source_kind == LINE_DRAWING_SCENE_DOCUMENT_CANONICAL_SCENE
+                                      ? scene_path
+                                      : layout_path;
         snprintf(line_layout_scene,
                  sizeof(line_layout_scene),
-                 "Layout %s   Scene %s",
-                 UIPanel_FileStatusDisplayBaseName(Global_GetCurrentConfigPath()),
-                 UIPanel_FileStatusDisplayBaseName(Global_GetCurrentSceneAuthoringPath()));
+                 "Source %s  %s",
+                 LineDrawingSceneDocument_SourceKindLabel(source_kind),
+                 source_path && source_path[0] ? source_path : "(unsaved)");
     }
     snprintf(line_input,
              sizeof(line_input),
@@ -127,11 +135,22 @@ void Render_UIPanelFileSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
                                                  "%s",
                                                  UIPanel_FileStatusSummaryModeName(ui->loadMenu.mode));
         }
-        snprintf(line_status_browser,
-                 sizeof(line_status_browser),
-                 "Status  %s   %s",
-                 state->layoutDirtySinceSave ? "Modified" : "Clean",
-                 browser_status_line);
+        if (!object_mode && Global_GetCurrentSceneAuthoringPath()[0]) {
+            const LineDrawingSceneRuntimeStatus runtime_status =
+                LineDrawingSceneDocument_RuntimeStatus(Global_GetCurrentSceneAuthoringPath());
+            snprintf(line_status_browser,
+                     sizeof(line_status_browser),
+                     "Status  %s   Runtime %s   %s",
+                     state->layoutDirtySinceSave ? "Modified" : "Clean",
+                     LineDrawingSceneDocument_RuntimeStatusLabel(runtime_status),
+                     browser_status_line);
+        } else {
+            snprintf(line_status_browser,
+                     sizeof(line_status_browser),
+                     "Status  %s   %s",
+                     state->layoutDirtySinceSave ? "Modified" : "Clean",
+                     browser_status_line);
+        }
     }
     if (!UIPanel_GetFileBrowserActionHintText(ui, line_action_hint, sizeof(line_action_hint))) {
         if (object_mode) {

@@ -58,7 +58,13 @@ static void RenderSaveDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
     int text_y = panel.y + 16;
     char line[256];
 
-    snprintf(line, sizeof(line), "Save layout as (*.json):");
+    if (ui->saveDialog.mode == UI_SAVE_DIALOG_SCENE_BUNDLE) {
+        snprintf(line, sizeof(line), "Save scene as a new sibling bundle:");
+    } else if (ui->saveDialog.mode == UI_SAVE_DIALOG_OBJECT_ASSET) {
+        snprintf(line, sizeof(line), "Save object asset as (*.json):");
+    } else {
+        snprintf(line, sizeof(line), "Save layout as (*.json):");
+    }
     UIPanelOverlay_DrawText(renderer,
                             line,
                             text_x,

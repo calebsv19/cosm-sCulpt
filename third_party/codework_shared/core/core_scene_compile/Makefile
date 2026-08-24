@@ -20,7 +20,7 @@ OBJ_DIR = build
 LIB = $(OBJ_DIR)/libcore_scene_compile.a
 LIB_OBJ = $(OBJ_DIR)/core_scene_compile.o $(OBJ_DIR)/core_scene_compile_digest.o \
 	$(OBJ_DIR)/core_scene_compile_dependencies.o $(OBJ_DIR)/core_scene_compile_bundle.o \
-	$(OBJ_DIR)/core_scene_compile_verify.o
+	$(OBJ_DIR)/core_scene_compile_payload.o $(OBJ_DIR)/core_scene_compile_verify.o
 TEST_BIN = $(OBJ_DIR)/core_scene_compile_test
 DIFF_BIN = $(OBJ_DIR)/scene_contract_diff
 COMPILE_TOOL_BIN = $(OBJ_DIR)/scene_compile_tool
@@ -57,6 +57,9 @@ $(OBJ_DIR)/core_scene_compile_dependencies.o: src/core_scene_compile_dependencie
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
 
 $(OBJ_DIR)/core_scene_compile_bundle.o: src/core_scene_compile_bundle.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(INC) -c $< -o $@
+
+$(OBJ_DIR)/core_scene_compile_payload.o: src/core_scene_compile_payload.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
 
 $(OBJ_DIR)/core_scene_compile_verify.o: src/core_scene_compile_verify.c | $(OBJ_DIR)

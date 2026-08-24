@@ -1,5 +1,6 @@
 #include "Tools/scene_export.h"
 
+#include "Core/sculpt_scene_package.h"
 #include "Tools/canonical_scene_export.h"
 #include "Tools/scene_project_export.h"
 #include "Tools/scene_export_dependencies.h"
@@ -7,7 +8,6 @@
 #include "core_scene_compile.h"
 
 #include <errno.h>
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,7 +18,6 @@
 static const char* k_default_scene_stem = "layout_export";
 static const char* k_authoring_filename = "scene_authoring.json";
 static const char* k_runtime_filename = "scene_runtime.json";
-static const char* k_default_scene_id = "scene_line_drawing";
 
 static void write_diagnostics(char* diagnostics, size_t diagnostics_size, const char* message) {
     if (!diagnostics || diagnostics_size == 0) return;
@@ -97,28 +96,6 @@ static void derive_scene_stem(const char* layout_path_hint, char* out_stem, size
     if (len >= out_stem_size) len = out_stem_size - 1;
     memcpy(out_stem, base, len);
     out_stem[len] = '\0';
-}
-
-static void build_scene_id_from_stem(const char* stem, char* out_scene_id, size_t out_scene_id_size) {
-    size_t prefix_len = 0;
-    size_t out_len = 0;
-    if (!out_scene_id || out_scene_id_size == 0) return;
-    snprintf(out_scene_id, out_scene_id_size, "%s", k_default_scene_id);
-    if (!stem || !stem[0]) return;
-
-    prefix_len = strlen(k_default_scene_id);
-    if (prefix_len + 2 >= out_scene_id_size) return;
-    out_len = prefix_len;
-    out_scene_id[out_len++] = '_';
-    for (const char* p = stem; *p && out_len + 1 < out_scene_id_size; ++p) {
-        unsigned char c = (unsigned char)*p;
-        if (isalnum(c) || c == '_' || c == '-' || c == '.') {
-            out_scene_id[out_len++] = (char)c;
-        } else {
-            out_scene_id[out_len++] = '_';
-        }
-    }
-    out_scene_id[out_len] = '\0';
 }
 
 static bool ensure_directory_exists(const char* path) {
@@ -219,9 +196,8 @@ bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
     char scene_dir[SHAPE_EXPORT_PATH_MAX];
     char scene_id[64];
     char* authoring_json = NULL;
-    char* dependency_manifest_json = NULL;
-    char dependency_digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
-    size_t dependency_count = 0u;
+    char* package_manifest_json = NULL;
+    LineDrawingSceneExportDependencies dependencies = {0};
     CoreSceneCompileOptions compile_options = {0};
     CoreSceneCompileBundlePaths bundle_paths = {0};
     CoreSceneCompileVerification verification = {0};
@@ -237,7 +213,10 @@ bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
     if (!root || !root[0]) root = ShapeExport_GetExportDir();
 
     derive_scene_stem(layout_path_hint, stem, sizeof(stem));
-    build_scene_id_from_stem(stem, scene_id, sizeof(scene_id));
+    if (!SculptScenePackage_BuildSceneId(stem, scene_id, sizeof(scene_id))) {
+        write_diagnostics(diagnostics, diagnostics_size, "failed to build scene identity");
+        return false;
+    }
     if (!build_path(root, stem, scene_dir, sizeof(scene_dir))) {
         write_diagnostics(diagnostics, diagnostics_size, "failed to build scene directory path");
         return false;
@@ -247,24 +226,38 @@ bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
         write_diagnostics(diagnostics, diagnostics_size, "failed to export canonical authoring scene");
         return false;
     }
+    if (!SculptScenePackage_BuildManifestJson(scene_id,
+                                              SCULPT_SCENE_PACKAGE_RUNTIME_COMPILED,
+                                              SCULPT_SCENE_PACKAGE_RECEIPT_VERIFIED,
+                                              false,
+                                              &package_manifest_json,
+                                              diagnostics,
+                                              diagnostics_size)) {
+        free(authoring_json);
+        return false;
+    }
     if (getenv("LINE_DRAWING_TEST_FORCE_SCENE_EXPORT_COMPILE_FAIL")) {
         free(authoring_json);
+        SculptScenePackage_FreeManifestJson(package_manifest_json);
         write_diagnostics(diagnostics, diagnostics_size, "forced scene compile failure");
         return false;
     }
 
     if (!LineDrawingSceneExportDependencies_Collect(layout,
-                                                    &dependency_manifest_json,
-                                                    dependency_digest,
-                                                    &dependency_count,
+                                                    layout_path_hint,
+                                                    &dependencies,
                                                     diagnostics,
                                                     diagnostics_size)) {
         free(authoring_json);
+        SculptScenePackage_FreeManifestJson(package_manifest_json);
         return false;
     }
-    compile_options.dependency_digest_sha256 = dependency_digest;
-    compile_options.dependency_count = dependency_count;
-    compile_options.dependency_manifest_json = dependency_manifest_json;
+    compile_options.dependency_digest_sha256 = dependencies.digest_sha256;
+    compile_options.dependency_count = dependencies.count;
+    compile_options.dependency_manifest_json = dependencies.manifest_json;
+    compile_options.dependency_payloads = dependencies.entries;
+    compile_options.dependency_payload_count = dependencies.count;
+    compile_options.package_manifest_json = package_manifest_json;
 
     publish_result = core_scene_compile_publish_bundle(authoring_json,
                                                        &compile_options,
@@ -273,7 +266,8 @@ bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
                                                        diagnostics,
                                                        diagnostics_size);
     free(authoring_json);
-    core_free(dependency_manifest_json);
+    SculptScenePackage_FreeManifestJson(package_manifest_json);
+    LineDrawingSceneExportDependencies_Destroy(&dependencies);
     if (publish_result.code != CORE_OK) {
         if (!diagnostics || diagnostics[0] == '\0') {
             write_diagnostics(diagnostics, diagnostics_size, "scene bundle publication failed");
@@ -296,6 +290,10 @@ bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
                  sizeof(out_paths->dependency_manifest_path),
                  "%s",
                  bundle_paths.dependency_manifest_path);
+        snprintf(out_paths->package_manifest_path,
+                 sizeof(out_paths->package_manifest_path),
+                 "%s",
+                 bundle_paths.package_manifest_path);
         snprintf(out_paths->receipt_path, sizeof(out_paths->receipt_path), "%s", bundle_paths.receipt_path);
         snprintf(out_paths->dependency_sha256,
                  sizeof(out_paths->dependency_sha256),
@@ -341,7 +339,12 @@ bool LineDrawingSceneExport_ExportLayoutToAuthoringPath(const Layout* layout,
     }
 
     parent_stem = extract_parent_basename(authoring_path);
-    build_scene_id_from_stem(parent_stem ? parent_stem : k_default_scene_stem, scene_id, sizeof(scene_id));
+    if (!SculptScenePackage_BuildSceneId(parent_stem ? parent_stem : k_default_scene_stem,
+                                         scene_id,
+                                         sizeof(scene_id))) {
+        write_diagnostics(diagnostics, diagnostics_size, "failed to build scene identity");
+        return false;
+    }
     if (!LineDrawingCanonicalScene_ExportLayoutToFile(layout, scene_id, authoring_path)) {
         write_diagnostics(diagnostics, diagnostics_size, "failed to export canonical authoring scene");
         return false;
@@ -357,12 +360,25 @@ bool LineDrawingSceneExport_ExportLayoutToAuthoringPath(const Layout* layout,
         }
         return false;
     }
+    if (!SculptScenePackage_WriteManifest(scene_dir,
+                                          scene_id,
+                                          SCULPT_SCENE_PACKAGE_RUNTIME_COMPILED,
+                                          SCULPT_SCENE_PACKAGE_RECEIPT_MISSING,
+                                          false,
+                                          diagnostics,
+                                          diagnostics_size)) {
+        return false;
+    }
 
     if (out_paths) {
         snprintf(out_paths->scene_id, sizeof(out_paths->scene_id), "%s", scene_id);
         snprintf(out_paths->scene_dir, sizeof(out_paths->scene_dir), "%s", scene_dir);
         snprintf(out_paths->authoring_path, sizeof(out_paths->authoring_path), "%s", authoring_path);
         snprintf(out_paths->runtime_path, sizeof(out_paths->runtime_path), "%s", runtime_path);
+        ShapeExport_BuildPathInRoot(scene_dir,
+                                    SCULPT_SCENE_PACKAGE_FILENAME,
+                                    out_paths->package_manifest_path,
+                                    sizeof(out_paths->package_manifest_path));
     }
     return true;
 }
@@ -430,6 +446,16 @@ bool LineDrawingSceneExport_ExportLayoutToProjectRoot(const Layout* layout,
                                                         &project_options,
                                                         diagnostics,
                                                         diagnostics_size)) {
+        free(manifest_objects);
+        return false;
+    }
+    if (!SculptScenePackage_WriteManifest(project_root,
+                                          export_paths.scene_id,
+                                          SCULPT_SCENE_PACKAGE_RUNTIME_COMPILED,
+                                          SCULPT_SCENE_PACKAGE_RECEIPT_MISSING,
+                                          true,
+                                          diagnostics,
+                                          diagnostics_size)) {
         free(manifest_objects);
         return false;
     }

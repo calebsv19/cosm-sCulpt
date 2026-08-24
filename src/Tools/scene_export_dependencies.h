@@ -1,20 +1,29 @@
 #pragma once
 
 #include "Layout/layout.h"
+#include "core_io.h"
 #include "core_scene_compile.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 
-/*
- * Discover Sculpt-owned file-backed scene dependencies and render the shared
- * canonical manifest. The returned JSON uses core_alloc and must be released
- * with core_free by the caller.
- */
+typedef struct LineDrawingSceneExportDependencies {
+    char* manifest_json;
+    char digest_sha256[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+    CoreSceneCompileDependency* entries;
+    CoreBuffer* payload_buffers;
+    char (*content_digests)[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+    size_t count;
+} LineDrawingSceneExportDependencies;
+
+/* Discover and retain Sculpt-owned dependency payloads through publication. */
 bool LineDrawingSceneExportDependencies_Collect(
     const Layout* layout,
-    char** out_manifest_json,
-    char out_digest_sha256[CORE_SCENE_COMPILE_SHA256_HEX_SIZE],
-    size_t* out_dependency_count,
+    const char* scene_authoring_path,
+    LineDrawingSceneExportDependencies* out_dependencies,
     char* diagnostics,
     size_t diagnostics_size);
+
+/* Release every manifest and retained payload allocation owned by a collection. */
+void LineDrawingSceneExportDependencies_Destroy(
+    LineDrawingSceneExportDependencies* dependencies);

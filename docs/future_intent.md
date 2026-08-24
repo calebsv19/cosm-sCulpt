@@ -8,7 +8,7 @@ Last updated: 2026-07-14
   layout, contextual Create workflow, and validated property editing as the
   LineDrawing usability baseline.
 - Loaded-scene lifecycle proof is complete: source identity, dirty state, Save,
-  Save As, Export Scene, close, and reopen retain stable ids/bindings.
+  Scene Save As, Export Runtime, close, and reopen retain stable ids/bindings.
 - Complex-mesh quality-state separation is complete: hover/selection and
   appearance do not demote the mesh; zoom/pan retain settled geometry; only
   viewing-direction or mesh-geometry changes use the refined interaction tier.

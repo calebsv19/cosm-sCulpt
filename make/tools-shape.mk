@@ -40,8 +40,12 @@ $(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)/build/libcore_mesh_asset.a:
 $(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)/build/libcore_mesh_compile.a:
 	$(MAKE) -C $(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)
 
+$(IMPORTED_MESH_HARNESS_CORE_MESH_PREVIEW_DIR)/build/libcore_mesh_preview.a:
+	$(MAKE) -C $(IMPORTED_MESH_HARNESS_CORE_MESH_PREVIEW_DIR)
+
 $(IMPORTED_MESH_HARNESS_BIN): src/Tools/imported_mesh_harness.c \
 		$(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)/build/libcore_mesh_compile.a \
+		$(IMPORTED_MESH_HARNESS_CORE_MESH_PREVIEW_DIR)/build/libcore_mesh_preview.a \
 		$(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)/build/libcore_mesh_asset.a \
 		$(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)/build/libcore_object.a \
 		$(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)/build/libcore_units.a \
@@ -49,6 +53,7 @@ $(IMPORTED_MESH_HARNESS_BIN): src/Tools/imported_mesh_harness.c \
 		$(IMPORTED_MESH_HARNESS_CORE_BASE_DIR)/build/libcore_base.a
 	@mkdir -p $(dir $@)
 	$(CC) -I$(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)/include \
+		-I$(IMPORTED_MESH_HARNESS_CORE_MESH_PREVIEW_DIR)/include \
 		-I$(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)/include \
 		-I$(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)/include \
 		-I$(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)/include \
@@ -56,6 +61,7 @@ $(IMPORTED_MESH_HARNESS_BIN): src/Tools/imported_mesh_harness.c \
 		-I$(IMPORTED_MESH_HARNESS_CORE_BASE_DIR)/include \
 		$(CFLAGS) src/Tools/imported_mesh_harness.c external/cjson/cJSON.c \
 		$(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)/build/libcore_mesh_compile.a \
+		$(IMPORTED_MESH_HARNESS_CORE_MESH_PREVIEW_DIR)/build/libcore_mesh_preview.a \
 		$(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)/build/libcore_mesh_asset.a \
 		$(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)/build/libcore_object.a \
 		$(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)/build/libcore_units.a \

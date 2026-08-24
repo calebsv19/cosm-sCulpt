@@ -87,10 +87,11 @@ These controls apply when view mode is `FREE_VIEW`.
 - `Left Drag` on empty space: Pan view.
 
 ## UI Buttons (Mouse)
-- `Save JSON`: Save current layout config.
-- `Load JSON`: Load a layout config.
+- `Save Authoring` / `Save Layout`: Save the active editable document.
+- `Load Layout`: Load a lightweight layout JSON.
+- `Load Package`: Load a descriptor-backed or legacy authoring-only scene package.
 - `Export Shape`: Export shape asset.
-- `Export Scene`: Export a named scene directory containing `scene_authoring.json` and `scene_runtime.json` into the configured output root.
+- `Export Runtime`: Atomically publish one named compiled package under the configured output root.
 - `Input Edit`: Open typed input-root edit dialog.
 - `Input Folder`: Open native folder chooser for input root.
 - `Output Edit`: Open typed output-root edit dialog.

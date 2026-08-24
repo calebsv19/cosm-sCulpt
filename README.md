@@ -1,6 +1,6 @@
-# sCulpt (`line_drawing`)
+# Sculpt (`line_drawing`)
 
-`sCulpt` is the packaged desktop product for the `line_drawing` program. It is
+`Sculpt` is the packaged desktop product for the `line_drawing` program. It is
 an SDL2-based geometry, scene-authoring, and object/CAD prototyping workspace.
 It supports snap-to-grid wall drafting, bezier-curved anchors, multi-anchor
 selection/dragging, JSON persistence, a menu-first host shell, a tabbed editor
@@ -15,7 +15,7 @@ workflows.
 
 Identity note:
 
-- public product name: `sCulpt`
+- public product name: `Sculpt`
 - repository/program key: `line_drawing`
 - launcher/log/runtime env paths still use `LineDrawing` or `line_drawing`
   identifiers where those are part of the current technical contract
@@ -54,7 +54,8 @@ Identity note:
 - `external/` — third-party libraries (currently cJSON) compiled in by the makefile.
 - `src/Tools/` — reusable tooling code; houses `ShapeLib/`, Layout→Shape
   export, diagnostics pack/trace tooling, canonical scene export/import,
-  scene-directory export through shared `core_scene_compile`, imported mesh
+  atomic scene-directory export with content-addressed runtime-mesh payloads
+  through shared `core_scene_compile`, imported mesh
   harnesses, and agent-scene tooling.
 - `export/` — auto-created when exporting; stores Shape JSON assets that downstream tools can consume. Run `make export-assets` to convert everything under `export/` into canonical ShapeAssets inside the shared directory (defaults to `shared/assets/shapes`, override with `SHAPE_ASSET_DIR`).
 - `include/` — project assets such as fonts that the font manager loads.
@@ -143,7 +144,7 @@ This does not replace existing JSON export paths; it is additive for shared-pipe
 Runtime layout loading now supports two authoring sources:
 
 - `Load JSON`: `.json` layout files from a chosen JSON root, shown through the in-app scrollable picker
-- `Load Scene`: scene directories under a chosen scene root that contain both `scene_authoring.json` and `scene_runtime.json`; the importer restores the embedded `extensions.line_drawing.layout_snapshot` for exact round-trip restores
+- `Load Package`: scene directories under a chosen scene root that contain editable `scene_authoring.json`; `scene_package.json` is the preferred entrypoint, while legacy authoring-only directories remain readable. A runtime export is not required before discovery.
 - Rejected runtime sources: `.pack` diagnostics artifacts and compiled `scene_runtime.json` files
 - `.pack` remains tooling-only for diagnostics and cross-program inspection
 
@@ -216,11 +217,12 @@ Low-risk theme preset persistence paths now use shared `core_io`:
 - `Shift` + click — add/remove anchors to a multi-selection. Dragging with shift held over empty space draws a translucent marquee to select anchors inside the box.
 - `Alt` + drag — disables grid snapping for the anchor currently being dragged (other selected anchors follow the same delta without snapping).
 - Double-click a selected anchor — collapse the multi-selection down to that anchor (single drag target).
-- `Save JSON` button — opens a naming dialog that writes to `config/<name>.json` (layout changes prompt for a new file name).
+- `Save` button — updates the active layout JSON, canonical scene-authoring document, or object asset in place. Saving a scene changes authored truth only and does not rebuild `scene_runtime.json`.
+- `Scene Save As` button — writes a new named layout/object document, or creates a new sibling scene package from loaded authoring. Scene Save As refuses to overwrite an existing package, preserves only authoring-owned `assets/` and `attachments/`, leaves the original unchanged, writes a new `scene_package.json`, and omits runtime, dependencies, and receipts until explicit export.
 - `Load JSON` button — opens a native folder picker for the JSON root, then shows a clipped, scrollable in-app list of every `.json` file in that directory for quick swapping between layouts.
-- `Load Scene` button — opens a native folder picker for the scene root, then shows a clipped, scrollable in-app list of valid scenes sourced from that folder. Scene discovery accepts a root that is itself a scene directory or one grouped layer deeper (`group/scene`). Each loaded scene restores the embedded line-drawing layout snapshot from `scene_authoring.json`.
+- `Load Package` button — opens a native folder picker for the scene root, then shows a clipped, scrollable in-app list of authoring packages sourced from that folder. Scene discovery accepts a root that is itself a package or one grouped layer deeper (`group/scene`). Each loaded package resolves through `scene_package.json` when present and restores editable state from `scene_authoring.json`.
 - `Export Shape` button — converts the in-memory Layout into a canonical Shape asset and writes it to `export/<current config name>.json` using the shared ShapeLib pipeline (no dialog required). Export flattening uses the current active plane (`XY`/`YZ`/`XZ`).
-- `Export Scene` button — writes a named scene directory under the configured output root, exporting `scene_authoring.json` first and then compiling `scene_runtime.json` immediately for downstream consumers. If the current session came from `Load Scene`, export writes back to that same scene directory.
+- `Export Runtime` button — atomically publishes one new named package directory under the configured output root with `scene_package.json`, `scene_authoring.json`, deterministic `scene_runtime.json`, canonical `scene_dependencies.json`, content-addressed dependencies, and `scene_export_receipt.json`. The receipt binds the package entrypoint and all compiled artifacts. Publication is create-only, so an existing iteration is never replaced. Export remains a derived-output action: it does not replace the active authoring identity or clear unsaved authoring state.
 
 Selection details (position, connections, bezier handle lengths/angles, drag mode, group count, delete mode) appear in the top overlay, while action buttons sit below it to keep the workspace tidy. Selected anchors glow while dragging, bezier handles render with hover/selection feedback, and the marquee indicates the lasso bounds.
 In `PLANE_VIEW`, the background grid is rendered for plane editing. In `FREE_VIEW`, the background grid is hidden and a world-axis gizmo (+X red, +Y green, +Z blue) is rendered around the layout centroid for orientation.
@@ -231,6 +233,10 @@ Layout edits are stored in `config/layout_config.json`, which encodes:
 - `anchors`: world-space coordinates (`x`, `y`, `z` floats in schema v4), a `persistent` flag that keeps an anchor alive when auto-prune is enabled, the anchor `type` (`corner` or `curve`), handle linkage flag, handle basis plane (`handleAxis`: `xy|yz|xz`), and polar handle definitions (`handleInLength`, `handleInAngleDeg`, `handleOutLength`, `handleOutAngleDeg`). Older JSONs that only store `x/y` still load with `z = 0`.
 - `walls`: index pairs `a`/`b` that connect anchors into wall segments.
 
-The UI panel exposes "Save JSON" and "Load JSON" buttons, so this file is the primary project state shared between sessions.
+The UI panel exposes explicit authoring save, Scene Save As, Load Layout, Load
+Package, and Export Runtime actions. Layout JSON remains the lightweight
+line-drawing document, while `scene_package.json` identifies a scene package,
+`scene_authoring.json` is editable canonical scene truth and
+`scene_runtime.json` is derived compiled output.
 
 When you need the simplified Shape format (paths + cubic segments) for other programs, click "Export Shape" (or run `shape_tool --export-shape ...`). The exporter streams the connected wall graph into a ShapeDocument and saves it next to the layout exports in `export/`. For the shared pipeline, run `make export-assets` (respects `SHAPE_ASSET_DIR`) to convert those exports into canonical ShapeAssets for physics/ray-tracing.

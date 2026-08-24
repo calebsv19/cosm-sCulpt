@@ -12,10 +12,13 @@ that either link into the runtime or build as focused command-line helpers.
   `shape_dataset.*` — Shape export, diagnostics pack, trace, sanity, and
   dataset helpers.
 - `scene_export.*` — scene-directory export helper used by the File pane. It
-  renders canonical authoring JSON in memory and publishes the authoring,
-  deterministic runtime, and `scene_export_receipt_v1` files through shared
-  `core_scene_compile`'s create-only atomic bundle transaction. Existing scene
-  bundle directories are never replaced.
+  renders canonical authoring JSON in memory, retains discovered runtime-mesh
+  dependency bytes, and publishes authoring, deterministic runtime, canonical
+  dependency manifest, content-addressed payloads, Sculpt's
+  `scene_package.json` entrypoint, and
+  `scene_export_receipt_v1` through shared `core_scene_compile`'s create-only
+  atomic bundle transaction. Existing scene bundle directories are never
+  replaced.
 - `scene_project_export.*` — scene-project metadata and scaffold helper used by
   `scene_export.*` for project-root exports. It writes `scene_project.json`,
   `object_manifest.json`, downstream placeholder folders, and project-local
@@ -24,13 +27,17 @@ that either link into the runtime or build as focused command-line helpers.
   round-trip restore helpers. Canonical top-level camera/light/path/material
   records reconstruct editable LineDrawing authoring state even without an
   embedded layout snapshot; when a snapshot exists, portable canonical records
-  overlay it and bindings are normalized.
+  overlay it and bindings are normalized. A successful import also asks the
+  Layout mesh lane to reconcile cached mesh metadata from the authoritative
+  scene-owned or external runtime without rewriting the source document.
 - `canonical_scene_export.*` and `canonical_scene_export_primitives.*` —
   canonical scene authoring/export seams and current compiler-unit dump
   customers for scene metadata and primitive payload contracts.
 - `imported_mesh_harness.c` — deterministic imported mesh/STL harness that
   proves shared `core_mesh_asset` and `core_mesh_compile` integration without
-  making the app UI own parser policy.
+  making the app UI own parser policy. Successful compiles also publish a
+  bounded shared `core_mesh_preview` sidecar beside the runtime mesh so editor
+  metadata and previews do not need to parse the full runtime payload.
 - `agent_scene_tool.c` and `agent_scene_material_flow.*` — agent-authored scene
   request compilation, mesh asset instance request support, and RayTracing
   material-intent mapping.

@@ -52,6 +52,7 @@ run_import_case() {
   local out_dir="$LINE_DIR/tmp/imported_mesh_harness_$name"
   local authoring="$out_dir/authoring/$asset_id.authoring.json"
   local runtime="$out_dir/assets/mesh_assets/$asset_id.runtime.json"
+  local preview="$out_dir/assets/mesh_assets/$asset_id.preview.json"
   local scene="$out_dir/scene_runtime.json"
   local summary="$out_dir/import_summary.json"
 
@@ -65,6 +66,7 @@ run_import_case() {
 
   ld_cli_smoke_require_file "$authoring"
   ld_cli_smoke_require_file "$runtime"
+  ld_cli_smoke_require_file "$preview"
   ld_cli_smoke_require_file "$scene"
   ld_cli_smoke_require_file "$summary"
 
@@ -73,6 +75,7 @@ run_import_case() {
   ld_cli_smoke_require_pattern '"source_format"[[:space:]]*:[[:space:]]*"stl"' "$authoring"
   ld_cli_smoke_require_pattern '"default_surface_group_id"[[:space:]]*:[[:space:]]*"imported_surface"' "$authoring"
   ld_cli_smoke_require_pattern '"schema_variant"[[:space:]]*:[[:space:]]*"mesh_asset_runtime_v1"' "$runtime"
+  ld_cli_smoke_require_pattern '"schema_variant"[[:space:]]*:[[:space:]]*"core_mesh_preview_runtime_v1"' "$preview"
   ld_cli_smoke_require_pattern "\"vertex_count\"[[:space:]]*:[[:space:]]*$expected_vertices" "$runtime"
   ld_cli_smoke_require_pattern "\"triangle_count\"[[:space:]]*:[[:space:]]*$expected_triangles" "$runtime"
   ld_cli_smoke_require_pattern '"group_id"[[:space:]]*:[[:space:]]*"imported_surface"' "$runtime"

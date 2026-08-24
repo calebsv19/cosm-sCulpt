@@ -1,11 +1,11 @@
-# sCulpt Current Truth
+# Sculpt Current Truth
 
-Last updated: 2026-08-08
+Last updated: 2026-08-22
 
 ## Managed Vulkan Presentation Baseline
 
 - The default vendored shared subtree now carries canonical shared commit
-  `60084f90564105983c7c74e862a299d8b6775347`, including `vk_runtime 0.6.0`
+  `8814728240febb552f6bb7a9fd789b979dafab2e`, including `vk_runtime 0.6.0`
   beneath `vk_renderer 1.3.1`.
 - LineDrawing keeps its existing Vulkan adapter and editor/render ownership;
   the renderer delegates instance/device/queue lifecycle to the runtime while
@@ -25,7 +25,7 @@ Last updated: 2026-08-08
 
 ## Program Identity
 - Repository directory: `line_drawing/`
-- Public product name: `sCulpt`
+- Public product name: `Sculpt`
 - Internal/repo/runtime identifiers still use `line_drawing` and `LineDrawing`
   in launcher, log, binary, and source-level contracts where required
 - Primary runtime entry:
@@ -372,19 +372,33 @@ Last updated: 2026-08-08
     - invalid or empty candidate roots are rejected before mutating the
       current input root, so a failed folder pick does not clobber the prior
       working root
-    - `Export Scene` now writes scene directories under the configured output
+    - `Export Runtime` now writes scene-package directories under the configured output
       root and uses the active layout/scene path only as a naming hint; it no
       longer silently overwrites the active authoring directory just because a
       scene is loaded
-    - successful scene export promotes the exported `scene_authoring.json` as
-      the active/recent scene session, while failed exports clean up newly
-      created incomplete scene directories
+    - successful runtime export records package/authoring/runtime/dependency/receipt
+      paths and the bundle digest for diagnostics but leaves the active/recent source
+      identity unchanged; failed exports never expose an incomplete final
+      directory
     - export feedback is visible but temporary: the File summary and
-      `Export Scene` button briefly show success/failure state, then return to
+      `Export Runtime` button briefly shows success/failure state, then returns to
       the normal action label
     - strict authored-versus-compiled scene truth remains explicit:
       `scene_runtime.json` is still compiled output only, and the regression
       suite now directly checks that import rejects it as a load source
+    - document lifecycle is now explicit in current `main`: `Save` updates the
+      active layout/object/scene-authoring source, Scene Save As creates a
+      collision-safe sibling package by allowlisting authoring-owned assets and
+      attachments without copying compiled runtime/dependency/receipt output,
+      and Export Runtime compiles derived output without stealing the active
+      source identity or clearing its dirty state
+    - the File summary identifies the active source kind/path and reports the
+      sibling runtime as missing/current/stale/unknown. Exported bundles now
+      carry a `sculpt_scene_package_v1` entrypoint plus digest-bound compiler
+      provenance in `scene_export_receipt_v1`; the receipt binds the package
+      entrypoint as well as authoring/runtime/dependency payloads;
+      the adjacent source-session freshness label remains a filesystem
+      timestamp diagnostic until receipt verification is attached there
     - the unattended scene-pipeline and agent-scene smoke lanes now resolve
       their tool binaries through the current Makefile path contract instead of
       assuming the older flat `build/bin/` layout
@@ -472,10 +486,22 @@ Last updated: 2026-08-08
 - Scene export/compile path is wired and deterministic for canonical scene contract fixtures, and the desktop UI exports full scenes as stable per-scene directories through the configured output root.
 - The current scene-directory export contract is:
   - derive a scene stem from the current layout filename
-  - create `<output-root>/<scene-stem>/`
-  - write `scene_authoring.json`
-  - compile `scene_runtime.json` immediately through shared `core_scene_compile`
-  - preserve the resulting authoring/runtime paths for UI diagnostics/logging
+  - render canonical authoring JSON in memory
+  - compile deterministic runtime JSON through shared `core_scene_compile 0.8.0`
+  - discover and hash validated file-backed runtime-mesh dependencies in Sculpt
+  - canonically sort/digest `scene_dependencies.json` through shared code
+  - retain each runtime-mesh payload at the content-addressed canonical path
+    `dependencies/mesh_asset_runtime/<sha256>` inside the same transaction
+  - durably stage `scene_package.json`, authoring, runtime, dependencies, and `scene_export_receipt.json`
+  - verify artifact and payload bytes, counts, provenance, compiler
+    compatibility, receipt identity, and the expected bundle digest before
+    reporting export success
+  - publish `<output-root>/<scene-stem>/` with one atomic no-replace rename
+  - refuse an existing destination without modifying the prior iteration
+  - preserve the resulting paths and bundle digest for UI diagnostics/logging
+- Exported bundle paths and digests are derived-output evidence, not editor
+  document identity. The loaded source remains active until an explicit Load
+  or Save As.
 - The scene-project export integration now has an explicit tool/API entrypoint
   that writes canonical `scene_authoring.json`, compiled `scene_runtime.json`,
   `scene_project.json`, `object_manifest.json`, and empty downstream scaffold
@@ -583,7 +609,8 @@ Last updated: 2026-08-08
 - Legacy config fallback behavior remains for compatibility when runtime files are absent.
 - Output-root export behavior is now user-visible and deterministic:
   - `Export Shape` still writes a single exported shape artifact
-  - `Export Scene` writes a scene directory with both authoring and runtime scene files
+  - `Export Runtime` writes one receipt-bound package directory containing the
+    package entrypoint, editable authoring, compiled runtime, dependencies, and receipt
   - export destinations come from the configured output root; active scene
     paths only influence the generated scene name
   - stored full-3D plane primitive metadata is normalized to the plane-locked

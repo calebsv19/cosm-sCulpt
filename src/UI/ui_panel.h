@@ -152,6 +152,7 @@ typedef struct {
 #define UI_BTN_PREVIEW_FLAT 86
 #define UI_BTN_PREVIEW_MATERIAL 87
 #define UI_BTN_PREVIEW_BOUNDS 88
+#define UI_BTN_SAVE_AS 89
 
 #define MAX_CONFIG_FILES 128
 #define MAX_CONFIG_PATH 512
@@ -199,6 +200,12 @@ typedef enum {
     UI_ROOT_TARGET_OUTPUT = 2,
     UI_ROOT_TARGET_OBJECT_ASSET = 3
 } UIRootDialogTarget;
+
+typedef enum UISaveDialogMode {
+    UI_SAVE_DIALOG_LAYOUT = 0,
+    UI_SAVE_DIALOG_OBJECT_ASSET,
+    UI_SAVE_DIALOG_SCENE_BUNDLE
+} UISaveDialogMode;
 
 typedef enum {
     UI_PRISM_DIMENSION_TARGET_NONE = 0,
@@ -305,6 +312,7 @@ typedef struct {
 
     struct {
         bool active;
+        UISaveDialogMode mode;
         char buffer[128];
         size_t length;
         size_t cursor;
@@ -424,6 +432,8 @@ const UIButton* UIPanel_GetButtons(UIPanelState* ui, int* outCount);
 UIPanelState* UIPanel_Get(void);
 void UIPanel_RefreshConfigList(void);
 void UIPanel_BeginSaveDialog(void);
+void UIPanel_BeginSaveAsDialog(void);
+bool UIPanel_SaveDocument(void);
 bool UIPanel_OpenJsonFolderDialog(void);
 bool UIPanel_OpenSceneFolderDialog(void);
 bool UIPanel_OpenObjectAssetFolderDialog(void);

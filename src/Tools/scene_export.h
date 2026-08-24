@@ -17,6 +17,7 @@ typedef struct LineDrawingSceneExportPaths {
     char authoring_path[SHAPE_EXPORT_PATH_MAX];
     char runtime_path[SHAPE_EXPORT_PATH_MAX];
     char dependency_manifest_path[SHAPE_EXPORT_PATH_MAX];
+    char package_manifest_path[SHAPE_EXPORT_PATH_MAX];
     char receipt_path[SHAPE_EXPORT_PATH_MAX];
     char dependency_sha256[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
     size_t dependency_count;

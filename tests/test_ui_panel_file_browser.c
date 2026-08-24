@@ -401,7 +401,7 @@ static bool test_file_pane_export_scene_button_click_exports_and_sets_status(voi
                          expected_scene_dir) < (int)sizeof(expected_runtime));
     TEST_ASSERT(access(expected_authoring, F_OK) == 0);
     TEST_ASSERT(access(expected_runtime, F_OK) == 0);
-    TEST_ASSERT(strncmp(ui->filePane.actionStatus, "Export Scene OK", 15) == 0);
+    TEST_ASSERT(strncmp(ui->filePane.actionStatus, "Export Runtime OK", 17) == 0);
     TEST_ASSERT(UIPanel_FilePaneActionStatusIsLive(ui));
     ui->filePane.actionStatusSetTicks = SDL_GetTicks() - 100000u;
     TEST_ASSERT(!UIPanel_FilePaneActionStatusIsLive(ui));

@@ -48,7 +48,7 @@ typedef struct NormalizedArray {
 static const char *k_schema_family = "codework_scene";
 static const char *k_authoring_variant = "scene_authoring_v1";
 static const char *k_compiler_version = CORE_SCENE_COMPILE_VERSION;
-static const char *k_normalization_version = "v0.6_manifest_bound_sorted_lanes";
+static const char *k_normalization_version = "v0.7_content_addressed_dependency_payloads";
 
 static bool is_sha256_hex(const char *text) {
     if (!text || strlen(text) != 64u) return false;

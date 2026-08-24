@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 static bool file_contains(const char* path, const char* needle) {
@@ -100,6 +101,7 @@ static bool test_scene_export_emits_authoring_and_runtime_files(void) {
     char* root = NULL;
     Layout layout;
     LineDrawingSceneExportPaths export_paths;
+    CoreSceneCompileVerification verification = {0};
     char diagnostics[256];
 
     root = mkdtemp(root_template);
@@ -122,6 +124,7 @@ static bool test_scene_export_emits_authoring_and_runtime_files(void) {
     TEST_ASSERT(strstr(export_paths.dependency_manifest_path,
                        "/demo room/scene_dependencies.json") != NULL);
     TEST_ASSERT(strstr(export_paths.receipt_path, "/demo room/scene_export_receipt.json") != NULL);
+    TEST_ASSERT(strstr(export_paths.package_manifest_path, "/demo room/scene_package.json") != NULL);
     TEST_ASSERT(strlen(export_paths.bundle_sha256) == 64u);
     TEST_ASSERT(strlen(export_paths.dependency_sha256) == 64u);
     TEST_ASSERT(export_paths.dependency_count == 0u);
@@ -130,15 +133,33 @@ static bool test_scene_export_emits_authoring_and_runtime_files(void) {
     TEST_ASSERT(file_contains(export_paths.runtime_path, "\"schema_variant\":\"scene_runtime_v1\""));
     TEST_ASSERT(file_contains(export_paths.runtime_path, "\"authoring_sha256\":"));
     TEST_ASSERT(file_contains(export_paths.dependency_manifest_path,
-                              "\"scene_dependency_manifest_v1\""));
+                              "\"scene_dependency_manifest_v2\""));
     TEST_ASSERT(file_contains(export_paths.receipt_path, "\"scene_export_receipt_v1\""));
     TEST_ASSERT(file_contains(export_paths.receipt_path, export_paths.bundle_sha256));
+    TEST_ASSERT(file_contains(export_paths.package_manifest_path, "\"sculpt_scene_package_v1\""));
+    TEST_ASSERT(file_contains(export_paths.package_manifest_path, "\"compiled\""));
+    TEST_ASSERT(file_contains(export_paths.package_manifest_path, "\"verified\""));
+    TEST_ASSERT(file_contains(export_paths.receipt_path, "\"package_manifest\""));
+    TEST_ASSERT(core_scene_compile_verify_bundle(export_paths.scene_dir,
+                                                  export_paths.bundle_sha256,
+                                                  &verification,
+                                                  diagnostics,
+                                                  sizeof(diagnostics)).code == CORE_OK);
+    TEST_ASSERT(verification.package_manifest_bytes > 0u);
+    TEST_ASSERT(strlen(verification.package_manifest_sha256) == 64u);
+    TEST_ASSERT(write_text_file(export_paths.package_manifest_path, "{}"));
+    TEST_ASSERT(core_scene_compile_verify_bundle(export_paths.scene_dir,
+                                                  export_paths.bundle_sha256,
+                                                  NULL,
+                                                  diagnostics,
+                                                  sizeof(diagnostics)).code != CORE_OK);
 
     Layout_Free(&layout);
     (void)unlink(export_paths.authoring_path);
     (void)unlink(export_paths.runtime_path);
     (void)unlink(export_paths.dependency_manifest_path);
     (void)unlink(export_paths.receipt_path);
+    (void)unlink(export_paths.package_manifest_path);
     (void)rmdir(export_paths.scene_dir);
     (void)rmdir(root);
     return true;
@@ -245,6 +266,10 @@ static bool test_scene_export_collects_and_verifies_mesh_dependencies(void) {
     char root_template[] = "/tmp/ld_scene_export_dependencies_XXXXXX";
     char* root = mkdtemp(root_template);
     char mesh_path[512];
+    char packaged_relative[CORE_SCENE_COMPILE_DEPENDENCY_PATH_SIZE];
+    char packaged_path[1024];
+    char packaged_kind_dir[1024];
+    char packaged_root_dir[1024];
     char diagnostics[256];
     const char* mesh_bytes = "fixture-runtime-mesh-bytes";
     char expected_digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
@@ -287,6 +312,15 @@ static bool test_scene_export_collects_and_verifies_mesh_dependencies(void) {
     TEST_ASSERT(export_paths.dependency_count == 1u);
     TEST_ASSERT(file_contains(export_paths.dependency_manifest_path, "\"identity\":\"mesh_fixture\""));
     TEST_ASSERT(file_contains(export_paths.dependency_manifest_path, expected_digest));
+    TEST_ASSERT(core_scene_compile_dependency_payload_path("mesh_asset_runtime",
+                                                           expected_digest,
+                                                           packaged_relative).code == CORE_OK);
+    TEST_ASSERT(snprintf(packaged_path,
+                         sizeof(packaged_path),
+                         "%s/%s",
+                         export_paths.scene_dir,
+                         packaged_relative) < (int)sizeof(packaged_path));
+    TEST_ASSERT(file_contains(packaged_path, mesh_bytes));
     TEST_ASSERT(file_contains(export_paths.runtime_path, export_paths.dependency_sha256));
     TEST_ASSERT(core_scene_compile_verify_bundle(export_paths.scene_dir,
                                                  export_paths.bundle_sha256,
@@ -294,8 +328,32 @@ static bool test_scene_export_collects_and_verifies_mesh_dependencies(void) {
                                                  diagnostics,
                                                  sizeof(diagnostics)).code == CORE_OK);
     TEST_ASSERT(verification.dependency_count == 1u);
+    TEST_ASSERT(verification.dependency_payload_bytes == strlen(mesh_bytes));
     TEST_ASSERT(strcmp(verification.dependency_sha256, export_paths.dependency_sha256) == 0);
+    TEST_ASSERT(write_text_file(packaged_path, "fixture-runtime-mesh-byteX"));
+    TEST_ASSERT(core_scene_compile_verify_bundle(export_paths.scene_dir,
+                                                 export_paths.bundle_sha256,
+                                                 NULL,
+                                                 diagnostics,
+                                                 sizeof(diagnostics)).code != CORE_OK);
+    TEST_ASSERT(write_text_file(packaged_path, mesh_bytes));
+    TEST_ASSERT(core_scene_compile_verify_bundle(export_paths.scene_dir,
+                                                 export_paths.bundle_sha256,
+                                                 NULL,
+                                                 diagnostics,
+                                                 sizeof(diagnostics)).code == CORE_OK);
 
+    unlink(packaged_path);
+    TEST_ASSERT(snprintf(packaged_kind_dir,
+                         sizeof(packaged_kind_dir),
+                         "%s/dependencies/mesh_asset_runtime",
+                         export_paths.scene_dir) < (int)sizeof(packaged_kind_dir));
+    TEST_ASSERT(snprintf(packaged_root_dir,
+                         sizeof(packaged_root_dir),
+                         "%s/dependencies",
+                         export_paths.scene_dir) < (int)sizeof(packaged_root_dir));
+    rmdir(packaged_kind_dir);
+    rmdir(packaged_root_dir);
     unlink(export_paths.receipt_path);
     unlink(export_paths.dependency_manifest_path);
     unlink(export_paths.runtime_path);
@@ -304,6 +362,242 @@ static bool test_scene_export_collects_and_verifies_mesh_dependencies(void) {
     unlink(mesh_path);
     rmdir(root);
     Layout_Free(&layout);
+    return true;
+}
+
+static bool test_scene_export_prefers_scene_owned_mesh_dependency(void) {
+    char root_template[] = "/tmp/ld_scene_export_owned_mesh_XXXXXX";
+    char* root = mkdtemp(root_template);
+    char source_dir[512];
+    char assets_dir[512];
+    char mesh_assets_dir[512];
+    char authoring_hint[512];
+    char owned_mesh_path[512];
+    char output_root[512];
+    char diagnostics[256];
+    const char* owned_bytes = "scene-owned-high-quality-mesh";
+    char expected_digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+    Layout layout;
+    Transform3D transform;
+    Object3D* object = NULL;
+    LineDrawingSceneExportPaths export_paths;
+
+    TEST_ASSERT(root != NULL);
+    TEST_ASSERT(build_fixture_path(root, "source_scene", source_dir, sizeof(source_dir)));
+    TEST_ASSERT(build_fixture_path(source_dir, "assets", assets_dir, sizeof(assets_dir)));
+    TEST_ASSERT(build_fixture_path(assets_dir, "mesh_assets", mesh_assets_dir, sizeof(mesh_assets_dir)));
+    TEST_ASSERT(build_fixture_path(source_dir, "scene_authoring.json", authoring_hint, sizeof(authoring_hint)));
+    TEST_ASSERT(build_fixture_path(mesh_assets_dir, "dragon.runtime.json", owned_mesh_path, sizeof(owned_mesh_path)));
+    TEST_ASSERT(build_fixture_path(root, "exports", output_root, sizeof(output_root)));
+    TEST_ASSERT(mkdir(source_dir, 0700) == 0);
+    TEST_ASSERT(mkdir(assets_dir, 0700) == 0);
+    TEST_ASSERT(mkdir(mesh_assets_dir, 0700) == 0);
+    TEST_ASSERT(mkdir(output_root, 0700) == 0);
+    TEST_ASSERT(write_text_file(owned_mesh_path, owned_bytes));
+    TEST_ASSERT(core_scene_compile_sha256(owned_bytes,
+                                          strlen(owned_bytes),
+                                          expected_digest).code == CORE_OK);
+
+    Layout_Init(&layout, 1.0f);
+    transform = Layout_Transform3D_Default();
+    const uint32_t object_id = Layout_ObjectStore_Create(&layout.objectStore,
+                                                         OBJECT3D_KIND_MESH_ASSET_INSTANCE,
+                                                         &transform,
+                                                         "mesh_asset_instance",
+                                                         CORE_OBJECT_DIMENSIONAL_MODE_FULL_3D,
+                                                         CORE_OBJECT_PLANE_XY);
+    TEST_ASSERT(object_id != 0u);
+    object = Layout_ObjectStore_Find(&layout.objectStore, object_id);
+    TEST_ASSERT(object != NULL);
+    snprintf(object->meshInstance.assetId, sizeof(object->meshInstance.assetId), "%s", "dragon");
+    snprintf(object->meshInstance.runtimePath,
+             sizeof(object->meshInstance.runtimePath),
+             "%s",
+             "/missing/library/dragon.runtime.json");
+    object->meshInstance.vertexCount = 3u;
+    object->meshInstance.triangleCount = 1u;
+    object->meshInstance.localBoundsMin = (Vec3){0.0f, 0.0f, 0.0f};
+    object->meshInstance.localBoundsMax = (Vec3){1.0f, 1.0f, 1.0f};
+    TEST_ASSERT(Layout_ObjectStore_ValidateObject(object));
+
+    TEST_ASSERT(LineDrawingSceneExport_ExportLayoutToOutputRoot(&layout,
+                                                                authoring_hint,
+                                                                output_root,
+                                                                &export_paths,
+                                                                diagnostics,
+                                                                sizeof(diagnostics)));
+    TEST_ASSERT(file_contains(export_paths.dependency_manifest_path, expected_digest));
+
+    char packaged_relative[CORE_SCENE_COMPILE_DEPENDENCY_PATH_SIZE];
+    char packaged_path[1024];
+    char packaged_kind_dir[1024];
+    char packaged_root_dir[1024];
+    TEST_ASSERT(core_scene_compile_dependency_payload_path("mesh_asset_runtime",
+                                                           expected_digest,
+                                                           packaged_relative).code == CORE_OK);
+    TEST_ASSERT(snprintf(packaged_path,
+                         sizeof(packaged_path),
+                         "%s/%s",
+                         export_paths.scene_dir,
+                         packaged_relative) < (int)sizeof(packaged_path));
+    TEST_ASSERT(file_contains(packaged_path, owned_bytes));
+
+    unlink(packaged_path);
+    snprintf(packaged_kind_dir, sizeof(packaged_kind_dir), "%s/dependencies/mesh_asset_runtime", export_paths.scene_dir);
+    snprintf(packaged_root_dir, sizeof(packaged_root_dir), "%s/dependencies", export_paths.scene_dir);
+    rmdir(packaged_kind_dir);
+    rmdir(packaged_root_dir);
+    unlink(export_paths.receipt_path);
+    unlink(export_paths.dependency_manifest_path);
+    unlink(export_paths.runtime_path);
+    unlink(export_paths.authoring_path);
+    rmdir(export_paths.scene_dir);
+    unlink(owned_mesh_path);
+    rmdir(mesh_assets_dir);
+    rmdir(assets_dir);
+    rmdir(source_dir);
+    rmdir(output_root);
+    rmdir(root);
+    Layout_Free(&layout);
+    return true;
+}
+
+static bool test_scene_import_reconciles_mesh_metadata_without_rewriting_source(void) {
+    char root_template[] = "/tmp/ld_scene_import_reconcile_XXXXXX";
+    char* root = mkdtemp(root_template);
+    char source_dir[512];
+    char assets_dir[512];
+    char mesh_assets_dir[512];
+    char authoring_path[512];
+    char runtime_path[512];
+    char output_root[512];
+    char packaged_relative[CORE_SCENE_COMPILE_DEPENDENCY_PATH_SIZE];
+    char packaged_path[1024];
+    char packaged_kind_dir[1024];
+    char packaged_root_dir[1024];
+    char diagnostics[256];
+    char runtime_digest[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+    char* source_before = NULL;
+    char* source_after = NULL;
+    Layout stale_layout;
+    Layout imported_layout;
+    Transform3D transform;
+    Object3D* object = NULL;
+    Object3D* imported_object = NULL;
+    LineDrawingSceneExportPaths export_paths;
+    const char* runtime_json =
+        "{"
+        "\"schema_variant\":\"mesh_asset_runtime_v1\","
+        "\"asset_id\":\"dragon\","
+        "\"source_asset_id\":\"stanford_dragon\","
+        "\"vertex_count\":433400,"
+        "\"triangle_count\":840682,"
+        "\"local_bounds\":{"
+            "\"min\":{\"x\":-1.0,\"y\":-2.0,\"z\":-3.0},"
+            "\"max\":{\"x\":4.0,\"y\":5.0,\"z\":6.0}"
+        "}"
+        "}";
+
+    TEST_ASSERT(root != NULL);
+    TEST_ASSERT(build_fixture_path(root, "source_scene", source_dir, sizeof(source_dir)));
+    TEST_ASSERT(build_fixture_path(source_dir, "assets", assets_dir, sizeof(assets_dir)));
+    TEST_ASSERT(build_fixture_path(assets_dir, "mesh_assets", mesh_assets_dir, sizeof(mesh_assets_dir)));
+    TEST_ASSERT(build_fixture_path(source_dir, "scene_authoring.json", authoring_path, sizeof(authoring_path)));
+    TEST_ASSERT(build_fixture_path(mesh_assets_dir, "dragon.runtime.json", runtime_path, sizeof(runtime_path)));
+    TEST_ASSERT(build_fixture_path(root, "exports", output_root, sizeof(output_root)));
+    TEST_ASSERT(mkdir(source_dir, 0700) == 0);
+    TEST_ASSERT(mkdir(assets_dir, 0700) == 0);
+    TEST_ASSERT(mkdir(mesh_assets_dir, 0700) == 0);
+    TEST_ASSERT(mkdir(output_root, 0700) == 0);
+    TEST_ASSERT(write_text_file(runtime_path, runtime_json));
+    TEST_ASSERT(core_scene_compile_sha256(runtime_json,
+                                          strlen(runtime_json),
+                                          runtime_digest).code == CORE_OK);
+
+    Layout_Init(&stale_layout, 1.0f);
+    transform = Layout_Transform3D_Default();
+    const uint32_t object_id = Layout_ObjectStore_Create(&stale_layout.objectStore,
+                                                         OBJECT3D_KIND_MESH_ASSET_INSTANCE,
+                                                         &transform,
+                                                         "mesh_asset_instance",
+                                                         CORE_OBJECT_DIMENSIONAL_MODE_FULL_3D,
+                                                         CORE_OBJECT_PLANE_XY);
+    TEST_ASSERT(object_id != 0u);
+    object = Layout_ObjectStore_Find(&stale_layout.objectStore, object_id);
+    TEST_ASSERT(object != NULL);
+    snprintf(object->meshInstance.assetId, sizeof(object->meshInstance.assetId), "%s", "dragon");
+    snprintf(object->meshInstance.runtimePath,
+             sizeof(object->meshInstance.runtimePath),
+             "%s",
+             "/missing/library/dragon.runtime.json");
+    object->meshInstance.vertexCount = 100207u;
+    object->meshInstance.triangleCount = 202520u;
+    object->meshInstance.localBoundsMin = (Vec3){-0.5f, -0.5f, -0.5f};
+    object->meshInstance.localBoundsMax = (Vec3){0.5f, 0.5f, 0.5f};
+    object->meshInstance.lockToBounds = true;
+    TEST_ASSERT(Layout_ObjectStore_ValidateObject(object));
+    TEST_ASSERT(LineDrawingCanonicalScene_ExportLayoutToFile(&stale_layout,
+                                                              "scene_reconcile_fixture",
+                                                              authoring_path));
+    source_before = read_text_file(authoring_path);
+    TEST_ASSERT(source_before != NULL);
+
+    Layout_Init(&imported_layout, 1.0f);
+    TEST_ASSERT(LineDrawingSceneImport_LoadLayoutFromAuthoringFile(&imported_layout,
+                                                                   authoring_path,
+                                                                   diagnostics,
+                                                                   sizeof(diagnostics)));
+    imported_object = Layout_ObjectStore_Find(&imported_layout.objectStore, object_id);
+    TEST_ASSERT(imported_object != NULL);
+    TEST_ASSERT(strcmp(imported_object->meshInstance.runtimePath, runtime_path) == 0);
+    TEST_ASSERT(imported_object->meshInstance.vertexCount == 433400u);
+    TEST_ASSERT(imported_object->meshInstance.triangleCount == 840682u);
+    TEST_ASSERT(imported_object->meshInstance.localBoundsMin.y == -2.0f);
+    TEST_ASSERT(imported_object->meshInstance.localBoundsMax.z == 6.0f);
+    source_after = read_text_file(authoring_path);
+    TEST_ASSERT(source_after != NULL);
+    TEST_ASSERT(strcmp(source_before, source_after) == 0);
+
+    TEST_ASSERT(LineDrawingSceneExport_ExportLayoutToOutputRoot(&imported_layout,
+                                                                authoring_path,
+                                                                output_root,
+                                                                &export_paths,
+                                                                diagnostics,
+                                                                sizeof(diagnostics)));
+    TEST_ASSERT(file_contains(export_paths.authoring_path, "433400"));
+    TEST_ASSERT(file_contains(export_paths.authoring_path, "840682"));
+    TEST_ASSERT(file_contains(export_paths.dependency_manifest_path, runtime_digest));
+    TEST_ASSERT(core_scene_compile_dependency_payload_path("mesh_asset_runtime",
+                                                           runtime_digest,
+                                                           packaged_relative).code == CORE_OK);
+    TEST_ASSERT(snprintf(packaged_path,
+                         sizeof(packaged_path),
+                         "%s/%s",
+                         export_paths.scene_dir,
+                         packaged_relative) < (int)sizeof(packaged_path));
+    TEST_ASSERT(file_contains(packaged_path, "433400"));
+
+    free(source_before);
+    free(source_after);
+    unlink(packaged_path);
+    snprintf(packaged_kind_dir, sizeof(packaged_kind_dir), "%s/dependencies/mesh_asset_runtime", export_paths.scene_dir);
+    snprintf(packaged_root_dir, sizeof(packaged_root_dir), "%s/dependencies", export_paths.scene_dir);
+    rmdir(packaged_kind_dir);
+    rmdir(packaged_root_dir);
+    unlink(export_paths.receipt_path);
+    unlink(export_paths.dependency_manifest_path);
+    unlink(export_paths.runtime_path);
+    unlink(export_paths.authoring_path);
+    rmdir(export_paths.scene_dir);
+    unlink(authoring_path);
+    unlink(runtime_path);
+    rmdir(mesh_assets_dir);
+    rmdir(assets_dir);
+    rmdir(source_dir);
+    rmdir(output_root);
+    rmdir(root);
+    Layout_Free(&stale_layout);
+    Layout_Free(&imported_layout);
     return true;
 }
 
@@ -937,6 +1231,10 @@ bool scene_export_run_tests(void) {
           test_scene_export_refuses_to_replace_existing_bundle },
         { "scene_export_collects_and_verifies_mesh_dependencies",
           test_scene_export_collects_and_verifies_mesh_dependencies },
+        { "scene_export_prefers_scene_owned_mesh_dependency",
+          test_scene_export_prefers_scene_owned_mesh_dependency },
+        { "scene_import_reconciles_mesh_metadata_without_rewriting_source",
+          test_scene_import_reconciles_mesh_metadata_without_rewriting_source },
         { "scene_export_cleans_new_directory_on_authoring_failure",
           test_scene_export_cleans_new_directory_on_authoring_failure },
         { "scene_export_embeds_layout_snapshot_and_round_trips_import",

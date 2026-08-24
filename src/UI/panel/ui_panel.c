@@ -220,12 +220,13 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
     static const char* k_left_button_labels[] = {
         "Clear Select",
         "Delete Obj",
-        "Save JSON",
-        "Load JSON",
-        "Load Scene",
+        "Save Authoring",
+        "Scene Save As",
+        "Load Layout",
+        "Load Package",
         "Mesh Assets",
         "Export Shape",
-        "Export Scene",
+        "Export Runtime",
         "Session In Edit",
         "Session In Pick",
         "Output Edit",
@@ -744,6 +745,7 @@ void UIPanel_Init(int screenW, int screenH) {
     g_uiPanel.objectModelTree.operationScrollbarDragStartY = 0;
     g_uiPanel.objectModelTree.operationScrollbarDragStartOffsetPx = 0.0f;
     g_uiPanel.saveDialog.active = false;
+    g_uiPanel.saveDialog.mode = UI_SAVE_DIALOG_LAYOUT;
     g_uiPanel.saveDialog.buffer[0] = '\0';
     g_uiPanel.saveDialog.length = 0;
     g_uiPanel.saveDialog.cursor = 0;
@@ -806,11 +808,13 @@ void UIPanel_Init(int screenW, int screenH) {
 
     int xL = padding;
     int yL = topOffset;
-    AddButton(&g_uiPanel, "Save JSON", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_SAVE_JSON);
+    AddButton(&g_uiPanel, "Save", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_SAVE_JSON);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Load JSON", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_JSON);
+    AddButton(&g_uiPanel, "Save As", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_SAVE_AS);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Load Scene", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_SCENE);
+    AddButton(&g_uiPanel, "Load Layout", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_JSON);
+    yL += btnH + spacing;
+    AddButton(&g_uiPanel, "Load Package", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_SCENE);
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Load STL", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_LOAD_STL);
     yL += btnH + spacing;
@@ -818,7 +822,7 @@ void UIPanel_Init(int screenW, int screenH) {
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Export Shape", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_EXPORT_SHAPE);
     yL += btnH + spacing;
-    AddButton(&g_uiPanel, "Export Scene", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_EXPORT_SCENE);
+    AddButton(&g_uiPanel, "Export Runtime", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_EXPORT_SCENE);
     yL += btnH + spacing;
     AddButton(&g_uiPanel, "Use Session", xL, yL, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_FILE_IO, UI_BTN_FILE_BROWSER_USE_ACTIVE);
     yL += btnH + spacing;

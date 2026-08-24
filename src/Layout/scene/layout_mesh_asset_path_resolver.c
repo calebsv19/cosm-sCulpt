@@ -64,12 +64,43 @@ static bool LayoutMeshPath_TryRoot(const char* root,
 LayoutMeshPathResolution Layout_MeshAssetResolveRuntimePath(const char* storedPath,
                                                             char* resolvedPath,
                                                             size_t resolvedPathSize) {
+    return Layout_MeshAssetResolveRuntimePathForScene(storedPath,
+                                                      Global_GetCurrentSceneAuthoringPath(),
+                                                      resolvedPath,
+                                                      resolvedPathSize);
+}
+
+LayoutMeshPathResolution Layout_MeshAssetResolveRuntimePathForScene(
+    const char* storedPath,
+    const char* sceneAuthoringPath,
+    char* resolvedPath,
+    size_t resolvedPathSize) {
     const char* desktopMarker = NULL;
     const char* basename = NULL;
+    const char* sceneSlash = NULL;
     char candidate[LINE_DRAWING_PATH_CAP];
     if (resolvedPath && resolvedPathSize > 0u) resolvedPath[0] = '\0';
     if (!storedPath || !storedPath[0] || !resolvedPath || resolvedPathSize == 0u) {
         return LAYOUT_MESH_PATH_MISSING;
+    }
+    basename = LayoutMeshPath_Basename(storedPath);
+    sceneSlash = sceneAuthoringPath ? strrchr(sceneAuthoringPath, '/') : NULL;
+    if (basename && basename[0] && sceneSlash && sceneSlash > sceneAuthoringPath &&
+        strcmp(sceneSlash + 1, "scene_authoring.json") == 0) {
+        const size_t sceneDirectoryLength = (size_t)(sceneSlash - sceneAuthoringPath);
+        if (snprintf(candidate,
+                     sizeof(candidate),
+                     "%.*s/assets/mesh_assets/%s",
+                     (int)sceneDirectoryLength,
+                     sceneAuthoringPath,
+                     basename) < (int)sizeof(candidate) &&
+            LayoutMeshPath_TryCandidate(candidate, resolvedPath, resolvedPathSize)) {
+            if (strcmp(candidate, storedPath) != 0) {
+                LayoutMeshPath_LogRecovery(storedPath, resolvedPath);
+                return LAYOUT_MESH_PATH_RELOCATED;
+            }
+            return LAYOUT_MESH_PATH_EXACT;
+        }
     }
     if (LayoutMeshPath_TryCandidate(storedPath, resolvedPath, resolvedPathSize)) {
         return LAYOUT_MESH_PATH_EXACT;
@@ -94,7 +125,6 @@ LayoutMeshPathResolution Layout_MeshAssetResolveRuntimePath(const char* storedPa
         }
     }
 
-    basename = LayoutMeshPath_Basename(storedPath);
     if (LayoutMeshPath_TryRoot(Global_GetObjectAssetRoot(), basename, resolvedPath, resolvedPathSize) ||
         LayoutMeshPath_TryRoot(Global_GetInputRoot(), basename, resolvedPath, resolvedPathSize)) {
         LayoutMeshPath_LogRecovery(storedPath, resolvedPath);

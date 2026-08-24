@@ -64,17 +64,18 @@ The output directory contains:
 When `--out` is `<run_dir>/line_drawing`, the tool also writes app-loadable
 convenience outputs beside that directory:
 
-- `<run_dir>/<scene_slug>.layout.json`: load through LineDrawing `Load JSON`.
+- `<run_dir>/<scene_slug>.layout.json`: load through Sculpt `Load Layout`.
 - `<run_dir>/line_drawing_app_load/scene_authoring.json`: load through
-  LineDrawing `Load Scene`.
+  Sculpt `Load Package` by selecting the containing directory.
 - `<run_dir>/line_drawing_app_load/scene_runtime.json`: paired runtime scene
-  contract file for `Load Scene` discovery.
+  contract output; it is not required for package discovery.
 - `<run_dir>/line_drawing_app_load/assets/mesh_assets/<asset_id>.runtime.json`:
   copied runtime mesh asset sidecars for app-loadable scene folders.
 
 `scene_runtime.json` is compiled output. Do not select it directly in
-LineDrawing; use `Load Scene` on a folder that directly contains both
-`scene_authoring.json` and `scene_runtime.json`.
+Sculpt; use `Load Package` on the folder containing `scene_authoring.json`.
+When present, `scene_package.json` is the preferred descriptor; legacy
+authoring-only folders remain readable.
 
 ## Request Schema
 

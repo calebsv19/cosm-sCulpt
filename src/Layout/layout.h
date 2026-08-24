@@ -317,6 +317,13 @@ bool Layout_RefreshMeshAssetInstancesFromRuntimeAsset(Layout* layout,
                                                       size_t* outChangedCount,
                                                       char* diagnostics,
                                                       size_t diagnostics_size);
+bool Layout_ReconcileMeshAssetInstancesForScene(Layout* layout,
+                                                const char* sceneAuthoringPath,
+                                                size_t* outResolvedCount,
+                                                size_t* outChangedCount,
+                                                size_t* outUnresolvedCount,
+                                                char* diagnostics,
+                                                size_t diagnostics_size);
 float Layout_PlanePrimitiveMinSize(void);
 PlaneResizeHandleKind Layout_ResolvePlaneResizeHandleForDrag(const Object3D* object,
                                                              PlaneResizeHandleKind handle,

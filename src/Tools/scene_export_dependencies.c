@@ -13,24 +13,19 @@ static void dependency_diagnostics(char* diagnostics, size_t size, const char* m
 
 bool LineDrawingSceneExportDependencies_Collect(
     const Layout* layout,
-    char** out_manifest_json,
-    char out_digest_sha256[CORE_SCENE_COMPILE_SHA256_HEX_SIZE],
-    size_t* out_dependency_count,
+    const char* scene_authoring_path,
+    LineDrawingSceneExportDependencies* out_dependencies,
     char* diagnostics,
     size_t diagnostics_size) {
-    CoreSceneCompileDependency* collected = NULL;
-    char (*digests)[CORE_SCENE_COMPILE_SHA256_HEX_SIZE] = NULL;
     size_t capacity = 0u;
     size_t count = 0u;
     CoreResult manifest_result;
 
-    if (!layout || !out_manifest_json || !out_digest_sha256 || !out_dependency_count) {
+    if (!layout || !out_dependencies) {
         dependency_diagnostics(diagnostics, diagnostics_size, "dependency collector arguments missing");
         return false;
     }
-    *out_manifest_json = NULL;
-    *out_dependency_count = 0u;
-    out_digest_sha256[0] = '\0';
+    memset(out_dependencies, 0, sizeof(*out_dependencies));
     dependency_diagnostics(diagnostics, diagnostics_size, NULL);
 
     for (size_t i = 0u; i < layout->objectStore.count; ++i) {
@@ -41,12 +36,15 @@ bool LineDrawingSceneExportDependencies_Collect(
         }
     }
     if (capacity > 0u) {
-        collected = (CoreSceneCompileDependency*)core_calloc(capacity, sizeof(*collected));
-        digests = (char (*)[CORE_SCENE_COMPILE_SHA256_HEX_SIZE])
-            core_calloc(capacity, sizeof(*digests));
-        if (!collected || !digests) {
-            core_free(digests);
-            core_free(collected);
+        out_dependencies->entries = (CoreSceneCompileDependency*)
+            core_calloc(capacity, sizeof(*out_dependencies->entries));
+        out_dependencies->payload_buffers = (CoreBuffer*)
+            core_calloc(capacity, sizeof(*out_dependencies->payload_buffers));
+        out_dependencies->content_digests = (char (*)[CORE_SCENE_COMPILE_SHA256_HEX_SIZE])
+            core_calloc(capacity, sizeof(*out_dependencies->content_digests));
+        if (!out_dependencies->entries || !out_dependencies->payload_buffers ||
+            !out_dependencies->content_digests) {
+            LineDrawingSceneExportDependencies_Destroy(out_dependencies);
             dependency_diagnostics(diagnostics, diagnostics_size, "failed to allocate dependency collector");
             return false;
         }
@@ -61,40 +59,51 @@ bool LineDrawingSceneExportDependencies_Collect(
             !Layout_ObjectStore_ValidateObject(object)) {
             continue;
         }
-        if (Layout_MeshAssetResolveRuntimePath(object->meshInstance.runtimePath,
-                                               resolved_path,
-                                               sizeof(resolved_path)) == LAYOUT_MESH_PATH_MISSING) {
-            core_free(digests);
-            core_free(collected);
-            dependency_diagnostics(diagnostics, diagnostics_size,
-                                   "runtime mesh dependency could not be resolved");
+        if (Layout_MeshAssetResolveRuntimePathForScene(object->meshInstance.runtimePath,
+                                                       scene_authoring_path,
+                                                       resolved_path,
+                                                       sizeof(resolved_path)) == LAYOUT_MESH_PATH_MISSING) {
+            char message[512];
+            snprintf(message,
+                     sizeof(message),
+                     "runtime mesh dependency missing: object=%s asset=%s path=%s",
+                     object->coreMeta.object_id,
+                     object->meshInstance.assetId,
+                     object->meshInstance.runtimePath);
+            LineDrawingSceneExportDependencies_Destroy(out_dependencies);
+            dependency_diagnostics(diagnostics, diagnostics_size, message);
             return false;
         }
         read_result = core_io_read_all(resolved_path, &contents);
         if (read_result.code != CORE_OK || (!contents.data && contents.size > 0u) ||
             core_scene_compile_sha256(contents.data,
                                       contents.size,
-                                      digests[count]).code != CORE_OK) {
+                                      out_dependencies->content_digests[count]).code != CORE_OK) {
             core_io_buffer_free(&contents);
-            core_free(digests);
-            core_free(collected);
-            dependency_diagnostics(diagnostics, diagnostics_size,
-                                   "runtime mesh dependency could not be read or digested");
+            char message[512];
+            snprintf(message,
+                     sizeof(message),
+                     "runtime mesh dependency unreadable: object=%s asset=%s path=%s",
+                     object->coreMeta.object_id,
+                     object->meshInstance.assetId,
+                     resolved_path);
+            LineDrawingSceneExportDependencies_Destroy(out_dependencies);
+            dependency_diagnostics(diagnostics, diagnostics_size, message);
             return false;
         }
         for (size_t j = 0u; j < count; ++j) {
-            if (strcmp(collected[j].kind, "mesh_asset_runtime") == 0 &&
-                strcmp(collected[j].identity, object->meshInstance.assetId) == 0) {
+            if (strcmp(out_dependencies->entries[j].kind, "mesh_asset_runtime") == 0 &&
+                strcmp(out_dependencies->entries[j].identity, object->meshInstance.assetId) == 0) {
                 existing = j;
                 break;
             }
         }
         if (existing < count) {
-            if (collected[existing].content_bytes != contents.size ||
-                strcmp(digests[existing], digests[count]) != 0) {
+            if (out_dependencies->entries[existing].content_bytes != contents.size ||
+                strcmp(out_dependencies->content_digests[existing],
+                       out_dependencies->content_digests[count]) != 0) {
                 core_io_buffer_free(&contents);
-                core_free(digests);
-                core_free(collected);
+                LineDrawingSceneExportDependencies_Destroy(out_dependencies);
                 dependency_diagnostics(diagnostics, diagnostics_size,
                                        "one mesh dependency identity resolves to conflicting content");
                 return false;
@@ -102,23 +111,40 @@ bool LineDrawingSceneExportDependencies_Collect(
             core_io_buffer_free(&contents);
             continue;
         }
-        collected[count].kind = "mesh_asset_runtime";
-        collected[count].identity = object->meshInstance.assetId;
-        collected[count].content_sha256 = digests[count];
-        collected[count].content_bytes = contents.size;
+        out_dependencies->entries[count].kind = "mesh_asset_runtime";
+        out_dependencies->entries[count].identity = object->meshInstance.assetId;
+        out_dependencies->entries[count].content_sha256 = out_dependencies->content_digests[count];
+        out_dependencies->entries[count].content_bytes = contents.size;
+        out_dependencies->entries[count].payload_data = contents.data;
+        out_dependencies->payload_buffers[count] = contents;
         ++count;
-        core_io_buffer_free(&contents);
+        out_dependencies->count = count;
     }
     manifest_result = core_scene_compile_dependency_manifest_build(
-        count > 0u ? collected : NULL,
+        count > 0u ? out_dependencies->entries : NULL,
         count,
-        out_manifest_json,
-        out_digest_sha256,
+        &out_dependencies->manifest_json,
+        out_dependencies->digest_sha256,
         diagnostics,
         diagnostics_size);
-    core_free(digests);
-    core_free(collected);
-    if (manifest_result.code != CORE_OK) return false;
-    *out_dependency_count = count;
+    if (manifest_result.code != CORE_OK) {
+        LineDrawingSceneExportDependencies_Destroy(out_dependencies);
+        return false;
+    }
     return true;
+}
+
+void LineDrawingSceneExportDependencies_Destroy(
+    LineDrawingSceneExportDependencies* dependencies) {
+    if (!dependencies) return;
+    if (dependencies->payload_buffers) {
+        for (size_t i = 0u; i < dependencies->count; ++i) {
+            core_io_buffer_free(&dependencies->payload_buffers[i]);
+        }
+    }
+    core_free(dependencies->manifest_json);
+    core_free(dependencies->content_digests);
+    core_free(dependencies->payload_buffers);
+    core_free(dependencies->entries);
+    memset(dependencies, 0, sizeof(*dependencies));
 }

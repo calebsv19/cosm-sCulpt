@@ -1,6 +1,8 @@
 #include "UI/ui_panel_internal.h"
 
 #include "Core/global_state.h"
+#include "Core/scene_document_lifecycle.h"
+#include "Core/sculpt_scene_package.h"
 #include "Layout/asset/layout_imported_mesh_asset.h"
 #include "Layout/asset/layout_object_asset_mesh_authoring.h"
 #include "Layout/layout.h"
@@ -10,6 +12,7 @@
 #include "ObjectAuthoring/object_authoring_mesh_compile.h"
 #include "Tools/scene_import.h"
 #include "Tools/scene_export.h"
+#include "Tools/canonical_scene_export.h"
 #include "Tools/shape_export.h"
 #include "UI/platform/line_drawing_folder_picker.h"
 
@@ -208,13 +211,33 @@ static void UIPanel_GetDefaultSceneSelectionDirectory(char* out_dir, size_t out_
 }
 
 static void UIPanel_PopulateDefaultFilename(UIPanelState* ui) {
-    const char* path = UIPanel_IsObjectWorkspace()
-                           ? Global_GetCurrentObjectAssetPath()
-                           : Global_GetCurrentConfigPath();
+    const char* path = NULL;
     ui->saveDialog.buffer[0] = '\0';
     ui->saveDialog.length = 0;
     ui->saveDialog.cursor = 0;
 
+    if (ui->saveDialog.mode == UI_SAVE_DIALOG_SCENE_BUNDLE) {
+        const char* scene_path = Global_GetCurrentSceneAuthoringPath();
+        const char* file_slash = scene_path ? strrchr(scene_path, '/') : NULL;
+        const char* dir_begin = file_slash;
+        if (!file_slash) return;
+        while (dir_begin > scene_path && dir_begin[-1] != '/') --dir_begin;
+        if (dir_begin < file_slash) {
+            size_t scene_name_len = (size_t)(file_slash - dir_begin);
+            if (scene_name_len >= sizeof(ui->saveDialog.buffer)) {
+                scene_name_len = sizeof(ui->saveDialog.buffer) - 1u;
+            }
+            memcpy(ui->saveDialog.buffer, dir_begin, scene_name_len);
+            ui->saveDialog.buffer[scene_name_len] = '\0';
+            ui->saveDialog.length = scene_name_len;
+            ui->saveDialog.cursor = scene_name_len;
+        }
+        return;
+    }
+
+    path = ui->saveDialog.mode == UI_SAVE_DIALOG_OBJECT_ASSET
+               ? Global_GetCurrentObjectAssetPath()
+               : Global_GetCurrentConfigPath();
     if (!path || !*path) return;
 
     const char* base = strrchr(path, '/');
@@ -494,6 +517,66 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
         return false;
     }
 
+    if (ui->saveDialog.mode == UI_SAVE_DIALOG_SCENE_BUNDLE) {
+        GlobalState* state = Global_Get();
+        char scene_dir[LINE_DRAWING_PATH_CAP];
+        char authoring_path[LINE_DRAWING_PATH_CAP];
+        char scene_id[64];
+        char layout_hint[LINE_DRAWING_PATH_CAP];
+        char diagnostics[256];
+        const char* source_path = Global_GetCurrentSceneAuthoringPath();
+        diagnostics[0] = '\0';
+        if (!state || !source_path || !source_path[0] ||
+            !SculptScenePackage_BuildSceneId(ui->saveDialog.buffer,
+                                             scene_id,
+                                             sizeof(scene_id)) ||
+            !LineDrawingSceneDocument_BuildSiblingSaveAsPaths(
+                source_path,
+                ui->saveDialog.buffer,
+                scene_dir,
+                sizeof(scene_dir),
+                authoring_path,
+                sizeof(authoring_path),
+                diagnostics,
+                sizeof(diagnostics)) ||
+            !LineDrawingSceneDocument_CloneBundleForSaveAs(
+                source_path, scene_dir, diagnostics, sizeof(diagnostics))) {
+            char status[320];
+            snprintf(status, sizeof(status), "Save As failed: %s",
+                     diagnostics[0] ? diagnostics : "scene clone error");
+            UIPanel_SetFilePaneActionStatus(status);
+            SDL_Log("[UI] %s", status);
+            return false;
+        }
+        Layout_CompactDeletedElements(&state->layout);
+        if (!LineDrawingCanonicalScene_ExportLayoutToFile(
+                &state->layout, scene_id, authoring_path) ||
+            !SculptScenePackage_WriteManifest(scene_dir,
+                                              scene_id,
+                                              SCULPT_SCENE_PACKAGE_RUNTIME_MISSING,
+                                              SCULPT_SCENE_PACKAGE_RECEIPT_MISSING,
+                                              false,
+                                              diagnostics,
+                                              sizeof(diagnostics))) {
+            LineDrawingSceneDocument_RemoveClonedBundle(scene_dir);
+            UIPanel_SetFilePaneActionStatus("Save As failed: authoring package write error.");
+            return false;
+        }
+        if (!UIPanel_DeriveLayoutHintFromScenePath(authoring_path,
+                                                   layout_hint,
+                                                   sizeof(layout_hint))) {
+            snprintf(layout_hint, sizeof(layout_hint), "%s", authoring_path);
+        }
+        Global_OnSceneLoaded(authoring_path, layout_hint);
+        Editor_ClearHistory(&state->editor);
+        Editor_HistoryCapture(&state->editor, &state->layout);
+        UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_SCENE, authoring_path);
+        UIPanel_SetFilePaneActionStatus("Save As OK: new scene package is active; runtime missing.");
+        UIPanel_RefreshConfigList();
+        UIPanel_CloseSaveDialog(ui);
+        return true;
+    }
+
     char filename[160];
     strncpy(filename, ui->saveDialog.buffer, sizeof(filename) - 1);
     filename[sizeof(filename) - 1] = '\0';
@@ -590,8 +673,17 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
 }
 
 void UIPanel_BeginSaveDialog(void) {
+    UIPanel_BeginSaveAsDialog();
+}
+
+void UIPanel_BeginSaveAsDialog(void) {
     UIPanelState* ui = UIPanel_Get();
     ui->saveDialog.active = true;
+    ui->saveDialog.mode = UIPanel_IsObjectWorkspace()
+                              ? UI_SAVE_DIALOG_OBJECT_ASSET
+                              : (Global_GetCurrentSceneAuthoringPath()[0]
+                                     ? UI_SAVE_DIALOG_SCENE_BUNDLE
+                                     : UI_SAVE_DIALOG_LAYOUT);
     UIPanel_PopulateDefaultFilename(ui);
     UIPanel_CloseFileBrowser(ui);
     UIPanel_CloseRootDialog(ui);
@@ -602,19 +694,116 @@ void UIPanel_BeginSaveDialog(void) {
     if (!SDL_IsTextInputActive()) SDL_StartTextInput();
 }
 
+bool UIPanel_SaveDocument(void) {
+    GlobalState* state = Global_Get();
+    const char* scene_path = Global_GetCurrentSceneAuthoringPath();
+    const char* object_path = Global_GetCurrentObjectAssetPath();
+    const char* layout_path = Global_GetCurrentConfigPath();
+    char diagnostics[256];
+    if (!state) return false;
+    Layout_CompactDeletedElements(&state->layout);
+
+    if (UIPanel_IsObjectWorkspace()) {
+        if (!object_path || !object_path[0]) {
+            UIPanel_BeginSaveAsDialog();
+            return false;
+        }
+        diagnostics[0] = '\0';
+        if (!LayoutObjectAssetMeshAuthoring_SaveWithAuthoring(
+                &state->layout,
+                state->objectAuthoring.attached ? &state->objectAuthoring.document : NULL,
+                object_path,
+                diagnostics,
+                sizeof(diagnostics))) {
+            UIPanel_SetFilePaneActionStatus("Save failed: object asset write error.");
+            return false;
+        }
+        Global_OnObjectAssetSaved(object_path);
+    } else if (scene_path && scene_path[0]) {
+        char active_scene_path[LINE_DRAWING_PATH_CAP];
+        char layout_hint[LINE_DRAWING_PATH_CAP];
+        char scene_id[64];
+        SculptScenePackageInputKind package_kind = SCULPT_SCENE_PACKAGE_INPUT_INVALID;
+        SculptScenePackagePaths package_paths;
+        snprintf(active_scene_path, sizeof(active_scene_path), "%s", scene_path);
+        snprintf(layout_hint, sizeof(layout_hint), "%s", layout_path ? layout_path : scene_path);
+        if (!SculptScenePackage_ResolveInput(active_scene_path,
+                                             &package_kind,
+                                             &package_paths,
+                                             diagnostics,
+                                             sizeof(diagnostics)) ||
+            package_kind != SCULPT_SCENE_PACKAGE_INPUT_AUTHORING ||
+            !SculptScenePackage_BuildSceneIdFromAuthoringPath(active_scene_path,
+                                                              scene_id,
+                                                              sizeof(scene_id)) ||
+            !LineDrawingCanonicalScene_ExportLayoutToFile(
+                &state->layout, scene_id, active_scene_path) ||
+            !SculptScenePackage_WriteManifest(
+                package_paths.scene_dir,
+                scene_id,
+                package_paths.has_runtime ? SCULPT_SCENE_PACKAGE_RUNTIME_STALE
+                                          : SCULPT_SCENE_PACKAGE_RUNTIME_MISSING,
+                package_paths.has_receipt ? SCULPT_SCENE_PACKAGE_RECEIPT_STALE
+                                          : SCULPT_SCENE_PACKAGE_RECEIPT_MISSING,
+                false,
+                diagnostics,
+                sizeof(diagnostics))) {
+            UIPanel_SetFilePaneActionStatus("Save failed: canonical authoring write error.");
+            return false;
+        }
+        Global_OnSceneLoaded(active_scene_path, layout_hint);
+        UIPanel_SetFilePaneActionStatus(
+            "Save OK: scene authoring updated; runtime was not rebuilt.");
+    } else if (layout_path && layout_path[0]) {
+        if (!Layout_SaveToFile(&state->layout, layout_path)) {
+            UIPanel_SetFilePaneActionStatus("Save failed: layout write error.");
+            return false;
+        }
+        Global_OnLayoutSaved(layout_path);
+    } else {
+        UIPanel_BeginSaveAsDialog();
+        return false;
+    }
+
+    Editor_ClearHistory(&state->editor);
+    Editor_HistoryCapture(&state->editor, &state->layout);
+    if (!(scene_path && scene_path[0])) {
+        UIPanel_SetFilePaneActionStatus("Save OK: active source updated.");
+    }
+    UIPanel_RefreshConfigList();
+    return true;
+}
+
 bool UIPanel_LoadSceneFromPath(const char* path) {
     GlobalState* state = Global_Get();
+    SculptScenePackageInputKind input_kind = SCULPT_SCENE_PACKAGE_INPUT_INVALID;
+    SculptScenePackagePaths package_paths;
     char diagnostics[256];
     char layout_hint[LINE_DRAWING_PATH_CAP];
+    const char* authoring_path = NULL;
     if (!state || !path || path[0] == '\0') return false;
+
+    if (!SculptScenePackage_ResolveInput(path,
+                                         &input_kind,
+                                         &package_paths,
+                                         diagnostics,
+                                         sizeof(diagnostics)) ||
+        input_kind != SCULPT_SCENE_PACKAGE_INPUT_AUTHORING) {
+        char status[320];
+        snprintf(status, sizeof(status), "Load scene failed: %s",
+                 diagnostics[0] ? diagnostics : "not a scene package");
+        UIPanel_SetFilePaneActionStatus(status);
+        return false;
+    }
+    authoring_path = package_paths.authoring_path;
 
     Editor_ClearHistory(&state->editor);
 
     if (!LineDrawingSceneImport_LoadLayoutFromAuthoringFile(&state->layout,
-                                                            path,
+                                                            authoring_path,
                                                             diagnostics,
                                                             sizeof(diagnostics))) {
-        SDL_Log("[UI] Failed to import scene %s (%s)", path, diagnostics[0] ? diagnostics : "unknown");
+        SDL_Log("[UI] Failed to import scene %s (%s)", authoring_path, diagnostics[0] ? diagnostics : "unknown");
         {
             char status[320];
             snprintf(status,
@@ -627,13 +816,13 @@ bool UIPanel_LoadSceneFromPath(const char* path) {
     }
 
     layout_hint[0] = '\0';
-    if (!UIPanel_DeriveLayoutHintFromScenePath(path, layout_hint, sizeof(layout_hint))) {
-        snprintf(layout_hint, sizeof(layout_hint), "%s", path);
+    if (!UIPanel_DeriveLayoutHintFromScenePath(authoring_path, layout_hint, sizeof(layout_hint))) {
+        snprintf(layout_hint, sizeof(layout_hint), "%s", authoring_path);
     }
 
-    SDL_Log("[UI] Imported scene %s", path);
-    Global_OnSceneLoaded(path, layout_hint);
-    UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_SCENE, path);
+    SDL_Log("[UI] Imported scene %s", authoring_path);
+    Global_OnSceneLoaded(authoring_path, layout_hint);
+    UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_SCENE, authoring_path);
     UIPanel_RefreshConfigList();
     UIPanel_ResetEditorTransientSelection(&state->editor);
     UIPanel_RefreshViewportAfterSceneDocumentLoad(state);
@@ -646,7 +835,7 @@ bool UIPanel_OpenJsonFolderDialog(void) {
     char default_dir[LINE_DRAWING_PATH_CAP];
 
     UIPanel_GetDefaultLoadDirectory(default_dir, sizeof(default_dir));
-    if (!UIPanel_SelectFolderWithPromptAndDefault("Choose sCulpt JSON Root",
+    if (!UIPanel_SelectFolderWithPromptAndDefault("Choose Sculpt Layout Root",
                                                   default_dir,
                                                   selected_folder,
                                                   sizeof(selected_folder))) {
@@ -667,7 +856,7 @@ bool UIPanel_OpenSceneFolderDialog(void) {
     char default_dir[LINE_DRAWING_PATH_CAP];
 
     UIPanel_GetDefaultSceneSelectionDirectory(default_dir, sizeof(default_dir));
-    if (!UIPanel_SelectFolderWithPromptAndDefault("Choose sCulpt Scene Folder or Scene Root",
+    if (!UIPanel_SelectFolderWithPromptAndDefault("Choose Sculpt Scene Package or Package Root",
                                                   default_dir,
                                                   selected_folder,
                                                   sizeof(selected_folder))) {
@@ -688,7 +877,7 @@ bool UIPanel_OpenObjectAssetFolderDialog(void) {
     char default_dir[LINE_DRAWING_PATH_CAP];
 
     UIPanel_GetDefaultObjectAssetSelectionDirectory(default_dir, sizeof(default_dir));
-    if (!UIPanel_SelectFolderWithPromptAndDefault("Choose sCulpt Object Asset Root",
+    if (!UIPanel_SelectFolderWithPromptAndDefault("Choose Sculpt Object Asset Root",
                                                   default_dir,
                                                   selected_folder,
                                                   sizeof(selected_folder))) {
@@ -709,7 +898,7 @@ bool UIPanel_OpenStlFolderDialog(void) {
     char default_dir[LINE_DRAWING_PATH_CAP];
 
     UIPanel_GetDefaultObjectAssetSelectionDirectory(default_dir, sizeof(default_dir));
-    if (!UIPanel_SelectFolderWithPromptAndDefault("Choose sCulpt STL Import Root",
+    if (!UIPanel_SelectFolderWithPromptAndDefault("Choose Sculpt STL Import Root",
                                                   default_dir,
                                                   selected_folder,
                                                   sizeof(selected_folder))) {
@@ -748,7 +937,6 @@ void UIPanel_ExportScene(void) {
     GlobalState* state = Global_Get();
     LineDrawingSceneExportPaths export_paths;
     char diagnostics[256];
-    char layout_hint[LINE_DRAWING_PATH_CAP];
     char export_hint[LINE_DRAWING_PATH_CAP];
     const char* output_root = NULL;
     const char* authoring_path = NULL;
@@ -776,7 +964,7 @@ void UIPanel_ExportScene(void) {
             char status[320];
             snprintf(status,
                      sizeof(status),
-                     "Export Scene failed: %s",
+                     "Export Runtime failed: %s",
                      diagnostics[0] ? diagnostics : "unknown error");
             UIPanel_SetFilePaneActionStatus(status);
         }
@@ -786,24 +974,22 @@ void UIPanel_ExportScene(void) {
     SDL_Log("[UI] Exported scene directory to %s", export_paths.scene_dir);
     SDL_Log("[UI] Exported authoring scene to %s", export_paths.authoring_path);
     SDL_Log("[UI] Exported runtime scene to %s", export_paths.runtime_path);
+    SDL_Log("[UI] Exported dependency manifest to %s (count=%zu sha256=%s)",
+            export_paths.dependency_manifest_path,
+            export_paths.dependency_count,
+            export_paths.dependency_sha256);
+    SDL_Log("[UI] Exported scene receipt to %s (bundle_sha256=%s)",
+            export_paths.receipt_path,
+            export_paths.bundle_sha256);
 
-    layout_hint[0] = '\0';
-    if (!UIPanel_DeriveLayoutHintFromScenePath(export_paths.authoring_path,
-                                               layout_hint,
-                                               sizeof(layout_hint))) {
-        snprintf(layout_hint, sizeof(layout_hint), "%.255s", export_paths.authoring_path);
-    }
-    Global_OnSceneLoaded(export_paths.authoring_path, layout_hint);
-    UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_SCENE, export_paths.authoring_path);
     {
         char status[640];
         snprintf(status,
                  sizeof(status),
-                 "Export Scene OK -> %s",
-                 export_paths.authoring_path);
+                 "Export Runtime OK -> %s",
+                 export_paths.scene_dir);
         UIPanel_SetFilePaneActionStatus(status);
     }
-    UIPanel_RefreshConfigList();
 }
 
 bool UIPanel_ExportObjectRuntimeMesh(void) {
@@ -1091,7 +1277,7 @@ void UIPanel_BeginObjectAssetRootDialog(void) {
 bool UIPanel_OpenInputRootFolderDialog(void) {
     char path[256];
     UIPanelState* ui = UIPanel_Get();
-    if (!UIPanel_SelectFolderWithPrompt("Choose sCulpt Session Input Root", path, sizeof(path))) {
+    if (!UIPanel_SelectFolderWithPrompt("Choose Sculpt Session Input Root", path, sizeof(path))) {
         SDL_Log("[UI] Session input root selection canceled.");
         return false;
     }
@@ -1108,7 +1294,7 @@ bool UIPanel_OpenInputRootFolderDialog(void) {
 
 bool UIPanel_OpenOutputRootFolderDialog(void) {
     char path[256];
-    if (!UIPanel_SelectFolderWithPrompt("Choose sCulpt Output Root", path, sizeof(path))) {
+    if (!UIPanel_SelectFolderWithPrompt("Choose Sculpt Output Root", path, sizeof(path))) {
         SDL_Log("[UI] Output root selection canceled.");
         return false;
     }

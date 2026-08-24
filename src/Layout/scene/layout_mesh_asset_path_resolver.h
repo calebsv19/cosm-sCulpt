@@ -13,3 +13,11 @@ typedef enum {
 LayoutMeshPathResolution Layout_MeshAssetResolveRuntimePath(const char* storedPath,
                                                             char* resolvedPath,
                                                             size_t resolvedPathSize);
+
+// Prefer an attachment owned by the active canonical scene bundle before
+// falling back to the stored path and configured library roots.
+LayoutMeshPathResolution Layout_MeshAssetResolveRuntimePathForScene(
+    const char* storedPath,
+    const char* sceneAuthoringPath,
+    char* resolvedPath,
+    size_t resolvedPathSize);

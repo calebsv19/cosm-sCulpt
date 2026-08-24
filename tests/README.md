@@ -19,8 +19,22 @@ outside the host C runner.
   wall/anchor management, 3D object storage/resizing, hitbox ranking,
   JSON/schema round-trips, scene export metadata, and undo/redo behavior.
 - `test_scene_export.c`, `test_shape_dataset.c`, and
-  `test_scene_pipeline_fixtures.sh` — cover scene export, diagnostics dataset
-  output, and scene-pipeline fixtures.
+  `test_scene_pipeline_fixtures.sh` — cover atomic create-only scene export,
+  authoring/runtime/dependency/receipt digests, canonical mesh-dependency
+  paths and collection, packaged runtime-mesh bytes, payload tamper rejection,
+  package-entrypoint receipt binding and tamper rejection,
+  expected-bundle-digest verification, prior-iteration preservation,
+  diagnostics dataset output, and scene-pipeline fixtures.
+- `test_scene_document_lifecycle.c` — covers the loaded-scene sequence as one
+  document lifecycle: open, edit/save authoring without rebuilding runtime,
+  collision-safe sibling Save As with authoring-owned attachment preservation
+  and derived-artifact exclusion, explicit export,
+  and reopen. It also verifies that the original bundle remains byte-identical,
+  export preserves source identity/dirty state, and runtime freshness is
+  reported as missing/current/stale.
+- `test_sculpt_scene_package.c` — covers descriptor/directory/authoring
+  resolution, legacy authoring-only packages, loose-layout classification,
+  compiled-runtime rejection, and unsafe descriptor rejection.
 - `test_ui_panel_*.c` — cover scene list/menu behavior, view/create/object
   summaries, File summary/browser state, async STL failure visibility, and
   File-pane action-status parity for common load/import/export failures.

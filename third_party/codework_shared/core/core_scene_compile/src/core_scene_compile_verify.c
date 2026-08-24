@@ -7,6 +7,7 @@
 
 #include "core_io.h"
 
+#include <stdbool.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,32 +73,40 @@ CoreResult core_scene_compile_verify_bundle(
     char authoring_path[1024];
     char runtime_path[1024];
     char dependency_path[1024];
+    char package_manifest_path[1024];
     char receipt_path[1024];
     CoreBuffer authoring = {0};
     CoreBuffer runtime = {0};
     CoreBuffer dependencies = {0};
+    CoreBuffer package_manifest = {0};
     CoreBuffer receipt = {0};
     char *runtime_text = NULL;
     char *dependency_text = NULL;
+    char *package_manifest_text = NULL;
     char *receipt_text = NULL;
     CoreSceneCompileVerification verified = {0};
     char receipt_authoring_sha[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
     char receipt_runtime_sha[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
     char receipt_dependency_sha[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
+    char receipt_package_manifest_sha[CORE_SCENE_COMPILE_SHA256_HEX_SIZE] = {0};
     char receipt_bundle_sha[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
     char runtime_authoring_sha[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
     char runtime_dependency_sha[CORE_SCENE_COMPILE_SHA256_HEX_SIZE];
     char runtime_compiler_version[32];
     char runtime_normalization_version[96];
-    char bundle_input[512];
+    char bundle_input[768];
     size_t receipt_authoring_bytes = 0u;
     size_t receipt_runtime_bytes = 0u;
     size_t receipt_dependency_bytes = 0u;
     size_t receipt_dependency_count = 0u;
+    size_t receipt_package_manifest_bytes = 0u;
     size_t runtime_dependency_count = 0u;
+    size_t verified_payload_count = 0u;
     const char *authoring_section = NULL;
     const char *runtime_section = NULL;
     const char *dependency_section = NULL;
+    const char *package_manifest_section = NULL;
+    bool has_package_manifest = false;
     int written;
     CoreResult result = { CORE_ERR_FORMAT, "scene bundle verification failed" };
 
@@ -107,21 +116,34 @@ CoreResult core_scene_compile_verify_bundle(
     if (!build_verify_path(scene_dir, "scene_authoring.json", authoring_path, sizeof(authoring_path)) ||
         !build_verify_path(scene_dir, "scene_runtime.json", runtime_path, sizeof(runtime_path)) ||
         !build_verify_path(scene_dir, "scene_dependencies.json", dependency_path, sizeof(dependency_path)) ||
+        !build_verify_path(scene_dir, "scene_package.json", package_manifest_path, sizeof(package_manifest_path)) ||
         !build_verify_path(scene_dir, "scene_export_receipt.json", receipt_path, sizeof(receipt_path))) {
         return (CoreResult){ CORE_ERR_INVALID_ARG, "scene bundle path too long" };
     }
+    if (core_io_read_all(receipt_path, &receipt).code != CORE_OK) {
+        verify_diag(diagnostics, diagnostics_size, "scene bundle is missing its export receipt");
+        result = (CoreResult){ CORE_ERR_IO, "missing scene bundle receipt" };
+        goto cleanup;
+    }
+    receipt_text = buffer_to_string(&receipt);
+    if (!receipt_text) {
+        result = (CoreResult){ CORE_ERR_OUT_OF_MEMORY, "out of memory" };
+        goto cleanup;
+    }
+    has_package_manifest = strstr(receipt_text, "\"package_manifest\":") != NULL;
     if (core_io_read_all(authoring_path, &authoring).code != CORE_OK ||
         core_io_read_all(runtime_path, &runtime).code != CORE_OK ||
         core_io_read_all(dependency_path, &dependencies).code != CORE_OK ||
-        core_io_read_all(receipt_path, &receipt).code != CORE_OK) {
+        (has_package_manifest &&
+         core_io_read_all(package_manifest_path, &package_manifest).code != CORE_OK)) {
         verify_diag(diagnostics, diagnostics_size, "scene bundle is missing a required artifact");
         result = (CoreResult){ CORE_ERR_IO, "missing scene bundle artifact" };
         goto cleanup;
     }
     runtime_text = buffer_to_string(&runtime);
     dependency_text = buffer_to_string(&dependencies);
-    receipt_text = buffer_to_string(&receipt);
-    if (!runtime_text || !dependency_text || !receipt_text) {
+    if (has_package_manifest) package_manifest_text = buffer_to_string(&package_manifest);
+    if (!runtime_text || !dependency_text || (has_package_manifest && !package_manifest_text)) {
         result = (CoreResult){ CORE_ERR_OUT_OF_MEMORY, "out of memory" };
         goto cleanup;
     }
@@ -151,12 +173,23 @@ CoreResult core_scene_compile_verify_bundle(
     authoring_section = strstr(receipt_text, "\"authoring\":");
     runtime_section = strstr(receipt_text, "\"runtime\":");
     dependency_section = strstr(receipt_text, "\"dependencies\":");
+    package_manifest_section = strstr(receipt_text, "\"package_manifest\":");
     if (!authoring_section || !runtime_section || !dependency_section ||
         !extract_size(authoring_section, "\"bytes\":", &receipt_authoring_bytes) ||
         !extract_size(runtime_section, "\"bytes\":", &receipt_runtime_bytes) ||
         !extract_size(dependency_section, "\"bytes\":", &receipt_dependency_bytes) ||
         !extract_size(dependency_section, "\"count\":", &receipt_dependency_count)) {
         verify_diag(diagnostics, diagnostics_size, "scene export receipt fields are malformed");
+        goto cleanup;
+    }
+    if (has_package_manifest &&
+        (!package_manifest_section ||
+         !extract_string(package_manifest_section,
+                         "\"path\":\"scene_package.json\",\"sha256\":\"",
+                         receipt_package_manifest_sha,
+                         sizeof(receipt_package_manifest_sha)) ||
+         !extract_size(package_manifest_section, "\"bytes\":", &receipt_package_manifest_bytes))) {
+        verify_diag(diagnostics, diagnostics_size, "scene package manifest receipt fields are malformed");
         goto cleanup;
     }
     if (core_scene_compile_sha256(authoring.data, authoring.size, verified.authoring_sha256).code != CORE_OK ||
@@ -168,6 +201,15 @@ CoreResult core_scene_compile_verify_bundle(
                                                        diagnostics_size).code != CORE_OK) {
         goto cleanup;
     }
+    if (has_package_manifest &&
+        (core_scene_compile_sha256(package_manifest.data,
+                                   package_manifest.size,
+                                   verified.package_manifest_sha256).code != CORE_OK ||
+         package_manifest.size != receipt_package_manifest_bytes ||
+         !digest_equals(verified.package_manifest_sha256, receipt_package_manifest_sha))) {
+        verify_diag(diagnostics, diagnostics_size, "scene package manifest digest or size mismatch");
+        goto cleanup;
+    }
     verified.authoring_bytes = authoring.size;
     verified.runtime_bytes = runtime.size;
     if (authoring.size != receipt_authoring_bytes || runtime.size != receipt_runtime_bytes ||
@@ -176,6 +218,19 @@ CoreResult core_scene_compile_verify_bundle(
         !digest_equals(verified.runtime_sha256, receipt_runtime_sha) ||
         !digest_equals(verified.dependency_sha256, receipt_dependency_sha)) {
         verify_diag(diagnostics, diagnostics_size, "scene bundle artifact digest, size, or dependency count mismatch");
+        goto cleanup;
+    }
+    result = core_scene_compile_dependency_payloads_verify(scene_dir,
+                                                           dependency_text,
+                                                           &verified_payload_count,
+                                                           &verified.dependency_payload_bytes,
+                                                           diagnostics,
+                                                           diagnostics_size);
+    if (result.code != CORE_OK || verified_payload_count != verified.dependency_count) {
+        if (result.code == CORE_OK) {
+            verify_diag(diagnostics, diagnostics_size, "dependency payload count does not match manifest");
+            result = (CoreResult){ CORE_ERR_FORMAT, "dependency payload count mismatch" };
+        }
         goto cleanup;
     }
     if (!extract_string(runtime_text, "\"authoring_sha256\":\"", runtime_authoring_sha,
@@ -195,9 +250,11 @@ CoreResult core_scene_compile_verify_bundle(
         verify_diag(diagnostics, diagnostics_size, "runtime compile provenance does not match bundle artifacts");
         goto cleanup;
     }
+    verified.package_manifest_bytes = package_manifest.size;
     written = snprintf(bundle_input, sizeof(bundle_input),
-                       "authoring:%s\nruntime:%s\ndependencies:%s\ncompiler:%s\nnormalization:%s\n",
+                       "authoring:%s\nruntime:%s\ndependencies:%s\npackage:%s\ncompiler:%s\nnormalization:%s\n",
                        verified.authoring_sha256, verified.runtime_sha256, verified.dependency_sha256,
+                       has_package_manifest ? verified.package_manifest_sha256 : "none",
                        verified.compiler_version, verified.normalization_version);
     if (written <= 0 || (size_t)written >= sizeof(bundle_input) ||
         core_scene_compile_sha256(bundle_input, (size_t)written, verified.bundle_sha256).code != CORE_OK ||
@@ -218,10 +275,12 @@ CoreResult core_scene_compile_verify_bundle(
 cleanup:
     core_free(runtime_text);
     core_free(dependency_text);
+    core_free(package_manifest_text);
     core_free(receipt_text);
     core_io_buffer_free(&authoring);
     core_io_buffer_free(&runtime);
     core_io_buffer_free(&dependencies);
+    core_io_buffer_free(&package_manifest);
     core_io_buffer_free(&receipt);
     return result;
 }

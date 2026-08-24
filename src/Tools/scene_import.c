@@ -542,6 +542,19 @@ bool LineDrawingSceneImport_LoadLayoutFromAuthoringFile(Layout* layout,
     }
 
 cleanup:
+    if (ok) {
+        size_t resolved_mesh_count = 0u;
+        size_t changed_mesh_count = 0u;
+        size_t unresolved_mesh_count = 0u;
+        char reconciliation_diagnostics[256];
+        (void)Layout_ReconcileMeshAssetInstancesForScene(layout,
+                                                         authoring_path,
+                                                         &resolved_mesh_count,
+                                                         &changed_mesh_count,
+                                                         &unresolved_mesh_count,
+                                                         reconciliation_diagnostics,
+                                                         sizeof(reconciliation_diagnostics));
+    }
     free(snapshot_text);
     cJSON_Delete(root);
     return ok;

@@ -10,14 +10,15 @@ static bool UIPanel_FileControlRowSpecForButton(int button_id, UIPanelFileContro
     UIPanelFileControlRowSpec spec = {0, 0, 0};
     switch (button_id) {
         case UI_BTN_SAVE_JSON: spec = (UIPanelFileControlRowSpec){ 1, 2, 0 }; break;
-        case UI_BTN_LOAD_JSON: spec = (UIPanelFileControlRowSpec){ 1, 2, 1 }; break;
-        case UI_BTN_LOAD_SCENE: spec = (UIPanelFileControlRowSpec){ 2, 2, 0 }; break;
-        case UI_BTN_LOAD_STL: spec = (UIPanelFileControlRowSpec){ 2, 2, 1 }; break;
-        case UI_BTN_LOAD_MESH_ASSET: spec = (UIPanelFileControlRowSpec){ 3, 2, 0 }; break;
-        case UI_BTN_EXPORT_SHAPE: spec = (UIPanelFileControlRowSpec){ 3, 2, 1 }; break;
-        case UI_BTN_EXPORT_SCENE: spec = (UIPanelFileControlRowSpec){ 4, 2, 0 }; break;
-        case UI_BTN_FILE_BROWSER_USE_ACTIVE: spec = (UIPanelFileControlRowSpec){ 4, 2, 1 }; break;
-        case UI_BTN_FILE_BROWSER_CLEAR_REMEMBERED: spec = (UIPanelFileControlRowSpec){ 5, 2, 0 }; break;
+        case UI_BTN_SAVE_AS: spec = (UIPanelFileControlRowSpec){ 1, 2, 1 }; break;
+        case UI_BTN_LOAD_JSON: spec = (UIPanelFileControlRowSpec){ 2, 2, 0 }; break;
+        case UI_BTN_LOAD_SCENE: spec = (UIPanelFileControlRowSpec){ 2, 2, 1 }; break;
+        case UI_BTN_LOAD_STL: spec = (UIPanelFileControlRowSpec){ 3, 2, 0 }; break;
+        case UI_BTN_LOAD_MESH_ASSET: spec = (UIPanelFileControlRowSpec){ 3, 2, 1 }; break;
+        case UI_BTN_EXPORT_SHAPE: spec = (UIPanelFileControlRowSpec){ 4, 2, 0 }; break;
+        case UI_BTN_EXPORT_SCENE: spec = (UIPanelFileControlRowSpec){ 4, 2, 1 }; break;
+        case UI_BTN_FILE_BROWSER_USE_ACTIVE: spec = (UIPanelFileControlRowSpec){ 5, 2, 0 }; break;
+        case UI_BTN_FILE_BROWSER_CLEAR_REMEMBERED: spec = (UIPanelFileControlRowSpec){ 5, 2, 1 }; break;
         case UI_BTN_INPUT_ROOT_EDIT: spec = (UIPanelFileControlRowSpec){ 6, 2, 0 }; break;
         case UI_BTN_INPUT_ROOT_FOLDER: spec = (UIPanelFileControlRowSpec){ 6, 2, 1 }; break;
         case UI_BTN_OUTPUT_ROOT_EDIT: spec = (UIPanelFileControlRowSpec){ 7, 2, 0 }; break;

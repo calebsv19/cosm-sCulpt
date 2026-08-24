@@ -10,7 +10,12 @@ and scene helper contracts.
 - `layout_object_store.c` owns the stable scene object store for primitive and
   mesh-instance objects.
 - `layout_mesh_asset_instance.c` creates transformable runtime mesh sidecar
-  instances.
+  instances and reconciles their cached identity, path, bounds, and topology
+  counts against the resolved runtime/preview metadata after scene import.
+- `layout_mesh_asset_path_resolver.*` resolves retained mesh references. When
+  a scene authoring path is known, its portable
+  `assets/mesh_assets/<runtime-basename>` attachment is authoritative before
+  the retained external path or legacy library fallbacks.
 - `layout_mesh_preview_sidecar.*` and `layout_mesh_runtime_preview.*` own
   bounded mesh preview sidecar loading/render data.
 - `layout_mesh_solid_preview.*` owns the LineDrawing-local filled and
@@ -36,6 +41,11 @@ and scene helper contracts.
 
 - This subtree owns scene/runtime layout state, not reusable object-authoring
   documents.
+- Resolution changes where Sculpt reads an asset; it does not rewrite retained
+  authoring paths or silently replace historical scene attachments.
+- Reconciliation is an in-memory load repair. It accepts only matching asset
+  identities, preserves object transforms and lock policy, and reaches disk
+  only through a later explicit Save, Save As, or Export action.
 - The solid/outline preview is an app-local editor visualization, not downstream
   simulation or final RayTracing material authority. Shared code owns only the
   renderer-neutral LOD mesh; native GPU depth rendering, smooth
