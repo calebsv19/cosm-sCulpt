@@ -73,8 +73,10 @@ make debug=1    # builds with debug flags
 make clean      # removes build artifacts
 ```
 
-Packaging and Desktop refresh flows produce `sCulpt.app`; see
-`docs/desktop_packaging.md`.
+Canonical packaging and Desktop refresh flows produce `sCulpt.app`. The
+persistent development lane separately produces `sCulpt Main Edit.app` with
+an isolated bundle, runtime, and log identity. See `docs/desktop_packaging.md`
+and `docs/main_edit_worktree.md`.
 
 Compiler and linker flags are pulled from `sdl2-config`, and `external/cjson/cJSON.c` is compiled alongside the in-tree sources.
 

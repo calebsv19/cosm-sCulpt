@@ -1,6 +1,6 @@
 # Sculpt Docs Index
 
-Last updated: 2026-07-14
+Last updated: 2026-08-28
 
 Start here for public repository documentation.
 
@@ -12,6 +12,8 @@ Public identity:
 - `docs/current_truth.md`: current scaffold/runtime structure and verification snapshot.
 - `docs/future_intent.md`: planned scaffold convergence and remaining migration slices.
 - `docs/desktop_packaging.md`: `.app` packaging commands, launcher diagnostics, and Desktop refresh workflow.
+- `docs/main_edit_worktree.md`: persistent Main Edit topology, isolated local
+  app identity, lifecycle gates, and specialist-worktree preservation rules.
 - `docs/memory_check_audit.md`: default-off fisiCs memory-check audit lane and
   the current clean report for the instrumented test runner.
 
@@ -52,6 +54,9 @@ Current verification contract:
 - `make -C line_drawing package-desktop-refresh`
   - package output now rebuilds from explicit `PACKAGE_TOOLCHAIN` source
     binaries under `build/toolchains/<toolchain>/`
+- `make -C line_drawing package-desktop-main-edit-self-test`
+  - verifies `sCulpt Main Edit.app`, its separate bundle/runtime/log identity,
+    and the exact generic source/binary build identity
 
 ## Public Runtime Docs
 - `README.md` (repo root): product/runtime overview and build/run flow.

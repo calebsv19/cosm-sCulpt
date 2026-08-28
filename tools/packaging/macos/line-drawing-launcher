@@ -5,7 +5,24 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
 APP_CONTENTS_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 RES_DIR="$APP_CONTENTS_DIR/Resources"
 PROGRAM_BIN="$APP_CONTENTS_DIR/MacOS/line-drawing-bin"
-RUNTIME_DIR_DEFAULT="${HOME}/Library/Application Support/LineDrawing/runtime"
+INFO_PLIST="$APP_CONTENTS_DIR/Info.plist"
+
+read_plist_string() {
+    key="$1"
+    fallback="$2"
+    value="$(/usr/libexec/PlistBuddy -c "Print :$key" "$INFO_PLIST" 2>/dev/null || true)"
+    if [ -n "$value" ]; then
+        printf '%s' "$value"
+    else
+        printf '%s' "$fallback"
+    fi
+}
+
+PACKAGE_PROFILE="$(read_plist_string LineDrawingPackageProfile standard)"
+RUNTIME_NAMESPACE="$(read_plist_string LineDrawingRuntimeNamespace LineDrawing)"
+LOG_NAMESPACE="$(read_plist_string LineDrawingLogNamespace LineDrawing)"
+BUILD_LABEL="$(read_plist_string LineDrawingBuildLabel sCulpt-standard)"
+RUNTIME_DIR_DEFAULT="${HOME}/Library/Application Support/${RUNTIME_NAMESPACE}/runtime"
 RUNTIME_DIR="${LINE_DRAWING_RUNTIME_DIR:-$RUNTIME_DIR_DEFAULT}"
 
 ensure_symlink_lane() {
@@ -37,7 +54,7 @@ prepare_runtime_lanes() {
 }
 
 use_tmp_runtime_dir() {
-    RUNTIME_DIR="${TMPDIR:-/tmp}/LineDrawing/runtime"
+    RUNTIME_DIR="${TMPDIR:-/tmp}/${RUNTIME_NAMESPACE}/runtime"
     mkdir -p "$RUNTIME_DIR" 2>/dev/null || true
 }
 
@@ -66,16 +83,24 @@ if ! write_icd_file 2>/dev/null; then
     ICD_FILE="$RUNTIME_DIR/vk/MoltenVK_icd.json"
     write_icd_file
 fi
-LOG_DIR="${HOME}/Library/Logs/LineDrawing"
+LOG_DIR_DEFAULT="${HOME}/Library/Logs/${LOG_NAMESPACE}"
+LOG_DIR="${LINE_DRAWING_LOG_DIR:-$LOG_DIR_DEFAULT}"
 LOG_FILE="$LOG_DIR/launcher.log"
 
 mkdir -p "$LOG_DIR" 2>/dev/null || true
 if ! touch "$LOG_FILE" 2>/dev/null; then
-    LOG_FILE="${TMPDIR:-/tmp}/line-drawing-launcher.log"
+    LOG_DIR="${TMPDIR:-/tmp}/${LOG_NAMESPACE}/logs"
+    mkdir -p "$LOG_DIR" 2>/dev/null || true
+    LOG_FILE="$LOG_DIR/launcher.log"
     touch "$LOG_FILE" 2>/dev/null || true
 fi
 
+export LINE_DRAWING_PACKAGE_PROFILE="$PACKAGE_PROFILE"
+export LINE_DRAWING_RUNTIME_NAMESPACE="$RUNTIME_NAMESPACE"
+export LINE_DRAWING_LOG_NAMESPACE="$LOG_NAMESPACE"
+export LINE_DRAWING_BUILD_LABEL="$BUILD_LABEL"
 export LINE_DRAWING_RUNTIME_DIR="$RUNTIME_DIR"
+export LINE_DRAWING_LOG_DIR="$LOG_DIR"
 export VK_RENDERER_SHADER_ROOT="${VK_RENDERER_SHADER_ROOT:-$RUNTIME_DIR/vk_renderer}"
 export SHAPE_ASSET_DIR="${SHAPE_ASSET_DIR:-$RUNTIME_DIR/export}"
 export VK_ICD_FILENAMES="${VK_ICD_FILENAMES:-$ICD_FILE}"
@@ -87,6 +112,10 @@ export LINE_DRAWING3D_USE_SHARED_FONT="${LINE_DRAWING3D_USE_SHARED_FONT:-1}"
 export LINE_DRAWING3D_FONT_PRESET="${LINE_DRAWING3D_FONT_PRESET:-ide}"
 
 print_launcher_config() {
+    echo "LINE_DRAWING_PACKAGE_PROFILE=$LINE_DRAWING_PACKAGE_PROFILE"
+    echo "LINE_DRAWING_RUNTIME_NAMESPACE=$LINE_DRAWING_RUNTIME_NAMESPACE"
+    echo "LINE_DRAWING_LOG_NAMESPACE=$LINE_DRAWING_LOG_NAMESPACE"
+    echo "LINE_DRAWING_BUILD_LABEL=$LINE_DRAWING_BUILD_LABEL"
     echo "APP_CONTENTS_DIR=$APP_CONTENTS_DIR"
     echo "RES_DIR=$RES_DIR"
     echo "LOG_FILE=$LOG_FILE"
@@ -117,6 +146,9 @@ fi
 if [ "${1:-}" = "--self-test" ]; then
     [ -x "$PROGRAM_BIN" ] || self_test_fail "missing: line-drawing-bin"
     [ -f "$APP_CONTENTS_DIR/Info.plist" ] || self_test_fail "missing: Info.plist"
+    if [ "$PACKAGE_PROFILE" = "main-edit" ]; then
+        [ -f "$RES_DIR/build_identity.json" ] || self_test_fail "missing: Main Edit build identity"
+    fi
     [ -f "$RUNTIME_DIR/config/layout_config.json" ] || self_test_fail "missing: runtime config/layout_config.json"
     [ -f "$RUNTIME_DIR/include/fonts/Lato/Lato-Regular.ttf" ] || self_test_fail "missing: runtime include/fonts/Lato/Lato-Regular.ttf"
     [ -f "$RUNTIME_DIR/shared/assets/fonts/Montserrat-Regular.ttf" ] || self_test_fail "missing: runtime shared/assets/fonts/Montserrat-Regular.ttf"
@@ -128,6 +160,10 @@ if [ "${1:-}" = "--self-test" ]; then
     [ -f "$RUNTIME_DIR/vk_renderer/shaders/textured.vert.spv" ] || self_test_fail "missing: runtime vk shader"
     [ -f "$RUNTIME_DIR/shaders/textured.vert.spv" ] || self_test_fail "missing: runtime shader"
     echo "self-test: ok"
+    echo "LINE_DRAWING_PACKAGE_PROFILE=$LINE_DRAWING_PACKAGE_PROFILE"
+    echo "LINE_DRAWING_RUNTIME_NAMESPACE=$LINE_DRAWING_RUNTIME_NAMESPACE"
+    echo "LINE_DRAWING_LOG_NAMESPACE=$LINE_DRAWING_LOG_NAMESPACE"
+    echo "LINE_DRAWING_BUILD_LABEL=$LINE_DRAWING_BUILD_LABEL"
     echo "LOG_FILE=$LOG_FILE"
     echo "LINE_DRAWING_RUNTIME_DIR=$LINE_DRAWING_RUNTIME_DIR"
     echo "VK_RENDERER_SHADER_ROOT=$VK_RENDERER_SHADER_ROOT"

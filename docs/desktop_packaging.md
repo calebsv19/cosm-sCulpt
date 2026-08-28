@@ -1,6 +1,6 @@
 # Line Drawing Desktop Packaging
 
-Last updated: 2026-04-25
+Last updated: 2026-08-28
 
 ## Standard Targets
 - `make -C line_drawing package-desktop`
@@ -12,6 +12,23 @@ Last updated: 2026-04-25
 - `make -C line_drawing package-desktop-open`
 - `make -C line_drawing package-desktop-remove`
 - `make -C line_drawing package-desktop-refresh`
+
+Persistent Main Edit targets:
+
+- `make -C line_drawing package-desktop-main-edit`
+- `make -C line_drawing package-desktop-main-edit-self-test`
+- `make -C line_drawing package-desktop-main-edit-refresh`
+
+The Main Edit output is
+`line_drawing/build/dist/dev/main-edit/sCulpt Main Edit.app`. It uses bundle
+identifier `com.cosm.sculpt.main-edit`, runtime/log namespace
+`LineDrawing-Main-Edit`, and embeds `Resources/build_identity.json` using the
+generic `codework_local_development_build_identity_v1` schema. The self-test
+verifies the exact source fingerprint and packaged binary digest.
+
+Main Edit refresh is an explicit Desktop mutation. It refuses the canonical
+`sCulpt.app` destination and refuses replacement while the development app is
+running. See `docs/main_edit_worktree.md` for the complete lane lifecycle.
 
 Optional icon inputs:
 
@@ -58,7 +75,8 @@ Diagnostics commands:
 
 Log lane:
 - `~/Library/Logs/LineDrawing/launcher.log`
-- tmp fallback: `${TMPDIR:-/tmp}/line-drawing-launcher.log`
+- Main Edit: `~/Library/Logs/LineDrawing-Main-Edit/launcher.log`
+- tmp fallback: `${TMPDIR:-/tmp}/<namespace>/logs/launcher.log`
 
 ## Packaged Resource Contract
 The package bundles and validates:
@@ -73,6 +91,8 @@ The package bundles and validates:
 
 Runtime env defaults set by launcher:
 - `LINE_DRAWING_RUNTIME_DIR=$HOME/Library/Application Support/LineDrawing/runtime`
+- Main Edit default:
+  `LINE_DRAWING_RUNTIME_DIR=$HOME/Library/Application Support/LineDrawing-Main-Edit/runtime`
 - `VK_RENDERER_SHADER_ROOT=$LINE_DRAWING_RUNTIME_DIR/vk_renderer`
 - `SHAPE_ASSET_DIR=$LINE_DRAWING_RUNTIME_DIR/export`
 - `VK_ICD_FILENAMES=$LINE_DRAWING_RUNTIME_DIR/vk/MoltenVK_icd.json`

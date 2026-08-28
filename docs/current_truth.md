@@ -1,6 +1,6 @@
 # Sculpt Current Truth
 
-Last updated: 2026-08-22
+Last updated: 2026-08-28
 
 ## Managed Vulkan Presentation Baseline
 
@@ -31,6 +31,23 @@ Last updated: 2026-08-22
 - Primary runtime entry:
   - `src/main.c` -> `line_drawing_app_main(...)`
   - wrapper shell: `include/line_drawing/line_drawing_app_main.h`, `src/app/line_drawing_app_main.c`
+
+## Persistent Main Edit Development Identity
+
+- Canonical source remains `main`; functional integration uses the persistent
+  `codex/line-drawing-main-edit` lane documented in
+  `docs/main_edit_worktree.md`.
+- The isolated development package is `sCulpt Main Edit.app`, bundle
+  `com.cosm.sculpt.main-edit`, with separate `LineDrawing-Main-Edit` runtime
+  and log namespaces.
+- The required `package-desktop-main-edit`,
+  `package-desktop-main-edit-self-test`, and
+  `package-desktop-main-edit-refresh` targets are present.
+- Main Edit packages embed generic exact source/binary identity and guard
+  against source mutation during packaging, canonical Desktop overwrite, and
+  replacement of a running development app.
+- This local development identity does not change `VERSION`, canonical
+  `sCulpt.app`, release history, Registry state, or publication authority.
 
 ## Current Shipped State
 - Default launch is now menu-first:
