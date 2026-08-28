@@ -65,9 +65,11 @@ static bool test_create_summary_reserves_space_for_create_controls(void) {
                                            &construction_rect));
     TEST_ASSERT(summary_rect.h == reserved_height);
     TEST_ASSERT(workspace_rect.y >= summary_rect.y + summary_rect.h);
-    TEST_ASSERT(primitives_rect.y >= workspace_rect.y + workspace_rect.h);
-    TEST_ASSERT(operations_rect.y >= primitives_rect.y + primitives_rect.h ||
-                construction_rect.y >= primitives_rect.y + primitives_rect.h);
+    TEST_ASSERT(ui->createPane.categoriesRect.y >= workspace_rect.y + workspace_rect.h);
+    TEST_ASSERT(primitives_rect.y >= ui->createPane.categoriesRect.y +
+                                     ui->createPane.categoriesRect.h);
+    TEST_ASSERT(operations_rect.h == 0);
+    TEST_ASSERT(construction_rect.h == 0);
 
     for (int i = 0; i < ui->count; ++i) {
         if (ui->buttons[i].id == UI_BTN_CREATE_PLANE) {
@@ -137,7 +139,7 @@ static bool test_create_layout_stays_stable_when_stage_changes(void) {
     return true;
 }
 
-static bool test_create_sections_fit_inside_pane_and_anchor_bottom(void) {
+static bool test_create_sections_follow_intent_flow(void) {
     GlobalState* state = NULL;
     UIPanelState* ui = NULL;
     SDL_Rect summary_rect = {0, 0, 0, 0};
@@ -164,19 +166,16 @@ static bool test_create_sections_fit_inside_pane_and_anchor_bottom(void) {
     TEST_ASSERT(summary_rect.x >= ui->rightBodyRect.x);
     TEST_ASSERT(summary_rect.y >= ui->rightBodyRect.y);
     TEST_ASSERT(summary_rect.y + summary_rect.h <= workspace_rect.y);
-    TEST_ASSERT(workspace_rect.y + workspace_rect.h <= primitives_rect.y);
-    TEST_ASSERT(primitives_rect.y + primitives_rect.h <= operations_rect.y);
-    if (operations_rect.h > 0) {
-        TEST_ASSERT(operations_rect.y + operations_rect.h <= construction_rect.y);
-    }
-    TEST_ASSERT(construction_rect.y + construction_rect.h == ui->rightBodyRect.y + ui->rightBodyRect.h);
+    TEST_ASSERT(workspace_rect.y + workspace_rect.h <= ui->createPane.categoriesRect.y);
+    TEST_ASSERT(ui->createPane.categoriesRect.y + ui->createPane.categoriesRect.h <= primitives_rect.y);
+    TEST_ASSERT(operations_rect.h == 0);
+    TEST_ASSERT(construction_rect.h == 0);
 
     for (int i = 0; i < ui->count; ++i) {
         const UIButton* btn = &ui->buttons[i];
         if (btn->side != UI_PANEL_RIGHT) continue;
         if (btn->group != UI_PANEL_GROUP_RIGHT_PRIMITIVES &&
-            btn->group != UI_PANEL_GROUP_RIGHT_OPERATIONS &&
-            btn->group != UI_PANEL_GROUP_RIGHT_CONSTRUCTION) {
+            btn->group != UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES) {
             continue;
         }
         if (btn->bounds.w <= 0 || btn->bounds.h <= 0) continue;
@@ -184,10 +183,8 @@ static bool test_create_sections_fit_inside_pane_and_anchor_bottom(void) {
         TEST_ASSERT(btn->bounds.y + btn->bounds.h <= ui->rightBodyRect.y + ui->rightBodyRect.h);
         if (btn->group == UI_PANEL_GROUP_RIGHT_PRIMITIVES) {
             TEST_ASSERT(ld_test_rect_contains(primitives_rect, btn->bounds));
-        } else if (btn->group == UI_PANEL_GROUP_RIGHT_OPERATIONS) {
-            TEST_ASSERT(ld_test_rect_contains(operations_rect, btn->bounds));
         } else {
-            TEST_ASSERT(ld_test_rect_contains(construction_rect, btn->bounds));
+            TEST_ASSERT(ld_test_rect_contains(ui->createPane.categoriesRect, btn->bounds));
         }
     }
 
@@ -248,12 +245,17 @@ static bool test_create_buttons_use_uniform_grid_rows(void) {
     TEST_ASSERT(xy_button && yz_button && xz_button);
     TEST_ASSERT(neg_button && pos_button && edit_button);
     TEST_ASSERT(plane_button->bounds.w == prism_button->bounds.w);
-    TEST_ASSERT(light_button->bounds.w == path_button->bounds.w);
-    TEST_ASSERT(path_button->bounds.w == material_button->bounds.w);
-    TEST_ASSERT(light_button->bounds.y == path_button->bounds.y);
-    TEST_ASSERT(path_button->bounds.y == material_button->bounds.y);
-    TEST_ASSERT(light_path_button->bounds.y == generic_path_button->bounds.y);
-    TEST_ASSERT(light_path_button->bounds.y > light_button->bounds.y);
+    TEST_ASSERT(light_button->bounds.w == 0);
+    TEST_ASSERT(path_button->bounds.w == 0);
+    TEST_ASSERT(material_button->bounds.w == 0);
+    TEST_ASSERT(light_path_button->bounds.w == 0);
+    TEST_ASSERT(generic_path_button->bounds.w == 0);
+    ui->createCategory = UI_CREATE_CATEGORY_PATHS;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    TEST_ASSERT(path_button->bounds.w > 0 && generic_path_button->bounds.w > 0);
+    TEST_ASSERT(path_button->bounds.y < generic_path_button->bounds.y);
+    ui->createCategory = UI_CREATE_CATEGORY_CONSTRUCTION;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     TEST_ASSERT(xy_button->bounds.w == yz_button->bounds.w);
     TEST_ASSERT(yz_button->bounds.w == xz_button->bounds.w);
     TEST_ASSERT(neg_button->bounds.w == pos_button->bounds.w);
@@ -289,18 +291,16 @@ static bool test_create_layout_contains_controls_across_window_matrix(void) {
                                                &primitives, &operations,
                                                &construction));
         TEST_ASSERT(summary.y + summary.h <= workspace.y);
-        TEST_ASSERT(workspace.y + workspace.h <= primitives.y);
-        TEST_ASSERT(primitives.y + primitives.h <= operations.y);
-        TEST_ASSERT(operations.y + operations.h <= construction.y);
+        TEST_ASSERT(workspace.y + workspace.h <= ui->createPane.categoriesRect.y);
+        TEST_ASSERT(ui->createPane.categoriesRect.y + ui->createPane.categoriesRect.h <= primitives.y);
+        TEST_ASSERT(operations.h == 0 && construction.h == 0);
         for (int i = 0; i < ui->count; ++i) {
             const UIButton* btn = &ui->buttons[i];
             if (btn->bounds.w <= 0 || btn->bounds.h <= 0) continue;
             if (btn->group == UI_PANEL_GROUP_RIGHT_PRIMITIVES) {
                 TEST_ASSERT(ld_test_rect_contains(primitives, btn->bounds));
-            } else if (btn->group == UI_PANEL_GROUP_RIGHT_OPERATIONS) {
-                TEST_ASSERT(ld_test_rect_contains(operations, btn->bounds));
-            } else if (btn->group == UI_PANEL_GROUP_RIGHT_CONSTRUCTION) {
-                TEST_ASSERT(ld_test_rect_contains(construction, btn->bounds));
+            } else if (btn->group == UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES) {
+                TEST_ASSERT(ld_test_rect_contains(ui->createPane.categoriesRect, btn->bounds));
             }
         }
     }
@@ -334,8 +334,10 @@ static bool test_create_scene_authoring_buttons_append_and_select_records(void) 
     TEST_ASSERT(light_button && plane_button);
     TEST_ASSERT(light_button->group == UI_PANEL_GROUP_RIGHT_OPERATIONS);
     TEST_ASSERT(plane_button->group == UI_PANEL_GROUP_RIGHT_PRIMITIVES);
-    TEST_ASSERT(light_button->bounds.w > 0);
+    TEST_ASSERT(light_button->bounds.w == 0);
 
+    ui->createCategory = UI_CREATE_CATEGORY_LIGHTING;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     TEST_ASSERT(ld_test_find_button_center(ui, UI_BTN_CREATE_LIGHT, &light_x, &light_y));
     TEST_ASSERT(UIPanel_HandleClick(light_x, light_y));
     TEST_ASSERT(state->layout.sceneAuthoring.light_count == 2u);
@@ -345,6 +347,8 @@ static bool test_create_scene_authoring_buttons_append_and_select_records(void) 
     TEST_ASSERT(state->layout.sceneAuthoring.selected_index == 1u);
     TEST_ASSERT(state->editor.selectedObject3DId == 0u);
 
+    ui->createCategory = UI_CREATE_CATEGORY_PATHS;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     TEST_ASSERT(ld_test_find_button_center(ui, UI_BTN_CREATE_CAMERA_PATH, &path_x, &path_y));
     TEST_ASSERT(UIPanel_HandleClick(path_x, path_y));
     TEST_ASSERT(state->layout.sceneAuthoring.path_count == 3u);
@@ -356,6 +360,8 @@ static bool test_create_scene_authoring_buttons_append_and_select_records(void) 
     TEST_ASSERT(ld_test_find_button(ui, UI_BTN_CREATE_LIGHT_PATH) != NULL);
     TEST_ASSERT(ld_test_find_button(ui, UI_BTN_CREATE_GENERIC_PATH) != NULL);
 
+    ui->createCategory = UI_CREATE_CATEGORY_MATERIALS;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     TEST_ASSERT(ld_test_find_button_center(ui, UI_BTN_CREATE_MATERIAL, &material_x, &material_y));
     TEST_ASSERT(UIPanel_HandleClick(material_x, material_y));
     TEST_ASSERT(state->layout.sceneAuthoring.material_count == 2u);
@@ -368,20 +374,53 @@ static bool test_create_scene_authoring_buttons_append_and_select_records(void) 
     return true;
 }
 
+static bool test_create_categories_switch_visible_intent_controls(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    int x = 0;
+    int y = 0;
+    const UIButton* plane = NULL;
+    const UIButton* light = NULL;
+    const UIButton* xy = NULL;
+    ld_test_init_runtime();
+    state = Global_Get();
+    ui = UIPanel_Get();
+    TEST_ASSERT(state && ui);
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_CREATE);
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    plane = ld_test_find_button(ui, UI_BTN_CREATE_PLANE);
+    light = ld_test_find_button(ui, UI_BTN_CREATE_LIGHT);
+    xy = ld_test_find_button(ui, UI_BTN_SET_CONSTRUCTION_PLANE_XY);
+    TEST_ASSERT(plane && light && xy);
+    TEST_ASSERT(plane->bounds.w > 0 && light->bounds.w == 0 && xy->bounds.w == 0);
+    TEST_ASSERT(ld_test_find_button_center(ui, UI_BTN_CREATE_CATEGORY_LIGHTING, &x, &y));
+    TEST_ASSERT(UIPanel_HandleClick(x, y));
+    TEST_ASSERT(ui->createCategory == UI_CREATE_CATEGORY_LIGHTING);
+    TEST_ASSERT(plane->bounds.w == 0 && light->bounds.w > 0 && xy->bounds.w == 0);
+    TEST_ASSERT(ld_test_find_button_center(ui, UI_BTN_CREATE_CATEGORY_CONSTRUCTION, &x, &y));
+    TEST_ASSERT(UIPanel_HandleClick(x, y));
+    TEST_ASSERT(ui->createCategory == UI_CREATE_CATEGORY_CONSTRUCTION);
+    TEST_ASSERT(plane->bounds.w == 0 && light->bounds.w == 0 && xy->bounds.w > 0);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 bool ui_panel_create_summary_run_tests(void) {
     const TestCase cases[] = {
         { "create_summary_reserves_space_for_create_controls",
           test_create_summary_reserves_space_for_create_controls },
         { "create_layout_stays_stable_when_stage_changes",
           test_create_layout_stays_stable_when_stage_changes },
-        { "create_sections_fit_inside_pane_and_anchor_bottom",
-          test_create_sections_fit_inside_pane_and_anchor_bottom },
+        { "create_sections_follow_intent_flow",
+          test_create_sections_follow_intent_flow },
         { "create_buttons_use_uniform_grid_rows",
           test_create_buttons_use_uniform_grid_rows },
         { "create_layout_contains_controls_across_window_matrix",
           test_create_layout_contains_controls_across_window_matrix },
         { "create_scene_authoring_buttons_append_and_select_records",
           test_create_scene_authoring_buttons_append_and_select_records },
+        { "create_categories_switch_visible_intent_controls",
+          test_create_categories_switch_visible_intent_controls },
     };
     return run_test_cases("UIPanelCreateSummary", cases, sizeof(cases) / sizeof(cases[0]));
 }

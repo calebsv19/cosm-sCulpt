@@ -8,6 +8,33 @@ bool UIPanel_HandleTextInput(const char* text) {
     UIPanelState* ui = UIPanel_Get();
     if (!text) return false;
 
+    if (ui->scenePropertyDialog.active) {
+        const UIScenePropertyDialogTarget target = ui->scenePropertyDialog.target;
+        for (const char* p = text; *p; ++p) {
+            unsigned char c = (unsigned char)*p;
+            bool allowed = false;
+            if (target == UI_SCENE_PROPERTY_DIALOG_LABEL) {
+                allowed = c >= 32 && c != 127;
+            } else if (target == UI_SCENE_PROPERTY_DIALOG_LIGHT_PATH) {
+                allowed = isalnum(c) || c == '_' || c == '-';
+            } else {
+                allowed = isdigit(c) || c == '.' || c == '-' || c == '+' ||
+                          c == 'e' || c == 'E' || c == ',' || isspace(c);
+            }
+            if (!allowed) continue;
+            if (ui->scenePropertyDialog.length + 1 >= sizeof(ui->scenePropertyDialog.buffer)) break;
+            memmove(&ui->scenePropertyDialog.buffer[ui->scenePropertyDialog.cursor + 1],
+                    &ui->scenePropertyDialog.buffer[ui->scenePropertyDialog.cursor],
+                    ui->scenePropertyDialog.length - ui->scenePropertyDialog.cursor + 1);
+            ui->scenePropertyDialog.buffer[ui->scenePropertyDialog.cursor] = (char)c;
+            ui->scenePropertyDialog.length++;
+            ui->scenePropertyDialog.cursor++;
+        }
+        ui->scenePropertyDialog.buffer[ui->scenePropertyDialog.length] = '\0';
+        ui->scenePropertyDialog.validationMessage[0] = '\0';
+        return true;
+    }
+
     if (ui->saveDialog.active) {
         for (const char* p = text; *p; ++p) {
             unsigned char c = (unsigned char)*p;
@@ -126,6 +153,42 @@ bool UIPanel_HandleKeyEvent(const SDL_Event* event) {
     if (event->type != SDL_KEYDOWN) return false;
 
     SDL_Keycode key = event->key.keysym.sym;
+    if (ui->scenePropertyDialog.active) {
+        if (key == SDLK_RETURN || key == SDLK_KP_ENTER) return UIPanel_ApplyScenePropertyDialog(ui);
+        if (key == SDLK_ESCAPE) {
+            UIPanel_CloseScenePropertyDialog(ui);
+            return true;
+        }
+        switch (key) {
+            case SDLK_BACKSPACE:
+                if (ui->scenePropertyDialog.cursor > 0 && ui->scenePropertyDialog.length > 0) {
+                    memmove(&ui->scenePropertyDialog.buffer[ui->scenePropertyDialog.cursor - 1],
+                            &ui->scenePropertyDialog.buffer[ui->scenePropertyDialog.cursor],
+                            ui->scenePropertyDialog.length - ui->scenePropertyDialog.cursor + 1);
+                    ui->scenePropertyDialog.cursor--;
+                    ui->scenePropertyDialog.length--;
+                }
+                return true;
+            case SDLK_DELETE:
+                if (ui->scenePropertyDialog.cursor < ui->scenePropertyDialog.length) {
+                    memmove(&ui->scenePropertyDialog.buffer[ui->scenePropertyDialog.cursor],
+                            &ui->scenePropertyDialog.buffer[ui->scenePropertyDialog.cursor + 1],
+                            ui->scenePropertyDialog.length - ui->scenePropertyDialog.cursor);
+                    ui->scenePropertyDialog.length--;
+                }
+                return true;
+            case SDLK_LEFT:
+                if (ui->scenePropertyDialog.cursor > 0) ui->scenePropertyDialog.cursor--;
+                return true;
+            case SDLK_RIGHT:
+                if (ui->scenePropertyDialog.cursor < ui->scenePropertyDialog.length) ui->scenePropertyDialog.cursor++;
+                return true;
+            case SDLK_HOME: ui->scenePropertyDialog.cursor = 0u; return true;
+            case SDLK_END: ui->scenePropertyDialog.cursor = ui->scenePropertyDialog.length; return true;
+            default: break;
+        }
+        return false;
+    }
     if (ui->saveDialog.active) {
         if (key == SDLK_RETURN) {
             return UIPanel_PerformSave(ui);

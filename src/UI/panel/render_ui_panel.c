@@ -14,6 +14,7 @@
 #include "UI/ui_panel_visual_style.h"
 #include "UI/ui_panel_view_summary.h"
 #include "UI/ui_panel_object_workspace_summary.h"
+#include "UI/ui_panel_right_scroll.h"
 #include "UI/font_manager.h"
 #include "UI/text_draw.h"
 #include "Core/global_state.h"
@@ -151,8 +152,20 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
           state->previewMode == LINE_DRAWING_PREVIEW_MODE_FLAT) ||
          (btn->id == UI_BTN_PREVIEW_MATERIAL &&
           state->previewMode == LINE_DRAWING_PREVIEW_MODE_MATERIAL));
+    const bool create_category_active = ui_state &&
+        ((btn->id == UI_BTN_CREATE_CATEGORY_GEOMETRY && ui_state->createCategory == UI_CREATE_CATEGORY_GEOMETRY) ||
+         (btn->id == UI_BTN_CREATE_CATEGORY_PATHS && ui_state->createCategory == UI_CREATE_CATEGORY_PATHS) ||
+         (btn->id == UI_BTN_CREATE_CATEGORY_LIGHTING && ui_state->createCategory == UI_CREATE_CATEGORY_LIGHTING) ||
+         (btn->id == UI_BTN_CREATE_CATEGORY_MATERIALS && ui_state->createCategory == UI_CREATE_CATEGORY_MATERIALS) ||
+         (btn->id == UI_BTN_CREATE_CATEGORY_CONSTRUCTION && ui_state->createCategory == UI_CREATE_CATEGORY_CONSTRUCTION));
+    const bool point_placement_active = ui_state &&
+        btn->id == UI_BTN_SCENE_AUTHORING_PATH_ADD_POINT &&
+        ui_state->pathPointPlacementArmed;
+    const bool path_remove_disabled = state &&
+        btn->id == UI_BTN_SCENE_AUTHORING_PATH_REMOVE_POINT &&
+        state->editor.selectedSceneAuthoringControlPointIndex < 0;
     const bool render_disabled =
-        place_mesh_disabled ||
+        place_mesh_disabled || path_remove_disabled ||
         (object_mode &&
          (((btn->id == UI_BTN_CREATE_PLANE || btn->id == UI_BTN_OBJECT_FACE_SELECT) &&
            !has_face_target && !has_committed_sketch && has_shape_bodies) ||
@@ -174,7 +187,7 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         button_border = UIPanelVisual_AdjustColor(button_border, -24, 0);
         textColor = palette.text_muted;
     } else if (pressed_live || edit_mode_active || scene_authoring_edit_active ||
-               preview_mode_active) {
+               preview_mode_active || create_category_active || point_placement_active) {
         button_fill = UIPanelVisual_BlendColor(button_fill, palette.button_fill_active, 120);
         button_border = UIPanelVisual_AdjustColor(palette.accent, 10, 0);
         textColor = palette.text_primary;
@@ -290,20 +303,15 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
                  UIPanel_ObjectGizmoModeLabel());
         label = dynamicLabel;
     } else if (btn->id == UI_BTN_SCENE_AUTHORING_EDIT_MODE) {
-        const GlobalState* state = Global_Get();
-        const LineDrawingSceneAuthoringState* authoring = state ? &state->layout.sceneAuthoring : NULL;
-        const char* mode_name = authoring &&
-            authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH
-                ? "Path Edit"
-                : "Light Edit";
         const bool active = state &&
             state->editor.sceneAuthoringEditMode != SCENE_AUTHORING_EDIT_MODE_NONE;
         snprintf(dynamicLabel,
                  sizeof(dynamicLabel),
-                 "%s: %s",
-                 mode_name,
-                 active ? "On" : "Off");
+                 "Edit: %s",
+                 active ? "Active" : "Select");
         label = dynamicLabel;
+    } else if (btn->id == UI_BTN_SCENE_AUTHORING_PATH_ADD_POINT) {
+        label = point_placement_active ? "Click Viewport..." : "Place Point";
     } else if (btn->id == UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED) {
         const GlobalState* state = Global_Get();
         const LineDrawingSceneAuthoringState* authoring = state ? &state->layout.sceneAuthoring : NULL;
@@ -676,8 +684,14 @@ static const char* UIPanel_GroupTitle(UIPanelGroup group, UIPanelSide side) {
         case UI_PANEL_GROUP_LEFT_ROOT_PATHS: return object_mode ? "Asset Paths" : "Session Paths";
         case UI_PANEL_GROUP_RIGHT_VIEW: return object_mode ? "Navigate" : "View";
         case UI_PANEL_GROUP_RIGHT_MODES: return object_mode ? "Edit Modes" : "Modes";
-        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return object_mode ? "Target / Sketch" : "Primitives";
-        case UI_PANEL_GROUP_RIGHT_OPERATIONS: return object_mode ? "Solid Command" : "Scene Records";
+        case UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES: return "Create By Intent";
+        case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return object_mode ? "Target / Sketch" : "Geometry";
+        case UI_PANEL_GROUP_RIGHT_OPERATIONS:
+            if (object_mode) return "Solid Command";
+            if (UIPanel_Get()->createCategory == UI_CREATE_CATEGORY_PATHS) return "Paths";
+            if (UIPanel_Get()->createCategory == UI_CREATE_CATEGORY_LIGHTING) return "Lighting";
+            if (UIPanel_Get()->createCategory == UI_CREATE_CATEGORY_MATERIALS) return "Materials";
+            return "Create";
         case UI_PANEL_GROUP_RIGHT_CONSTRUCTION: return "Construction";
         case UI_PANEL_GROUP_RIGHT_PRISM:
             return UIPanel_SceneAuthoringInspectorHasSelection() ? "Authoring Property" :
@@ -718,6 +732,8 @@ static SDL_Rect UIPanel_GroupSectionRect(const UIPanelState* ui,
             return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) ? ui->viewPane.viewRect : zero;
         case UI_PANEL_GROUP_RIGHT_MODES:
             return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) ? ui->viewPane.modesRect : zero;
+        case UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES:
+            return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) ? ui->createPane.categoriesRect : zero;
         case UI_PANEL_GROUP_RIGHT_PRIMITIVES:
             return (ui->activeRightTab == UI_PANEL_RIGHT_TAB_CREATE) ? ui->createPane.primitivesRect : zero;
         case UI_PANEL_GROUP_RIGHT_OPERATIONS:
@@ -837,6 +853,11 @@ void Render_UIPanelSide(const UIPanelState* ui, SDL_Renderer* renderer, UIPanelS
         DrawPaneSurface(renderer, &ui->rightPaneRect, &ui->rightBodyRect);
     }
     DrawPanelTabs(renderer, ui, side);
+    if (side == UI_PANEL_RIGHT &&
+        (ui->activeRightTab == UI_PANEL_RIGHT_TAB_CREATE ||
+         ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT)) {
+        (void)SDL_RenderSetClipRect(renderer, &ui->rightBodyRect);
+    }
     while (i < ui->count) {
         int first = 0;
         int last = 0;
@@ -923,5 +944,13 @@ void Render_UIPanel(const UIPanelState* ui, SDL_Renderer* renderer) {
     Render_UIPanelSceneList(ui, renderer);
     Render_UIPanelRootSummary(ui, renderer);
     Render_UIPanelFileBrowser(ui, renderer);
-    Render_UIPanelRightTabSummary(ui, renderer);
+    {
+        SDL_Rect previous_clip = {0, 0, 0, 0};
+        SDL_bool had_clip = SDL_RenderIsClipEnabled(renderer);
+        if (had_clip) (void)SDL_RenderGetClipRect(renderer, &previous_clip);
+        (void)SDL_RenderSetClipRect(renderer, &ui->rightBodyRect);
+        Render_UIPanelRightTabSummary(ui, renderer);
+        UIPanel_RightScrollRender(ui, renderer);
+        (void)SDL_RenderSetClipRect(renderer, had_clip ? &previous_clip : NULL);
+    }
 }

@@ -4,6 +4,7 @@
 #include "UI/ui_panel_object_workspace_summary.h"
 #include "UI/ui_panel_scene_list.h"
 #include "UI/ui_panel_scene_authoring_inspector.h"
+#include "UI/ui_panel_right_scroll.h"
 #include "UI/ui_panel_shell.h"
 
 #include "Core/global_state.h"
@@ -165,7 +166,8 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
         UIPanel_IsPrismDimensionDialogActive() ||
         UIPanel_IsSceneBoundsDialogActive() ||
         UIPanel_IsConstructionPlaneDialogActive() ||
-        UIPanel_IsObjectTransformDialogActive()) {
+        UIPanel_IsObjectTransformDialogActive() ||
+        UIPanel_IsScenePropertyDialogActive()) {
         return true;
     }
 
@@ -178,6 +180,8 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
         UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
         return true;
     }
+
+    if (UIPanel_RightScrollHandleClick(mouseX, mouseY)) return true;
 
     if (UIPanel_HandleSceneListClick(mouseX, mouseY)) {
         UIPanel_CloseFileBrowser(ui);
@@ -195,6 +199,11 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 
         if (r.w <= 0 || r.h <= 0) continue;
         if (!UIPanel_ShouldShowGroup(ui, btn->group)) continue;
+        if (btn->side == UI_PANEL_RIGHT &&
+            (mouseX < ui->rightBodyRect.x ||
+             mouseX > ui->rightBodyRect.x + ui->rightBodyRect.w ||
+             mouseY < ui->rightBodyRect.y ||
+             mouseY > ui->rightBodyRect.y + ui->rightBodyRect.h)) continue;
 
         if (mouseX >= r.x && mouseX <= r.x + r.w &&
             mouseY >= r.y && mouseY <= r.y + r.h) {
@@ -454,6 +463,9 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     (void)UIPanel_ToggleSceneAuthoringEditMode();
                     break;
                 }
+                case UI_BTN_SCENE_AUTHORING_EDIT_LABEL:
+                    (void)UIPanel_BeginScenePropertyDialog(UI_SCENE_PROPERTY_DIALOG_LABEL);
+                    break;
                 case UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED: {
                     UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_ToggleSelectedSceneAuthoringLightEnabled();
@@ -466,7 +478,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 }
                 case UI_BTN_SCENE_AUTHORING_LIGHT_PATH: {
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_CycleSelectedSceneAuthoringLightPath();
+                    (void)UIPanel_BeginScenePropertyDialog(UI_SCENE_PROPERTY_DIALOG_LIGHT_PATH);
                     break;
                 }
                 case UI_BTN_SCENE_AUTHORING_PATH_KIND: {
@@ -479,21 +491,27 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     (void)UIPanel_CycleSelectedSceneAuthoringTangentMode();
                     break;
                 }
+                case UI_BTN_SCENE_AUTHORING_PATH_ADD_POINT:
+                    (void)UIPanel_TogglePathPointPlacement();
+                    break;
+                case UI_BTN_SCENE_AUTHORING_PATH_REMOVE_POINT:
+                    (void)UIPanel_RemoveSelectedPathPoint();
+                    break;
                 case UI_BTN_SCENE_AUTHORING_CAMERA_ORIENTATION:
                     UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_CycleSelectedSceneAuthoringCameraOrientation();
                     break;
                 case UI_BTN_SCENE_AUTHORING_CAMERA_ROLL:
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_CycleSelectedSceneAuthoringCameraRoll();
+                    (void)UIPanel_BeginScenePropertyDialog(UI_SCENE_PROPERTY_DIALOG_CAMERA_ROLL);
                     break;
                 case UI_BTN_SCENE_AUTHORING_CAMERA_FOV:
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_CycleSelectedSceneAuthoringCameraFov();
+                    (void)UIPanel_BeginScenePropertyDialog(UI_SCENE_PROPERTY_DIALOG_CAMERA_FOV);
                     break;
                 case UI_BTN_SCENE_AUTHORING_CAMERA_CLIP:
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_CycleSelectedSceneAuthoringCameraClip();
+                    (void)UIPanel_BeginScenePropertyDialog(UI_SCENE_PROPERTY_DIALOG_CAMERA_CLIP);
                     break;
                 case UI_BTN_SCENE_AUTHORING_PATH_PLAY:
                     UIPanel_CloseFileBrowser(ui);
@@ -501,7 +519,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 case UI_BTN_SCENE_AUTHORING_PATH_SCRUB:
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_AdvanceSelectedSceneAuthoringPathScrub();
+                    (void)UIPanel_BeginScenePropertyDialog(UI_SCENE_PROPERTY_DIALOG_PATH_SCRUB);
                     break;
                 case UI_BTN_SCENE_AUTHORING_PATH_PLAYBACK_MODE:
                     UIPanel_CloseFileBrowser(ui);
@@ -509,7 +527,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 case UI_BTN_SCENE_AUTHORING_PATH_DURATION:
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_CycleSelectedSceneAuthoringPathDuration();
+                    (void)UIPanel_BeginScenePropertyDialog(UI_SCENE_PROPERTY_DIALOG_PATH_DURATION);
                     break;
                 case UI_BTN_SCENE_AUTHORING_PATH_CLOSED:
                     UIPanel_CloseFileBrowser(ui);
@@ -521,19 +539,19 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     break;
                 case UI_BTN_SCENE_AUTHORING_LIGHT_COLOR:
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_CycleSelectedSceneAuthoringLightColor();
+                    (void)UIPanel_BeginScenePropertyDialog(UI_SCENE_PROPERTY_DIALOG_LIGHT_COLOR);
                     break;
                 case UI_BTN_SCENE_AUTHORING_LIGHT_INTENSITY:
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_CycleSelectedSceneAuthoringLightIntensity();
+                    (void)UIPanel_BeginScenePropertyDialog(UI_SCENE_PROPERTY_DIALOG_LIGHT_INTENSITY);
                     break;
                 case UI_BTN_SCENE_AUTHORING_LIGHT_SIZE:
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_CycleSelectedSceneAuthoringLightSize();
+                    (void)UIPanel_BeginScenePropertyDialog(UI_SCENE_PROPERTY_DIALOG_LIGHT_SIZE);
                     break;
                 case UI_BTN_SCENE_AUTHORING_LIGHT_CONE:
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_CycleSelectedSceneAuthoringLightCone();
+                    (void)UIPanel_BeginScenePropertyDialog(UI_SCENE_PROPERTY_DIALOG_LIGHT_CONE);
                     break;
                 case UI_BTN_SCENE_AUTHORING_LIGHT_FALLOFF:
                     UIPanel_CloseFileBrowser(ui);
@@ -614,6 +632,17 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 case UI_BTN_OBJECT_CLEAR_SELECTION: {
                     UIPanel_CloseFileBrowser(ui);
                     UIPanel_SceneListClearSelection();
+                    break;
+                }
+                case UI_BTN_CREATE_CATEGORY_GEOMETRY:
+                case UI_BTN_CREATE_CATEGORY_PATHS:
+                case UI_BTN_CREATE_CATEGORY_LIGHTING:
+                case UI_BTN_CREATE_CATEGORY_MATERIALS:
+                case UI_BTN_CREATE_CATEGORY_CONSTRUCTION: {
+                    const int category = btn->id - UI_BTN_CREATE_CATEGORY_GEOMETRY;
+                    ui->createCategory = (UICreateCategory)category;
+                    ui->rightScroll[UI_PANEL_RIGHT_TAB_CREATE].scrollOffsetPx = 0.0f;
+                    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
                     break;
                 }
                 case UI_BTN_OBJECT_DELETE_SELECTED: {

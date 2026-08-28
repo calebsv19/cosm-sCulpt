@@ -192,7 +192,6 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
     char work_prism[128];
     char work_next[128];
     char work_future[128];
-    char work_path[128];
     const char* work_lines[6];
     SDL_Color work_colors[6];
 
@@ -407,7 +406,7 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
              "Ready to stage");
     snprintf(summary_stage,
              sizeof(summary_stage),
-             "Bottom controls stay anchored");
+             "Choose an intent below");
 
     summary_lines[0] = summary_space;
     summary_lines[1] = summary_plane;
@@ -470,39 +469,48 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
                  "Prism staging appears once 3D placement is valid");
     }
 
-    snprintf(work_tool,
-             sizeof(work_tool),
-             "Primary tool  %s",
-             (active_preview == PRIMITIVE_PLACEMENT_PREVIEW_PLANE) ? "Plane" :
-             (active_preview == PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM) ? "Prism" :
-             "Choose from the bottom create row");
-    snprintf(work_ready,
-             sizeof(work_ready),
-             "Ready now  %s",
-             (plane_ready || prism_ready) ? "Author on the active construction plane" :
-             "Switch mode/plane until staging becomes valid");
-    snprintf(work_next,
-             sizeof(work_next),
-             "Scene records  add light, camera path, and material records");
-    snprintf(work_future,
-             sizeof(work_future),
-             "Select a light or path row to edit its viewport handles");
-    snprintf(work_path,
-             sizeof(work_path),
-             "Path handles  drag points, Shift-click to add");
+    switch (ui->createCategory) {
+        case UI_CREATE_CATEGORY_PATHS:
+            snprintf(work_tool, sizeof(work_tool), "Intent  Paths");
+            snprintf(work_ready, sizeof(work_ready), "Create camera or generic motion paths");
+            snprintf(work_plane, sizeof(work_plane), "Select the new path in Scene, then open Object");
+            break;
+        case UI_CREATE_CATEGORY_LIGHTING:
+            snprintf(work_tool, sizeof(work_tool), "Intent  Lighting");
+            snprintf(work_ready, sizeof(work_ready), "Create a light or a path for the selected light");
+            snprintf(work_plane, sizeof(work_plane), "Use Object for direct light properties and binding");
+            break;
+        case UI_CREATE_CATEGORY_MATERIALS:
+            snprintf(work_tool, sizeof(work_tool), "Intent  Materials");
+            snprintf(work_ready, sizeof(work_ready), "Create a reusable scene material record");
+            snprintf(work_plane, sizeof(work_plane), "Assign and refine it from Object after selection");
+            break;
+        case UI_CREATE_CATEGORY_CONSTRUCTION:
+            snprintf(work_tool, sizeof(work_tool), "Intent  Construction");
+            snprintf(work_ready, sizeof(work_ready), "Choose the authoring plane and exact offset");
+            snprintf(work_plane, sizeof(work_plane), "%s plane at %s=%.2f",
+                     UIPanel_ViewPlaneAxisLabel(plane.axis),
+                     UIPanel_ViewPlaneCoordinateLabel(plane.axis),
+                     plane.offset);
+            break;
+        case UI_CREATE_CATEGORY_GEOMETRY:
+        default:
+            snprintf(work_tool, sizeof(work_tool), "Intent  Geometry");
+            snprintf(work_ready, sizeof(work_ready), "%s",
+                     (plane_ready || prism_ready) ? "Ready on the active construction plane" :
+                     "Switch mode or plane until staging is valid");
+            if (prism_ready) {
+                snprintf(work_plane, sizeof(work_plane), "%s", work_prism);
+            }
+            break;
+    }
 
     work_lines[0] = work_tool;
     work_lines[1] = work_ready;
     work_lines[2] = work_plane;
-    work_lines[3] = work_next;
-    work_lines[4] = work_future;
-    work_lines[5] = work_path;
     work_colors[0] = value_color;
     work_colors[1] = value_color;
     work_colors[2] = value_color;
-    work_colors[3] = label_color;
-    work_colors[4] = label_color;
-    work_colors[5] = label_color;
 
     fill_color = palette.workspace_fill;
     fill_color.a = palette.workspace_fill.a;
@@ -510,10 +518,10 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
     UIPanelCreateSummary_DrawLines(renderer,
                                    font,
                                    workspace_rect,
-                                   "Authoring Workspace",
+                                   "Create Context",
                                    work_lines,
                                    work_colors,
-                                   6,
+                                   3,
                                    true,
                                    label_color,
                                    accent_color);

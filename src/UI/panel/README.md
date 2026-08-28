@@ -30,6 +30,12 @@ This subtree owns the editor-local pane shell and pane-scoped controls.
   - `ui_panel_summary_surface.c`
   - `ui_panel_visual_style.c`
   - `ui_panel_right_controls.c`
+  - `ui_panel_right_scroll.c` owns per-tab overflow and scrollbar interaction
+    for variable-height right-pane content.
+- Scene-record property editing:
+  - `ui_panel_scene_authoring_inspector.c` owns typed selection actions.
+  - `ui_panel_scene_property_dialog.c` owns validated direct value edits and
+    their single-undo commit boundary.
 
 ## Boundary
 
@@ -38,6 +44,9 @@ This subtree owns the editor-local pane shell and pane-scoped controls.
 - Right-pane row placement and section height must use the same visible-row
   inventory. Tests should assert containment inside the owning group, not only
   containment inside the overall pane.
+- Right-pane sections that can exceed the body height must use the shared
+  right-scroll lane and remain clipped to `rightBodyRect`; off-viewport button
+  bounds must never capture tab or viewport clicks.
 - Keep File-pane wording and transient status presentation UI-panel-local; the
   import/export/tool operations still own their diagnostics, while runtime mesh
   session path/status storage is updated through Core `Global_*ObjectRuntimeMesh*`

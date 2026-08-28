@@ -5,6 +5,7 @@
 #include "UI/ui_panel_object_inspector.h"
 #include "UI/ui_panel_object_layout.h"
 #include "UI/ui_panel_scene_authoring_inspector.h"
+#include "UI/ui_panel_right_scroll.h"
 #include "Layout/scene/layout_scene_camera_authoring.h"
 
 static const UIButton* ld_test_find_button(const UIPanelState* ui, int button_id) {
@@ -480,21 +481,36 @@ static bool test_scene_authoring_light_selection_uses_authoring_inspector_contro
         TEST_ASSERT(state->layout.sceneAuthoring.lights[0].position_mode ==
                     LINE_DRAWING_SCENE_LIGHT_POSITION_PATH_START);
         TEST_ASSERT(ld_test_click_button_center(color_button));
-        TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.lights[0].color_rgb[1],
-                                         0.78f));
+        TEST_ASSERT(ui->scenePropertyDialog.active);
+        snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer),
+                 "0.95, 0.78, 0.62");
+        TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
         TEST_ASSERT(ld_test_click_button_center(intensity_button));
-        TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.lights[0].intensity, 2.0f));
+        snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer), "2.0");
+        TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
         TEST_ASSERT(ld_test_click_button_center(size_button));
-        TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.lights[0].radius, 0.5f));
+        snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer), "0.5");
+        TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
         TEST_ASSERT(ld_test_click_button_center(cone_button));
-        TEST_ASSERT(ld_test_nearly_equal(
-            state->layout.sceneAuthoring.lights[0].outer_cone_degrees, 60.0f));
+        snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer), "30, 60");
+        TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
+        TEST_ASSERT(UIPanel_RightScrollHandleWheel(
+            ui->rightBodyRect.x + ui->rightBodyRect.w / 2,
+            ui->rightBodyRect.y + ui->rightBodyRect.h / 2,
+            -8.0f));
+        TEST_ASSERT(UIPanel_RightScrollOffset(ui) > 0.0f);
         TEST_ASSERT(ld_test_click_button_center(falloff_button));
         TEST_ASSERT(state->layout.sceneAuthoring.lights[0].falloff ==
                     LINE_DRAWING_SCENE_LIGHT_FALLOFF_LINEAR);
         TEST_ASSERT(Editor_UndoCount(&state->editor) == undo_before + 6u);
+        TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.lights[0].color_rgb[1], 0.78f));
+        TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.lights[0].intensity, 2.0f));
+        TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.lights[0].radius, 0.5f));
+        TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.lights[0].outer_cone_degrees, 60.0f));
     }
     TEST_ASSERT(ld_test_click_button_center(path_button));
+    snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer), "none");
+    TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
     TEST_ASSERT(state->layout.sceneAuthoring.lights[0].path_id[0] == '\0');
     TEST_ASSERT(state->layout.sceneAuthoring.lights[0].position_mode ==
                 LINE_DRAWING_SCENE_LIGHT_POSITION_INDEPENDENT);
@@ -551,14 +567,78 @@ static bool test_scene_authoring_camera_path_exposes_camera_controls(void) {
     TEST_ASSERT(state->layout.sceneAuthoring.cameras[0].orientation_mode ==
                 LINE_DRAWING_SCENE_CAMERA_ORIENTATION_LOOK_AT_TARGET);
     TEST_ASSERT(ld_test_click_button_center(roll));
-    TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.cameras[0].roll_degrees,
-                                     15.0f));
+    snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer), "15");
+    TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
     TEST_ASSERT(ld_test_click_button_center(fov));
-    TEST_ASSERT(ld_test_nearly_equal(
-        state->layout.sceneAuthoring.cameras[0].vertical_fov_degrees, 65.0f));
+    snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer), "65");
+    TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
     TEST_ASSERT(ld_test_click_button_center(clip));
-    TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.cameras[0].near_clip, 0.5f));
+    snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer), "0.5, 500");
+    TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
     TEST_ASSERT(Editor_UndoCount(&state->editor) == undo_before + 4u);
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.cameras[0].roll_degrees, 15.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.cameras[0].vertical_fov_degrees, 65.0f));
+    TEST_ASSERT(ld_test_nearly_equal(state->layout.sceneAuthoring.cameras[0].near_clip, 0.5f));
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_scene_property_rename_validates_and_captures_one_undo(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    const UIButton* rename = NULL;
+    size_t undo_before = 0u;
+    ld_test_init_runtime();
+    state = Global_Get();
+    ui = UIPanel_Get();
+    TEST_ASSERT(state && ui);
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(&state->layout.sceneAuthoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_MATERIAL,
+                                                  0u));
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_OBJECT);
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    rename = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_EDIT_LABEL);
+    TEST_ASSERT(rename && rename->bounds.w > 0);
+    undo_before = Editor_UndoCount(&state->editor);
+    TEST_ASSERT(ld_test_click_button_center(rename));
+    TEST_ASSERT(ui->scenePropertyDialog.active);
+    ui->scenePropertyDialog.buffer[0] = '\0';
+    TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
+    TEST_ASSERT(ui->scenePropertyDialog.active);
+    TEST_ASSERT(ui->scenePropertyDialog.validationMessage[0] != '\0');
+    TEST_ASSERT(Editor_UndoCount(&state->editor) == undo_before);
+    snprintf(ui->scenePropertyDialog.buffer,
+             sizeof(ui->scenePropertyDialog.buffer),
+             "Studio Blue");
+    TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
+    TEST_ASSERT(!ui->scenePropertyDialog.active);
+    TEST_ASSERT(strcmp(state->layout.sceneAuthoring.materials[0].label,
+                       "Studio Blue") == 0);
+    TEST_ASSERT(Editor_UndoCount(&state->editor) == undo_before + 1u);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_path_point_action_arms_and_cancels_viewport_placement(void) {
+    GlobalState* state = NULL;
+    UIPanelState* ui = NULL;
+    const UIButton* add_point = NULL;
+    ld_test_init_runtime();
+    state = Global_Get();
+    ui = UIPanel_Get();
+    TEST_ASSERT(state && ui);
+    TEST_ASSERT(Layout_SceneAuthoringState_Select(&state->layout.sceneAuthoring,
+                                                  LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH,
+                                                  0u));
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_OBJECT);
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    add_point = ld_test_find_button(ui, UI_BTN_SCENE_AUTHORING_PATH_ADD_POINT);
+    TEST_ASSERT(add_point && add_point->bounds.w > 0);
+    TEST_ASSERT(ld_test_click_button_center(add_point));
+    TEST_ASSERT(ui->pathPointPlacementArmed);
+    TEST_ASSERT(state->editor.sceneAuthoringEditMode == SCENE_AUTHORING_EDIT_MODE_PATH);
+    TEST_ASSERT(ld_test_click_button_center(add_point));
+    TEST_ASSERT(!ui->pathPointPlacementArmed);
     ld_test_shutdown_runtime();
     return true;
 }
@@ -581,6 +661,10 @@ bool ui_panel_object_inspector_run_tests(void) {
           test_scene_authoring_light_selection_uses_authoring_inspector_controls },
         { "scene_authoring_camera_path_exposes_camera_controls",
           test_scene_authoring_camera_path_exposes_camera_controls },
+        { "scene_property_rename_validates_and_captures_one_undo",
+          test_scene_property_rename_validates_and_captures_one_undo },
+        { "path_point_action_arms_and_cancels_viewport_placement",
+          test_path_point_action_arms_and_cancels_viewport_placement },
     };
     return run_test_cases("UIPanelObjectInspector", cases, sizeof(cases) / sizeof(cases[0]));
 }

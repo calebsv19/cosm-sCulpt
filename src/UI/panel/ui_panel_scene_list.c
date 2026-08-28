@@ -338,6 +338,7 @@ static int UIPanelSceneList_RowIndexAtPoint(const UIPanelState* ui,
 
 static void UIPanelSceneList_SelectObject(uint32_t objectId) {
     GlobalState* state = Global_Get();
+    UIPanelState* ui = UIPanel_Get();
     EditorState* editor = NULL;
     if (!state || objectId == 0u) return;
     Layout_SceneAuthoringState_ClearSelection(&state->layout.sceneAuthoring);
@@ -352,12 +353,14 @@ static void UIPanelSceneList_SelectObject(uint32_t objectId) {
     editor->selectedHandleAnchor = -1;
     editor->selectedHandleComponent = -1;
     editor->hoveredObject3DId = objectId;
+    if (ui) ui->pathPointPlacementArmed = false;
     Global_FlagHitboxesDirty();
 }
 
 static void UIPanelSceneList_SelectAuthoringEntity(LineDrawingSceneAuthoringSelectionKind kind,
                                                    size_t index) {
     GlobalState* state = Global_Get();
+    UIPanelState* ui = UIPanel_Get();
     EditorState* editor = NULL;
     if (!state) return;
     if (!Layout_SceneAuthoringState_Select(&state->layout.sceneAuthoring, kind, index)) return;
@@ -372,6 +375,7 @@ static void UIPanelSceneList_SelectAuthoringEntity(LineDrawingSceneAuthoringSele
     editor->selectedHandleAnchor = -1;
     editor->selectedHandleComponent = -1;
     editor->hoveredObject3DId = 0u;
+    if (ui) ui->pathPointPlacementArmed = false;
     Global_FlagHitboxesDirty();
 }
 
@@ -416,6 +420,7 @@ void UIPanel_SceneListClearSelection(void) {
     editor->isResizingSceneBounds = false;
     Layout_SceneAuthoringState_ClearSelection(&state->layout.sceneAuthoring);
     if (ui) {
+        ui->pathPointPlacementArmed = false;
         ui->sceneList.expandedObjectId = 0u;
         UIPanelSceneList_ClearClickMemory(ui);
     }

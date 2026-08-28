@@ -1,6 +1,6 @@
 # Sculpt Docs Index
 
-Last updated: 2026-06-20
+Last updated: 2026-07-14
 
 Start here for public repository documentation.
 
@@ -80,6 +80,16 @@ Current verification contract:
     - compact top summary
     - primary middle working surface
     - anchored lower actions/controls where needed
+- the scene-editor usability pass now keeps creation and scene-record editing
+  usable at constrained pane heights:
+  - `Create` is context-switched by Geometry, Paths, Lighting, Materials, and
+    Construction intent instead of showing every authoring action at once
+  - variable-height right-pane content has wheel and draggable-scrollbar
+    overflow rather than clipping or overlapping controls
+  - scene-record labels and continuous camera/path/light properties use direct
+    validated entry with one undo unit per accepted edit
+  - path editing exposes explicit `Place Point` and `Remove Point` actions in
+    addition to viewport handles and keyboard accelerators
 - default launch now enters a top-level host menu before the editor session:
   - host menu owns high-level entry and reopen actions
   - editor remains the existing interactive authoring session behind that host seam

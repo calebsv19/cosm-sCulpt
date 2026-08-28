@@ -16,3 +16,4 @@ void UIPanelOverlay_DrawTextClipped(SDL_Renderer* renderer,
 
 void UIPanelOverlay_RenderFileDialogs(SDL_Renderer* renderer, const UIPanelState* ui);
 void UIPanelOverlay_RenderEditDialogs(SDL_Renderer* renderer, const UIPanelState* ui);
+void UIPanelOverlay_RenderScenePropertyDialog(SDL_Renderer* renderer, const UIPanelState* ui);

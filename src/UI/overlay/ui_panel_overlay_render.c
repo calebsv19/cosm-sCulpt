@@ -6,4 +6,5 @@ void UIPanel_RenderOverlayDialogs(SDL_Renderer* renderer, const UIPanelState* ui
     if (!renderer || !ui) return;
     UIPanelOverlay_RenderFileDialogs(renderer, ui);
     UIPanelOverlay_RenderEditDialogs(renderer, ui);
+    UIPanelOverlay_RenderScenePropertyDialog(renderer, ui);
 }

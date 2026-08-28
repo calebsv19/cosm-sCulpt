@@ -744,6 +744,15 @@ void UIPanel_Init(int screenW, int screenH) {
     g_uiPanel.objectModelTree.operationScrollbarDragging = false;
     g_uiPanel.objectModelTree.operationScrollbarDragStartY = 0;
     g_uiPanel.objectModelTree.operationScrollbarDragStartOffsetPx = 0.0f;
+    g_uiPanel.createCategory = UI_CREATE_CATEGORY_GEOMETRY;
+    g_uiPanel.pathPointPlacementArmed = false;
+    for (int i = 0; i < UI_PANEL_RIGHT_TAB_COUNT; ++i) {
+        g_uiPanel.rightScroll[i].scrollOffsetPx = 0.0f;
+        g_uiPanel.rightScroll[i].contentHeightPx = 0.0f;
+        g_uiPanel.rightScroll[i].scrollbarDragging = false;
+        g_uiPanel.rightScroll[i].scrollbarDragStartY = 0;
+        g_uiPanel.rightScroll[i].scrollbarDragStartOffsetPx = 0.0f;
+    }
     g_uiPanel.saveDialog.active = false;
     g_uiPanel.saveDialog.mode = UI_SAVE_DIALOG_LAYOUT;
     g_uiPanel.saveDialog.buffer[0] = '\0';
@@ -788,6 +797,12 @@ void UIPanel_Init(int screenW, int screenH) {
     g_uiPanel.objectTransformDialog.buffer[0] = '\0';
     g_uiPanel.objectTransformDialog.length = 0;
     g_uiPanel.objectTransformDialog.cursor = 0;
+    g_uiPanel.scenePropertyDialog.active = false;
+    g_uiPanel.scenePropertyDialog.target = UI_SCENE_PROPERTY_DIALOG_NONE;
+    g_uiPanel.scenePropertyDialog.buffer[0] = '\0';
+    g_uiPanel.scenePropertyDialog.length = 0u;
+    g_uiPanel.scenePropertyDialog.cursor = 0u;
+    g_uiPanel.scenePropertyDialog.validationMessage[0] = '\0';
     g_uiPanel.displayUnit = CORE_UNIT_FOOT;
 
     UIPanelLayoutMetrics metrics;
@@ -860,6 +875,16 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Mode: 3D (M)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_TOGGLE_SPACE_MODE);
     yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Geometry", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES, UI_BTN_CREATE_CATEGORY_GEOMETRY);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Paths", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES, UI_BTN_CREATE_CATEGORY_PATHS);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Lighting", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES, UI_BTN_CREATE_CATEGORY_LIGHTING);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Materials", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES, UI_BTN_CREATE_CATEGORY_MATERIALS);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Construction", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES, UI_BTN_CREATE_CATEGORY_CONSTRUCTION);
+    yR += btnH + spacing;
     AddButton(&g_uiPanel, "+Plane", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_CREATE_PLANE);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "+Prism", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_CREATE_RECT_PRISM);
@@ -878,6 +903,8 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Light Edit: Off", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_SCENE_AUTHORING_EDIT_MODE);
     yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Rename", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_SCENE_AUTHORING_EDIT_LABEL);
+    yR += btnH + spacing;
     AddButton(&g_uiPanel, "Enabled: On", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Kind: Directional", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_SCENE_AUTHORING_LIGHT_KIND);
@@ -887,6 +914,10 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "Path Kind: bezier", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_SCENE_AUTHORING_PATH_KIND);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Tangent: smooth", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_GIZMO, UI_BTN_SCENE_AUTHORING_TANGENT_MODE);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Add Point", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_GIZMO, UI_BTN_SCENE_AUTHORING_PATH_ADD_POINT);
+    yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Remove Point", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_GIZMO, UI_BTN_SCENE_AUTHORING_PATH_REMOVE_POINT);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Orientation: path facing", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_GIZMO, UI_BTN_SCENE_AUTHORING_CAMERA_ORIENTATION);
     yR += btnH + spacing;
@@ -1028,7 +1059,8 @@ bool UIPanel_IsCapturingKeyboard(void) {
            UIPanel_IsPrismDimensionDialogActive() ||
            UIPanel_IsSceneBoundsDialogActive() ||
            UIPanel_IsConstructionPlaneDialogActive() ||
-           UIPanel_IsObjectTransformDialogActive();
+           UIPanel_IsObjectTransformDialogActive() ||
+           UIPanel_IsScenePropertyDialogActive();
 }
 
 void UIPanel_ResetTransientUiState(void) {
@@ -1041,12 +1073,18 @@ void UIPanel_ResetTransientUiState(void) {
     ui->loadMenu.scrollbarDragging = false;
     ui->sceneList.scrollbarDragging = false;
     ui->objectModelTree.operationScrollbarDragging = false;
+    ui->pathPointPlacementArmed = false;
+    for (int i = 0; i < UI_PANEL_RIGHT_TAB_COUNT; ++i) {
+        ui->rightScroll[i].scrollOffsetPx = 0.0f;
+        ui->rightScroll[i].scrollbarDragging = false;
+    }
     UIPanel_CloseSaveDialog(ui);
     UIPanel_CloseRootDialog(ui);
     UIPanel_ClosePrismDimensionDialog(ui);
     UIPanel_CloseSceneBoundsDialog(ui);
     UIPanel_CloseConstructionPlaneDialog(ui);
     UIPanel_CloseObjectTransformDialog(ui);
+    UIPanel_CloseScenePropertyDialog(ui);
     if (SDL_IsTextInputActive()) {
         SDL_StopTextInput();
     }

@@ -23,6 +23,7 @@
 #include "UI/ui_panel_object_workspace_summary.h"
 #include "UI/ui_panel_scene_list.h"
 #include "UI/ui_panel_shell.h"
+#include "UI/ui_panel_right_scroll.h"
 
 #include "Layout/Grid/grid.h"
 #include "Math/math_util.h"
@@ -152,6 +153,7 @@ static void HandleMouseWheel(AppContext* ctx, SDL_MouseWheelEvent* wheel) {
     if (UIPanel_HandleLoadMenuWheel(mx, my, delta)) return;
     if (UIPanel_HandleSceneListWheel(mx, my, delta)) return;
     if (UIPanel_ObjectWorkspaceHandleModelTreeWheel(mx, my, delta)) return;
+    if (UIPanel_RightScrollHandleWheel(mx, my, delta)) return;
     if (ResolvePointerPaneLane(mx, my) != POINTER_PANE_CENTER) return;
 
     // Exponential zoom for smoother high-precision wheel/trackpad input.
@@ -172,13 +174,15 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
         !UIPanel_IsRootDialogActive() &&
         !UIPanel_IsPrismDimensionDialogActive() &&
         !UIPanel_IsSceneBoundsDialogActive() &&
+        !UIPanel_IsScenePropertyDialogActive() &&
         LineDrawingPaneHost_BeginSplitterDrag(pane_host, (float)btn->x, (float)btn->y)) {
         return;
     }
     if (UIPanel_IsSaveDialogActive() ||
         UIPanel_IsRootDialogActive() ||
         UIPanel_IsPrismDimensionDialogActive() ||
-        UIPanel_IsSceneBoundsDialogActive()) {
+        UIPanel_IsSceneBoundsDialogActive() ||
+        UIPanel_IsScenePropertyDialogActive()) {
         (void)UIPanel_HandleClick(btn->x, btn->y);
         return;
     }
@@ -326,7 +330,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
     SceneAuthoringPathHandleRef sceneAuthoringHandle = SceneAuthoringPathHandleRef_None();
     SceneAuthoringGizmoPickResult sceneAuthoringPick = SceneAuthoringGizmoPickResult_None();
 
-    if (shiftSelect &&
+    if ((shiftSelect || UIPanel_Get()->pathPointPlacementArmed) &&
         SceneAuthoringPathHandles_InsertControlPointAtScreen(state,
                                                              editor,
                                                              btn->x,
@@ -342,6 +346,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
                                                      },
                                                      btn->x,
                                                      btn->y);
+        UIPanel_Get()->pathPointPlacementArmed = false;
         draggingHandle = false;
         draggingPan = false;
         draggingSceneAuthoringPathHandle = startedSceneAuthoringPathDrag;
@@ -792,6 +797,7 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
             if (event->button.button == SDL_BUTTON_LEFT) {
                 UIPanel_HandleSceneListMouseUp();
                 UIPanel_ObjectWorkspaceHandleModelTreeMouseUp();
+                UIPanel_RightScrollHandleMouseUp();
                 if (pane_host && LineDrawingPaneHost_IsSplitterDragActive(pane_host)) {
                     LineDrawingPaneHost_EndSplitterDrag(pane_host);
                     LineDrawingPaneHost_UpdatePointer(pane_host,

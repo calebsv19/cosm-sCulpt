@@ -3,11 +3,9 @@
 #include "Core/global_state.h"
 #include "UI/ui_panel_right_controls.h"
 #include "UI/ui_panel_create_summary.h"
+#include "UI/ui_panel_right_scroll.h"
 
-enum {
-    UI_CREATE_PANE_SECTION_GAP = 8,
-    UI_CREATE_PANE_SCENE_WORKSPACE_MAX_H = 184
-};
+enum { UI_CREATE_PANE_SECTION_GAP = 8 };
 
 void UIPanel_UpdateCreatePaneLayout(UIPanelState* ui) {
     UIPanelLayoutMetrics metrics = {0};
@@ -17,8 +15,12 @@ void UIPanel_UpdateCreatePaneLayout(UIPanelState* ui) {
     int primitives_height = 0;
     int operations_height = 0;
     int construction_height = 0;
-    int workspace_top = 0;
-    int workspace_bottom = 0;
+    int categories_height = 0;
+    int workspace_height = 0;
+    int cursor_y = 0;
+    int content_height = 0;
+    int scroll_offset = 0;
+    SDL_Rect content_rect = {0, 0, 0, 0};
 
     if (!ui) return;
 
@@ -27,76 +29,79 @@ void UIPanel_UpdateCreatePaneLayout(UIPanelState* ui) {
     ui->createPane.primitivesRect = zero;
     ui->createPane.operationsRect = zero;
     ui->createPane.constructionRect = zero;
+    ui->createPane.categoriesRect = zero;
 
     if (ui->activeRightTab != UI_PANEL_RIGHT_TAB_CREATE) return;
     if (ui->rightBodyRect.w <= 0 || ui->rightBodyRect.h <= 0) return;
 
     UIPanel_GetLayoutMetrics(&metrics);
+    content_rect = ui->rightBodyRect;
+    if (!object_mode && content_rect.w > 12) content_rect.w -= 12;
     summary_height = UIPanel_CreateSummaryReservedHeight(ui);
     primitives_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_PRIMITIVES);
     operations_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_OPERATIONS);
     construction_height = object_mode
         ? 0
         : UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_CONSTRUCTION);
-
-    ui->createPane.summaryRect = (SDL_Rect){
-        ui->rightBodyRect.x,
-        ui->rightBodyRect.y,
-        ui->rightBodyRect.w,
-        summary_height
-    };
+    categories_height = object_mode
+        ? 0
+        : UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES);
+    workspace_height = object_mode ? 0 :
+        metrics.group_header_height_px + (metrics.button_height_px * 3) +
+        (metrics.button_spacing_px * 2);
 
     if (object_mode) {
+        ui->createPane.summaryRect = (SDL_Rect){content_rect.x, content_rect.y, content_rect.w, summary_height};
         ui->createPane.operationsRect = (SDL_Rect){
-            ui->rightBodyRect.x,
-            ui->rightBodyRect.y + ui->rightBodyRect.h - operations_height,
-            ui->rightBodyRect.w,
+            content_rect.x,
+            content_rect.y + content_rect.h - operations_height,
+            content_rect.w,
             operations_height
         };
         ui->createPane.primitivesRect = (SDL_Rect){
             ui->rightBodyRect.x,
             ui->createPane.operationsRect.y - UI_CREATE_PANE_SECTION_GAP - primitives_height,
-            ui->rightBodyRect.w,
+            content_rect.w,
             primitives_height
         };
-    } else {
-        ui->createPane.constructionRect = (SDL_Rect){
-            ui->rightBodyRect.x,
-            ui->rightBodyRect.y + ui->rightBodyRect.h - construction_height,
-            ui->rightBodyRect.w,
-            construction_height
-        };
-        ui->createPane.operationsRect = (SDL_Rect){
-            ui->rightBodyRect.x,
-            ui->createPane.constructionRect.y - UI_CREATE_PANE_SECTION_GAP - operations_height,
-            ui->rightBodyRect.w,
-            operations_height
-        };
-        ui->createPane.primitivesRect = (SDL_Rect){
-            ui->rightBodyRect.x,
-            ui->createPane.operationsRect.y - UI_CREATE_PANE_SECTION_GAP - primitives_height,
-            ui->rightBodyRect.w,
-            primitives_height
-        };
-    }
-    if (ui->createPane.primitivesRect.y < ui->rightBodyRect.y) {
-        ui->createPane.primitivesRect.y = ui->rightBodyRect.y;
+        return;
     }
 
-    workspace_top = ui->rightBodyRect.y + summary_height;
-    if (summary_height > 0) workspace_top += UI_CREATE_PANE_SECTION_GAP;
-    workspace_bottom = ui->createPane.primitivesRect.y - UI_CREATE_PANE_SECTION_GAP;
-    if (workspace_bottom < workspace_top) workspace_bottom = workspace_top;
-    ui->createPane.workspaceRect = (SDL_Rect){
-        ui->rightBodyRect.x,
-        workspace_top,
-        ui->rightBodyRect.w,
-        workspace_bottom - workspace_top
-    };
-    if (!object_mode &&
-        ui->createPane.workspaceRect.h > UI_CREATE_PANE_SCENE_WORKSPACE_MAX_H) {
-        ui->createPane.workspaceRect.h = UI_CREATE_PANE_SCENE_WORKSPACE_MAX_H;
+    cursor_y = content_rect.y;
+    ui->createPane.summaryRect = (SDL_Rect){content_rect.x, cursor_y, content_rect.w, summary_height};
+    cursor_y += summary_height + UI_CREATE_PANE_SECTION_GAP;
+    ui->createPane.workspaceRect = (SDL_Rect){content_rect.x, cursor_y, content_rect.w, workspace_height};
+    cursor_y += workspace_height + UI_CREATE_PANE_SECTION_GAP;
+    ui->createPane.categoriesRect = (SDL_Rect){content_rect.x, cursor_y, content_rect.w, categories_height};
+    cursor_y += categories_height + UI_CREATE_PANE_SECTION_GAP;
+
+    switch (ui->createCategory) {
+        case UI_CREATE_CATEGORY_GEOMETRY:
+            ui->createPane.primitivesRect = (SDL_Rect){content_rect.x, cursor_y, content_rect.w, primitives_height};
+            cursor_y += primitives_height;
+            break;
+        case UI_CREATE_CATEGORY_PATHS:
+        case UI_CREATE_CATEGORY_LIGHTING:
+        case UI_CREATE_CATEGORY_MATERIALS:
+            ui->createPane.operationsRect = (SDL_Rect){content_rect.x, cursor_y, content_rect.w, operations_height};
+            cursor_y += operations_height;
+            break;
+        case UI_CREATE_CATEGORY_CONSTRUCTION:
+            ui->createPane.constructionRect = (SDL_Rect){content_rect.x, cursor_y, content_rect.w, construction_height};
+            cursor_y += construction_height;
+            break;
+        default:
+            break;
     }
+    content_height = cursor_y - content_rect.y;
+    UIPanel_RightScrollSetContentHeight(ui, (float)content_height);
+    scroll_offset = (int)UIPanel_RightScrollOffset(ui);
+    ui->createPane.summaryRect.y -= scroll_offset;
+    ui->createPane.workspaceRect.y -= scroll_offset;
+    ui->createPane.categoriesRect.y -= scroll_offset;
+    ui->createPane.primitivesRect.y -= scroll_offset;
+    ui->createPane.operationsRect.y -= scroll_offset;
+    ui->createPane.constructionRect.y -= scroll_offset;
 }
 
 bool UIPanel_GetCreatePaneRects(const UIPanelState* ui,

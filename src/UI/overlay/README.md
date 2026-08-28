@@ -8,6 +8,8 @@ This subtree owns modal and overlay rendering above the pane-clipped editor UI.
 - `ui_panel_overlay_dialog_common.c` — shared dialog render helpers.
 - `ui_panel_overlay_dialog_file.c` — file/root dialog rendering.
 - `ui_panel_overlay_dialog_edit.c` — edit/dimension/bounds dialog rendering.
+- `ui_panel_overlay_scene_property.c` — direct scene-record property entry and
+  validation feedback; apply/cancel semantics remain in the panel lane.
 
 ## Boundary
 

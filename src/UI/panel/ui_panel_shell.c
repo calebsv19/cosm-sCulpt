@@ -247,6 +247,7 @@ bool UIPanel_ShouldShowGroup(const UIPanelState* ui, UIPanelGroup group) {
             case UI_PANEL_GROUP_RIGHT_PRIMITIVES:
             case UI_PANEL_GROUP_RIGHT_OPERATIONS:
             case UI_PANEL_GROUP_RIGHT_CONSTRUCTION:
+            case UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES:
                 return ui->activeRightTab == UI_PANEL_RIGHT_TAB_CREATE;
             case UI_PANEL_GROUP_RIGHT_PRISM:
             case UI_PANEL_GROUP_RIGHT_GIZMO:
@@ -278,6 +279,7 @@ bool UIPanel_ShouldShowGroup(const UIPanelState* ui, UIPanelGroup group) {
         case UI_PANEL_GROUP_RIGHT_PRIMITIVES:
         case UI_PANEL_GROUP_RIGHT_OPERATIONS:
         case UI_PANEL_GROUP_RIGHT_CONSTRUCTION:
+        case UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES:
             return ui->activeRightTab == UI_PANEL_RIGHT_TAB_CREATE;
 
         case UI_PANEL_GROUP_RIGHT_PRISM:

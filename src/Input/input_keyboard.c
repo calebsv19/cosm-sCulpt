@@ -178,6 +178,11 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
             if (Input_CancelObjectFaceAuthoring(state)) {
                 return;
             }
+            if (UIPanel_Get()->pathPointPlacementArmed) {
+                UIPanel_Get()->pathPointPlacementArmed = false;
+                Global_FlagHitboxesDirty();
+                return;
+            }
             ctx->quit = true;
             return;
         }

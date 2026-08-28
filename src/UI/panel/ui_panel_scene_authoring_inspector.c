@@ -101,6 +101,28 @@ bool UIPanel_ToggleSceneAuthoringEditMode(void) {
     return Editor_SetSceneAuthoringEditMode(&state->editor, target);
 }
 
+bool UIPanel_TogglePathPointPlacement(void) {
+    UIPanelState* ui = UIPanel_Get();
+    GlobalState* state = Global_Get();
+    if (!ui || !state ||
+        state->layout.sceneAuthoring.selected_kind != LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH ||
+        state->layout.sceneAuthoring.selected_index >= state->layout.sceneAuthoring.path_count) {
+        return false;
+    }
+    ui->pathPointPlacementArmed = !ui->pathPointPlacementArmed;
+    if (ui->pathPointPlacementArmed) {
+        (void)Editor_SetSceneAuthoringEditMode(&state->editor, SCENE_AUTHORING_EDIT_MODE_PATH);
+    }
+    Global_FlagHitboxesDirty();
+    return true;
+}
+
+bool UIPanel_RemoveSelectedPathPoint(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    return SceneAuthoringPathHandles_DeleteSelectedControlPoint(state, &state->editor);
+}
+
 bool UIPanel_ToggleSelectedSceneAuthoringLightEnabled(void) {
     GlobalState* state = Global_Get();
     if (!state) return false;

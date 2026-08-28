@@ -6,7 +6,7 @@
 #include "Math/math_util.h"
 #include "core_units.h"
 
-#define MAX_UI_BUTTONS 100
+#define MAX_UI_BUTTONS 128
 
 typedef enum {
     UI_PANEL_LEFT,
@@ -35,6 +35,7 @@ typedef enum {
     UI_PANEL_GROUP_LEFT_ROOT_PATHS,
     UI_PANEL_GROUP_RIGHT_VIEW,
     UI_PANEL_GROUP_RIGHT_MODES,
+    UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES,
     UI_PANEL_GROUP_RIGHT_PRIMITIVES,
     UI_PANEL_GROUP_RIGHT_OPERATIONS,
     UI_PANEL_GROUP_RIGHT_CONSTRUCTION,
@@ -153,6 +154,14 @@ typedef struct {
 #define UI_BTN_PREVIEW_MATERIAL 87
 #define UI_BTN_PREVIEW_BOUNDS 88
 #define UI_BTN_SAVE_AS 89
+#define UI_BTN_CREATE_CATEGORY_GEOMETRY 90
+#define UI_BTN_CREATE_CATEGORY_PATHS 91
+#define UI_BTN_CREATE_CATEGORY_LIGHTING 92
+#define UI_BTN_CREATE_CATEGORY_MATERIALS 93
+#define UI_BTN_CREATE_CATEGORY_CONSTRUCTION 94
+#define UI_BTN_SCENE_AUTHORING_PATH_ADD_POINT 95
+#define UI_BTN_SCENE_AUTHORING_PATH_REMOVE_POINT 96
+#define UI_BTN_SCENE_AUTHORING_EDIT_LABEL 97
 
 #define MAX_CONFIG_FILES 128
 #define MAX_CONFIG_PATH 512
@@ -171,6 +180,29 @@ typedef enum {
     UI_LOAD_MENU_SELECTION_ACTIVE_SESSION = 1,
     UI_LOAD_MENU_SELECTION_REMEMBERED_ENTRY = 2
 } UILoadMenuSelectionState;
+
+typedef enum {
+    UI_CREATE_CATEGORY_GEOMETRY = 0,
+    UI_CREATE_CATEGORY_PATHS = 1,
+    UI_CREATE_CATEGORY_LIGHTING = 2,
+    UI_CREATE_CATEGORY_MATERIALS = 3,
+    UI_CREATE_CATEGORY_CONSTRUCTION = 4
+} UICreateCategory;
+
+typedef enum {
+    UI_SCENE_PROPERTY_DIALOG_NONE = 0,
+    UI_SCENE_PROPERTY_DIALOG_LABEL,
+    UI_SCENE_PROPERTY_DIALOG_CAMERA_ROLL,
+    UI_SCENE_PROPERTY_DIALOG_CAMERA_FOV,
+    UI_SCENE_PROPERTY_DIALOG_CAMERA_CLIP,
+    UI_SCENE_PROPERTY_DIALOG_PATH_SCRUB,
+    UI_SCENE_PROPERTY_DIALOG_PATH_DURATION,
+    UI_SCENE_PROPERTY_DIALOG_LIGHT_PATH,
+    UI_SCENE_PROPERTY_DIALOG_LIGHT_COLOR,
+    UI_SCENE_PROPERTY_DIALOG_LIGHT_INTENSITY,
+    UI_SCENE_PROPERTY_DIALOG_LIGHT_SIZE,
+    UI_SCENE_PROPERTY_DIALOG_LIGHT_CONE
+} UIScenePropertyDialogTarget;
 
 typedef struct UIPanelFileBrowserRestoreSummary {
     UILoadMenuMode mode;
@@ -287,6 +319,7 @@ typedef struct {
         SDL_Rect primitivesRect;
         SDL_Rect operationsRect;
         SDL_Rect constructionRect;
+        SDL_Rect categoriesRect;
     } createPane;
     struct {
         SDL_Rect summaryRect;
@@ -309,6 +342,16 @@ typedef struct {
         int scrollbarDragStartY;
         float scrollbarDragStartOffsetPx;
     } sceneList;
+
+    UICreateCategory createCategory;
+    struct {
+        float scrollOffsetPx;
+        float contentHeightPx;
+        bool scrollbarDragging;
+        int scrollbarDragStartY;
+        float scrollbarDragStartOffsetPx;
+    } rightScroll[UI_PANEL_RIGHT_TAB_COUNT];
+    bool pathPointPlacementArmed;
 
     struct {
         bool active;
@@ -398,6 +441,15 @@ typedef struct {
         size_t cursor;
     } objectTransformDialog;
 
+    struct {
+        bool active;
+        UIScenePropertyDialogTarget target;
+        char buffer[160];
+        size_t length;
+        size_t cursor;
+        char validationMessage[128];
+    } scenePropertyDialog;
+
     CoreUnitKind displayUnit;
 } UIPanelState;
 
@@ -454,6 +506,7 @@ bool UIPanel_IsPrismDimensionDialogActive(void);
 bool UIPanel_IsSceneBoundsDialogActive(void);
 bool UIPanel_IsConstructionPlaneDialogActive(void);
 bool UIPanel_IsObjectTransformDialogActive(void);
+bool UIPanel_IsScenePropertyDialogActive(void);
 bool UIPanel_HandleTextInput(const char* text);
 bool UIPanel_HandleKeyEvent(const SDL_Event* event);
 bool UIPanel_IsCapturingKeyboard(void);
@@ -533,4 +586,11 @@ bool UIPanel_CreateSceneAuthoringCameraPath(void);
 bool UIPanel_CreateSceneAuthoringLightPath(void);
 bool UIPanel_CreateSceneAuthoringGenericPath(void);
 bool UIPanel_CreateSceneAuthoringMaterial(void);
+bool UIPanel_BeginScenePropertyDialog(UIScenePropertyDialogTarget target);
+bool UIPanel_ApplyScenePropertyDialog(UIPanelState* ui);
+void UIPanel_CloseScenePropertyDialog(UIPanelState* ui);
+const char* UIPanel_ScenePropertyDialogTitle(UIScenePropertyDialogTarget target);
+const char* UIPanel_ScenePropertyDialogHint(UIScenePropertyDialogTarget target);
+bool UIPanel_TogglePathPointPlacement(void);
+bool UIPanel_RemoveSelectedPathPoint(void);
 bool UIPanel_FitSceneBoundsToSelectedObject(void);

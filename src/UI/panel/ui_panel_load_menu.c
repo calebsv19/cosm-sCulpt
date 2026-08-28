@@ -3,6 +3,7 @@
 #include "UI/panel/ui_panel_file_browser_internal.h"
 #include "UI/ui_panel_file_summary.h"
 #include "UI/ui_panel_object_workspace_summary.h"
+#include "UI/ui_panel_right_scroll.h"
 #include "UI/ui_panel_scene_list.h"
 #include "UI/ui_panel_shell.h"
 
@@ -1498,7 +1499,10 @@ void UIPanel_HandleMouseMotion(int mouseX, int mouseY) {
         for (int i = 0; i < ui->count; ++i) {
             UIButton* btn = &ui->buttons[i];
             const SDL_Rect r = btn->bounds;
-            btn->hovered = mouseX >= r.x && mouseX <= r.x + r.w &&
+            const bool inside_right_body = btn->side != UI_PANEL_RIGHT ||
+                (mouseX >= ui->rightBodyRect.x && mouseX < ui->rightBodyRect.x + ui->rightBodyRect.w &&
+                 mouseY >= ui->rightBodyRect.y && mouseY < ui->rightBodyRect.y + ui->rightBodyRect.h);
+            btn->hovered = inside_right_body && mouseX >= r.x && mouseX <= r.x + r.w &&
                            mouseY >= r.y && mouseY <= r.y + r.h;
             if (btn->hovered && state && state->spaceMode == SPACE_MODE_3D) {
                 if (btn->id == UI_BTN_CREATE_PLANE && !use_face_sketch_controls) {
@@ -1516,6 +1520,7 @@ void UIPanel_HandleMouseMotion(int mouseX, int mouseY) {
 
     UIPanel_HandleSceneListMouseMotion(mouseX, mouseY);
     UIPanel_ObjectWorkspaceHandleModelTreeMouseMotion(mouseX, mouseY);
+    UIPanel_RightScrollHandleMouseMotion(mouseX, mouseY);
 
     if (!ui || !UIPanel_IsLoadMenuOpen()) {
         if (ui) ui->loadMenu.hoverIndex = -1;
