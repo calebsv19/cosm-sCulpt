@@ -143,3 +143,7 @@ checksum/manifest sidecars.
 
 Note:
 - a fresh clone will still need an `AppIcon.icns` copied into `tools/packaging/macos/local_app_icon/` before plain packaging picks it up, because that lane is intentionally ignored.
+
+## Ordinary macOS release input
+
+`make RELEASE_ROOT=build/release-authenticated/<job-id> release-artifact-disposable` produces a create-only pre-authentication sCulpt.app, ZIP, checksum and source-bound manifest. The job root and its ancestors must be contained and non-symlink; existing roots are rejected. The package self-test runs against that isolated app. Developer ID signing/notarization is a later approved stage. This target does not refresh Desktop or produce a Linux artifact; Linux packaging remains a separately selected release scope.
