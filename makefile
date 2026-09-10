@@ -16,6 +16,7 @@ include make/rules-vulkan-runtime.mk
 include make/package-macos.mk
 include make/package-linux-desktop.mk
 include make/release.mk
+include make/release-disposable.mk
 include make/tools-shape.mk
 
 print-app-target:
