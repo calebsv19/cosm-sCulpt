@@ -280,9 +280,29 @@ static bool apply_material_for_object(cJSON* object_materials, const cJSON* item
     const char* object_id = json_string_or(item, "id", NULL);
     const char* prompt = object_material_prompt(item);
     const cJSON* explicit_stack = object_explicit_stack(item);
+    const cJSON* graph = cJSON_GetObjectItemCaseSensitive(item, "surface_graph");
+    if (!graph) graph = cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(item, "ray_tracing"), "surface_graph");
     cJSON* entry = NULL;
     cJSON* stack = NULL;
 
+    /* Preserve a declared typed graph as source truth; optiC preflight owns execution validation. */
+    if (graph) {
+        const cJSON* version = cJSON_GetObjectItemCaseSensitive(graph, "version");
+        const char* capability = json_string_or(graph, "required_capability", "");
+        if (!object_id || !object_id[0] || !cJSON_IsObject(graph) || !cJSON_IsNumber(version) ||
+            version->valuedouble != 1 || strcmp(capability, "optic.surface_graph_v1") ||
+            strcmp(json_string_or(graph, "color_space", ""), "linear") || prompt || explicit_stack ||
+            (strcmp(kind, "mesh_asset_instance") && strcmp(kind, "plane") && strcmp(kind, "rect_prism"))) return false;
+        entry = find_or_create_object_material(object_materials, object_id);
+        if (!entry || cJSON_GetObjectItemCaseSensitive(entry, "material_texture_stack") ||
+            cJSON_GetObjectItemCaseSensitive(entry, "material_graph") ||
+            cJSON_GetObjectItemCaseSensitive(entry, "surface_material_binding")) return false;
+        cJSON* copy = cJSON_Duplicate(graph, 1);
+        if (!copy) return false;
+        cJSON_DeleteItemFromObjectCaseSensitive(entry, "surface_graph");
+        cJSON_AddItemToObject(entry, "surface_graph", copy);
+        return true;
+    }
     if (strcmp(kind, "mesh_asset_instance") != 0) return true;
     if (!object_id || !object_id[0] || (!prompt && !explicit_stack)) return true;
 

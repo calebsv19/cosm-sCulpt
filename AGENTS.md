@@ -1,45 +1,40 @@
-# Repository Guidelines
+# Sculpts / LineDrawing Agent Guide
 
-## Project Structure & Module Organization
-Core source lives under `src/` and is split by subsystem: `Core/`, `Input/`, `Layout/`, `Render/`, `UI/`, `Editor/`, `Math/`, and tooling in `src/Tools/` (`ShapeLib` plus export/trace helpers).  
-Tests live in `tests/` (`test_runner.c`, `test_math.c`, `test_layout.c`).  
-Runtime layout JSON files are in `config/`; exported shape assets are written to `export/`; font assets are in `include/fonts/`; third-party code is in `external/cjson/`.
+## Repository layout
 
-## Build, Test, and Development Commands
-- `make`: Build app binary at `build/toolchains/clang/bin/LineDrawing`.
-- `make run`: Build and launch the SDL app.
-- `make DEBUG=1`: Build with debug symbols (`-O0 -g`).
-- `make test`: Build and run `build/host/tests/bin/run_tests`.
-- `make shape_tool`: Build CLI shape conversion tool.
-- `make shape-sanity`: Build shape sanity utility.
-- `make export-assets SHAPE_ASSET_DIR=...`: Sync exported shapes into canonical shared asset directory.
-- `make clean`: Remove `build/`.
+- `src/`: C application code, organized by subsystem; CLI tools are in `src/Tools/`.
+- `include/`: public headers and fonts; `tests/`: unit and integration tests.
+- `config/`: runtime layouts; `export/`: generated assets.
+- `third_party/codework_shared/`: vendored shared modules; `external/cjson/`: JSON dependency.
 
-## Coding Style & Naming Conventions
-Use C11 and keep code warning-clean under `-Wall -Wextra -Werror -Wpedantic`.  
-Follow existing conventions:
-- 4-space indentation, braces on same line for functions/control flow.
-- File names use `snake_case` (for example `layout_json.c`).
-- Public API functions use `Module_Action` style (`Layout_AddWall`, `Global_Init`).
-- Keep headers paired with implementation files and include project headers by module path (`"Layout/layout.h"`).
-- Make single to double line summary comments for each method or important strtcu enum etc, so that all parts of our code files have easily referenceable summaries for each method and symbol.
-- After any major coding changes and updates to our system updates the read me docs in all given areas that have been edited or modified file wise.
+## Local commands
 
-## Testing Guidelines
-Add/extend tests in `tests/test_*.c` and wire suites through `tests/test_runner.c`.  
-Use the lightweight framework in `tests/test_framework.h` (`TEST_ASSERT`, grouped cases via `run_test_cases`).  
-Cover layout JSON compatibility, editor undo/redo behavior, and math/grid helpers when touching those paths.
+- `make`: build `build/toolchains/clang/bin/LineDrawing`.
+- `make test`: build and run the host unit tests.
+- `make agent_scene_tool`: build the agent scene CLI.
+- `make agent-scene-smoke`: verify the agent scene producer.
+- `make shape_tool` and `make shape-sanity`: build and check shape tooling.
 
-## Commit & Pull Request Guidelines
-Match repository history style: short, imperative/past-tense summaries with a capitalized first word (for example, `Added Export Button`, `Updated Makefile`).  
-For PRs, include:
-- What changed and why.
-- Commands run (`make`, `make test`).
-- Screenshots/video for UI or rendering changes.
-- Linked issue/task when applicable.
+Use the tests relevant to the change. Preserve existing build outputs unless a
+clean rebuild is needed. Launch the desktop app only when the task calls for it.
 
-URGENT NOTE FOR GIT COMMITS
-ONLY MAKE COMMIT AFTER EXPLICIT PERMISSION IS ASKED AND GIVEN BY THE USER, SO THAT NO UNNECCESSARY COMMITS ARE MADE
+## Implementation
 
-## Environment & Dependency Notes
-The `makefile` now resolves shared modules through the vendored `third_party/codework_shared` subtree (for example `third_party/codework_shared/vk_renderer`, `third_party/codework_shared/core/core_base`, `third_party/codework_shared/timer_hud`).
+Use C11, four-space indentation and the existing naming conventions:
+`snake_case` files and `Module_Action` public functions. Keep builds warning-clean
+under `-Wall -Wextra -Werror -Wpedantic` and use module-qualified header paths.
+
+Add brief comments where they explain a public contract, ownership rule or
+non-obvious behavior. Update the relevant README or contract when behavior changes.
+Use the existing test framework and register new C suites in `tests/test_runner.c`;
+use the CLI integration tests for producer/export behavior.
+
+## Changes and commits
+
+Check `git status --short` before editing and preserve unrelated work. Make focused
+local commits for completed, verified implementation work unless the user asks to
+leave it uncommitted. Do not request confirmation again for an authorized commit.
+Keep publishing, releases and deployment within the user's explicitly requested scope.
+
+Use concise commit titles. PR descriptions should explain the behavior change and
+relevant validation; include captures when they help review a UI change.
