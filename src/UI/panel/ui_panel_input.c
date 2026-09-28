@@ -1,4 +1,5 @@
 #include "UI/ui_panel_internal.h"
+#include "UI/ui_panel_measurement.h"
 
 #include <SDL2/SDL.h>
 #include <ctype.h>
@@ -7,6 +8,7 @@
 bool UIPanel_HandleTextInput(const char* text) {
     UIPanelState* ui = UIPanel_Get();
     if (!text) return false;
+    if (ui->measurement.active) return true;
 
     if (ui->scenePropertyDialog.active) {
         const UIScenePropertyDialogTarget target = ui->scenePropertyDialog.target;
@@ -154,6 +156,7 @@ bool UIPanel_HandleKeyEvent(const SDL_Event* event) {
     if (event->type != SDL_KEYDOWN) return false;
 
     SDL_Keycode key = event->key.keysym.sym;
+    if (UIPanel_MeasurementKey(key)) return true;
     if (ui->scenePropertyDialog.active) {
         if (key == SDLK_RETURN || key == SDLK_KP_ENTER) return UIPanel_ApplyScenePropertyDialog(ui);
         if (key == SDLK_ESCAPE) {

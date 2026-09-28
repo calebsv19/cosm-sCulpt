@@ -1,6 +1,7 @@
 #include "UI/overlay/ui_panel_overlay_render_internal.h"
 
 #include "UI/ui_panel_internal.h"
+#include "UI/ui_panel_measurement.h"
 #include "UI/font_manager.h"
 #include "UI/info_overlay.h"
 #include "UI/shared_theme_font_adapter.h"
@@ -557,4 +558,5 @@ void UIPanelOverlay_RenderEditDialogs(SDL_Renderer* renderer, const UIPanelState
     RenderSceneBoundsDialog(renderer, ui);
     RenderConstructionPlaneDialog(renderer, ui);
     RenderObjectTransformDialog(renderer, ui);
+    UIPanel_RenderMeasurement(renderer);
 }

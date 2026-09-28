@@ -2,6 +2,17 @@
 
 Last updated: 2026-09-28
 
+## Geometric measurements (2026-09-28)
+
+The Object tab now includes a read-only Measure dialog for primitive origins,
+U/V/N axes and named faces. It reports point distance, explicit-axis signed
+projection, unsigned direction angle, signed planar angle and parallel-plane gap.
+Stable entity/feature operands resolve current geometry; invalid or deleted
+references return explicit status. No saved annotations or driving constraints.
+See [geometric measurements](geometric_measurements.md) for exact definitions,
+usage, proof and limitations. Full source tests: 403 across 41 reported suites;
+Main Edit package self-test passed, with a bounded candidate UI angle check.
+
 ## Spatial Engineering Audit (2026-09-28)
 
 The S0 physical-document foundation and S1a numerical-edit slice are implemented
@@ -16,7 +27,8 @@ See [engineering document contract](engineering_document_contract.md) for scope,
 tolerances, migration and verification. Full tests, resize tests, scene producer
 smoke and Main Edit package self-test pass. Editor first-frame capture succeeded;
 interactive dialog acceptance and physical measurement accuracy are not claimed.
-Measurement references and persistent distance/angle constraints remain next.
+The reference/measurement portion of S1b is now implemented as described above;
+persistent distance/angle constraints remain next.
 Semantic views, nested assemblies, motion and full transactional agent APIs
 remain future work in [spatial engineering direction](spatial_engineering_direction.md).
 

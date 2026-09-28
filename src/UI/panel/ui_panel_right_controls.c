@@ -75,6 +75,7 @@ static bool UIPanel_RightControlButtonVisible(int button_id) {
         case UI_BTN_EDIT_PRISM_DEPTH:
         case UI_BTN_CYCLE_DISPLAY_UNITS:
         case UI_BTN_TOGGLE_OBJECT_GIZMO_MODE:
+        case UI_BTN_MEASURE:
         case UI_BTN_EDIT_OBJECT_POSITION:
         case UI_BTN_EDIT_OBJECT_ROTATION_X:
         case UI_BTN_EDIT_OBJECT_ROTATION_Y:
@@ -196,6 +197,7 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
         case UI_BTN_SCENE_AUTHORING_LIGHT_CONE: spec = (UIPanelRightControlRowSpec){ 15, 1, 0 }; break;
         case UI_BTN_SCENE_AUTHORING_LIGHT_FALLOFF: spec = (UIPanelRightControlRowSpec){ 16, 1, 0 }; break;
         case UI_BTN_TOGGLE_OBJECT_GIZMO_MODE: spec = (UIPanelRightControlRowSpec){ 9, 1, 0 }; break;
+        case UI_BTN_MEASURE: spec = (UIPanelRightControlRowSpec){ 12, 1, 0 }; break;
         case UI_BTN_EDIT_OBJECT_POSITION: spec = (UIPanelRightControlRowSpec){ 10, 1, 0 }; break;
         case UI_BTN_EDIT_OBJECT_ROTATION_X: spec = (UIPanelRightControlRowSpec){ 11, 3, 0 }; break;
         case UI_BTN_EDIT_OBJECT_ROTATION_Y: spec = (UIPanelRightControlRowSpec){ 11, 3, 1 }; break;

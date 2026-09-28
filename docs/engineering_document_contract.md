@@ -1,6 +1,6 @@
 # Engineering Document Foundation (S0)
 
-Status: implemented S0 and S1a; measurement and persistent constraints remain pending
+Status: implemented S0/S1a; S1b references/measurements added; driving constraints pending
 Date: 2026-09-28
 
 ## Physical meaning and compatibility
@@ -104,3 +104,11 @@ malformed input and rejected bounds edits. No new release or Desktop install.
 This slice does not add measurement tools, orthographic controls, persistent
 distance/angle constraints, a solver, arbitrary frame conversion, numerical
 rotation transactions or revision-checked multi-operation agent edits.
+
+## S1b follow-up
+
+The [geometric measurement contract](geometric_measurements.md) now implements
+stable primitive origin/axis/face resolution and read-only distance/angle queries
+through the Object tab Measure dialog. The S1a exclusions above describe that
+checkpoint; viewport picking/annotations, navigation/snap changes and persistent
+driving constraints remain future work.

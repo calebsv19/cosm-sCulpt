@@ -991,6 +991,8 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Gizmo: Mode (X)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_GIZMO, UI_BTN_TOGGLE_OBJECT_GIZMO_MODE);
     yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Measure", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_MEASURE);
+    yR += btnH + spacing;
     AddButton(&g_uiPanel, "Edit Pos", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_EDIT_OBJECT_POSITION);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Rot X", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_TRANSFORM, UI_BTN_EDIT_OBJECT_ROTATION_X);
@@ -1054,6 +1056,7 @@ bool UIPanel_IsObjectTransformDialogActive(void) {
 }
 
 bool UIPanel_IsCapturingKeyboard(void) {
+    if (g_uiPanel.measurement.active) return true;
     return UIPanel_IsSaveDialogActive() ||
            UIPanel_IsRootDialogActive() ||
            UIPanel_IsPrismDimensionDialogActive() ||
@@ -1074,6 +1077,7 @@ void UIPanel_ResetTransientUiState(void) {
     ui->sceneList.scrollbarDragging = false;
     ui->objectModelTree.operationScrollbarDragging = false;
     ui->pathPointPlacementArmed = false;
+    memset(&ui->measurement, 0, sizeof(ui->measurement));
     for (int i = 0; i < UI_PANEL_RIGHT_TAB_COUNT; ++i) {
         ui->rightScroll[i].scrollOffsetPx = 0.0f;
         ui->rightScroll[i].scrollbarDragging = false;

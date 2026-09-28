@@ -10,6 +10,9 @@ Public identity:
 
 ## Spatial Engineering Direction
 
+- [Geometric measurements](geometric_measurements.md): selectable primitive
+  origins, axes and faces; point/projected distances and relative angles.
+
 - [Engineering document contract](engineering_document_contract.md): implemented
   S0/S1a physical context, identity persistence and numerical edits with proof limits.
 

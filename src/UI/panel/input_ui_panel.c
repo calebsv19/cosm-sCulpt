@@ -1,4 +1,5 @@
 #include "UI/input_ui_panel.h"
+#include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_internal.h"
 #include "UI/ui_panel_object_workspace_summary.h"
@@ -145,6 +146,7 @@ static void UIPanel_ObjectEditSetSelectionMode(GlobalState* state,
 
 bool UIPanel_HandleClick(int mouseX, int mouseY) {
     UIPanelState* ui = UIPanel_Get();
+    if (ui->measurement.active) return UIPanel_MeasurementClick(mouseX, mouseY);
     GlobalState* state = Global_Get();
     EditorState* editor = &state->editor;
     Grid* grid = &state->grid;
@@ -655,6 +657,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     (void)UIPanel_ToggleObjectGizmoRotateMode();
                     break;
                 }
+                case UI_BTN_MEASURE: return UIPanel_BeginMeasurement();
                 case UI_BTN_EDIT_OBJECT_POSITION: {
                     UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginObjectPositionDialog();

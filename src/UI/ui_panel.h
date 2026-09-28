@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include "Math/math_util.h"
 #include "core_units.h"
+#include "Editor/editor_measurement.h"
+#define UI_BTN_MEASURE 98
 
 #define MAX_UI_BUTTONS 128
 
@@ -416,6 +418,13 @@ typedef struct {
         size_t cursor;
         char validationMessage[128];
     } prismDimensionDialog;
+    struct {
+        bool active;
+        EditorGeometricReference refs[2];
+        int slot;
+        int projection_axis;
+        int angle_plane;
+    } measurement;
 
     struct {
         bool active;
