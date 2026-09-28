@@ -1,6 +1,22 @@
 # Sculpt Current Truth
 
-Last updated: 2026-08-28
+Last updated: 2026-09-28
+
+## Spatial Engineering Audit (2026-09-28)
+
+At inspected source checkpoint `c8f5bf1`, `VERSION` is `0.4.0`. The editor already
+has length-unit conversions, numeric dimensions/transforms, persistent object
+identities, Scene/Object document workflows, snapshot history, mesh assets and
+a deterministic scene producer/export pipeline. These are foundations, not a
+complete engineering model. Typed semantic views, nested assemblies, engineering
+relationship/constraint validation, motion envelopes and transactional agent
+edits remain proposed work.
+
+The [spatial engineering direction](spatial_engineering_direction.md) records
+source entry points, current gaps and future stages. In particular, the fixed
+scale used by UI conversion helpers versus imported `world_scale` needs a focused
+end-to-end proof before measurement correctness is assumed. This audit did not
+launch the app or establish new hands-on/physical acceptance.
 
 ## Managed Vulkan Presentation Baseline
 
@@ -20,8 +36,10 @@ Last updated: 2026-08-28
 - This is presentation lifecycle adoption only. Scene authoring, CPU mesh
   preview/rasterization, editor policy, and application semantics remain
   LineDrawing-owned; no Vulkan compute/residency/timing workload API is used.
-- LineDrawing remains version `0.3.0`. This source state is not a new release,
-  Registry promotion, Linux application proof, or RayTracing rollout.
+- The presentation adoption above was recorded at version `0.3.0`; the
+  current source VERSION is `0.4.0`. This historical presentation proof does
+  not establish a new release, Registry promotion, Linux application proof,
+  or RayTracing rollout.
 
 ## Program Identity
 - Repository directory: `line_drawing/`

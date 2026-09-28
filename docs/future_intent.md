@@ -1,6 +1,20 @@
 # Line Drawing Future Intent
 
-Last updated: 2026-07-14
+Last updated: 2026-09-28
+
+## Spatial Engineering Priority
+
+The next product direction is accurate physical layout and semantic system
+description, with a camper-van mockup as the first proving project. Preserve
+Scene/Object workflows and existing exports. Strengthen units, numeric edits,
+measurement and query/undo boundaries before broad modeling complexity.
+
+See [Spatial Engineering Direction](spatial_engineering_direction.md) for the
+inspected capability gaps, proposed stages and first van workflow. An Engineering
+workspace is a candidate view over the existing authored document, not a second
+geometry store. Exact vehicle dimensions remain pending; illustrative geometry
+must stay labeled as such. The older stabilization intentions below remain
+context and should be rechecked when a slice touches them.
 
 ## Scene Editor Stabilization Intent
 

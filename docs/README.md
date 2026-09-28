@@ -1,12 +1,19 @@
 # Sculpt Docs Index
 
-Last updated: 2026-08-28
+Last updated: 2026-09-28
 
 Start here for public repository documentation.
 
 Public identity:
 - packaged desktop product: `Sculpt`
 - repository/program key: `line_drawing`
+
+## Spatial Engineering Direction
+
+- [Spatial engineering direction](spatial_engineering_direction.md): proposed
+  product goals, inspected foundations, and iterative delivery toward accurate
+  physical layout, semantic scenes and agent editing. This is future direction,
+  not a claim that the engineering feature set is implemented.
 
 ## Scaffold State
 - `docs/current_truth.md`: current scaffold/runtime structure and verification snapshot.
