@@ -477,7 +477,7 @@ static bool test_layout_json_v9_persists_mesh_asset_instance_payload(void) {
         const cJSON* obj0 = cJSON_GetArrayItem(objects3d, 0);
         const cJSON* mesh = cJSON_IsObject(obj0) ? cJSON_GetObjectItem(obj0, "meshAssetInstance") : NULL;
         TEST_ASSERT(cJSON_IsNumber(version));
-        TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION_OBJECT3D_MESH_INSTANCE);
+        TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION);
         TEST_ASSERT(cJSON_IsObject(mesh));
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(mesh, "assetId")->valuestring, "asset_test_mesh") == 0);
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(mesh, "runtimePath")->valuestring, runtime_path) == 0);

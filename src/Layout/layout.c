@@ -467,6 +467,7 @@ void Layout_MarkWallDeleted(Layout* layout, int wallIndex) {
 
 void Layout_Init(Layout* layout, float gridSize) {
     layout->gridSize = gridSize;
+    layout->metersPerWorldUnit = 1.0;
     Layout_Scene3DSettings_SetDefaults(&layout->scene3d);
     Layout_SceneAuthoringState_Init(&layout->sceneAuthoring);
     Layout_ObjectStore_Init(&layout->objectStore);

@@ -882,7 +882,8 @@ static cJSON* build_scene_json(const Layout* layout,
         string_or_default(options ? options->unit_system : NULL, kDefaultUnitSystem);
     resolved_conversion_policy =
         string_or_default(options ? options->conversion_policy : NULL, kConversionPolicy);
-    resolved_world_scale = scene_authoring_world_scale_or_default(options);
+    resolved_world_scale = options && options->world_scale != 0.0
+        ? options->world_scale : Layout_WorldScale(layout);
 
     if (core_units_validate_world_scale(resolved_world_scale).code != CORE_OK) return NULL;
 
@@ -1051,7 +1052,9 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_Delete(root);
         return NULL;
     }
-    if (!add_layout_snapshot_extension(line_drawing_ext, layout)) {
+    Layout snapshot_layout = *layout;
+    snapshot_layout.metersPerWorldUnit = resolved_world_scale;
+    if (!add_layout_snapshot_extension(line_drawing_ext, &snapshot_layout)) {
         cJSON_Delete(root);
         return NULL;
     }

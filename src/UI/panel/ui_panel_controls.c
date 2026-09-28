@@ -216,7 +216,7 @@ bool UIPanel_ToggleSceneBoundsClampOnEdit(void) {
 
 bool UIPanel_ConvertWorldToDisplay(double world_value, double* out_display_value) {
     CoreResult r = core_units_world_to_unit(world_value,
-                                            1.0,
+                                            Layout_WorldScale(&Global_Get()->layout),
                                             UIPanel_Get()->displayUnit,
                                             out_display_value);
     return out_display_value && r.code == CORE_OK;
@@ -225,7 +225,7 @@ bool UIPanel_ConvertWorldToDisplay(double world_value, double* out_display_value
 bool UIPanel_ConvertDisplayToWorld(double display_value, double* out_world_value) {
     CoreResult r = core_units_unit_to_world(display_value,
                                             UIPanel_Get()->displayUnit,
-                                            1.0,
+                                            Layout_WorldScale(&Global_Get()->layout),
                                             out_world_value);
     return out_world_value && r.code == CORE_OK;
 }

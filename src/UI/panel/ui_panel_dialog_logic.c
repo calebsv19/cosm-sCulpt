@@ -30,7 +30,7 @@ static bool UIPanelDialog_ConvertWorldToDisplayWithUnit(CoreUnitKind unit,
                                                         double world_value,
                                                         double* out_display_value) {
     if (!UIPanelDialog_IsSupportedDisplayUnit(unit) || !out_display_value) return false;
-    CoreResult r = core_units_world_to_unit(world_value, 1.0, unit, out_display_value);
+    CoreResult r = core_units_world_to_unit(world_value, Layout_WorldScale(&Global_Get()->layout), unit, out_display_value);
     return r.code == CORE_OK;
 }
 
@@ -38,7 +38,7 @@ static bool UIPanelDialog_ConvertDisplayToWorldWithUnit(CoreUnitKind unit,
                                                         double display_value,
                                                         double* out_world_value) {
     if (!UIPanelDialog_IsSupportedDisplayUnit(unit) || !out_world_value) return false;
-    CoreResult r = core_units_unit_to_world(display_value, unit, 1.0, out_world_value);
+    CoreResult r = core_units_unit_to_world(display_value, unit, Layout_WorldScale(&Global_Get()->layout), out_world_value);
     return r.code == CORE_OK;
 }
 

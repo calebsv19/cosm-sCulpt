@@ -1096,6 +1096,15 @@ static bool test_scene_import_accepts_supported_authoring_unit_metadata(void) {
     TEST_ASSERT(imported.anchorCount == layout.anchorCount);
     TEST_ASSERT(imported.wallCount == layout.wallCount);
     TEST_ASSERT(imported.anchors[1].pos.y == layout.anchors[1].pos.y);
+    {
+        char* exported = LineDrawingCanonicalScene_ExportLayoutToString(&imported, "scaled_roundtrip");
+        cJSON* root = exported ? cJSON_Parse(exported) : NULL;
+        const cJSON* scale = root ? cJSON_GetObjectItemCaseSensitive(root, "world_scale") : NULL;
+        TEST_ASSERT(cJSON_IsNumber(scale));
+        TEST_ASSERT(fabs(scale->valuedouble - 1.25) < 1e-12);
+        cJSON_Delete(root);
+        free(exported);
+    }
 
     remove(path);
     Layout_Free(&layout);

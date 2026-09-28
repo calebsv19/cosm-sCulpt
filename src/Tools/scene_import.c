@@ -528,6 +528,18 @@ bool LineDrawingSceneImport_LoadLayoutFromAuthoringFile(Layout* layout,
         goto cleanup;
     }
 
+    /* Root and snapshot are one physical document, never two scale authorities. */
+    const cJSON* physical = cJSON_GetObjectItemCaseSensitive(layout_snapshot, "physicalContext");
+    if (physical) {
+        const cJSON* snapshot_scale = cJSON_GetObjectItemCaseSensitive(physical, "metersPerWorldUnit");
+        const cJSON* root_scale = cJSON_GetObjectItemCaseSensitive(root, "world_scale");
+        const double expected_scale = cJSON_IsNumber(root_scale) ? root_scale->valuedouble : 1.0;
+        if (!cJSON_IsNumber(snapshot_scale) || snapshot_scale->valuedouble != expected_scale) {
+            write_diagnostics(diagnostics, diagnostics_size, "root and snapshot physical scales disagree");
+            goto cleanup;
+        }
+    }
+
     snapshot_text = cJSON_PrintBuffered(layout_snapshot, 1024, cJSON_True);
     if (!snapshot_text) {
         write_diagnostics(diagnostics, diagnostics_size, "failed to materialize embedded layout snapshot");
@@ -543,6 +555,8 @@ bool LineDrawingSceneImport_LoadLayoutFromAuthoringFile(Layout* layout,
 
 cleanup:
     if (ok) {
+        const cJSON* scale = cJSON_GetObjectItemCaseSensitive(root, "world_scale");
+        layout->metersPerWorldUnit = cJSON_IsNumber(scale) ? scale->valuedouble : 1.0;
         size_t resolved_mesh_count = 0u;
         size_t changed_mesh_count = 0u;
         size_t unresolved_mesh_count = 0u;

@@ -242,6 +242,8 @@ typedef struct {
 // ======================================
 typedef struct {
     float gridSize;
+    /* Physical meters per stored coordinate; new documents use 1.0. */
+    double metersPerWorldUnit;
     Scene3DSettings scene3d;
     LineDrawingSceneAuthoringState sceneAuthoring;
     LayoutObjectStore objectStore;
@@ -256,6 +258,11 @@ typedef struct {
 
 //        Public layout management
 // ======================================
+#define LINE_DRAWING_PHYSICAL_FRAME "right_handed_z_up_meters"
+/* Zero-initialized legacy callers have the historical meter scale. */
+static inline double Layout_WorldScale(const Layout* layout) {
+    return layout && layout->metersPerWorldUnit != 0.0 ? layout->metersPerWorldUnit : 1.0;
+}
 void Layout_Init(Layout* layout, float gridSize);
 void Layout_Free(Layout* layout);
 void Layout_CompactDeletedElements(Layout* layout);

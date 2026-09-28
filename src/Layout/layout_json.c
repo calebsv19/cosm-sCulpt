@@ -4,6 +4,7 @@
 #include "Core/global_state.h"
 #include "core_io.h"
 #include "core_scene.h"
+#include "core_units.h"
 #include "cjson/cJSON.h"
 #include <SDL2/SDL.h>
 #include <stdlib.h>
@@ -686,6 +687,7 @@ static bool Transform3D_FromJsonObject(const cJSON* node, Transform3D* out) {
 }
 
 static cJSON* Layout_CreateJson(const Layout* layout) {
+    if (!layout || core_units_validate_world_scale(Layout_WorldScale(layout)).code != CORE_OK) return NULL;
     cJSON* root = cJSON_CreateObject();
     if (!root) return NULL;
 
@@ -698,6 +700,13 @@ static cJSON* Layout_CreateJson(const Layout* layout) {
     cJSON_AddNumberToObject(file, "schemaVersion", LAYOUT_JSON_SCHEMA_VERSION);
     cJSON_AddStringToObject(file, "generator", LAYOUT_JSON_GENERATOR);
     cJSON_AddNumberToObject(file, "gridSize", layout->gridSize);
+    cJSON* physical = cJSON_AddObjectToObject(root, "physicalContext");
+    if (!physical ||
+        !cJSON_AddStringToObject(physical, "coordinateSystem", LINE_DRAWING_PHYSICAL_FRAME) ||
+        !cJSON_AddNumberToObject(physical, "metersPerWorldUnit", Layout_WorldScale(layout))) {
+        cJSON_Delete(root);
+        return NULL;
+    }
 
     cJSON* scene3d = cJSON_CreateObject();
     cJSON_AddItemToObject(root, "scene3d", scene3d);
@@ -740,6 +749,7 @@ static cJSON* Layout_CreateJson(const Layout* layout) {
         cJSON* node = cJSON_CreateObject();
         cJSON_AddItemToArray(objects3d, node);
         cJSON_AddNumberToObject(node, "id", (double)object->objectId);
+        cJSON_AddStringToObject(node, "persistentId", object->coreMeta.object_id);
         cJSON_AddStringToObject(node, "kind", Object3DKind_ToString(object->kind));
         cJSON_AddStringToObject(node, "objectType", object->coreMeta.object_type);
         cJSON_AddStringToObject(node, "dimensionalMode", CoreDimensionalMode_ToString(object->coreMeta.dimensional_mode));
@@ -848,8 +858,20 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
         return false;
     }
 
+    double worldScale = 1.0;
+    const cJSON* physical = cJSON_GetObjectItemCaseSensitive(root, "physicalContext");
+    if (physical || schemaVersion >= LAYOUT_JSON_SCHEMA_VERSION_PHYSICAL_CONTEXT) {
+        const cJSON* frame = cJSON_GetObjectItemCaseSensitive(physical, "coordinateSystem");
+        const cJSON* scale = cJSON_GetObjectItemCaseSensitive(physical, "metersPerWorldUnit");
+        if (!cJSON_IsObject(physical) || !cJSON_IsString(frame) ||
+            strcmp(frame->valuestring, LINE_DRAWING_PHYSICAL_FRAME) != 0 ||
+            !cJSON_IsNumber(scale) ||
+            core_units_validate_world_scale(scale->valuedouble).code != CORE_OK) return false;
+        worldScale = scale->valuedouble;
+    }
     Layout temp;
     Layout_Init(&temp, targetGrid);
+    temp.metersPerWorldUnit = worldScale;
     if (schemaVersion >= LAYOUT_JSON_SCHEMA_VERSION_SCENE_BOUNDS) {
         const cJSON* scene3d = cJSON_GetObjectItem(root, "scene3d");
         const cJSON* bounds = cJSON_IsObject(scene3d) ? cJSON_GetObjectItem(scene3d, "bounds") : NULL;
@@ -1054,6 +1076,23 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
                     }
                 }
 
+                const cJSON* persistentId = cJSON_GetObjectItemCaseSensitive(node, "persistentId");
+                if (persistentId || schemaVersion >= LAYOUT_JSON_SCHEMA_VERSION_PHYSICAL_CONTEXT) {
+                    char typeName[sizeof(object->coreMeta.object_type)];
+                    snprintf(typeName, sizeof(typeName), "%s", object->coreMeta.object_type);
+                    if (!cJSON_IsString(persistentId) ||
+                        core_object_set_identity(&object->coreMeta, persistentId->valuestring, typeName).code != CORE_OK) {
+                        Layout_Free(&temp);
+                        return false;
+                    }
+                }
+                for (size_t prior = 0; prior + 1u < temp.objectStore.count; ++prior) {
+                    const Object3D* other = &temp.objectStore.items[prior];
+                    if (!other->isDeleted && strcmp(other->coreMeta.object_id, object->coreMeta.object_id) == 0) {
+                        Layout_Free(&temp);
+                        return false;
+                    }
+                }
                 if (object->kind == OBJECT3D_KIND_PLANE) {
                     const cJSON* plane = cJSON_GetObjectItem(node, "plane");
                     if (cJSON_IsObject(plane)) {
