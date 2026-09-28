@@ -62,8 +62,10 @@ EditorNumericEditResult Editor_ApplyReferencePlacement(EditorState* editor,
     if (placement->kind == EDITOR_PLACE_PROJECTED_DISTANCE &&
         (!isfinite(projection) || fabs(projection - placement->target_meters) > tolerance))
         return result(EDITOR_NUMERIC_CONFLICT, "Requested projected distance cannot be represented exactly enough.");
-    if (r.status == EDITOR_NUMERIC_UNCHANGED)
-        return result(EDITOR_NUMERIC_UNCHANGED, "References already satisfy this placement.");
+    if (r.status == EDITOR_NUMERIC_UNCHANGED) {
+        snprintf(r.message, sizeof(r.message), "References already satisfy this placement.");
+        return r;
+    }
     if (!Editor_TryHistoryCapture(editor, layout))
         return result(EDITOR_NUMERIC_NO_MEMORY, "Could not reserve undo history; placement was not applied.");
     *Layout_ObjectStore_Find(&layout->objectStore, candidate.objectId) = candidate;

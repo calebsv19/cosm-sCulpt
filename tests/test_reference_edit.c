@@ -75,7 +75,9 @@ static bool test_scaled_negative_and_coincident(void) {
     TEST_ASSERT(Editor_ApplyReferencePlacement(&s->editor,&s->layout,&p).status==EDITOR_NUMERIC_APPLIED);
     TEST_ASSERT(near_measure(&s->layout,p.a,p.b,EDITOR_MEASURE_POINT_DISTANCE,(Vec3){0},0));
     size_t n=Editor_UndoCount(&s->editor); s->layoutDirty=false; s->layoutDirtySinceSave=false;
-    TEST_ASSERT(Editor_ApplyReferencePlacement(&s->editor,&s->layout,&p).status==EDITOR_NUMERIC_UNCHANGED);
+    EditorNumericEditResult unchanged=Editor_ApplyReferencePlacement(&s->editor,&s->layout,&p);
+    TEST_ASSERT(unchanged.status==EDITOR_NUMERIC_UNCHANGED);
+    TEST_ASSERT(fabs(unchanged.actual_meters[0]-0.0254)<1e-6);
     TEST_ASSERT(Editor_UndoCount(&s->editor)==n && !s->layoutDirty && !s->layoutDirtySinceSave);
     ld_test_shutdown_runtime(); return true;
 }
