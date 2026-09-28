@@ -7,3 +7,5 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer);
 
 bool UIPanel_MeasurementPickAt(int x, int y);
 void UIPanel_RenderMeasurementViewport(SDL_Renderer* renderer);
+
+bool UIPanel_MeasurementText(const char* text);

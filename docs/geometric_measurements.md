@@ -1,6 +1,6 @@
-# Geometric References and Measurements (S1b reference portion)
+# Geometric References, Measurements and Exact Placement
 
-Status: implemented; driving constraints and remaining navigation work are pending.
+Status: measurements and one-time reference placements implemented; persistent driving constraints pending.
 Date: 2026-09-28
 
 ## Use in the editor
@@ -28,11 +28,72 @@ YZ and XZ orthographic views. These are view changes only: construction plane,
 geometry and history remain unchanged. Viewport pan/orbit/drag is reserved while
 picking; return to the normal editor to reposition the camera.
 
-The dialog is read-only: it consumes editing/viewport input while active and does
-not add undo entries, change geometry, or save annotations. Opening it again
+Inspection is read-only. Explicit placement commands below can change geometry.
+The modal consumes other editing/viewport input while active. Opening it again
 starts a new measurement selection. Reference operands resolve current geometry
 on each evaluation; no stale cached measurement is treated as authoritative.
 Empty scenes ask for a plane or prism. Unsupported operands report a reason.
+
+## Exact one-time placement (S1c prerequisite)
+
+Choose A, B and the projection axis, then press **D** (or click the left half of
+its action row). Enter a signed length such as `20 mm`, `-0.5 m` or `3.5 in`.
+Without a suffix, the current display unit applies. Enter or clicking the target
+row applies; Escape or the Cancel row cancels. Backspace edits the input.
+References and axes remain frozen during entry; errors keep the entry open.
+
+A stays fixed. B translates along the selected world axis until the signed
+projection of B-minus-A equals the target. Its perpendicular position, orientation
+and dimensions remain unchanged. Named face references use face centers. Negative
+targets put B on A's negative-axis side; this does not check collision or clearance.
+
+Press **C** (or the right half of the action row), then Enter to align B's reference
+point to A in all three axes. This aligns points only; it does not align normals or
+establish a hinge. A and B must belong to different primitive objects.
+
+Both commands reserve a single undo snapshot only after validating a candidate.
+Bounds clamping, plane locks, locked B, invalid references and insufficient numeric
+precision refuse the edit. Failure/no-op preserves document, dirty state and
+undo/redo. Geometry persists through save/reopen and canonical runtime export.
+Later edits can change the gap: **these commands create no persistent constraint**.
+A may be locked because it is only read. Non-unit primitive instance scales remain
+unsupported. Length tolerance is `1e-6 + 1e-7 * abs(target_meters)`; coincident point
+components use 1e-6 meters. Large world coordinates can cause a precision refusal.
+
+The structured C entry point is `Editor_ApplyReferencePlacement` in
+`src/Editor/editor_reference_edit.h`. It accepts stable references, kind, world
+axis (normalized by the command) and target meters. It reuses the candidate-only
+`Editor_PrepareNumericEdit` boundary and re-resolves the resulting feature before
+publishing. This is an internal synchronous command, not a new MCP endpoint.
+
+Proof: five ReferenceEdit tests cover face gaps, signed/scaled/oblique placement,
+point alignment, bounds/plane/object-lock failures, no-op/redo preservation, large
+coordinate precision rejection, undo/reopen/runtime export and modal input.
+`make test` passes 409 tests across 42 reported suites (including folder picker).
+`make visual-artifact-placement VISUAL_ARTIFACT_PATH=/tmp/placement.bmp` renders a
+disposable entry fixture; the 20 mm entry was visually inspected. No shared-module
+API/version changes: core_units and existing primitive/reference math are reused;
+application-specific placement/history policy stays in Editor.
+
+## Next implementation boundary
+
+This prerequisite does not close S1c. Persistent distance requires a common
+transaction boundary across the current mutation routes:
+
+| Route | Current owner | Required before enabling saved rules |
+|---|---|---|
+| Numeric edits | `editor_numeric_edit.c` | Expand candidate transaction to all affected objects |
+| Position/rotation drags | `Input/mouse/input_mouse_drag.c` | Solve dependent candidates; capture history only for accepted movement |
+| Resize handles | same input module and `Editor/gizmo/object_handle_gizmo.c` | Re-resolve face references after resize |
+| Rotation dialog | `UI/panel/ui_panel_dialog_logic.c` | Validate affected references or explicitly refuse |
+| Deletion | keyboard, scene list, face extrusion | Reject dangling participants or explicitly remove rules in same transaction |
+| Import/replacement | `Tools/scene_import.c`, layout JSON | Validate document graph atomically |
+
+Then persist explicit rule ID, A driver/B dependent, axis and target meters;
+implement deterministic grounded dependencies and reject cycles/conflicts. Prove
+all routes, undo/redo, reopen and export. S1d adds persistent coincident pivots and
+directed relative angles; S1e adds bounded translation/angle limits. One-time point
+alignment is not evidence that S1d is implemented.
 
 ## Operand and measurement meaning
 

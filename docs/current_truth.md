@@ -2,6 +2,15 @@
 
 Last updated: 2026-09-28
 
+## Exact reference placement (2026-09-28)
+
+Measure now offers D to set a signed projected distance and C to align reference
+points. A stays fixed; B translates once. Unit-suffixed entry, exact candidate
+validation, atomic refusal, single-step undo, reopen and runtime export are covered.
+These are S1c prerequisites, not persistent driving constraints. Full tests pass:
+409 across 42 reported suites. The placement entry fixture was rendered and inspected.
+See [contract and next mutation-boundary work](geometric_measurements.md).
+
 ## Viewport measurement picking (2026-09-28)
 
 Measure now offers K / Pick mode with selectable origin/axis/face-center markers,

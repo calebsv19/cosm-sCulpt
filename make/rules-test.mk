@@ -86,3 +86,9 @@ visual-artifact-measurement: $(APP_TARGET)
 	@mkdir -p "$(dir $(VISUAL_ARTIFACT_PATH))"
 	@LINE_DRAWING_VISUAL_ARTIFACT="$(VISUAL_ARTIFACT_PATH)" LINE_DRAWING_VISUAL_ARTIFACT_MODE=measurement $(APP_TARGET)
 	@test -s "$(VISUAL_ARTIFACT_PATH)"
+
+.PHONY: visual-artifact-placement
+visual-artifact-placement: $(APP_TARGET)
+	@mkdir -p "$(dir $(VISUAL_ARTIFACT_PATH))"
+	@LINE_DRAWING_VISUAL_ARTIFACT="$(VISUAL_ARTIFACT_PATH)" LINE_DRAWING_VISUAL_ARTIFACT_MODE=placement $(APP_TARGET)
+	@test -s "$(VISUAL_ARTIFACT_PATH)"

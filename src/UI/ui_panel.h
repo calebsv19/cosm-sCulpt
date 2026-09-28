@@ -422,6 +422,10 @@ typedef struct {
         bool active;
         bool picking;
         char pick_message[128];
+        int placing; /* 0: inspect, 1: projected distance, 2: coincident points */
+        bool placement_started_text_input;
+        char placement_text[64];
+        char placement_message[128];
         EditorGeometricReference refs[2];
         int slot;
         int projection_axis;

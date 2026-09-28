@@ -512,7 +512,8 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         return 1;
     }
 
-    const bool measurement_proof = proof_mode && strcmp(proof_mode, "measurement") == 0;
+    const bool placement_proof = proof_mode && strcmp(proof_mode, "placement") == 0;
+    const bool measurement_proof = placement_proof || (proof_mode && strcmp(proof_mode, "measurement") == 0);
     if (measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
         LineDrawingHostEnterEditor();
         if (visualMeshPath && visualMeshPath[0] &&
@@ -544,7 +545,11 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
             state->grid.offsetX=-(viewport.x+viewport.width/2)/60;
             state->grid.offsetY=-(viewport.y+viewport.height*0.65f)/60;
             UIPanel_BeginMeasurement();
-            UIPanel_Get()->measurement.picking=true;
+            UIPanel_Get()->measurement.picking=!placement_proof;
+            if (placement_proof) {
+                UIPanel_MeasurementKey(SDLK_d);
+                UIPanel_MeasurementText("20 mm");
+            }
             Global_FlagLayoutChanged();
             Global_FlagHitboxesDirty();
             handleUpdate(app);

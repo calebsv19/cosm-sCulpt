@@ -1,7 +1,10 @@
 # Spatial Engineering Direction
 
 
-Implementation update (2026-09-28): S0 and S1a are delivered. See the
+Implementation update (2026-09-28): Exact one-time projected distance and point
+alignment now ship as S1c prerequisites; saved driving rules remain pending.
+
+Earlier foundation:  S0 and S1a are delivered. See the
 [engineering document contract](engineering_document_contract.md) for exact scope
 and verification. S1b primitive reference selection and read-only measurements are now delivered
 ([contract](geometric_measurements.md)); viewport marker picking, transient annotations and named orthographic views are

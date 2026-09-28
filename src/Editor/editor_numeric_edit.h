@@ -42,3 +42,8 @@ EditorNumericEditResult Editor_ApplyNumericEdit(EditorState* editor, Layout* lay
 /* One finite scalar with optional m/cm/mm/in/ft (or core_units name) suffix.
  * A missing suffix uses default_unit; output is meters. No expression language. */
 bool Editor_ParseLength(const char* text, CoreUnitKind default_unit, double* meters);
+
+/* Candidate-only validation for compound commands. No mutation, history or dirty
+ * flags; prepared is valid only for APPLIED/UNCHANGED. Publish synchronously. */
+EditorNumericEditResult Editor_PrepareNumericEdit(const Layout* layout,
+    const EditorNumericEdit* edit, Object3D* prepared);

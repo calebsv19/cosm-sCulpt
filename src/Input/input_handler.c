@@ -12,6 +12,7 @@
 void Input_Handle(AppContext *ctx, SDL_Event* event) {
     if (UIPanel_Get()->measurement.active) {
         if (event->type == SDL_KEYDOWN) (void)UIPanel_MeasurementKey(event->key.keysym.sym);
+        else if (event->type == SDL_TEXTINPUT) (void)UIPanel_MeasurementText(event->text.text);
         else if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT)
             (void)UIPanel_MeasurementClick(event->button.x, event->button.y);
         if (event->type == SDL_KEYDOWN || event->type == SDL_KEYUP || event->type == SDL_TEXTINPUT ||

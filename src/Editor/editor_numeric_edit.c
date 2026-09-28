@@ -58,14 +58,14 @@ bool Editor_ParseLength(const char* text, CoreUnitKind default_unit, double* met
     return true;
 }
 
-EditorNumericEditResult Editor_ApplyNumericEdit(EditorState* editor, Layout* layout,
-                                                const EditorNumericEdit* edit) {
-    if (!editor || !layout || !edit || !edit->entity_id || !edit->entity_id[0] ||
+EditorNumericEditResult Editor_PrepareNumericEdit(const Layout* layout,
+    const EditorNumericEdit* edit, Object3D* prepared) {
+    if (!prepared || !layout || !edit || !edit->entity_id || !edit->entity_id[0] ||
         edit->kind < EDITOR_NUMERIC_WIDTH || edit->kind > EDITOR_NUMERIC_TRANSLATE)
         return result(EDITOR_NUMERIC_INVALID, "Invalid numerical edit.");
-    Object3D* live = NULL;
+    const Object3D* live = NULL;
     for (size_t i = 0; i < layout->objectStore.count; ++i) {
-        Object3D* object = &layout->objectStore.items[i];
+        const Object3D* object = &layout->objectStore.items[i];
         if (!object->isDeleted && strcmp(object->coreMeta.object_id, edit->entity_id) == 0) {
             if (live) return result(EDITOR_NUMERIC_CONFLICT, "Entity ID is ambiguous.");
             live = object;
@@ -99,6 +99,7 @@ EditorNumericEditResult Editor_ApplyNumericEdit(EditorState* editor, Layout* lay
     if (!position && requested[0] <= 0)
         return result(EDITOR_NUMERIC_INVALID, "Dimensions must be greater than zero.");
     if (unchanged) {
+        *prepared = *live;
         EditorNumericEditResult r = result(EDITOR_NUMERIC_UNCHANGED, "Already at the requested value.");
         for (int i = 0; i < count; ++i) r.actual_meters[i] = before[i] * scale;
         return r;
@@ -132,14 +133,24 @@ EditorNumericEditResult Editor_ApplyNumericEdit(EditorState* editor, Layout* lay
         if (!close_meters(actual[i], requested[i]))
             return result(EDITOR_NUMERIC_CONFLICT, "Exact edit conflicts with a plane lock or numeric precision.");
     }
+    *prepared = candidate;
+    EditorNumericEditResult r = result(EDITOR_NUMERIC_APPLIED, "Applied exact numerical edit.");
+    memcpy(r.actual_meters, actual, sizeof(actual));
+    return r;
+}
+
+EditorNumericEditResult Editor_ApplyNumericEdit(EditorState* editor, Layout* layout,
+                                                const EditorNumericEdit* edit) {
+    if (!editor) return result(EDITOR_NUMERIC_INVALID, "Missing editor history.");
+    Object3D candidate;
+    EditorNumericEditResult r = Editor_PrepareNumericEdit(layout, edit, &candidate);
+    if (r.status != EDITOR_NUMERIC_APPLIED) return r;
     if (!Editor_TryHistoryCapture(editor, layout))
         return result(EDITOR_NUMERIC_NO_MEMORY, "Could not reserve undo history; edit was not applied.");
-    *live = candidate;
+    *Layout_ObjectStore_Find(&layout->objectStore, candidate.objectId) = candidate;
     if (layout == &Global_Get()->layout) {
         Global_FlagLayoutChanged();
         Global_FlagHitboxesDirty();
     }
-    EditorNumericEditResult r = result(EDITOR_NUMERIC_APPLIED, "Applied exact numerical edit.");
-    memcpy(r.actual_meters, actual, sizeof(actual));
     return r;
 }

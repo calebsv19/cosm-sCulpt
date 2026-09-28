@@ -1,5 +1,6 @@
 #include "UI/ui_panel_measurement.h"
 #include "Core/global_state.h"
+#include "Editor/editor_reference_edit.h"
 #include "Layout/scene/layout_object_faces.h"
 #include "UI/font_manager.h"
 #include "UI/ui_panel_summary_surface.h"
@@ -60,10 +61,66 @@ bool UIPanel_BeginMeasurement(void) {
     return true;
 }
 
+static void finish_placement(void) {
+    UIPanelState* ui = UIPanel_Get();
+    if (ui->measurement.placement_started_text_input) SDL_StopTextInput();
+    ui->measurement.placement_started_text_input = false;
+    ui->measurement.placing = 0;
+}
+
+static void begin_placement(int mode) {
+    UIPanelState* ui = UIPanel_Get();
+    ui->measurement.placing = mode;
+    ui->measurement.placement_text[0] = '\0';
+    ui->measurement.placement_message[0] = '\0';
+    if (mode == 1 && !SDL_IsTextInputActive()) {
+        SDL_StartTextInput();
+        ui->measurement.placement_started_text_input = true;
+    }
+}
+
+bool UIPanel_MeasurementText(const char* text) {
+    UIPanelState* ui = UIPanel_Get();
+    if (!ui->measurement.active || ui->measurement.placing != 1 || !text) return false;
+    const size_t have = strlen(ui->measurement.placement_text), added = strlen(text);
+    if (have + added >= sizeof(ui->measurement.placement_text)) return true;
+    /* Length expressions here use an ASCII scalar and optional unit suffix. */
+    for (size_t i = 0; i < added; ++i) if ((unsigned char)text[i] < 32 || (unsigned char)text[i] > 126) return true;
+    memcpy(ui->measurement.placement_text + have, text, added + 1);
+    return true;
+}
+
+static void apply_placement(void) {
+    UIPanelState* ui = UIPanel_Get();
+    const Vec3 axes[] = {{1,0,0}, {0,1,0}, {0,0,1}};
+    EditorReferencePlacement command = {.a = ui->measurement.refs[0], .b = ui->measurement.refs[1],
+        .kind = ui->measurement.placing == 1 ? EDITOR_PLACE_PROJECTED_DISTANCE : EDITOR_PLACE_COINCIDENT_POINTS,
+        .world_axis = axes[ui->measurement.projection_axis]};
+    if (ui->measurement.placing == 1 && !Editor_ParseLength(ui->measurement.placement_text,
+        UIPanel_GetDisplayUnit(), &command.target_meters)) {
+        snprintf(ui->measurement.placement_message, sizeof(ui->measurement.placement_message), "Enter a finite length, e.g. 20 mm or -0.5 m.");
+        return;
+    }
+    EditorNumericEditResult r = Editor_ApplyReferencePlacement(&Global_Get()->editor, &Global_Get()->layout, &command);
+    snprintf(ui->measurement.placement_message, sizeof(ui->measurement.placement_message), "%s", r.message);
+    if (r.status == EDITOR_NUMERIC_APPLIED || r.status == EDITOR_NUMERIC_UNCHANGED) finish_placement();
+}
+
 bool UIPanel_MeasurementKey(SDL_Keycode key) {
     UIPanelState* ui = UIPanel_Get();
     if (!ui->measurement.active) return false;
-    if (key == SDLK_k) {
+    if (ui->measurement.placing) {
+        if (key == SDLK_ESCAPE) finish_placement();
+        else if (key == SDLK_RETURN || key == SDLK_KP_ENTER) apply_placement();
+        else if (key == SDLK_BACKSPACE) {
+            size_t n = strlen(ui->measurement.placement_text);
+            if (n) ui->measurement.placement_text[n-1] = '\0';
+        }
+        return true;
+    }
+    if (!ui->measurement.picking && (key == SDLK_d || key == SDLK_c)) {
+        begin_placement(key == SDLK_d ? 1 : 2);
+    } else if (key == SDLK_k) {
         ui->measurement.picking = !ui->measurement.picking;
         ui->measurement.pick_message[0] = '\0';
     } else if (key == SDLK_ESCAPE || key == SDLK_RETURN || key == SDLK_KP_ENTER) {
@@ -105,7 +162,13 @@ bool UIPanel_MeasurementClick(int x, int y) {
     SDL_Rect p = panel_rect(&h);
     if (x < p.x || x >= p.x+p.w || y < p.y+12) return true;
     int row = (y-p.y-12)/h;
-    if (row == 7) ui->measurement.picking = true;
+    if (ui->measurement.placing) {
+        if (row == 13) apply_placement();
+        else if (row == 15) finish_placement();
+        return true;
+    }
+    if (row == 13) begin_placement(x < p.x+p.w/2 ? 1 : 2);
+    else if (row == 7) ui->measurement.picking = true;
     else if (row == 3 || row == 4) {
         ui->measurement.slot = row - 3;
         if (x < p.x+p.w/2) cycle_object(1);
@@ -144,7 +207,7 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
     SDL_RenderFillRect(renderer, NULL);
     UIPanelSummary_DrawCard(renderer, p, palette.pane_fill, palette.pane_border, palette.accent, 3);
     char lines[16][256] = {{0}};
-    snprintf(lines[0], sizeof(lines[0]), "Measure current geometry (read-only)");
+    snprintf(lines[0], sizeof(lines[0]), "Measure / place references (A fixed, B moves once)");
     snprintf(lines[1], sizeof(lines[1]), "Tab: A/B   Up/Down: object   Left/Right: feature");
     snprintf(lines[2], sizeof(lines[2]), "Click row left: next object; right: next feature");
     for (int i = 0; i < 2; ++i)
@@ -173,9 +236,18 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
             !ui->measurement.refs[0].entity_id[0] || !ui->measurement.refs[1].entity_id[0]
                 ? "Create a plane or prism to measure" : r.message);
     }
-    snprintf(lines[13], sizeof(lines[13]), "Face points are centers; plane gap uses infinite planes.");
-    snprintf(lines[14], sizeof(lines[14]), "These values do not enforce constraints or surface clearance.");
+    snprintf(lines[13], sizeof(lines[13]), "D / left: set projected distance   C / right: align points");
+    snprintf(lines[14], sizeof(lines[14]), "%s", ui->measurement.placement_message[0]
+        ? ui->measurement.placement_message : "Face points are centers. No persistent constraints or clearance checks.");
     snprintf(lines[15], sizeof(lines[15]), "Close (Enter / Esc / click)");
+    if (ui->measurement.placing) {
+        snprintf(lines[1], sizeof(lines[1]), "A fixed; B translates once. Enter/click target row: apply. Esc: cancel.");
+        snprintf(lines[2], sizeof(lines[2]), "Reference selection is frozen while entering a placement.");
+        if (ui->measurement.placing == 1)
+            snprintf(lines[13], sizeof(lines[13]), "Signed A -> B target [%s]: %s_", UIPanel_GetDisplayUnitSymbol(), ui->measurement.placement_text);
+        else snprintf(lines[13], sizeof(lines[13]), "Confirm: align B reference point to A in all three axes");
+        snprintf(lines[15], sizeof(lines[15]), "Cancel placement (Esc / click)");
+    }
     for (int i = 0; i < 16; ++i) {
         if (i == 3 || i == 4) {
             int slot = i - 3;
