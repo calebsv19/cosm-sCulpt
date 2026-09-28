@@ -3,6 +3,7 @@
 #include "Editor/editor_numeric_edit.h"
 #include "UI/ui_panel_measurement.h"
 #include "Input/input_handler.h"
+#include "Core/space_mode_adapter.h"
 
 static uint32_t prism(const char* name, Vec3 origin) {
     RectPrismPrimitiveCreateParams p = {.width=1, .height=0.5f, .depth=0.2f,
@@ -174,6 +175,54 @@ static bool test_plane_reference_and_invalid_face(void) {
     ld_test_shutdown_runtime();return true;
 }
 
+static bool test_viewport_pick_identity_filtering_and_no_mutation(void) {
+    ld_test_init_runtime(); GlobalState* s=Global_Get();
+    uint32_t aid=prism("A",(Vec3){-2,0,0}), bid=prism("B",(Vec3){2,0,0});
+    TEST_ASSERT(aid && bid);
+    s->editor.selectedObject3DId=aid;
+    s->freeViewCamera.enabled=false;
+    s->activePlane=(ViewPlane){.axis=VIEW_PLANE_XY,.offset=0};
+    CorePaneRect vp; TEST_ASSERT(LineDrawingPaneHost_GetViewportRect(&s->paneHost,&vp));
+    s->grid.gridSize=1; s->grid.scale=40;
+    s->grid.offsetX=-(vp.x+vp.width/2)/40;
+    s->grid.offsetY=-(vp.y+vp.height*0.7f)/40;
+    TEST_ASSERT(UIPanel_BeginMeasurement()); TEST_ASSERT(UIPanel_MeasurementKey(SDLK_k));
+    UIPanelState* ui=UIPanel_Get(); TEST_ASSERT(ui->measurement.picking);
+    SpaceViewContext view=SpaceAdapter_BuildViewContext(s);
+    Vec2 pixel=WorldToScreen(SpaceAdapter_ProjectToView((Vec3){2,0,0},&view),&s->grid);
+    Editor_ClearHistory(&s->editor); char* before=Layout_SaveToString(&s->layout);
+    TEST_ASSERT(UIPanel_MeasurementPickAt((int)pixel.x,(int)pixel.y));
+    TEST_ASSERT(strcmp(ui->measurement.refs[0].entity_id,"B")==0);
+    EditorGeometricReference saved=ui->measurement.refs[0];
+    TEST_ASSERT(!UIPanel_MeasurementPickAt((int)pixel.x+20,(int)pixel.y+20));
+    TEST_ASSERT(memcmp(&saved,&ui->measurement.refs[0],sizeof(saved))==0);
+    TEST_ASSERT(!UIPanel_MeasurementPickAt(0,0));
+    char* after=Layout_SaveToString(&s->layout);
+    TEST_ASSERT(strcmp(before,after)==0 && Editor_UndoCount(&s->editor)==0);
+    Object3D* b=Layout_ObjectStore_Find(&s->layout.objectStore,bid);
+    b->coreMeta.flags.visible=false;
+    TEST_ASSERT(!UIPanel_MeasurementPickAt((int)pixel.x,(int)pixel.y));
+    b->coreMeta.flags.visible=true;b->coreMeta.flags.selectable=false;
+    TEST_ASSERT(!UIPanel_MeasurementPickAt((int)pixel.x,(int)pixel.y));
+    b->coreMeta.flags.selectable=true;
+    ui->measurement.refs[0]=ref("A",EDITOR_REFERENCE_FACE,OBJECT3D_FACE_RECT_PRISM_POS_U);
+    pixel=WorldToScreen(SpaceAdapter_ProjectToView((Vec3){2.5f,0,0},&view),&s->grid);
+    TEST_ASSERT(UIPanel_MeasurementPickAt((int)pixel.x,(int)pixel.y));
+    TEST_ASSERT(ui->measurement.refs[0].kind==EDITOR_REFERENCE_FACE && ui->measurement.refs[0].face==OBJECT3D_FACE_RECT_PRISM_POS_U);
+    TEST_ASSERT(strcmp(ui->measurement.refs[0].entity_id,"B")==0);
+    ConstructionPlane3D construction=s->layout.scene3d.constructionPlane;
+    TEST_ASSERT(UIPanel_MeasurementKey(SDLK_2));
+    TEST_ASSERT(s->activePlane.axis==VIEW_PLANE_YZ && !s->freeViewCamera.enabled);
+    TEST_ASSERT(UIPanel_MeasurementKey(SDLK_3)); TEST_ASSERT(s->activePlane.axis==VIEW_PLANE_XZ);
+    TEST_ASSERT(UIPanel_MeasurementKey(SDLK_1)); TEST_ASSERT(s->activePlane.axis==VIEW_PLANE_XY);
+    TEST_ASSERT(memcmp(&construction,&s->layout.scene3d.constructionPlane,sizeof(construction))==0);
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==0);
+    TEST_ASSERT(UIPanel_MeasurementKey(SDLK_ESCAPE));
+    TEST_ASSERT(ui->measurement.active && !ui->measurement.picking);
+    TEST_ASSERT(UIPanel_MeasurementKey(SDLK_ESCAPE)); TEST_ASSERT(!ui->measurement.active);
+    free(before);free(after);ld_test_shutdown_runtime();return true;
+}
+
 bool measurement_run_tests(void) {
     const TestCase cases[]={
         {"distances_scales_readonly",test_distances_scales_and_readonly},
@@ -182,7 +231,8 @@ bool measurement_run_tests(void) {
         {"reference_reopen_undo_delete",test_identity_reopen_undo_delete},
         {"invalid_degenerate_unsupported",test_invalid_and_unsupported},
         {"selectable_refs_modal_input",test_ui_selection_and_modal_input},
-        {"plane_face_and_session_reset",test_plane_reference_and_invalid_face}
+        {"plane_face_and_session_reset",test_plane_reference_and_invalid_face},
+        {"viewport_reference_pick",test_viewport_pick_identity_filtering_and_no_mutation}
     };
     return run_test_cases("Measurement",cases,sizeof(cases)/sizeof(cases[0]));
 }

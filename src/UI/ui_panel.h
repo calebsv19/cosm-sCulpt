@@ -420,6 +420,8 @@ typedef struct {
     } prismDimensionDialog;
     struct {
         bool active;
+        bool picking;
+        char pick_message[128];
         EditorGeometricReference refs[2];
         int slot;
         int projection_axis;

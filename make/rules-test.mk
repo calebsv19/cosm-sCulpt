@@ -80,3 +80,9 @@ $(FOLDER_PICKER_TEST_BIN): tests/line_drawing_folder_picker_test.c src/UI/platfo
 
 test-folder-picker: $(FOLDER_PICKER_TEST_BIN)
 	@$(FOLDER_PICKER_TEST_BIN) || (echo "folder picker test failed."; exit 1)
+
+.PHONY: visual-artifact-measurement
+visual-artifact-measurement: $(APP_TARGET)
+	@mkdir -p "$(dir $(VISUAL_ARTIFACT_PATH))"
+	@LINE_DRAWING_VISUAL_ARTIFACT="$(VISUAL_ARTIFACT_PATH)" LINE_DRAWING_VISUAL_ARTIFACT_MODE=measurement $(APP_TARGET)
+	@test -s "$(VISUAL_ARTIFACT_PATH)"

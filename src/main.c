@@ -6,6 +6,7 @@
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
 #include "UI/ui_panel.h"
+#include "UI/ui_panel_measurement.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
 
 
@@ -511,7 +512,8 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         return 1;
     }
 
-    if (LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
+    const bool measurement_proof = proof_mode && strcmp(proof_mode, "measurement") == 0;
+    if (measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
         LineDrawingHostEnterEditor();
         if (visualMeshPath && visualMeshPath[0] &&
             !LineDrawingVisualArtifactStageMesh(visualMeshPath)) {
@@ -521,6 +523,32 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
             return 1;
         }
         handleUpdate(app);
+        if (measurement_proof) {
+            GlobalState* state = Global_Get();
+            CorePaneRect viewport;
+            if (!LineDrawingPaneHost_GetViewportRect(&state->paneHost, &viewport)) return 1;
+            Layout_ObjectStore_Free(&state->layout.objectStore);
+            Layout_ObjectStore_Init(&state->layout.objectStore);
+            state->layout.metersPerWorldUnit = 1;
+            for (int i=0; i<2; ++i) {
+                RectPrismPrimitiveCreateParams params = {.width=1, .height=0.5f, .depth=0.2f,
+                    .useExplicitFrame=true, .explicitFrame={.origin={i ? 1.5f : -1.5f,0,0},
+                    .axisU={1,0,0}, .axisV={0,1,0}, .normal={0,0,1}}};
+                uint32_t id=0;
+                if (!Layout_CreateRectPrismPrimitive(&state->layout,&params,&id,NULL)) return 1;
+                if (i==0) state->editor.selectedObject3DId=id;
+            }
+            state->freeViewCamera.enabled=false;
+            state->activePlane=(ViewPlane){.axis=VIEW_PLANE_XY,.offset=0};
+            state->grid.gridSize=1; state->grid.scale=60;
+            state->grid.offsetX=-(viewport.x+viewport.width/2)/60;
+            state->grid.offsetY=-(viewport.y+viewport.height*0.65f)/60;
+            UIPanel_BeginMeasurement();
+            UIPanel_Get()->measurement.picking=true;
+            Global_FlagLayoutChanged();
+            Global_FlagHitboxesDirty();
+            handleUpdate(app);
+        }
     }
 
     if (visualMeshPath && visualMeshPath[0]) {

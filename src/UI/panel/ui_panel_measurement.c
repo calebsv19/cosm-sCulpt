@@ -63,7 +63,20 @@ bool UIPanel_BeginMeasurement(void) {
 bool UIPanel_MeasurementKey(SDL_Keycode key) {
     UIPanelState* ui = UIPanel_Get();
     if (!ui->measurement.active) return false;
-    if (key == SDLK_ESCAPE || key == SDLK_RETURN || key == SDLK_KP_ENTER) ui->measurement.active = false;
+    if (key == SDLK_k) {
+        ui->measurement.picking = !ui->measurement.picking;
+        ui->measurement.pick_message[0] = '\0';
+    } else if (key == SDLK_ESCAPE || key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+        if (ui->measurement.picking) ui->measurement.picking = false;
+        else ui->measurement.active = false;
+    }
+    else if (ui->measurement.picking && (key == SDLK_1 || key == SDLK_2 || key == SDLK_3)) {
+        GlobalState* state = Global_Get();
+        state->activePlane = (ViewPlane){.axis = key == SDLK_1 ? VIEW_PLANE_XY : key == SDLK_2 ? VIEW_PLANE_YZ : VIEW_PLANE_XZ, .offset = 0};
+        state->freeViewCamera.enabled = false;
+        Global_FlagGridChanged();
+        Global_FlagHitboxesDirty();
+    }
     else if (key == SDLK_TAB) ui->measurement.slot = 1 - ui->measurement.slot;
     else if (key == SDLK_UP || key == SDLK_DOWN) cycle_object(key == SDLK_DOWN ? 1 : -1);
     else if (key == SDLK_LEFT || key == SDLK_RIGHT) cycle_feature(key == SDLK_RIGHT ? 1 : -1);
@@ -84,11 +97,16 @@ static SDL_Rect panel_rect(int* line_height) {
 bool UIPanel_MeasurementClick(int x, int y) {
     UIPanelState* ui = UIPanel_Get();
     if (!ui->measurement.active) return false;
+    if (ui->measurement.picking) {
+        (void)UIPanel_MeasurementPickAt(x, y);
+        return true;
+    }
     int h;
     SDL_Rect p = panel_rect(&h);
     if (x < p.x || x >= p.x+p.w || y < p.y+12) return true;
     int row = (y-p.y-12)/h;
-    if (row == 3 || row == 4) {
+    if (row == 7) ui->measurement.picking = true;
+    else if (row == 3 || row == 4) {
         ui->measurement.slot = row - 3;
         if (x < p.x+p.w/2) cycle_object(1);
         else cycle_feature(1);
@@ -111,6 +129,10 @@ static const char* feature_label(const EditorGeometricReference* ref) {
 void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
     UIPanelState* ui = UIPanel_Get();
     if (!renderer || !ui->measurement.active) return;
+    if (ui->measurement.picking) {
+        UIPanel_RenderMeasurementViewport(renderer);
+        return;
+    }
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     if (!font) return;
     UIPanelVisualPalette palette = {0};
@@ -135,6 +157,7 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
     const Vec3 vectors[] = {{1,0,0}, {0,1,0}, {0,0,1}};
     snprintf(lines[5], sizeof(lines[5]), "P / click: projection axis %s (world)", axes[ui->measurement.projection_axis]);
     snprintf(lines[6], sizeof(lines[6]), "N / click: signed angle plane %s (world)", planes[ui->measurement.angle_plane]);
+    snprintf(lines[7], sizeof(lines[7]), "K / click: pick the active reference in the viewport");
     const char* labels[] = {"Point distance", "Signed projection A -> B", "Direction angle [0,180]", "Signed planar angle (-180,180]", "Signed plane gap along A normal"};
     for (int i = 0; i < 5; ++i) {
         Vec3 vector = i == EDITOR_MEASURE_PLANAR_ANGLE ? vectors[(ui->measurement.angle_plane+2)%3]

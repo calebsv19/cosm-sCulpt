@@ -13,6 +13,21 @@ primitive face. Clicking the left/right halves of an operand row cycles its
 object/feature. P changes the world projection axis; N changes the signed angle
 plane. Enter, Escape or the Close row closes the dialog.
 
+Press K (or click its row) to enter viewport Pick mode. The active named feature
+appears as a square marker on each eligible primitive. Click within 12 logical
+pixels to assign that stable reference to A or B; Tab switches operands. Enter or
+Escape returns to the measurement dialog. A miss leaves the operand unchanged.
+Markers are explicitly X-ray datums, not visible-surface picks. Hidden,
+unselectable, unsupported, offscreen and banner-covered candidates are excluded.
+Shared core_screen_pick ranks nearby markers by distance, depth and stable object
+handle; the selected operand stores the persistent entity ID and feature.
+
+Pick mode draws A/B crosses, a connecting guide when both endpoints are onscreen,
+and their physical point distance in display units. Keys 1/2/3 select world XY,
+YZ and XZ orthographic views. These are view changes only: construction plane,
+geometry and history remain unchanged. Viewport pan/orbit/drag is reserved while
+picking; return to the normal editor to reposition the camera.
+
 The dialog is read-only: it consumes editing/viewport input while active and does
 not add undo entries, change geometry, or save annotations. Opening it again
 starts a new measurement selection. Reference operands resolve current geometry
@@ -80,8 +95,17 @@ actual Object/Measure UI and displayed a 90-degree U/V angle with unchanged undo
 count; final empty-state/contrast polish passed source/package checks. This is
 bounded local proof, not broad hands-on CAD acceptance or a published release.
 
-Remaining S1b: viewport point/face picking and annotations, explicit authored
-point datums, mesh feature naming, named-view/snap improvements, and persistent
-measurement records if required. S1c then adds a grounded, directed persistent
+The marker-picking and transient viewport-annotation follow-up is implemented.
+Full regression now passes 404 tests in 41 reported suites. The source fixture
+`make visual-artifact-measurement VISUAL_ARTIFACT_PATH=/tmp/measurement.bmp`
+renders two primitives 3 m apart with A/B markers, guide and converted readout;
+the resulting image was inspected. Main Edit package self-test passed.
+The fixture exists only in the explicit visual-artifact mode and does not save a
+scene. Marker selection tests cover success/miss, nonmutation, stable face kind,
+hidden/unselectable exclusion, pane bounds and named-view construction-plane isolation.
+
+Remaining S1b extensions: exact visible-surface picking, independently authored
+point datums, mesh feature naming, broader snapping, and saved measurement records
+if required. These do not prevent the first grounded primitive distance rule. S1c then adds a grounded, directed persistent
 distance rule; S1d adds pivot/relative-angle rules. Neither solver nor driving
 constraints are implemented here. Existing numerical edits remain one-shot edits.

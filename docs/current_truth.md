@@ -2,6 +2,17 @@
 
 Last updated: 2026-09-28
 
+## Viewport measurement picking (2026-09-28)
+
+Measure now offers K / Pick mode with selectable origin/axis/face-center markers,
+A/B annotations, a guide line and physical distance readout. Hidden/unselectable
+objects are excluded. Marker picks are explicit X-ray datums, not occluded surface
+queries. Keys 1/2/3 select world XY/YZ/XZ orthographic views without changing the
+construction plane or geometry. Failed picks preserve the selected reference.
+Full tests: 404 across 41 reported suites. Source visual fixture was rendered and
+inspected; Main Edit package self-test passed. Next: S1c grounded persistent
+projected-distance enforcement, followed by S1d pivot/relative-angle constraints.
+
 ## Geometric measurements (2026-09-28)
 
 The Object tab now includes a read-only Measure dialog for primitive origins,
