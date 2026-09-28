@@ -102,3 +102,11 @@ Run File-browser groups sequentially when using focused invocations; those
 tests intentionally clear shared `data/runtime/*` fixture state.
 Use `agent-scene-failure-smoke` for fast agent-scene CLI failure diagnostics;
 `agent-scene-smoke` remains the broad success+failure smoke lane.
+
+## Agent-scene smoke portability
+
+`make agent-scene-smoke` resolves the checkout from the test script and uses
+repository-local sphere and tetrahedron runtime fixtures in
+`fixtures/agent_mesh_assets/`. These fixtures were copied from the RayTracing
+mesh-asset runtime test corpus so the smoke gate works in canonical, Main Edit,
+and standalone checkouts without a sibling RayTracing repository.

@@ -43,7 +43,7 @@
       "id": "imported_skull_proxy",
       "kind": "mesh_asset_instance",
       "asset_id": "asset_imported_tetrahedron_01",
-      "asset_source_path": "../../../ray_tracing/tests/fixtures/mesh_asset_runtime_imported_tetrahedron/assets/mesh_assets/asset_imported_tetrahedron_01.runtime.json",
+      "asset_source_path": "agent_mesh_assets/asset_imported_tetrahedron_01.runtime.json",
       "variant": "runtime_default",
       "material_id": "mat_imported_skull_proxy",
       "material_prompt": "create a skull with a brushed metal base, a rough layer, and a grime overlay",

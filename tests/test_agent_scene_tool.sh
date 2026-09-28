@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-LINE_DIR="$ROOT/line_drawing"
+LINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LD_CLI_SMOKE_LABEL="line-agent-scene"
 source "$LINE_DIR/tests/lib/cli_smoke_helpers.sh"
 OUT_DIR="$LINE_DIR/tmp/agent_room_prisms"
