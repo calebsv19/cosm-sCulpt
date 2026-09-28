@@ -750,6 +750,10 @@ static cJSON* Layout_CreateJson(const Layout* layout) {
         cJSON_AddItemToArray(objects3d, node);
         cJSON_AddNumberToObject(node, "id", (double)object->objectId);
         cJSON_AddStringToObject(node, "persistentId", object->coreMeta.object_id);
+        cJSON* flags = cJSON_AddObjectToObject(node, "flags");
+        cJSON_AddBoolToObject(flags, "visible", object->coreMeta.flags.visible);
+        cJSON_AddBoolToObject(flags, "locked", object->coreMeta.flags.locked);
+        cJSON_AddBoolToObject(flags, "selectable", object->coreMeta.flags.selectable);
         cJSON_AddStringToObject(node, "kind", Object3DKind_ToString(object->kind));
         cJSON_AddStringToObject(node, "objectType", object->coreMeta.object_type);
         cJSON_AddStringToObject(node, "dimensionalMode", CoreDimensionalMode_ToString(object->coreMeta.dimensional_mode));
@@ -1076,6 +1080,17 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
                     }
                 }
 
+                const cJSON* flags = cJSON_GetObjectItemCaseSensitive(node, "flags");
+                if (flags) {
+                    const cJSON* visible = cJSON_GetObjectItemCaseSensitive(flags, "visible");
+                    const cJSON* locked = cJSON_GetObjectItemCaseSensitive(flags, "locked");
+                    const cJSON* selectable = cJSON_GetObjectItemCaseSensitive(flags, "selectable");
+                    if (!cJSON_IsObject(flags) || !cJSON_IsBool(visible) || !cJSON_IsBool(locked) || !cJSON_IsBool(selectable)) {
+                        Layout_Free(&temp);
+                        return false;
+                    }
+                    object->coreMeta.flags = (CoreObjectFlags){cJSON_IsTrue(visible), cJSON_IsTrue(locked), cJSON_IsTrue(selectable)};
+                }
                 const cJSON* persistentId = cJSON_GetObjectItemCaseSensitive(node, "persistentId");
                 if (persistentId || schemaVersion >= LAYOUT_JSON_SCHEMA_VERSION_PHYSICAL_CONTEXT) {
                     char typeName[sizeof(object->coreMeta.object_type)];

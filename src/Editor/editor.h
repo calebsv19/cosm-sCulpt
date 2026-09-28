@@ -189,6 +189,8 @@ void Editor_ClickAt(EditorState* editor, Vec3 worldPos);
 // Called by input handler on Shift key down/up
 void Editor_SetShiftHeld(EditorState* editor, bool held);
 
+/* Failure preserves both history stacks; callers must reserve before mutation. */
+bool Editor_TryHistoryCapture(EditorState* editor, const Layout* layout);
 void Editor_HistoryCapture(EditorState* editor, const Layout* layout);
 bool Editor_Undo(EditorState* editor, Layout* layout);
 bool Editor_Redo(EditorState* editor, Layout* layout);

@@ -4,19 +4,21 @@ Last updated: 2026-09-28
 
 ## Spatial Engineering Audit (2026-09-28)
 
-At inspected source checkpoint `c8f5bf1`, `VERSION` is `0.4.0`. The editor already
-has length-unit conversions, numeric dimensions/transforms, persistent object
-identities, Scene/Object document workflows, snapshot history, mesh assets and
-a deterministic scene producer/export pipeline. These are foundations, not a
-complete engineering model. Typed semantic views, nested assemblies, engineering
-relationship/constraint validation, motion envelopes and transactional agent
-edits remain proposed work.
+The S0 physical-document foundation and S1a numerical-edit slice are implemented
+at VERSION `0.4.0`. Layout schema 10 preserves physical scale, explicit
+right-handed Z-up context, persistent string IDs and object flags. Versions 0–9
+remain readable. Imported world_scale now survives re-export and UI conversion.
+Primitive dimension and position dialogs share a candidate/undo command boundary;
+dimension inputs accept unit suffixes. Bounds and plane-lock conflicts reject the
+edit without mutating geometry or history.
 
-The [spatial engineering direction](spatial_engineering_direction.md) records
-source entry points, current gaps and future stages. In particular, the fixed
-scale used by UI conversion helpers versus imported `world_scale` needs a focused
-end-to-end proof before measurement correctness is assumed. This audit did not
-launch the app or establish new hands-on/physical acceptance.
+See [engineering document contract](engineering_document_contract.md) for scope,
+tolerances, migration and verification. Full tests, resize tests, scene producer
+smoke and Main Edit package self-test pass. Editor first-frame capture succeeded;
+interactive dialog acceptance and physical measurement accuracy are not claimed.
+Measurement references and persistent distance/angle constraints remain next.
+Semantic views, nested assemblies, motion and full transactional agent APIs
+remain future work in [spatial engineering direction](spatial_engineering_direction.md).
 
 ## Managed Vulkan Presentation Baseline
 

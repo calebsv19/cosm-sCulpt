@@ -414,6 +414,7 @@ typedef struct {
         char buffer[64];
         size_t length;
         size_t cursor;
+        char validationMessage[128];
     } prismDimensionDialog;
 
     struct {
@@ -439,6 +440,7 @@ typedef struct {
         char buffer[128];
         size_t length;
         size_t cursor;
+        char validationMessage[128];
     } objectTransformDialog;
 
     struct {

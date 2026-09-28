@@ -32,9 +32,12 @@ static void RenderPrismDimensionDialog(SDL_Renderer* renderer, const UIPanelStat
     title = UIPanel_PrismDimensionTargetLabel(ui->prismDimensionDialog.target);
     snprintf(subtitle,
              sizeof(subtitle),
-             "Object #%u value in %s. Enter applies; Esc cancels.",
+             "Object #%u: %s or a unit suffix (20 mm). Enter applies.",
              ui->prismDimensionDialog.objectId,
              UIPanel_GetDisplayUnitSymbol());
+
+    if (ui->prismDimensionDialog.validationMessage[0])
+        snprintf(subtitle, sizeof(subtitle), "%s", ui->prismDimensionDialog.validationMessage);
 
     width = Global_GetScreenWidth();
     height = Global_GetScreenHeight();
@@ -442,6 +445,9 @@ static void RenderObjectTransformDialog(SDL_Renderer* renderer, const UIPanelSta
                  "Object #%u absolute world-axis rotation in degrees. Enter applies; Esc cancels.",
                  ui->objectTransformDialog.objectId);
     }
+
+    if (ui->objectTransformDialog.validationMessage[0])
+        snprintf(subtitle, sizeof(subtitle), "%s", ui->objectTransformDialog.validationMessage);
 
     width = Global_GetScreenWidth();
     height = Global_GetScreenHeight();

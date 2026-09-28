@@ -2,6 +2,7 @@
 
 #include "Core/global_state.h"
 #include "Editor/editor.h"
+#include "Editor/editor_numeric_edit.h"
 
 #include <SDL2/SDL.h>
 #include <ctype.h>
@@ -256,6 +257,7 @@ bool UIPanel_BeginPrismDimensionDialog(UIPrismDimensionDialogTarget target) {
     }
 
     ui->prismDimensionDialog.active = true;
+    ui->prismDimensionDialog.validationMessage[0] = '\0';
     ui->prismDimensionDialog.target = target;
     ui->prismDimensionDialog.objectId = object->objectId;
     snprintf(ui->prismDimensionDialog.buffer,
@@ -273,23 +275,6 @@ bool UIPanel_BeginPrismDimensionDialog(UIPrismDimensionDialogTarget target) {
     UIPanel_CloseConstructionPlaneDialog(ui);
     UIPanel_CloseObjectTransformDialog(ui);
     if (!SDL_IsTextInputActive()) SDL_StartTextInput();
-    return true;
-}
-
-static bool UIPanel_ParsePositiveFloat(const char* text, float* outValue) {
-    char* end = NULL;
-    float value = 0.0f;
-    if (!text || !outValue) return false;
-
-    errno = 0;
-    value = strtof(text, &end);
-    if (errno == ERANGE) return false;
-    if (end == text) return false;
-    while (*end && isspace((unsigned char)*end)) ++end;
-    if (*end != '\0') return false;
-    if (!isfinite(value)) return false;
-
-    *outValue = value;
     return true;
 }
 
@@ -311,103 +296,31 @@ static bool UIPanel_ParseScalarFloat(const char* text, float* outValue) {
 }
 
 bool UIPanel_ApplyPrismDimensionDialog(UIPanelState* ui) {
-    GlobalState* state = NULL;
-    Object3D* object = NULL;
-    float typedValue = 0.0f;
-    double worldValue = 0.0;
-    float nextWidth = 0.0f;
-    float nextHeight = 0.0f;
-    float nextDepth = 0.0f;
-    bool boundsAdjusted = false;
-
-    if (!ui || !ui->prismDimensionDialog.active) return false;
-    state = Global_Get();
-    if (!state) return false;
-    object = UIPanel_FindEditableObject3D(state, ui->prismDimensionDialog.objectId);
-    if (!object) {
-        SDL_Log("[UI] Dimension edit failed: selected object is unavailable.");
+    GlobalState* state = Global_Get();
+    if (!ui || !ui->prismDimensionDialog.active || !state) return false;
+    Object3D* object = UIPanel_FindEditableObject3D(state, ui->prismDimensionDialog.objectId);
+    if (!object) return false;
+    double meters = 0;
+    if (!Editor_ParseLength(ui->prismDimensionDialog.buffer, ui->displayUnit, &meters)) {
+        snprintf(ui->prismDimensionDialog.validationMessage, sizeof(ui->prismDimensionDialog.validationMessage),
+                 "Enter a length, for example 20 mm or 3.5 in.");
         return false;
     }
-    if (ui->prismDimensionDialog.target == UI_PRISM_DIMENSION_TARGET_DEPTH &&
-        object->kind != OBJECT3D_KIND_RECT_PRISM) {
-        SDL_Log("[UI] Depth edit failed: selected object has no depth dimension.");
+    EditorNumericEditKind kind;
+    switch (ui->prismDimensionDialog.target) {
+        case UI_PRISM_DIMENSION_TARGET_WIDTH: kind = EDITOR_NUMERIC_WIDTH; break;
+        case UI_PRISM_DIMENSION_TARGET_HEIGHT: kind = EDITOR_NUMERIC_HEIGHT; break;
+        case UI_PRISM_DIMENSION_TARGET_DEPTH: kind = EDITOR_NUMERIC_DEPTH; break;
+        default: return false;
+    }
+    EditorNumericEdit edit = {.entity_id = object->coreMeta.object_id, .kind = kind,
+                              .unit = CORE_UNIT_METER, .values = {meters, 0, 0}};
+    EditorNumericEditResult r = Editor_ApplyNumericEdit(&state->editor, &state->layout, &edit);
+    if (r.status != EDITOR_NUMERIC_APPLIED && r.status != EDITOR_NUMERIC_UNCHANGED) {
+        snprintf(ui->prismDimensionDialog.validationMessage, sizeof(ui->prismDimensionDialog.validationMessage), "%s", r.message);
         return false;
     }
-
-    SanitizeBuffer(ui->prismDimensionDialog.buffer);
-    ui->prismDimensionDialog.length = strlen(ui->prismDimensionDialog.buffer);
-    if (ui->prismDimensionDialog.cursor > ui->prismDimensionDialog.length) {
-        ui->prismDimensionDialog.cursor = ui->prismDimensionDialog.length;
-    }
-    if (!UIPanel_ParsePositiveFloat(ui->prismDimensionDialog.buffer, &typedValue)) {
-        SDL_Log("[UI] Prism %s edit failed: value must be numeric.",
-                UIPanel_PrismDimensionTargetLabel(ui->prismDimensionDialog.target));
-        return false;
-    }
-    if (!UIPanelDialog_ConvertDisplayToWorldWithUnit(ui->displayUnit, (double)typedValue, &worldValue)) {
-        SDL_Log("[UI] Prism %s edit failed: unit conversion rejected for '%s'.",
-                UIPanel_PrismDimensionTargetLabel(ui->prismDimensionDialog.target),
-                core_units_kind_symbol(ui->displayUnit));
-        return false;
-    }
-    if (!isfinite(worldValue)) {
-        SDL_Log("[UI] Prism %s edit failed: converted value is not finite.",
-                UIPanel_PrismDimensionTargetLabel(ui->prismDimensionDialog.target));
-        return false;
-    }
-
-    Editor_HistoryCapture(&state->editor, &state->layout);
-    if (object->kind == OBJECT3D_KIND_PLANE) {
-        nextWidth = object->plane.width;
-        nextHeight = object->plane.height;
-        switch (ui->prismDimensionDialog.target) {
-            case UI_PRISM_DIMENSION_TARGET_WIDTH: nextWidth = (float)worldValue; break;
-            case UI_PRISM_DIMENSION_TARGET_HEIGHT: nextHeight = (float)worldValue; break;
-            case UI_PRISM_DIMENSION_TARGET_DEPTH:
-            case UI_PRISM_DIMENSION_TARGET_NONE:
-            default: return false;
-        }
-        if (!Layout_SetPlaneDimensions(&state->layout,
-                                       object->objectId,
-                                       nextWidth,
-                                       nextHeight,
-                                       &boundsAdjusted)) {
-            SDL_Log("[UI] Plane %s edit rejected by layout bounds/validation policy.",
-                    UIPanel_PrismDimensionTargetLabel(ui->prismDimensionDialog.target));
-            return false;
-        }
-    } else {
-        nextWidth = object->rectPrism.width;
-        nextHeight = object->rectPrism.height;
-        nextDepth = object->rectPrism.depth;
-        switch (ui->prismDimensionDialog.target) {
-            case UI_PRISM_DIMENSION_TARGET_WIDTH: nextWidth = (float)worldValue; break;
-            case UI_PRISM_DIMENSION_TARGET_HEIGHT: nextHeight = (float)worldValue; break;
-            case UI_PRISM_DIMENSION_TARGET_DEPTH: nextDepth = (float)worldValue; break;
-            case UI_PRISM_DIMENSION_TARGET_NONE:
-            default: return false;
-        }
-        if (!Layout_SetRectPrismDimensions(&state->layout,
-                                           object->objectId,
-                                           nextWidth,
-                                           nextHeight,
-                                           nextDepth,
-                                           &boundsAdjusted)) {
-            SDL_Log("[UI] Prism %s edit rejected by layout bounds/validation policy.",
-                    UIPanel_PrismDimensionTargetLabel(ui->prismDimensionDialog.target));
-            return false;
-        }
-    }
-
     state->editor.selectedObject3DId = object->objectId;
-    Global_FlagHitboxesDirty();
-    SDL_Log("[UI] Object #%u %s updated to %.4f%s (%.4f m)%s",
-            object->objectId,
-            UIPanel_PrismDimensionTargetLabel(ui->prismDimensionDialog.target),
-            typedValue,
-            core_units_kind_symbol(ui->displayUnit),
-            worldValue,
-            boundsAdjusted ? " (bounds-adjusted)" : "");
     UIPanel_ClosePrismDimensionDialog(ui);
     return true;
 }
@@ -572,18 +485,21 @@ bool UIPanel_BeginObjectTransformDialog(UIObjectTransformDialogTarget target) {
     UIPanel_CloseObjectTransformDialog(ui);
 
     ui->objectTransformDialog.active = true;
+    ui->objectTransformDialog.validationMessage[0] = '\0';
     ui->objectTransformDialog.target = target;
     ui->objectTransformDialog.objectId = object->objectId;
 
     if (target == UI_OBJECT_TRANSFORM_DIALOG_TARGET_POSITION) {
-        if (!UIPanelDialog_ConvertWorldToDisplayWithUnit(ui->displayUnit, (double)object->transform.position.x, &dx)) {
-            dx = object->transform.position.x;
+        Vec3 center = object->transform.position;
+        (void)Layout_Object3D_ComputeVisualCenter(object, &center);
+        if (!UIPanelDialog_ConvertWorldToDisplayWithUnit(ui->displayUnit, (double)center.x, &dx)) {
+            dx = center.x;
         }
-        if (!UIPanelDialog_ConvertWorldToDisplayWithUnit(ui->displayUnit, (double)object->transform.position.y, &dy)) {
-            dy = object->transform.position.y;
+        if (!UIPanelDialog_ConvertWorldToDisplayWithUnit(ui->displayUnit, (double)center.y, &dy)) {
+            dy = center.y;
         }
-        if (!UIPanelDialog_ConvertWorldToDisplayWithUnit(ui->displayUnit, (double)object->transform.position.z, &dz)) {
-            dz = object->transform.position.z;
+        if (!UIPanelDialog_ConvertWorldToDisplayWithUnit(ui->displayUnit, (double)center.z, &dz)) {
+            dz = center.z;
         }
         snprintf(ui->objectTransformDialog.buffer,
                  sizeof(ui->objectTransformDialog.buffer),
@@ -668,40 +584,22 @@ bool UIPanel_ApplyObjectTransformDialog(UIPanelState* ui) {
         ui->objectTransformDialog.cursor = ui->objectTransformDialog.length;
     }
 
-    Editor_HistoryCapture(&state->editor, &state->layout);
     if (ui->objectTransformDialog.target == UI_OBJECT_TRANSFORM_DIALOG_TARGET_POSITION) {
         Vec3 typedDisplay = {0};
-        Vec3 nextPosition = {0};
-        double wx = 0.0, wy = 0.0, wz = 0.0;
-
         if (!UIPanel_ParseVec3Text(ui->objectTransformDialog.buffer, &typedDisplay)) {
-            SDL_Log("[UI] Object position edit failed: expected three numeric values (x, y, z).");
+            snprintf(ui->objectTransformDialog.validationMessage, sizeof(ui->objectTransformDialog.validationMessage),
+                     "Enter three finite values: x, y, z.");
             return false;
         }
-        if (!UIPanelDialog_ConvertDisplayToWorldWithUnit(ui->displayUnit, typedDisplay.x, &wx) ||
-            !UIPanelDialog_ConvertDisplayToWorldWithUnit(ui->displayUnit, typedDisplay.y, &wy) ||
-            !UIPanelDialog_ConvertDisplayToWorldWithUnit(ui->displayUnit, typedDisplay.z, &wz)) {
-            SDL_Log("[UI] Object position edit failed: unit conversion failed.");
+        EditorNumericEdit edit = {.entity_id = object->coreMeta.object_id,
+            .kind = EDITOR_NUMERIC_POSITION, .unit = ui->displayUnit,
+            .values = {typedDisplay.x, typedDisplay.y, typedDisplay.z}};
+        EditorNumericEditResult r = Editor_ApplyNumericEdit(&state->editor, &state->layout, &edit);
+        if (r.status != EDITOR_NUMERIC_APPLIED && r.status != EDITOR_NUMERIC_UNCHANGED) {
+            snprintf(ui->objectTransformDialog.validationMessage, sizeof(ui->objectTransformDialog.validationMessage), "%s", r.message);
             return false;
         }
-
-        nextPosition = (Vec3){ (float)wx, (float)wy, (float)wz };
-        if (!Layout_SetObject3DPosition(&state->layout,
-                                        object->objectId,
-                                        nextPosition,
-                                        &boundsAdjusted)) {
-            SDL_Log("[UI] Object position edit rejected by layout bounds/validation policy.");
-            return false;
-        }
-
         state->editor.selectedObject3DId = object->objectId;
-        Global_FlagHitboxesDirty();
-        SDL_Log("[UI] Object #%u position updated to (%.4f, %.4f, %.4f)%s",
-                object->objectId,
-                typedDisplay.x,
-                typedDisplay.y,
-                typedDisplay.z,
-                boundsAdjusted ? " (bounds-adjusted)" : "");
     } else {
         float typedDegrees = 0.0f;
         const float currentDegrees = UIPanel_ObjectRotationAxisValue(object, ui->objectTransformDialog.target);
@@ -713,6 +611,7 @@ bool UIPanel_ApplyObjectTransformDialog(UIPanelState* ui) {
             return false;
         }
 
+        Editor_HistoryCapture(&state->editor, &state->layout);
         {
             const float delta = typedDegrees - currentDegrees;
             if (fabsf(delta) > 0.0001f) {

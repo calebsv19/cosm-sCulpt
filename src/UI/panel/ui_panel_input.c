@@ -70,7 +70,8 @@ bool UIPanel_HandleTextInput(const char* text) {
     if (ui->prismDimensionDialog.active) {
         for (const char* p = text; *p; ++p) {
             unsigned char c = (unsigned char)*p;
-            if (!(isdigit(c) || c == '.' || c == '-' || c == '+' || c == 'e' || c == 'E')) continue;
+            /* Preserve input for validation; dropping '/' or an unknown unit can change its value. */
+            if (c < 32u || c == 127u) continue;
             if (ui->prismDimensionDialog.length + 1 >= sizeof(ui->prismDimensionDialog.buffer)) break;
             memmove(&ui->prismDimensionDialog.buffer[ui->prismDimensionDialog.cursor + 1],
                     &ui->prismDimensionDialog.buffer[ui->prismDimensionDialog.cursor],

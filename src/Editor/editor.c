@@ -40,12 +40,12 @@ static void HistoryStack_EnsureCapacity(EditorHistoryStack* stack, size_t desire
     stack->capacity = newCap;
 }
 
-static void HistoryStack_Push(EditorHistoryStack* stack, char* snapshot) {
-    if (!snapshot) return;
+static bool HistoryStack_Push(EditorHistoryStack* stack, char* snapshot) {
+    if (!snapshot) return false;
     HistoryStack_EnsureCapacity(stack, stack->count + 1);
-    if (!stack->entries) {
+    if (!stack->entries || stack->capacity <= stack->count) {
         Layout_FreeString(snapshot);
-        return;
+        return false;
     }
 
     stack->entries[stack->count++] = snapshot;
@@ -55,6 +55,7 @@ static void HistoryStack_Push(EditorHistoryStack* stack, char* snapshot) {
         memmove(&stack->entries[0], &stack->entries[1], (stack->count - 1) * sizeof(char*));
         stack->count--;
     }
+    return true;
 }
 
 static char* HistoryStack_Pop(EditorHistoryStack* stack) {
@@ -309,13 +310,16 @@ void Editor_SetShiftHeld(EditorState* editor, bool held) {
     editor->shiftHeld = held;
 }
 
-void Editor_HistoryCapture(EditorState* editor, const Layout* layout) {
-    if (!editor || !layout) return;
+bool Editor_TryHistoryCapture(EditorState* editor, const Layout* layout) {
+    if (!editor || !layout) return false;
     char* snapshot = Layout_SaveToString(layout);
-    if (!snapshot) return;
-
-    HistoryStack_Push(&editor->undoStack, snapshot);
+    if (!snapshot || !HistoryStack_Push(&editor->undoStack, snapshot)) return false;
     HistoryStack_Reset(&editor->redoStack);
+    return true;
+}
+
+void Editor_HistoryCapture(EditorState* editor, const Layout* layout) {
+    (void)Editor_TryHistoryCapture(editor, layout);
 }
 
 static void Editor_ResetSelection(EditorState* editor) {

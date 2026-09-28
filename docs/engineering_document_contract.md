@@ -1,6 +1,6 @@
 # Engineering Document Foundation (S0)
 
-Status: S0 physical-context implementation; initial numerical command contract
+Status: implemented S0 and S1a; measurement and persistent constraints remain pending
 Date: 2026-09-28
 
 ## Physical meaning and compatibility
@@ -82,3 +82,25 @@ legacy layout loading, physical context/identity round trips and invalid/duplica
 context rejection. S1a adds edit-conflict/undo/reopen/export tests. Named views,
 measurement selection, persistent gaps/angles, movement limits and assemblies
 remain S1b onward. See [product direction](spatial_engineering_direction.md).
+
+## Delivered S1a and evidence
+
+`Editor_ApplyNumericEdit` implements single-operation dimensions, absolute position
+and relative translation by persistent entity ID. Existing dimension and position
+dialogs use this command. Dimension input accepts suffixes such as `20 mm` and
+`3.5 in`; bare values use display units. Position UI retains its three-number
+current-unit entry. Relative translation is available through the C command, not
+a new UI control or external agent endpoint. Object visibility, lock and
+selectability flags now survive snapshots as well.
+
+Verification on 2026-09-28: `make test` passed 396 tests across 40 reported suites
+(including the separate folder-picker suite); the additional
+`LayoutObject3DResize` group passed 25 tests. `make agent-scene-smoke` and
+`make package-desktop-main-edit-self-test` passed. Source editor first-frame
+capture completed with wrapper exit 0; this is startup/render evidence, not
+hands-on acceptance of the new dialogs. UI-handler tests cover unit input,
+malformed input and rejected bounds edits. No new release or Desktop install.
+
+This slice does not add measurement tools, orthographic controls, persistent
+distance/angle constraints, a solver, arbitrary frame conversion, numerical
+rotation transactions or revision-checked multi-operation agent edits.

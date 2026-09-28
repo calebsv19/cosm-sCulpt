@@ -1,5 +1,11 @@
 # Spatial Engineering Direction
 
+
+Implementation update (2026-09-28): S0 and S1a are delivered. See the
+[engineering document contract](engineering_document_contract.md) for exact scope
+and verification. S1b measurement/references and persistent distance/angle
+constraints remain pending; the broader roadmap below is future direction.
+
 Status: accepted foundational direction; detailed design proposed, not implemented
 Date: 2026-09-28
 Inspected source baseline: `c8f5bf1` (program VERSION `0.4.0`)

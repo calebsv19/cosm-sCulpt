@@ -10,6 +10,9 @@ Public identity:
 
 ## Spatial Engineering Direction
 
+- [Engineering document contract](engineering_document_contract.md): implemented
+  S0/S1a physical context, identity persistence and numerical edits with proof limits.
+
 - [Spatial engineering direction](spatial_engineering_direction.md): proposed
   product goals, inspected foundations, and iterative delivery toward accurate
   physical layout, semantic scenes and agent editing. This is future direction,

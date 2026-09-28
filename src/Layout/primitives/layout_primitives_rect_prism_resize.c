@@ -957,6 +957,6 @@ bool Layout_SetRectPrismDimensions(Layout* layout,
     }
 
     if (outBoundsAdjusted) *outBoundsAdjusted = boundsAdjusted;
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
     return true;
 }

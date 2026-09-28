@@ -737,7 +737,7 @@ bool Layout_SetObject3DPosition(Layout* layout,
     }
 
     if (outBoundsAdjusted) *outBoundsAdjusted = boundsAdjusted;
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
     return true;
 }
 
@@ -799,7 +799,7 @@ bool Layout_SetPlaneDimensions(Layout* layout,
     }
 
     if (outBoundsAdjusted) *outBoundsAdjusted = boundsAdjusted;
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
     return true;
 }
 

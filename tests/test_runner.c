@@ -5,6 +5,7 @@
 
 bool layout_run_tests(void);
 bool physical_context_run_tests(void);
+bool numeric_edit_run_tests(void);
 bool test_layout_core_run_tests(void);
 bool test_layout_object3d_run_tests(void);
 bool test_layout_object3d_store_run_tests(void);
@@ -54,6 +55,7 @@ typedef struct TestGroup {
 static const TestGroup kTestGroups[] = {
     {"Layout", layout_run_tests, true},
     {"PhysicalContext", physical_context_run_tests, true},
+    {"NumericEdit", numeric_edit_run_tests, true},
     {"LayoutCore", test_layout_core_run_tests, false},
     {"LayoutObject3D", test_layout_object3d_run_tests, false},
     {"LayoutObject3DStore", test_layout_object3d_store_run_tests, false},
