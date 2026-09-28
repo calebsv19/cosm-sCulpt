@@ -1,6 +1,6 @@
 # Spatial Engineering Direction
 
-Status: proposed product direction; documentation only, not an implemented feature contract
+Status: accepted foundational direction; detailed design proposed, not implemented
 Date: 2026-09-28
 Inspected source baseline: `c8f5bf1` (program VERSION `0.4.0`)
 
@@ -20,6 +20,28 @@ simplified interior, place dimensioned components, measure gaps, inspect views,
 organize reference and design objects, save/reopen, and export for rendering.
 Real vehicle dimensions have not been supplied. Example geometry must be labeled
 illustrative and must not become verified OEM dimensions.
+
+## Accepted foundations and initial CAD priority
+
+The user accepted canonical meters, right-handed Z-up, independent display units,
+explicit legacy conversion, stable entity IDs independent of labels/assembly paths,
+and separation of transform hierarchy from other relationships. ID encoding,
+precision, tolerances and migration details still require bounded design.
+
+The first CAD milestone now includes persistent distance and relative-angle rules
+before broad semantic organization or assemblies. Distinguish a measurement, a
+one-time numerical edit, and a stored driving dimension. Start with existing
+primitives, explicit grounded/movable sides, stable point/axis/face references,
+and a chosen plane/axis/pivot. A 500 mm gap or 90-degree connection must remain
+true after supported edits, undo and reopen. An exact edit must report a conflict
+if bounds adjustment or another rule prevents the requested result.
+
+Prove directed, bounded constraints before attempting a general solver. Reject
+unsupported cycles, ambiguous movement and conflicting rules without partial
+changes. All mutation entry points for constrained objects must participate in
+the same evaluation/undo boundary. A fixed relative angle and a permitted angular
+range are separate behaviors; simple edit limits can follow the fixed-angle proof.
+Full joints, animation and motion envelopes remain later work.
 
 ## Existing foundation and gaps
 
@@ -49,7 +71,7 @@ Source entry points: [layout types](../src/Layout/layout.h),
    is a task-oriented view over the same document and command service. Retain
    Scene arrangement and Object asset editing; do not fork a second geometry
    database or start a UI rewrite.
-2. Prefer canonical meters and an explicit right-handed Z-up frame, consistent
+2. Use the accepted canonical meters and explicit right-handed Z-up frame, consistent
    with existing shared contracts. Display units are presentation. Existing
    scene scales and legacy frames require explicit compatible conversion.
 3. Keep immutable IDs separate from labels, assembly paths and geometry assets.
@@ -78,7 +100,7 @@ Source entry points: [layout types](../src/Layout/layout.h),
 | Stage | Usable result | Acceptance example |
 |---|---|---|
 | S0: physical/document contract | Agreed units, frames, IDs, document authority, precision and migration rules | A scale/frame/identity fixture matrix and the first command contract are reviewable |
-| S1: accurate layout | Unit-aware numerical placement/dimensions, measurement, useful orthographic presets and grid/axis behavior, inspect/edit/undo seam | Enter `3.5 in`, read `88.9 mm`, move `25 mm`, undo, save/reopen and export without scale drift |
+| S1: initial CAD layout | Numerical placement/dimensions, measurement/references, orthographic/grid behavior, then persistent distance/angle constraints and bounded edit limits | Enter `3.5 in`, read `88.9 mm`; preserve a 500 mm gap and 90-degree/30-degree connection through driver edits, undo, reopen and export; conflicts leave state intact |
 | S2: organized van mockup | Basic semantic categories/properties, reference/design visibility queries, nested assemblies and panels/beams/volumes | Move a cabinet assembly, preserve children and IDs, isolate electrical objects, render the same revision |
 | S3: relationships and checks | Attachments/support/connectivity, reserved/service volumes, a structured validator | A cabinet intruding into a declared door clearance is reported with entity IDs and measured evidence |
 | S4: motion | One-axis sliders and hinges, sampling and conservative envelopes | A cabinet blocking any part of bed travel is reported even when the bed currently clears it |

@@ -8,6 +8,10 @@ The next product direction is accurate physical layout and semantic system
 description, with a camper-van mockup as the first proving project. Preserve
 Scene/Object workflows and existing exports. Strengthen units, numeric edits,
 measurement and query/undo boundaries before broad modeling complexity.
+The accepted base is meters and explicit right-handed Z-up with independent
+display units and stable backend IDs. Initial CAD work includes persistent
+distance and relative-angle constraints before semantic organization/assemblies;
+broader system rules and full motion analysis follow later.
 
 See [Spatial Engineering Direction](spatial_engineering_direction.md) for the
 inspected capability gaps, proposed stages and first van workflow. An Engineering
