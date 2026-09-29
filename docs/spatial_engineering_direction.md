@@ -7,7 +7,8 @@ propagate through a directed dependency graph. Initial S1d coincident points and
 fixed planar pivot/relative-angle rules are also implemented. See the
 [persistent constraint contract](geometric_constraints.md) for scope and proof.
 S1d now also supports physical local reference offsets and visible pivot/constraint
-feedback. Next: S1e travel limits, pose sampling and motion envelopes; independently
+feedback. The persistent Measure pane now exposes mouse controls for these operations.
+Next: human review of Measure, then S1e travel limits, pose sampling and motion envelopes; independently
 named reusable datums remain an extension. Broader semantic organization remains later work.
 
 Status: roadmap accepted; opening CAD slices implemented as noted above, later phases proposed

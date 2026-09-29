@@ -26,6 +26,7 @@ typedef enum {
     UI_PANEL_RIGHT_TAB_CREATE = 1,
     UI_PANEL_RIGHT_TAB_OBJECT = 2,
     UI_PANEL_RIGHT_TAB_EDIT = 3,
+    UI_PANEL_RIGHT_TAB_MEASURE = 4,
     UI_PANEL_RIGHT_TAB_COUNT
 } UIPanelRightTab;
 
@@ -423,7 +424,7 @@ typedef struct {
         bool picking;
         char pick_message[128];
         int placing; /* 1/2: once; 3/4/5: distance/coincident/mate rule; 6: remove */
-        int constraint_index; /* -1 creates a new rule; Q selects an existing rule */
+        int constraint_index; /* -1 creates a new rule; Rules selects an existing rule */
         bool use_rule_axis;
         bool placement_started_text_input;
         char placement_text[64];
@@ -432,6 +433,11 @@ typedef struct {
         int slot;
         int projection_axis;
         int angle_plane;
+        int chooser; /* 1/2 objects, 3/4 features, 5 saved rules */
+        bool offsets_open;
+        bool details_open;
+        int operation; /* distance, join, angle */
+        bool replace_text;
     } measurement;
 
     struct {

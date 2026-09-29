@@ -2,6 +2,22 @@
 
 Last updated: 2026-09-28
 
+## Persistent Measure pane (2026-09-28)
+
+The shortcut-heavy modal is replaced by a compact right-hand **Measure** tab.
+Object/feature selectors, Pick in view, numeric fields, Distance/Join/Angle actions,
+expandable pivot offsets, and a saved-rule selector are visible mouse controls.
+Measurement selections persist across tab switches. The pane scrolls independently;
+only focused text entry captures typing. Enter completes target entry without
+editing geometry; Move once/Save rule/Update rule explicitly apply it. Existing
+scene/model tabs and geometry contracts are preserved. Tab widths use their actual
+labels so adding Measure does not unnecessarily expand the right pane.
+
+432 tests / 43 reported suites pass, including two complete mouse-event UI
+regressions. Native compact-pane render inspected; Main Edit package self-test
+passes. [Controls and limits](geometric_measurements.md). Next is user review of
+this editing workflow before S1e travel and motion-envelope implementation.
+
 ## S1d offset pivots and viewport feedback (2026-09-28)
 
 References can carry physical U/V/N offsets, rotate with their owning primitive,

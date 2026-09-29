@@ -6,6 +6,7 @@
 #include "UI/ui_panel_file_summary.h"
 #include "UI/ui_panel_file_layout.h"
 #include "UI/ui_panel.h"
+#include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel_object_inspector.h"
 #include "UI/ui_panel_scene_authoring_inspector.h"
 #include "UI/ui_panel_scene_summary.h"
@@ -950,6 +951,7 @@ void Render_UIPanel(const UIPanelState* ui, SDL_Renderer* renderer) {
         if (had_clip) (void)SDL_RenderGetClipRect(renderer, &previous_clip);
         (void)SDL_RenderSetClipRect(renderer, &ui->rightBodyRect);
         Render_UIPanelRightTabSummary(ui, renderer);
+        UIPanel_RenderMeasurement(renderer);
         UIPanel_RightScrollRender(ui, renderer);
         (void)SDL_RenderSetClipRect(renderer, had_clip ? &previous_clip : NULL);
     }

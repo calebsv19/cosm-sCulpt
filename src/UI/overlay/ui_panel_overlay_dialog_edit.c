@@ -558,5 +558,5 @@ void UIPanelOverlay_RenderEditDialogs(SDL_Renderer* renderer, const UIPanelState
     RenderSceneBoundsDialog(renderer, ui);
     RenderConstructionPlaneDialog(renderer, ui);
     RenderObjectTransformDialog(renderer, ui);
-    UIPanel_RenderMeasurement(renderer);
+
 }

@@ -297,14 +297,6 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         "Selection Actions",
         "Selection Mode"
     };
-    static const char* k_right_tab_labels[] = {
-        "View",
-        "Create",
-        "Object",
-        "Tools",
-        "Properties",
-        "Edit"
-    };
     int font_h = 14;
     int text_pad_x = 9;
     int pane_padding = 8;
@@ -322,7 +314,7 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
     int left_title_w = 0;
     int right_title_w = 0;
     int left_tab_w = 0;
-    int right_tab_w = 0;
+
 
     if (!out_metrics) return;
     memset(out_metrics, 0, sizeof(*out_metrics));
@@ -361,9 +353,7 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
     left_tab_w = UIPanel_MaxWidthForLabels(
         k_left_tab_labels,
         sizeof(k_left_tab_labels) / sizeof(k_left_tab_labels[0]));
-    right_tab_w = UIPanel_MaxWidthForLabels(
-        k_right_tab_labels,
-        sizeof(k_right_tab_labels) / sizeof(k_right_tab_labels[0]));
+
 
     left_button_w = left_label_w + (text_pad_x * 2);
     right_button_w = right_label_w + (text_pad_x * 2);
@@ -388,7 +378,9 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
     {
         int left_tab_total = (left_tab_w + (text_pad_x * 2) + 6) * UI_PANEL_LEFT_TAB_COUNT;
         left_tab_total += spacing * (UI_PANEL_LEFT_TAB_COUNT - 1);
-        int right_tab_total = (right_tab_w + (text_pad_x * 2) + 10) * UI_PANEL_RIGHT_TAB_COUNT;
+        int right_tab_total = 0;
+        for (int i=0;i<UI_PANEL_RIGHT_TAB_COUNT;++i)
+            right_tab_total += UIPanel_MeasureTextWidthPx(UIPanel_RightTabLabel((UIPanelRightTab)i)) + 12;
         right_tab_total += spacing * (UI_PANEL_RIGHT_TAB_COUNT - 1);
         int desired_left = left_button_w + (pane_padding * 2);
         int desired_right = right_button_w + (pane_padding * 2);
@@ -730,6 +722,7 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
         UIPanel_LayoutFilePaneButtons(&g_uiPanel, &metrics, metrics.button_text_pad_px);
     }
     UIPanel_LayoutRightPaneButtons(&g_uiPanel, &metrics);
+    UIPanel_LayoutMeasurementPane();
 }
 
 void UIPanel_Init(int screenW, int screenH) {
@@ -1058,7 +1051,7 @@ bool UIPanel_IsObjectTransformDialogActive(void) {
 }
 
 bool UIPanel_IsCapturingKeyboard(void) {
-    if (g_uiPanel.measurement.active) return true;
+    if (g_uiPanel.measurement.active && g_uiPanel.measurement.placing) return true;
     return UIPanel_IsSaveDialogActive() ||
            UIPanel_IsRootDialogActive() ||
            UIPanel_IsPrismDimensionDialogActive() ||
@@ -1097,7 +1090,9 @@ void UIPanel_ResetTransientUiState(void) {
 }
 
 void UIPanel_RenderOverlays(SDL_Renderer* renderer) {
-    if (!g_uiPanel.measurement.active) UIPanel_RenderConstraintViewport(renderer);
+    if (g_uiPanel.measurement.active && g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE)
+        UIPanel_RenderMeasurementViewport(renderer);
+    else UIPanel_RenderConstraintViewport(renderer);
     UIPanel_RenderOverlayDialogs(renderer, &g_uiPanel);
     const char* message = Global_Get()->layout.geometryMessage;
     if (message[0]) {

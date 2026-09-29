@@ -8,7 +8,7 @@
 bool UIPanel_HandleTextInput(const char* text) {
     UIPanelState* ui = UIPanel_Get();
     if (!text) return false;
-    if (ui->measurement.active) return true;
+    if (ui->measurement.active && ui->measurement.placing) return UIPanel_MeasurementText(text);
 
     if (ui->scenePropertyDialog.active) {
         const UIScenePropertyDialogTarget target = ui->scenePropertyDialog.target;
@@ -156,7 +156,7 @@ bool UIPanel_HandleKeyEvent(const SDL_Event* event) {
     if (event->type != SDL_KEYDOWN) return false;
 
     SDL_Keycode key = event->key.keysym.sym;
-    if (UIPanel_MeasurementKey(key)) return true;
+    if (ui->measurement.active && ui->measurement.placing && UIPanel_MeasurementKey(key)) return true;
     if (ui->scenePropertyDialog.active) {
         if (key == SDLK_RETURN || key == SDLK_KP_ENTER) return UIPanel_ApplyScenePropertyDialog(ui);
         if (key == SDLK_ESCAPE) {

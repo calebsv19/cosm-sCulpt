@@ -10,14 +10,23 @@
 //        Public input handler
 // ======================================
 void Input_Handle(AppContext *ctx, SDL_Event* event) {
-    if (UIPanel_Get()->measurement.active) {
-        if (event->type == SDL_KEYDOWN) (void)UIPanel_MeasurementKey(event->key.keysym.sym);
-        else if (event->type == SDL_TEXTINPUT) (void)UIPanel_MeasurementText(event->text.text);
-        else if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT)
-            (void)UIPanel_MeasurementClick(event->button.x, event->button.y);
-        if (event->type == SDL_KEYDOWN || event->type == SDL_KEYUP || event->type == SDL_TEXTINPUT ||
-            event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP ||
-            event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEWHEEL) return;
+    UIPanelState* panel=UIPanel_Get();
+    if (panel->measurement.active && panel->activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE) {
+        if (event->type==SDL_KEYDOWN && (panel->measurement.placing || panel->measurement.picking)) {
+            if (panel->measurement.placing && (event->key.keysym.sym==SDLK_RETURN || event->key.keysym.sym==SDLK_KP_ENTER)) {
+                if (panel->measurement.placing>=7) UIPanel_MeasurementApplyButton(panel->measurement.placing);
+                else UIPanel_MeasurementStopInput();
+            } else if (panel->measurement.placing && (event->key.keysym.mod & (KMOD_CTRL|KMOD_GUI)) && event->key.keysym.sym==SDLK_a)
+                panel->measurement.replace_text=true;
+            else if (panel->measurement.placing || event->key.keysym.sym==SDLK_ESCAPE)
+                (void)UIPanel_MeasurementKey(event->key.keysym.sym);
+            return;
+        }
+        if (event->type==SDL_TEXTINPUT && panel->measurement.placing) {
+            (void)UIPanel_MeasurementText(event->text.text); return;
+        }
+        if (event->type==SDL_MOUSEBUTTONDOWN && event->button.button==SDL_BUTTON_LEFT &&
+            UIPanel_MeasurementClick(event->button.x,event->button.y)) return;
     }
     if (event->type == SDL_TEXTINPUT) {
         if (UIPanel_HandleTextInput(event->text.text)) {

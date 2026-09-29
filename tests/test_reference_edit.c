@@ -136,7 +136,7 @@ static bool test_oblique_axis_and_precision(void) {
 }
 
 static void key(SDL_Keycode code) {
-    SDL_Event e={.type=SDL_KEYDOWN}; e.key.keysym.sym=code; Input_Handle(NULL,&e);
+    (void)UIPanel_MeasurementKey(code);
 }
 
 static bool test_modal_placement_input(void) {

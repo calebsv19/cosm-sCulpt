@@ -5,83 +5,69 @@ Date: 2026-09-28
 
 ## Use in the editor
 
-Open the right-hand **Object** tab and choose **Measure** in Transform.
-The dialog starts with the selected primitive as A and the next primitive as B.
-Both operands may refer to the same object. Use Tab to select A/B, Up/Down to
-choose an object, and Left/Right to choose its origin, +U/+V/+N axis, or named
-primitive face. Clicking the left/right halves of an operand row cycles its
-object/feature. P changes the world projection axis; N changes the signed angle
-plane. Enter, Escape or the Close row closes the dialog.
+Click the right-hand **Measure** tab. The existing Object-tab Measure button also
+opens it. The pane stays beside the viewport; there is no modal shortcut sheet.
+Selections survive switching tabs. Scene/object creation and editing retain their
+existing tabs. Scroll within Measure when the window is short or a section expands.
 
-Press K (or click its row) to enter viewport Pick mode. The active named feature
-appears as a square marker on each eligible primitive. Click within 12 logical
-pixels to assign that stable reference to A or B; Tab switches operands. Enter or
-Escape returns to the measurement dialog. A miss leaves the operand unchanged.
-Markers are explicitly X-ray datums, not visible-surface picks. Hidden,
-unselectable, unsupported, offscreen and banner-covered candidates are excluded.
-Shared core_screen_pick ranks nearby markers by distance, depth and stable object
-handle; the selected operand stores the persistent entity ID and feature.
+1. Click the A/B object selector to choose a primitive from the list.
+2. Choose **Center**, a local axis, or a named face from its feature selector.
+3. Alternatively click **Pick in view**, then a displayed reference marker.
+4. Read distance, signed axis projection and signed planar angle. Use the visible
+   axis and plane buttons to choose world directions. **More measurements** expands
+   unsigned direction angle and signed parallel-plane gap.
 
-Pick mode draws A/B crosses, a connecting guide when both endpoints are onscreen,
-and their physical point distance in display units. Keys 1/2/3 select world XY,
-YZ and XZ orthographic views. These are view changes only: construction plane,
-geometry and history remain unchanged. Viewport pan/orbit/drag is reserved while
-picking; return to the normal editor to reposition the camera.
+A is blue and B orange in the pane and viewport. Picking uses the chosen feature
+and local offset on each eligible primitive, with a 12-pixel capture radius.
+Hidden, unselectable, unsupported and offscreen candidates are excluded. Markers
+are X-ray references, not visible-surface picks. A miss preserves the reference;
+a successful click finishes picking. Click **Cancel pick** to disarm it. Camera
+pan/zoom remains available, and leaving the tab cancels picking/text focus.
+core_screen_pick retains deterministic distance/depth/stable-handle ordering.
 
-Inspection is read-only. Explicit placement commands below can change geometry.
-The modal consumes other editing/viewport input while active. Opening it again
-starts a new measurement selection. Reference operands resolve current geometry
-on each evaluation; no stale cached measurement is treated as authoritative.
-Empty scenes ask for a plane or prism. Unsupported operands report a reason.
+Opening Measure does not capture the keyboard. Clicking a target field activates
+text entry and selects the previous value for replacement. Enter finishes target
+entry; the scene changes only when an explicit action button is clicked. Escape
+or **Cancel input** ends entry. Lengths accept unit suffixes such as `20 mm` and
+`3.5 in`; bare values use the displayed unit. Angles are degrees.
 
-## Exact one-time placement (S1c prerequisite)
+## Position and constrain
 
-Choose A, B and the projection axis, then press **D** (or click the left half of
-its action row). Enter a signed length such as `20 mm`, `-0.5 m` or `3.5 in`.
-Without a suffix, the current display unit applies. Enter or clicking the target
-row applies; Escape or the Cancel row cancels. Backspace edits the input.
-References and axes remain frozen during entry; errors keep the entry open.
+Choose **Distance**, **Join**, or **Angle**. A stays fixed and B moves.
 
-A stays fixed. B translates along the selected world axis until the signed
-projection of B-minus-A equals the target. Its perpendicular position, orientation
-and dimensions remain unchanged. Named face references use face centers. Negative
-targets put B on A's negative-axis side; this does not check collision or clearance.
+- **Distance → Move once** changes the signed axis projection to the entered
+  target. **Save rule** keeps that distance through later supported edits.
+- **Join → Join once** makes the reference points coincide. **Save rule** keeps
+  them coincident. No target scalar is needed.
+- **Angle → Save rule** joins the reference points and maintains the signed angle
+  in the selected world plane. This is a fixed planar mate. There is no one-time
+  angle operation in this slice; its Move once button is disabled.
 
-Press **C** (or the right half of the action row), then Enter to align B's reference
-point to A in all three axes. This aligns points only; it does not align normals or
-establish a hinge. A and B must belong to different primitive objects.
+Unsupported references and same-object operands disable mutation actions. Rule
+saving requires Scene workspace. Geometry errors appear in the pane. Failed edits
+preserve geometry and undo/redo. One-time placement uses
+`Editor_ApplyReferencePlacement`; persistent rules use the existing atomic Layout
+transaction. These are application C operations, not a new MCP transport.
 
-Both commands reserve a single undo snapshot only after validating a candidate.
-Bounds clamping, plane locks, locked B, invalid references and insufficient numeric
-precision refuse the edit. Failure/no-op preserves document, dirty state and
-undo/redo. Geometry persists through save/reopen and canonical runtime export.
-Later edits can change the gap: **these commands create no persistent constraint**.
-A may be locked because it is only read. Non-unit primitive instance scales remain
-unsupported. Length tolerance is `1e-6 + 1e-7 * abs(target_meters)`; coincident point
-components use 1e-6 meters. Large world coordinates can cause a precision refusal.
+Expand **Pivot offset**, choose Reference A or B, click a local U/V/N field,
+enter a physical length, and click **Set offset**. **Reset offsets** zeros all
+three staged components. Save/update a rule to persist offsets. The definition and
+resize/rotation behavior are in the [constraint contract](geometric_constraints.md).
 
-The structured C entry point is `Editor_ApplyReferencePlacement` in
-`src/Editor/editor_reference_edit.h`. It accepts stable references, kind, world
-axis (normalized by the command) and target meters. It reuses the candidate-only
-`Editor_PrepareNumericEdit` boundary and re-resolves the resulting feature before
-publishing. This is an internal synchronous command, not a new MCP endpoint.
+Open **Rules** to select an existing rule. Its operands, operation, world vector,
+and target populate the form. Click **Update rule** to replace it under the same
+ID. **Remove** presents a confirmation; geometry stays in place. **New rule**
+leaves the selected operands available for a separate rule.
 
-Proof: five ReferenceEdit tests cover face gaps, signed/scaled/oblique placement,
-point alignment, bounds/plane/object-lock failures, no-op/redo preservation, large
-coordinate precision rejection, undo/reopen/runtime export and modal input.
-`make test` passes 409 tests across 42 reported suites (including folder picker).
-`make visual-artifact-placement VISUAL_ARTIFACT_PATH=/tmp/placement.bmp` renders a
-disposable entry fixture; the 20 mm entry was visually inspected. No shared-module
-API/version changes: core_units and existing primitive/reference math are reused;
-application-specific command/history policy stays in the app, with publication
-now routed through the Layout transaction.
+## Verification
 
-## Persistent-rule follow-up
-
-S1c is now implemented at the common Layout transaction boundary, with initial
-S1d coincident/planar-mate rules. See [persistent geometric constraints](geometric_constraints.md)
-for R/O/M controls, saved-rule selection/editing, enforcement coverage and limits.
-D/C remain one-time operations and do not themselves create rules.
+432 tests across 43 reported suites pass. Two mouse-event regressions cover object
+and feature selectors, typed targets, move-once, rule creation/update/removal,
+confirmation/cancel, undo, offset controls, scrollbar routing, tab switching,
+reference retention and focused keyboard capture. Existing geometry, import,
+constraint, reference-picking and editor tests continue to pass. Native pane
+fixtures were visually inspected at the compact pane width. The isolated Main
+Edit package self-test passes. No shared module API or scene-schema changes.
 
 ## Operand and measurement meaning
 

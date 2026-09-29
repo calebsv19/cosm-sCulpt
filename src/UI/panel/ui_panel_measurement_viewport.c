@@ -21,9 +21,7 @@ static bool viewport(CorePaneRect* rect) {
 }
 
 static bool marker_visible(CorePaneRect r, double x, double y) {
-    TTF_Font* font = FontManager_Get(FONT_DEFAULT);
-    int h = font ? TTF_FontHeight(font)+6 : 24;
-    return x >= r.x && x < r.x+r.width && y >= r.y+h*5+28 && y < r.y+r.height;
+    return x >= r.x && x < r.x+r.width && y >= r.y && y < r.y+r.height;
 }
 
 static bool inside(CorePaneRect r, double x, double y) {
@@ -111,15 +109,13 @@ void UIPanel_RenderMeasurementViewport(SDL_Renderer* renderer) {
     CorePaneRect rect;
     if (!renderer || !viewport(&rect)) return;
     UIPanelState* ui = UIPanel_Get();
-    TTF_Font* font = FontManager_Get(FONT_DEFAULT);
-    int h = font ? TTF_FontHeight(font)+6 : 24;
     SDL_Rect old_clip;
     bool had_clip = SDL_RenderIsClipEnabled(renderer);
     SDL_RenderGetClipRect(renderer,&old_clip);
     SDL_Rect clip = {(int)rect.x,(int)rect.y,(int)rect.width,(int)rect.height};
     SDL_RenderSetClipRect(renderer,&clip);
     size_t count = 0;
-    MeasurementMarker* list = markers(&count);
+    MeasurementMarker* list = ui->measurement.picking ? markers(&count) : NULL;
     SDL_SetRenderDrawColor(renderer,80,210,240,255);
     for (size_t i=0; i<count; ++i) {
         int x=(int)list[i].candidate.screen_x, y=(int)list[i].candidate.screen_y;
@@ -132,31 +128,12 @@ void UIPanel_RenderMeasurementViewport(SDL_Renderer* renderer) {
     for (int i=0; i<2; ++i) {
         valid[i]=project(&ui->measurement.refs[i],&points[i],NULL);
         if (valid[i] && inside(rect,points[i].x,points[i].y)) {
-            pivot_marker(renderer,rect,&ui->measurement.refs[i],i==0?"A":"B",(SDL_Color){255,230,100,255});
+            pivot_marker(renderer,rect,&ui->measurement.refs[i],i==0?"A":"B",i==0?(SDL_Color){100,210,255,255}:(SDL_Color){255,190,90,255});
         }
     }
     /* Clip endpoints before converting huge offscreen projections to integer pixels. */
     if (valid[0] && valid[1] && inside(rect,points[0].x,points[0].y) && inside(rect,points[1].x,points[1].y))
         SDL_RenderDrawLine(renderer,(int)points[0].x,(int)points[0].y,(int)points[1].x,(int)points[1].y);
-    SDL_Rect banner={clip.x+8,clip.y+8,clip.w-16,h*5+12};
-    SDL_SetRenderDrawColor(renderer,25,30,38,255); SDL_RenderFillRect(renderer,&banner);
-    if (font) {
-        char lines[5][256];
-        const EditorGeometricReference* ref=&ui->measurement.refs[ui->measurement.slot];
-        const char* kind=ref->kind==EDITOR_REFERENCE_ORIGIN?"origin":ref->kind==EDITOR_REFERENCE_AXIS_U?"+U axis":
-            ref->kind==EDITOR_REFERENCE_AXIS_V?"+V axis":ref->kind==EDITOR_REFERENCE_AXIS_N?"+N axis":Layout_Object3DFaceKind_Label(ref->face);
-        snprintf(lines[0],sizeof(lines[0]),"Pick %c %s + local (%.4g, %.4g, %.4g) m [X-ray]",'A'+ui->measurement.slot,kind,
-            ref->local_offset_meters[0],ref->local_offset_meters[1],ref->local_offset_meters[2]);
-        snprintf(lines[1],sizeof(lines[1]),"Tab: A/B   Left/Right: feature   Enter/Esc: return to measurements");
-        EditorMeasurementResult distance=Editor_Measure(&Global_Get()->layout,&ui->measurement.refs[0],&ui->measurement.refs[1],EDITOR_MEASURE_POINT_DISTANCE,(Vec3){0});
-        if (distance.status==EDITOR_MEASUREMENT_OK) {
-            double value=0; (void)core_units_convert(distance.value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
-            snprintf(lines[2],sizeof(lines[2]),"A-B point distance: %.6g %s (reference only)",value,UIPanel_GetDisplayUnitSymbol());
-        } else snprintf(lines[2],sizeof(lines[2]),"A-B: %s",distance.message);
-        snprintf(lines[3],sizeof(lines[3]),"1: XY top   2: YZ side   3: XZ front (world views; geometry unchanged)");
-        snprintf(lines[4],sizeof(lines[4]),"%s",ui->measurement.pick_message);
-        for (int i=0;i<5;++i) UIPanelSummary_DrawTextClipped(renderer,font,lines[i],banner.x+6,banner.y+6+i*h,banner.w-12,h,(SDL_Color){235,240,250,255});
-    }
     SDL_RenderSetClipRect(renderer,had_clip?&old_clip:NULL);
 }
 
@@ -249,7 +226,7 @@ void UIPanel_RenderConstraintViewport(SDL_Renderer* renderer) {
     }
     if (total && font && capacity>0) {
         char text[128];
-        snprintf(text,sizeof(text),"X-ray pivots | actual / target | %d of %d rules | Measure: Q inspect/edit",shown,total);
+        snprintf(text,sizeof(text),"X-ray pivots | actual / target | %d of %d rules | Measure tab: saved rules",shown,total);
         SDL_Rect banner={clip.x+8,clip.y+8+row*h,clip.w-16,h};
         SDL_SetRenderDrawColor(renderer,25,30,38,255); SDL_RenderFillRect(renderer,&banner);
         UIPanelSummary_DrawTextClipped(renderer,font,text,banner.x+6,banner.y,banner.w-12,h,(SDL_Color){220,230,245,255});

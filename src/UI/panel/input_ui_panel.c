@@ -146,7 +146,7 @@ static void UIPanel_ObjectEditSetSelectionMode(GlobalState* state,
 
 bool UIPanel_HandleClick(int mouseX, int mouseY) {
     UIPanelState* ui = UIPanel_Get();
-    if (ui->measurement.active) return UIPanel_MeasurementClick(mouseX, mouseY);
+
     GlobalState* state = Global_Get();
     EditorState* editor = &state->editor;
     Grid* grid = &state->grid;
@@ -184,6 +184,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
     }
 
     if (UIPanel_RightScrollHandleClick(mouseX, mouseY)) return true;
+    if (UIPanel_MeasurementClick(mouseX, mouseY)) return true;
 
     if (UIPanel_HandleSceneListClick(mouseX, mouseY)) {
         UIPanel_CloseFileBrowser(ui);
@@ -657,7 +658,11 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     (void)UIPanel_ToggleObjectGizmoRotateMode();
                     break;
                 }
-                case UI_BTN_MEASURE: return UIPanel_BeginMeasurement();
+                case UI_BTN_MEASURE:
+                    if (!ui->measurement.refs[0].entity_id[0]) return UIPanel_BeginMeasurement();
+                    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_MEASURE);
+                    UIPanel_OnWindowResized(state->screenWidth,state->screenHeight);
+                    return true;
                 case UI_BTN_EDIT_OBJECT_POSITION: {
                     UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginObjectPositionDialog();

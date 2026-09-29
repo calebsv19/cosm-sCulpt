@@ -5,6 +5,8 @@
 #include "Layout/asset/layout_object_asset_mesh_authoring.h"
 #include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel_scene_list.h"
+#include "UI/ui_panel_shell.h"
+#include "UI/ui_panel_right_scroll.h"
 #include "Input/input_handler.h"
 #include "Input/input_mouse_drag.h"
 #include "Input/input_mouse_drag_shared.h"
@@ -210,7 +212,7 @@ static bool test_planar_mate_rotation_target_and_failure(void) {
     TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && valid());
     ld_test_shutdown_runtime(); return true;
 }
-static void key(SDL_Keycode code) { SDL_Event e={.type=SDL_KEYDOWN}; e.key.keysym.sym=code; Input_Handle(NULL,&e); }
+static void key(SDL_Keycode code) { (void)UIPanel_MeasurementKey(code); }
 static bool test_rule_ui_create_select_update_remove(void) {
     ld_test_init_runtime(); GlobalState* s=Global_Get();
     uint32_t a=prism("A",(Vec3){0}); TEST_ASSERT(a); TEST_ASSERT(prism("B",(Vec3){2,0,0}));
@@ -458,8 +460,81 @@ static bool test_constraint_feedback_readonly_conflict(void) {
     char* after=Layout_SaveToString(&s->layout); TEST_ASSERT(!strcmp(before,after));
     free(before); free(after); ld_test_shutdown_runtime(); return true;
 }
+
+static bool click_measure(int action) {
+    UIPanelState* ui=UIPanel_Get(); SDL_Rect rect;
+    UIPanel_LayoutMeasurementPane();
+    TEST_ASSERT(UIPanel_MeasurementControlRect(action,&rect));
+    if(rect.y<ui->rightBodyRect.y || rect.y+rect.h>ui->rightBodyRect.y+ui->rightBodyRect.h) {
+        ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx+=(float)(rect.y-ui->rightBodyRect.y-20);
+        UIPanel_LayoutMeasurementPane();
+        TEST_ASSERT(UIPanel_MeasurementControlRect(action,&rect));
+    }
+    TEST_ASSERT(rect.y>=ui->rightBodyRect.y && rect.y+rect.h<=ui->rightBodyRect.y+ui->rightBodyRect.h);
+    AppContext context={0}; SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};
+    e.button.button=SDL_BUTTON_LEFT;e.button.x=rect.x+rect.w/2;e.button.y=rect.y+rect.h/2;
+    Input_Handle(&context,&e);
+    e.type=SDL_MOUSEBUTTONUP;Input_Handle(&context,&e);
+    return true;
+}
+static void type_measure(const char* text) {
+    AppContext context={0};SDL_Event e={.type=SDL_TEXTINPUT};snprintf(e.text.text,sizeof(e.text.text),"%s",text);Input_Handle(&context,&e);
+}
+static bool test_measure_pane_mouse_workflow(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    uint32_t id=prism("A",(Vec3){0});TEST_ASSERT(id && prism("B",(Vec3){2,0,0}));
+    s->editor.selectedObject3DId=id;Editor_ClearHistory(&s->editor);UIPanel_BeginMeasurement();
+    UIPanelState* ui=UIPanel_Get();TEST_ASSERT(!UIPanel_IsCapturingKeyboard());
+    TEST_ASSERT(click_measure(MEASURE_OBJECT_B));TEST_ASSERT(ui->measurement.chooser==2);
+    TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE+1));TEST_ASSERT(!strcmp(ui->measurement.refs[1].entity_id,"B"));
+    TEST_ASSERT(click_measure(MEASURE_FEATURE_A));TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE+1));
+    TEST_ASSERT(ui->measurement.refs[0].kind==LAYOUT_REFERENCE_AXIS_U);
+    TEST_ASSERT(click_measure(MEASURE_VALUE));type_measure("20 mm");
+    TEST_ASSERT(!Editor_UndoCount(&s->editor) && !s->layout.objectStore.constraintCount);
+    TEST_ASSERT(click_measure(MEASURE_ONCE));TEST_ASSERT(Editor_UndoCount(&s->editor)==1);
+    TEST_ASSERT(near_measure(&s->layout,ui->measurement.refs[0],ui->measurement.refs[1],EDITOR_MEASURE_PROJECTED_DISTANCE,(Vec3){1,0,0},.02));
+    TEST_ASSERT(click_measure(MEASURE_SAVE));TEST_ASSERT(s->layout.objectStore.constraintCount==1 && valid());
+    TEST_ASSERT(click_measure(MEASURE_RULES));TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE));
+    TEST_ASSERT(ui->measurement.constraint_index==0);
+    TEST_ASSERT(click_measure(MEASURE_VALUE));type_measure("50 mm");
+    TEST_ASSERT(click_measure(MEASURE_SAVE));TEST_ASSERT(valid() && s->layout.objectStore.constraints[0].target==.05);
+    TEST_ASSERT(click_measure(MEASURE_RULES));TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE));
+    TEST_ASSERT(click_measure(MEASURE_REMOVE));TEST_ASSERT(s->layout.objectStore.constraintCount==1);
+    TEST_ASSERT(click_measure(MEASURE_CANCEL));TEST_ASSERT(!ui->measurement.placing);
+    TEST_ASSERT(click_measure(MEASURE_REMOVE));TEST_ASSERT(click_measure(MEASURE_SAVE));TEST_ASSERT(!s->layout.objectStore.constraintCount);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && valid() && s->layout.objectStore.constraintCount==1);
+    TEST_ASSERT(click_measure(MEASURE_OFFSETS));TEST_ASSERT(click_measure(MEASURE_OFFSET_U));type_measure("25 mm");
+    TEST_ASSERT(click_measure(MEASURE_APPLY_OFFSET));TEST_ASSERT(ui->measurement.refs[0].local_offset_meters[0]==.025);
+    TEST_ASSERT(!ui->measurement.placing);
+    TEST_ASSERT(click_measure(MEASURE_RESET_OFFSET));TEST_ASSERT(ui->measurement.refs[0].local_offset_meters[0]==0);
+    UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_CREATE);ld_test_shutdown_runtime();return true;
+}
+static bool test_measure_pane_tabs_scroll_focus(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    TEST_ASSERT(prism("A",(Vec3){0}) && prism("B",(Vec3){1,0,0}));
+    UIPanel_BeginMeasurement();UIPanelState* ui=UIPanel_Get();
+    LayoutGeometricReference a=ui->measurement.refs[0];
+    TEST_ASSERT(click_measure(MEASURE_VALUE));type_measure("15 mm");TEST_ASSERT(UIPanel_IsCapturingKeyboard());
+    size_t undo=Editor_UndoCount(&s->editor);
+    AppContext ctx={0};SDL_Event e={.type=SDL_KEYDOWN};e.key.keysym.sym=SDLK_RETURN;Input_Handle(&ctx,&e);
+    TEST_ASSERT(!UIPanel_IsCapturingKeyboard() && Editor_UndoCount(&s->editor)==undo);
+    TEST_ASSERT(!s->layout.objectStore.constraintCount);
+    TEST_ASSERT(UIPanel_RightScrollHandleWheel(ui->rightBodyRect.x+20,ui->rightBodyRect.y+20,-2));
+    TEST_ASSERT(UIPanel_RightScrollOffset(ui)>0);
+    TEST_ASSERT(click_measure(MEASURE_PICK_B) && ui->measurement.picking);
+    SDL_Rect tab=ui->rightTabs[UI_PANEL_RIGHT_TAB_CREATE].bounds;
+    e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;e.button.x=tab.x+tab.w/2;e.button.y=tab.y+tab.h/2;Input_Handle(&ctx,&e);
+    TEST_ASSERT(ui->activeRightTab==UI_PANEL_RIGHT_TAB_CREATE && !ui->measurement.active && !ui->measurement.picking);
+    tab=ui->rightTabs[UI_PANEL_RIGHT_TAB_MEASURE].bounds;e.button.x=tab.x+tab.w/2;e.button.y=tab.y+tab.h/2;Input_Handle(&ctx,&e);
+    TEST_ASSERT(ui->activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE && ui->measurement.active);
+    TEST_ASSERT(!memcmp(&a,&ui->measurement.refs[0],sizeof(a)));
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==undo);
+    UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_CREATE);ld_test_shutdown_runtime();return true;
+}
 bool constraints_run_tests(void) {
     const TestCase cases[]={
+        {"measure_pane_mouse_workflow",test_measure_pane_mouse_workflow},
+        {"measure_pane_tabs_scroll_focus",test_measure_pane_tabs_scroll_focus},
         {"offset_physical_frame_resize",test_offset_frame_physical_resize},
         {"offset_mate_driver_undo_reopen",test_offset_mate_driver_undo_reopen},
         {"offset_schema_legacy_atomic",test_offset_schema_legacy_and_atomic},

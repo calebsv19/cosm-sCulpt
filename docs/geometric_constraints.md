@@ -5,28 +5,30 @@ Date: 2026-09-28
 
 ## User workflow
 
-In the Scene workspace, open the right-hand **Object tab → Measure**, choose A (driver) and B (dependent), and select origin,
-local axis or named primitive face references. D/C still perform one-time placement.
-The persistent controls are separate:
+In Scene workspace, open the right-hand **Measure** tab. Choose A (driver) and
+B (dependent) with object/feature selectors or **Pick in view**. The viewport stays
+available beside the controls. No custom keyboard shortcut is needed.
 
-| Key | Operation |
+| Control | Operation |
 |---|---|
-| X / Y / Z | Stage the active reference offset along object-local U / V / N; enter a length such as `25 mm`, or `0` to reset. R/O/M saves it with the rule. |
-| R | Save a signed projected distance along the P-selected world axis; enter `20 mm`, `0.5 m`, etc. |
-| O | Save coincident reference points; confirm with Enter |
-| M | Save coincident points plus a signed relative angle about the N-selected plane normal; enter degrees such as `30` or `90` |
-| Q | Cycle existing saved rules, then back to new-rule mode; chosen operands and stored axis/normal are shown |
-| Delete | Confirm removal of the Q-selected rule; geometry stays in place |
-| Enter / Escape | Apply / cancel the active rule entry |
+| Distance + target + Save rule | Maintain signed distance along the selected world axis |
+| Join + Save rule | Maintain coincident reference points |
+| Angle + target + Save rule | Join pivots and maintain signed relative angle in the selected world plane |
+| Pivot offset | Expand local U/V/N fields; Set offset stages a physical offset |
+| Rules | Choose a saved rule and populate the form |
+| Update rule | Replace the selected rule under the same ID |
+| Remove | Confirm deletion of the rule, leaving geometry in place |
+| New rule | Return to creation mode with the chosen references |
 
-A selected rule is replaced by R/O/M, retaining its ID. Choosing another object or
-feature returns to new-rule mode. For target-only edits, the selected rule retains
-its stored axis/normal, including oblique axes authored through the C API. P/N
-explicitly chooses a replacement axis/normal. Length suffixes override the display
-unit; bare distances use the display unit. Angles use degrees in (-180,180].
+**Move once** / **Join once** are separate one-time placement actions. Changing an
+object/feature returns to new-rule mode. A chosen rule retains its stored world
+axis/normal, including oblique API-authored vectors, until a visible axis/plane
+button selects a replacement. Length suffixes override display units; bare values
+use display units. Angles use degrees in (-180,180]. Target entry alone does not
+edit geometry; click the action button. See [Measure controls](geometric_measurements.md).
 
 Example: choose a cabinet's +U face as A and another panel's -U face as B, choose
-world +X, and save R=`20 mm`. Moving/resizing A updates B to maintain that signed
+world +X, and save a Distance rule with target `20 mm`. Moving/resizing A updates B to maintain that signed
 face-center projection. A is grounded unless another rule drives it. The distance
 rule preserves B's other translation components and orientation. Moving B in a
 free perpendicular direction remains allowed. A conflicting direct edit of B is
@@ -41,17 +43,16 @@ the resized face center. The basis is the object's frame, including for face
 references, not a separately oriented face frame. Offsetting a face normal also
 shifts its reference plane; measured plane gaps are not solid-surface clearances.
 
-X/Y/Z edits are transient until R/O/M commits a rule (or D/C places once). Q then
-X/Y/Z then R/O/M updates a saved rule under the same ID, with geometry and offsets
-in one undo step. Escape cancels scalar entry. Changing objects resets offsets;
-changing features keeps them. The dialog displays all three offsets in the display
-unit. Viewport picking applies the active offset in each candidate object's own
-local frame. These are embedded operands, not independently named datum entities.
-Axis orientation still comes from U/V/N or the selected face normal.
+Pivot-offset edits are transient until Save/Update rule commits them (or a
+one-time placement consumes them). Select a rule, stage offsets, then Update rule:
+geometry and offsets share one undo step. Changing objects resets offsets;
+changing features keeps them. The fields display physical lengths. These are
+embedded operands, not independently named datum entities. Axis orientation still
+comes from U/V/N or the selected face normal.
 
-For an edge pivot, select +U axes on both prisms, enter X=`0.5 m` on A and
-X=`-0.5 m` on B, then save M=`30`. The offset points coincide while the primitive
-centers remain distinct. The mate maintains both point coincidence and direction.
+For an edge pivot, choose Local U axis on both prisms, set A's local U offset to
+`0.5 m` and B's to `-0.5 m`, then choose Angle, target `30`, and Save rule. The
+points coincide while the primitive centers remain distinct.
 
 A coincident rule maintains the selected points but leaves orientation free when
 an edit preserves those points. A planar mate aligns those points and rotates B
@@ -74,7 +75,7 @@ Cross/square markers identify A/B pivots, short rays show reference directions,
 and a line joins separate points. Markers are X-ray engineering annotations, not
 occlusion-tested surface picks. Hidden participants are omitted; drawing is clipped
 to the viewport, and at most five rules plus a count/hint are shown to limit clutter.
-Open Measure and use Q to inspect/edit the saved rules. In K picking mode the
+Open Measure and use Rules to inspect/edit saved rules. During Pick in view the
 selected offset points and their direction rays are visible too.
 
 ## Bounded dependency model
@@ -162,7 +163,7 @@ makes the saved targets inconsistent also fails instead of changing their meanin
 
 ## Verification and continuation
 
-`make test`: 430 tests across 43 reported suites, including 21 constraint tests.
+`make test`: 432 tests across 43 reported suites, including 23 constraint tests.
 New coverage proves meter-valued offsets in a non-meter world scale, resize and
 rotation, offset mate propagation, undo/redo/reopen, legacy loading, atomic malformed
 input refusal, UI staging/cancel/save, and read-only feedback. Canonical authoring
