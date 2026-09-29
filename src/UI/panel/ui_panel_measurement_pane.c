@@ -1,4 +1,5 @@
 #include "UI/ui_panel_measurement.h"
+#include "UI/ui_panel_shell.h"
 #include "UI/ui_panel_right_scroll.h"
 #include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_visual_style.h"
@@ -104,6 +105,19 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     (void)UIPanelVisual_ResolvePalette(&p.palette);
     p.h=p.font ? TTF_FontHeight(p.font)+12 : 30;
     p.y=p.body.y+6-(int)UIPanel_RightScrollOffset(ui);
+    bool has_primitive=false;
+    const LayoutObjectStore* store=&Global_Get()->layout.objectStore;
+    for(size_t i=0;i<store->count;++i) {
+        const Object3D* o=&store->items[i];
+        if(!o->isDeleted && (o->kind==OBJECT3D_KIND_PLANE || o->kind==OBJECT3D_KIND_RECT_PRISM))has_primitive=true;
+    }
+    if(!has_primitive) {
+        row(&p,0,"Add objects to start measuring.",true);
+        row(&p,0,"Plane and prism references are supported.",true);
+        row(&p,MEASURE_CREATE,"Create object",true);
+        row(&p,MEASURE_FILE,"Open layout",true);
+        return p;
+    }
     char text[256];
     snprintf(text,sizeof(text),"Units: %s",UIPanel_GetDisplayUnitSymbol()); row(&p,MEASURE_UNITS,text,true);
     for (int i=0;i<2;++i) {
@@ -240,7 +254,11 @@ bool UIPanel_MeasurementClick(int x,int y) {
     MeasurePane p=build(NULL,x,y,0);int action=p.hit;
     if(!action)return true;
     int chooser=ui->measurement.chooser;
-    if(action>=MEASURE_CHOICE_BASE) {
+    if(action==MEASURE_CREATE || action==MEASURE_FILE) {
+        if(action==MEASURE_CREATE)UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_CREATE);
+        else UIPanel_SetActiveLeftTab(ui,UI_PANEL_LEFT_TAB_FILE);
+        UIPanel_OnWindowResized(Global_GetScreenWidth(),Global_GetScreenHeight());
+    } else if(action>=MEASURE_CHOICE_BASE) {
         int index=action-MEASURE_CHOICE_BASE;
         if(chooser<=2 && chooser>0) {
             LayoutGeometricReference ref={0};snprintf(ref.entity_id,64,"%s",Global_Get()->layout.objectStore.items[index].coreMeta.object_id);

@@ -511,6 +511,12 @@ static bool test_measure_pane_mouse_workflow(void) {
 }
 static bool test_measure_pane_tabs_scroll_focus(void) {
     ld_test_init_runtime();GlobalState* s=Global_Get();
+    UIPanel_BeginMeasurement();
+    TEST_ASSERT(click_measure(MEASURE_FILE));
+    TEST_ASSERT(UIPanel_Get()->activeLeftTab==UI_PANEL_LEFT_TAB_FILE);
+    TEST_ASSERT(click_measure(MEASURE_CREATE));
+    TEST_ASSERT(UIPanel_Get()->activeRightTab==UI_PANEL_RIGHT_TAB_CREATE && !UIPanel_Get()->measurement.active);
+    TEST_ASSERT(s->layout.objectStore.count==0);
     TEST_ASSERT(prism("A",(Vec3){0}) && prism("B",(Vec3){1,0,0}));
     UIPanel_BeginMeasurement();UIPanelState* ui=UIPanel_Get();
     LayoutGeometricReference a=ui->measurement.refs[0];

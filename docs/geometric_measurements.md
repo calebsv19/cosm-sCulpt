@@ -7,6 +7,7 @@ Date: 2026-09-28
 
 Click the right-hand **Measure** tab. The existing Object-tab Measure button also
 opens it. The pane stays beside the viewport; there is no modal shortcut sheet.
+Empty scenes offer Create object and Open layout entry buttons.
 Selections survive switching tabs. Scene/object creation and editing retain their
 existing tabs. Scroll within Measure when the window is short or a section expands.
 
