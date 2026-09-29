@@ -113,7 +113,7 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     }
     if(!has_primitive) {
         row(&p,0,"Add objects to start measuring.",true);
-        row(&p,0,"Plane and prism references are supported.",true);
+        row(&p,0,"Works with planes and prisms.",true);
         row(&p,MEASURE_CREATE,"Create object",true);
         row(&p,MEASURE_FILE,"Open layout",true);
         return p;
