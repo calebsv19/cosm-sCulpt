@@ -116,7 +116,7 @@ The editor compatibility entry points are `Editor_ResolveReference` and `Editor_
 `src/Editor/editor_measurement.h`. They are synchronous, read-only operations,
 not a revision-checked external agent protocol. They now alias the Layout reference
 API. Measurement selections/results are transient; persisted driving rules use
-layout schema 12, including local-meter reference offsets, as documented separately. Tests retain an operand across a
+layout schema 13, including local-meter reference offsets and bounded linear travel, as documented separately. Tests retain an operand across a
 layout round trip to prove its entity/feature identity resolves consistently.
 This does not mean saved measurement annotations have been implemented.
 
@@ -145,3 +145,12 @@ Remaining S1b extensions: exact visible-surface picking, independently authored
 point datums, mesh feature naming, broader snapping, and saved measurement records
 if required. Persistent distance and initial pivot/angle rules now exist in the
 separate constraint contract; the numerical D/C commands remain one-shot edits.
+
+## Bounded travel controls
+
+In Measure, select A and B and a world axis, then click **Travel**. Enter Min,
+Max and Position with optional unit suffixes, then **Save travel**. Saved travel
+provides a live slider and Min/Max/Reset buttons. **Update travel** applies edited
+limits and position atomically; Reset returns to the creation pose. The slider
+uses the saved limits, not unsaved form text. A rejected move keeps the last
+accepted pose and displays the reason. See the [travel contract](geometric_constraints.md).

@@ -2,6 +2,23 @@
 
 Last updated: 2026-09-28
 
+## S1e bounded linear travel (2026-09-28)
+
+Measure now includes Travel with explicit Min, Max and Position fields, a live
+slider, and Min/Max/Reset buttons. Rules retain a world-fixed rail, transverse
+separation and moving-object orientation; downstream constraints follow accepted
+motion. Direct on-rail translation updates the saved position. Sideways/rotational,
+out-of-range and downstream conflicting edits are refused atomically. A slider
+gesture owns one undo step. Reset, undo/redo and schema-13 save/reopen are covered.
+The nested schema lookup was also corrected so schema-12+ offsets are required.
+
+436 host tests / 43 reported suites pass, including 27 Constraints tests. Producer
+smoke, shape-tool build and Main Edit package self-test pass. A disposable bed-lift
+render with 900–1800 mm travel and an attached sensor was inspected; these are
+provisional demonstration values, not van measurements. Human interaction review
+remains separate from automated coverage. [Controls and limits](geometric_constraints.md).
+Next: bounded angular travel around a pivot, then pose sampling and motion envelopes.
+
 ## Persistent Measure pane (2026-09-28)
 
 The shortcut-heavy modal is replaced by a compact right-hand **Measure** tab.

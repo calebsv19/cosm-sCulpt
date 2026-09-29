@@ -1,12 +1,14 @@
 # Engineering Document Foundation (S0)
 
-Status: S0/S1a/S1b foundations implemented; S1c/S1d fixed mates and local-offset references added (schema 12).
+Status: S0/S1a/S1b foundations, S1c/S1d fixed rules/offsets, and S1e linear travel implemented.
 Date: 2026-09-28
 
-Current schema is **11**, adding persistent driving rules and validating them on
-load/save/export. See [geometric constraints](geometric_constraints.md). The schema
-10 account below records the original physical-context migration; 0–10 are still
-readable, while older readers reject 11.
+Current schema is **13**, adding bounded linear travel to persistent driving rules.
+References retain physical offsets from schema 12. Load/save/export validate the
+rule graph and stored geometry; older readers reject 13 instead of dropping travel.
+Schemas 0–12 remain readable under their contracts. See
+[geometric constraints](geometric_constraints.md) for exact fields and boundaries.
+The schema 10 account below records the original physical-context migration.
 
 ## Physical meaning and compatibility
 

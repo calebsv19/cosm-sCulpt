@@ -438,6 +438,10 @@ typedef struct {
         bool details_open;
         int operation; /* distance, join, angle */
         bool replace_text;
+        char travel_text[3][64]; /* Min, Max, Position; staged until Save */
+        bool travel_dragging;
+        SDL_Rect travel_track;
+        char travel_drag_id[64];
     } measurement;
 
     struct {

@@ -7,6 +7,8 @@
 #include "UI/shared_theme_font_adapter.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_measurement.h"
+#include "UI/ui_panel_right_scroll.h"
+#include "Layout/layout_constraints.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
 
 
@@ -512,10 +514,11 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         return 1;
     }
 
+    const bool travel_proof = proof_mode && strcmp(proof_mode,"constraint-travel")==0;
     const bool constraint_distance = proof_mode && strcmp(proof_mode, "constraint-distance") == 0;
     const bool pivot_feedback = proof_mode && strcmp(proof_mode, "constraint-pivot") == 0;
     const bool constraint_angle = pivot_feedback || (proof_mode && strcmp(proof_mode, "constraint-angle") == 0);
-    const bool placement_proof = constraint_distance || constraint_angle || (proof_mode && strcmp(proof_mode, "placement") == 0);
+    const bool placement_proof = travel_proof || constraint_distance || constraint_angle || (proof_mode && strcmp(proof_mode, "placement") == 0);
     const bool measurement_proof = placement_proof || (proof_mode && strcmp(proof_mode, "measurement") == 0);
     if (measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
         LineDrawingHostEnterEditor();
@@ -574,6 +577,33 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
                     UIPanel_MeasurementKey(SDLK_d);
                     UIPanel_MeasurementText("20 mm");
                 }
+            }
+            if(travel_proof) {
+                Object3D* a=&state->layout.objectStore.items[0];Object3D* b=&state->layout.objectStore.items[1];
+                (void)core_object_set_identity(&a->coreMeta,"floor_reference","rect_prism_primitive");
+                (void)core_object_set_identity(&b->coreMeta,"bed_demo","rect_prism_primitive");
+                if(!Layout_SetObject3DPosition(&state->layout,a->objectId,(Vec3){0,0,0},NULL) ||
+                   !Layout_SetObject3DPosition(&state->layout,b->objectId,(Vec3){.2f,0,.9f},NULL))return 1;
+                RectPrismPrimitiveCreateParams child={.width=.1f,.height=.1f,.depth=.1f,.useExplicitFrame=true,
+                    .explicitFrame={.origin={.2f,0,1.1f},.axisU={1,0,0},.axisV={0,1,0},.normal={0,0,1}}};
+                uint32_t child_id=0;if(!Layout_CreateRectPrismPrimitive(&state->layout,&child,&child_id,NULL))return 1;
+                Object3D* attached=Layout_ObjectStore_Find(&state->layout.objectStore,child_id);
+                (void)core_object_set_identity(&attached->coreMeta,"bed_sensor_demo","rect_prism_primitive");
+                UIPanel_BeginMeasurement();UIPanelState* ui=UIPanel_Get();
+                LayoutConstraint c={.a=ui->measurement.refs[0],.b=ui->measurement.refs[1],.axis={0,0,1}};
+                if(!Layout_InitLinearTravel(&state->layout,&c,.9,1.8) || !Layout_ConstraintEdit(&state->layout,&c,NULL,NULL,NULL))return 1;
+                LayoutConstraint follower={.a=c.b,.b={.kind=LAYOUT_REFERENCE_ORIGIN},.axis={0,0,1},.kind=LAYOUT_CONSTRAINT_DISTANCE,.target=.2};
+                snprintf(follower.b.entity_id,64,"bed_sensor_demo");
+                if(!Layout_ConstraintEdit(&state->layout,&follower,NULL,NULL,NULL))return 1;
+                UIPanel_SetDisplayUnit(CORE_UNIT_MILLIMETER);UIPanel_MeasurementSelectRule(0);
+                ui->measurement.picking=false;
+                (void)UIPanel_SetConstructionPlaneAxis(VIEW_PLANE_XZ);
+                state->grid.scale=180;
+                state->grid.offsetX=-(viewport.x+viewport.width/2)/180;
+                state->grid.offsetY=-(viewport.y+viewport.height*0.25f)/180;
+                UIPanel_LayoutMeasurementPane();SDL_Rect control;
+                if(UIPanel_MeasurementControlRect(MEASURE_TRAVEL,&control))
+                    ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx+=(float)(control.y-ui->rightBodyRect.y-10);
             }
             Global_FlagLayoutChanged();
             Global_FlagHitboxesDirty();

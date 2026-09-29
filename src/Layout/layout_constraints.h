@@ -13,6 +13,12 @@ bool Layout_ReplaceGeometryObject(Layout* layout, const Object3D* object,
     LayoutGeometryBeforePublish before_publish, void* context);
 bool Layout_ConstraintEdit(Layout* layout, const LayoutConstraint* rule, const char* remove_id,
     LayoutGeometryBeforePublish before_publish, void* context);
+/* Initialize a travel rule from current references. Captures transverse separation
+ * and orientation without changing geometry; target/home start at the current pose. */
+bool Layout_InitLinearTravel(const Layout* layout, LayoutConstraint* rule,
+    double minimum_meters, double maximum_meters);
+bool Layout_SetTravelPosition(Layout* layout, const char* rule_id, double meters,
+    LayoutGeometryBeforePublish before_publish, void* context);
 typedef struct LayoutConstraintFeedback {
     bool satisfied;
     LayoutMeasurementResult position;

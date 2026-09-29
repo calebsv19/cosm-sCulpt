@@ -53,6 +53,18 @@ bool Layout_ConstraintsWriteJson(const Layout* layout, cJSON* root) {
         if (!cJSON_AddStringToObject(o,"id",c->id) || !cJSON_AddNumberToObject(o,"kind",c->kind) ||
             !cJSON_AddNumberToObject(o,"target",c->target) || !cJSON_AddNumberToObject(o,"axisX",c->axis.x) ||
             !cJSON_AddNumberToObject(o,"axisY",c->axis.y) || !cJSON_AddNumberToObject(o,"axisZ",c->axis.z)) return false;
+        if(c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) {
+            if(!cJSON_AddNumberToObject(o,"travelMin_m",c->travel_min) ||
+               !cJSON_AddNumberToObject(o,"travelMax_m",c->travel_max) ||
+               !cJSON_AddNumberToObject(o,"travelHome_m",c->travel_home))return false;
+            cJSON* offset=cJSON_CreateDoubleArray(c->travel_offset,3);
+            double flat_basis[9];
+            for(int k=0;k<9;++k)flat_basis[k]=c->travel_basis[k/3][k%3];
+            cJSON* basis=cJSON_CreateDoubleArray(flat_basis,9);
+            if(!offset || !basis){cJSON_Delete(offset);cJSON_Delete(basis);return false;}
+            if(!cJSON_AddItemToObject(o,"travelOffset_m",offset)){cJSON_Delete(offset);cJSON_Delete(basis);return false;}
+            if(!cJSON_AddItemToObject(o,"travelBasis",basis)){cJSON_Delete(basis);return false;}
+        }
     }
     return true;
 }
@@ -63,7 +75,7 @@ bool Layout_ConstraintsReadJson(Layout* layout, const cJSON* root, bool required
     if (!cJSON_IsArray(array) || cJSON_GetArraySize(array)>LAYOUT_MAX_CONSTRAINTS ||
         !number(root,"nextConstraintId",&next) || next<1 || next>UINT32_MAX || floor(next)!=next) return false;
     layout->objectStore.nextConstraintId=(uint32_t)next;
-    const cJSON* version=cJSON_GetObjectItemCaseSensitive(root,"schemaVersion");
+    const cJSON* version=cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"file"),"schemaVersion");
     bool offsets_required=cJSON_IsNumber(version) && version->valuedouble>=12;
     const cJSON* o;
     cJSON_ArrayForEach(o,array) {
@@ -71,9 +83,27 @@ bool Layout_ConstraintsReadJson(Layout* layout, const cJSON* root, bool required
         if (!cJSON_IsObject(o) || !text(o,"id",c.id,sizeof(c.id)) ||
             !read_reference(cJSON_GetObjectItemCaseSensitive(o,"a"),&c.a,offsets_required) ||
             !read_reference(cJSON_GetObjectItemCaseSensitive(o,"b"),&c.b,offsets_required) ||
-            !number(o,"kind",&kind) || floor(kind)!=kind || kind<0 || kind>LAYOUT_CONSTRAINT_PLANAR_MATE ||
+            !number(o,"kind",&kind) || floor(kind)!=kind || kind<0 || kind>LAYOUT_CONSTRAINT_LINEAR_TRAVEL ||
             !number(o,"target",&c.target) || !number(o,"axisX",&x) || !number(o,"axisY",&y) || !number(o,"axisZ",&z)) return false;
         c.kind=(LayoutConstraintKind)kind; c.axis=(Vec3){(float)x,(float)y,(float)z};
+        if(c.kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) {
+            if(!cJSON_IsNumber(version) || version->valuedouble<13 ||
+               !number(o,"travelMin_m",&c.travel_min) || !number(o,"travelMax_m",&c.travel_max) ||
+               !number(o,"travelHome_m",&c.travel_home))return false;
+            const cJSON* offset=cJSON_GetObjectItemCaseSensitive(o,"travelOffset_m");
+            const cJSON* basis=cJSON_GetObjectItemCaseSensitive(o,"travelBasis");
+            if(!cJSON_IsArray(offset) || cJSON_GetArraySize(offset)!=3 || !cJSON_IsArray(basis) || cJSON_GetArraySize(basis)!=9)return false;
+            for(int i=0;i<9;++i) {
+                const cJSON* v=cJSON_GetArrayItem(basis,i);
+                if(!cJSON_IsNumber(v) || !isfinite(v->valuedouble))return false;
+                c.travel_basis[i/3][i%3]=v->valuedouble;
+            }
+            for(int i=0;i<3;++i) {
+                const cJSON* v=cJSON_GetArrayItem(offset,i);
+                if(!cJSON_IsNumber(v) || !isfinite(v->valuedouble))return false;
+                c.travel_offset[i]=v->valuedouble;
+            }
+        }
         layout->objectStore.constraints[layout->objectStore.constraintCount++]=c;
     }
     /* Loading never silently solves a malformed/stale authored document. */

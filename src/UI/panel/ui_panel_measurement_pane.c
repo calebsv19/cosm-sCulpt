@@ -93,7 +93,7 @@ static void choices(MeasurePane* p,int chooser) {
     } else {
         for (size_t i=0;i<s->constraintCount;++i) {
             char text[160]; const LayoutConstraint* c=&s->constraints[i];
-            snprintf(text,sizeof(text),"%s | %s",c->id,c->kind==LAYOUT_CONSTRAINT_DISTANCE ? "Distance" : c->kind==LAYOUT_CONSTRAINT_COINCIDENT ? "Join" : "Angle");
+            snprintf(text,sizeof(text),"%s | %s",c->id,c->kind==LAYOUT_CONSTRAINT_DISTANCE ? "Distance" : c->kind==LAYOUT_CONSTRAINT_COINCIDENT ? "Join" : c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL ? "Travel" : "Angle");
             row(p,MEASURE_CHOICE_BASE+(int)i,text,true);
         }
         if (!s->constraintCount) row(p,0,"No saved rules",false);
@@ -134,7 +134,7 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     Vec3 axis=axes[ui->measurement.projection_axis],normal=axes[(ui->measurement.angle_plane+2)%3];
     const LayoutConstraint* rule=selected();
     if (rule && ui->measurement.use_rule_axis) {
-        if (rule->kind==LAYOUT_CONSTRAINT_DISTANCE) axis=rule->axis;
+        if (rule->kind==LAYOUT_CONSTRAINT_DISTANCE || rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) axis=rule->axis;
         else if (rule->kind==LAYOUT_CONSTRAINT_PLANAR_MATE) normal=rule->axis;
     }
     const char* labels[]={"Distance","Along axis","Angle"};
@@ -180,7 +180,7 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         }
         row(&p,MEASURE_RESET_OFFSET,"Reset offsets",true);
     }
-    if (ui->measurement.placing>=7) {
+    if (ui->measurement.placing>=7 && ui->measurement.placing<=9) {
         snprintf(text,sizeof(text),"Local %c [%s]: %s_","UVN"[ui->measurement.placing-7],UIPanel_GetDisplayUnitSymbol(),ui->measurement.placement_text);
         row(&p,MEASURE_VALUE,text,true);
         cell(&p,MEASURE_APPLY_OFFSET,"Set offset",0,2,true,false);cell(&p,MEASURE_CANCEL,"Cancel",1,2,true,false);p.y+=p.h;
@@ -191,6 +191,35 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         row(&p,0,"A stays fixed; B moves",true);
         for(int i=0;i<3;++i) cell(&p,MEASURE_DISTANCE+i,(const char*[]){"Distance","Join","Angle"}[i],i,3,true,ui->measurement.operation==i);
         p.y+=p.h;
+        cell(&p,MEASURE_TRAVEL,"Travel",0,1,true,ui->measurement.operation==3);p.y+=p.h;
+        if(ui->measurement.operation==3) {
+            row(&p,0,"World axis; B keeps its orientation",true);
+            for(int i=0;i<3;++i) {
+                const char* value=ui->measurement.placing==10+i ? ui->measurement.placement_text : ui->measurement.travel_text[i];
+                snprintf(text,sizeof(text),"%s: %s%s",(const char*[]){"Min","Max","Position"}[i],value,ui->measurement.placing==10+i ? "_" : "");
+                row(&p,MEASURE_TRAVEL_MIN+i,text,true);
+            }
+            row(&p,MEASURE_TRAVEL_SAVE,rule ? "Update travel" : "Save travel",Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_SCENE);
+            if(rule && rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) {
+                double position=rule->target,home=rule->travel_home;
+                (void)core_units_convert(position,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&position);
+                (void)core_units_convert(home,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&home);
+                snprintf(text,sizeof(text),"Live: %.6g %s",position,UIPanel_GetDisplayUnitSymbol());row(&p,0,text,true);
+                SDL_Rect track={p.body.x+6,p.y,p.body.w-24,p.h-4};
+                cell(&p,MEASURE_TRAVEL_SLIDER,"",0,1,rule->travel_max>rule->travel_min,false);
+                if(renderer) {
+                    double t=rule->travel_max>rule->travel_min ? (rule->target-rule->travel_min)/(rule->travel_max-rule->travel_min) : 0;
+                    SDL_SetRenderDrawColor(renderer,p.palette.accent.r,p.palette.accent.g,p.palette.accent.b,255);
+                    SDL_RenderDrawLine(renderer,track.x+6,track.y+track.h/2,track.x+track.w-6,track.y+track.h/2);
+                    SDL_Rect thumb={track.x+3+(int)(t*(track.w-12)),track.y+3,6,track.h-6};SDL_RenderFillRect(renderer,&thumb);
+                }
+                p.y+=p.h;
+                cell(&p,MEASURE_TRAVEL_TO_MIN,"Min",0,3,true,false);
+                cell(&p,MEASURE_TRAVEL_TO_MAX,"Max",1,3,true,false);
+                cell(&p,MEASURE_TRAVEL_RESET,"Reset",2,3,true,false);p.y+=p.h;
+                snprintf(text,sizeof(text),"Reset: %.6g %s",home,UIPanel_GetDisplayUnitSymbol());row(&p,0,text,true);
+            } else row(&p,0,"Set limits, then save to enable travel",true);
+        } else {
         if (ui->measurement.operation!=1) {
             snprintf(text,sizeof(text),"Target [%s]: %s%s",ui->measurement.operation==2 ? "deg" : UIPanel_GetDisplayUnitSymbol(),ui->measurement.placement_text[0]?ui->measurement.placement_text:"click to enter",ui->measurement.placing?"_":"");
             row(&p,MEASURE_VALUE,text,true);
@@ -202,6 +231,7 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         if (ui->measurement.placing) row(&p,MEASURE_CANCEL,"Cancel input",true);
         if (!different) row(&p,0,"Pick two different objects to move B",false);
         if (ui->measurement.operation==2) row(&p,0,"Angle also joins the two pivot points",true);
+        }
         if (Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_SCENE) row(&p,0,"Saved rules require the Scene workspace",false);
     }
     snprintf(text,sizeof(text),"Rules: %s  v",rule?rule->id:"choose saved rule");row(&p,MEASURE_RULES,text,true);choices(&p,5);
@@ -254,7 +284,19 @@ bool UIPanel_MeasurementClick(int x,int y) {
     MeasurePane p=build(NULL,x,y,0);int action=p.hit;
     if(!action)return true;
     int chooser=ui->measurement.chooser;
-    if(action==MEASURE_CREATE || action==MEASURE_FILE) {
+    if(action>=MEASURE_TRAVEL && action<=MEASURE_TRAVEL_SLIDER) {
+        if(action==MEASURE_TRAVEL_SLIDER) {
+            const LayoutConstraint* c=selected();
+            if(c && UIPanel_MeasurementControlRect(action,&ui->measurement.travel_track)) {
+                UIPanel_MeasurementStopInput();
+                snprintf(ui->measurement.travel_drag_id,64,"%s",c->id);
+                ui->measurement.travel_dragging=true;
+                Layout_BeginGeometryGesture(&Global_Get()->layout);
+                SDL_Event e={.type=SDL_MOUSEMOTION};e.motion.x=x;
+                (void)UIPanel_TravelEvent(&e);
+            }
+        } else UIPanel_TravelAction(action);
+    } else if(action==MEASURE_CREATE || action==MEASURE_FILE) {
         if(action==MEASURE_CREATE)UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_CREATE);
         else UIPanel_SetActiveLeftTab(ui,UI_PANEL_LEFT_TAB_FILE);
         UIPanel_OnWindowResized(Global_GetScreenWidth(),Global_GetScreenHeight());
@@ -290,7 +332,7 @@ bool UIPanel_MeasurementClick(int x,int y) {
     } else if(action==MEASURE_RESET_OFFSET)memset(ui->measurement.refs[ui->measurement.slot].local_offset_meters,0,sizeof(ui->measurement.refs[0].local_offset_meters));
     else if(action>=MEASURE_DISTANCE && action<=MEASURE_ANGLE) {
         UIPanel_MeasurementStopInput();ui->measurement.operation=action-MEASURE_DISTANCE;ui->measurement.placement_text[0]=0;
-    } else if(action==MEASURE_VALUE)UIPanel_MeasurementStartValue(ui->measurement.placing>=7 ? ui->measurement.placing : ui->measurement.operation==2?5:3);
+    } else if(action==MEASURE_VALUE)UIPanel_MeasurementStartValue(ui->measurement.placing>=7 && ui->measurement.placing<=9 ? ui->measurement.placing : ui->measurement.operation==2?5:3);
     else if(action==MEASURE_APPLY_OFFSET) {
         UIPanel_MeasurementApplyButton(ui->measurement.placing);
         if(!ui->measurement.placing)ui->measurement.placement_text[0]=0;

@@ -419,7 +419,7 @@ static bool test_offset_schema_legacy_and_atomic(void) {
     char* after=Layout_SaveToString(&s->layout); TEST_ASSERT(!strcmp(json,after));
     free(after); free(broken);
     /* Schema 11 without offsets retains its exact previous origin semantics. */
-    cJSON_SetNumberValue(cJSON_GetObjectItemCaseSensitive(root,"schemaVersion"),11);
+    cJSON_SetNumberValue(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"file"),"schemaVersion"),11);
     const char* fields[]={"offsetU_m","offsetV_m","offsetN_m"};
     for (int i=0;i<3;++i) {
         cJSON_DeleteItemFromObjectCaseSensitive(a,fields[i]);
@@ -537,8 +537,129 @@ static bool test_measure_pane_tabs_scroll_focus(void) {
     TEST_ASSERT(Editor_UndoCount(&s->editor)==undo);
     UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_CREATE);ld_test_shutdown_runtime();return true;
 }
+static bool test_travel_chain_direct_edits(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    uint32_t a=prism("floor",(Vec3){0}),b=prism("bed",(Vec3){.2f,.3f,.9f});
+    TEST_ASSERT(a && b && prism("sensor",(Vec3){.2f,.3f,1.1f}));
+    LayoutConstraint follower=rule("sensor_mount","bed","sensor",.2);follower.axis=(Vec3){0,0,1};TEST_ASSERT(put(follower));
+    LayoutConstraint c=rule("bed_lift","floor","bed",0);c.axis=(Vec3){0,0,1};
+    TEST_ASSERT(Layout_InitLinearTravel(&s->layout,&c,.9,1.8) && put(c) && valid());
+    TEST_ASSERT(c.travel_home==.9 && fabs(c.travel_offset[0]-.2)<1e-6);
+    Editor_ClearHistory(&s->editor);
+    TEST_ASSERT(Layout_SetTravelPosition(&s->layout,c.id,1.8,Layout_GeometryHistory,NULL) && valid());
+    TEST_ASSERT(fabs(s->layout.objectStore.items[2].transform.position.z-2)<1e-6);
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==1 && Editor_Undo(&s->editor,&s->layout) && valid());
+    TEST_ASSERT(fabs(s->layout.objectStore.items[1].transform.position.z-.9)<1e-6);
+    TEST_ASSERT(Editor_Redo(&s->editor,&s->layout) && valid());
+    TEST_ASSERT(Layout_SetObject3DPosition(&s->layout,b,(Vec3){.2f,.3f,1.2f},NULL) && valid());
+    TEST_ASSERT(fabs(s->layout.objectStore.constraints[1].target-1.2)<1e-6);
+    char* before=Layout_SaveToString(&s->layout);size_t undo=Editor_UndoCount(&s->editor);
+    TEST_ASSERT(!Layout_SetObject3DPosition(&s->layout,b,(Vec3){.2f,.3f,2},NULL));
+    TEST_ASSERT(!Layout_SetObject3DPosition(&s->layout,b,(Vec3){.4f,.3f,1.2f},NULL));
+    Object3D baseline=s->layout.objectStore.items[1];
+    TEST_ASSERT(!Layout_RotateObject3D(&s->layout,b,(Vec3){0,0,1},30,&baseline,NULL));
+    TEST_ASSERT(!Layout_SetTravelPosition(&s->layout,c.id,.8,Layout_GeometryHistory,NULL));
+    TEST_ASSERT(!Layout_SetTravelPosition(&s->layout,c.id,NAN,Layout_GeometryHistory,NULL));
+    char* after=Layout_SaveToString(&s->layout);
+    TEST_ASSERT(!strcmp(before,after) && Editor_UndoCount(&s->editor)==undo);free(before);free(after);
+    TEST_ASSERT(Layout_SetObject3DPosition(&s->layout,a,(Vec3){1,1,.1f},NULL) && valid());
+    TEST_ASSERT(fabs(s->layout.objectStore.items[1].transform.position.x-1.2)<1e-6);
+    TEST_ASSERT(fabs(s->layout.objectStore.items[2].transform.position.z-1.5)<1e-6);
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_travel_contract_rollback(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    TEST_ASSERT(prism("A",(Vec3){0}) && prism("B",(Vec3){0,0,1}) && prism("C",(Vec3){0,0,1.2f}));
+    LayoutConstraint c=rule("travel","A","B",0);c.axis=(Vec3){0,0,1};
+    TEST_ASSERT(!Layout_InitLinearTravel(&s->layout,&c,2,1));
+    TEST_ASSERT(!Layout_InitLinearTravel(&s->layout,&c,NAN,2));
+    TEST_ASSERT(Layout_InitLinearTravel(&s->layout,&c,.5,2) && put(c));
+    LayoutConstraint follower=rule("child","B","C",.2);follower.axis=c.axis;TEST_ASSERT(put(follower));
+    LayoutConstraint bad=c;bad.travel_min=1.1;TEST_ASSERT(!put(bad));
+    bad=c;bad.travel_min=-1e308;bad.travel_max=1e308;TEST_ASSERT(!put(bad));
+    bad=c;bad.travel_offset[2]=1;TEST_ASSERT(!put(bad));
+    bad=c;bad.travel_basis[0][0]=0;TEST_ASSERT(!put(bad));
+    s->layout.objectStore.items[2].coreMeta.flags.locked=true;
+    Editor_ClearHistory(&s->editor);char* before=Layout_SaveToString(&s->layout);
+    TEST_ASSERT(!Layout_SetTravelPosition(&s->layout,c.id,1.5,Layout_GeometryHistory,NULL));
+    char* after=Layout_SaveToString(&s->layout);TEST_ASSERT(!strcmp(before,after) && !Editor_UndoCount(&s->editor));free(before);free(after);
+    s->layout.objectStore.items[2].coreMeta.flags.locked=false;
+    s->layout.scene3d.bounds=(SceneBounds3D){.enabled=true,.clampOnEdit=true,.min={-2,-2,-2},.max={2,2,1.6f}};
+    s->layout.objectStore.items[2].rectPrism.lockToBounds=true;
+    before=Layout_SaveToString(&s->layout);
+    TEST_ASSERT(!Layout_SetTravelPosition(&s->layout,c.id,1.7,Layout_GeometryHistory,NULL));
+    after=Layout_SaveToString(&s->layout);TEST_ASSERT(!strcmp(before,after) && !Editor_UndoCount(&s->editor));free(before);free(after);
+    TEST_ASSERT(Layout_SetTravelPosition(&s->layout,c.id,1.1,Layout_GeometryHistory,NULL) && valid());
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_travel_persistence_units_export(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    TEST_ASSERT(prism("A",(Vec3){0}) && prism("B",(Vec3){20,0,100}));s->layout.metersPerWorldUnit=.01;
+    LayoutConstraint c=rule("rail","A","B",0);c.axis=(Vec3){0,0,2};
+    TEST_ASSERT(Layout_InitLinearTravel(&s->layout,&c,.9,1.8) && put(c));
+    TEST_ASSERT(Layout_SetTravelPosition(&s->layout,c.id,1.8,Layout_GeometryHistory,NULL));
+    char* json=Layout_SaveToString(&s->layout);TEST_ASSERT(json);
+    Layout loaded;Layout_Init(&loaded,1);TEST_ASSERT(Layout_LoadFromString(&loaded,json));
+    TEST_ASSERT(loaded.objectStore.constraints[0].travel_home==1 && Layout_ValidateConstraints(&loaded,NULL,0));
+    TEST_ASSERT(Layout_SetTravelPosition(&loaded,c.id,1,NULL,NULL) && Layout_ValidateConstraints(&loaded,NULL,0));
+    TEST_ASSERT(fabs(loaded.objectStore.items[1].transform.position.z-100)<1e-6);
+    for(int mode=0;mode<4;++mode) {
+        cJSON* root=cJSON_Parse(json);cJSON* rule_json=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(root,"geometricConstraints"),0);
+        if(mode==0)cJSON_DeleteItemFromObjectCaseSensitive(rule_json,"travelHome_m");
+        if(mode==1)cJSON_SetNumberValue(cJSON_GetObjectItemCaseSensitive(rule_json,"target"),1.3);
+        if(mode==2)cJSON_SetNumberValue(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"file"),"schemaVersion"),12);
+        if(mode==3)cJSON_SetNumberValue(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(rule_json,"travelBasis"),0),0);
+        char* invalid=cJSON_PrintUnformatted(root);char* before=Layout_SaveToString(&loaded);
+        TEST_ASSERT(!Layout_LoadFromString(&loaded,invalid));char* after=Layout_SaveToString(&loaded);
+        TEST_ASSERT(!strcmp(before,after));free(before);free(after);free(invalid);cJSON_Delete(root);
+    }
+    char* authored=LineDrawingCanonicalScene_ExportLayoutToString(&s->layout,"bed_lift_fixture");char* runtime=NULL;char diagnostic[256];
+    TEST_ASSERT(authored && strstr(authored,"travelHome_m") && core_scene_compile_authoring_to_runtime(authored,&runtime,diagnostic,sizeof(diagnostic)).code==CORE_OK);
+    free(authored);free(runtime);free(json);Layout_Free(&loaded);ld_test_shutdown_runtime();return true;
+}
+static bool test_travel_mouse_controls_and_slider(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    uint32_t a=prism("floor",(Vec3){0});TEST_ASSERT(a && prism("bed",(Vec3){0,0,.9f}));
+    s->editor.selectedObject3DId=a;UIPanel_BeginMeasurement();UIPanelState* ui=UIPanel_Get();
+    TEST_ASSERT(click_measure(MEASURE_AXIS_Z) && click_measure(MEASURE_TRAVEL));
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_MIN));type_measure("900 mm");
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_MAX));type_measure("1.8 m");
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_POSITION));type_measure("120 cm");
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_SAVE) && valid() && s->layout.objectStore.constraintCount==1);
+    TEST_ASSERT(s->layout.objectStore.constraints[0].target==1.2);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_TO_MAX) && s->layout.objectStore.constraints[0].target==1.8);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_RESET) && s->layout.objectStore.constraints[0].target==.9);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_TO_MIN));
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_POSITION));type_measure("2 m");
+    size_t undo=Editor_UndoCount(&s->editor);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_SAVE) && s->layout.objectStore.constraints[0].target==.9 && Editor_UndoCount(&s->editor)==undo);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_RESET));
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_SLIDER));
+    double before_drag=s->layout.objectStore.constraints[0].target;
+    SDL_Rect rect;TEST_ASSERT(UIPanel_MeasurementControlRect(MEASURE_TRAVEL_SLIDER,&rect));
+    Editor_ClearHistory(&s->editor);AppContext context={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};
+    e.button.button=SDL_BUTTON_LEFT;e.button.x=rect.x+6;e.button.y=rect.y+rect.h/2;Input_Handle(&context,&e);
+    TEST_ASSERT(ui->measurement.travel_dragging);
+    e.type=SDL_MOUSEMOTION;e.motion.x=rect.x+rect.w/3;Input_Handle(&context,&e);
+    e.motion.x=rect.x+rect.w+100;Input_Handle(&context,&e);
+    TEST_ASSERT(s->layout.objectStore.constraints[0].target==1.8 && valid());
+    e.type=SDL_MOUSEBUTTONUP;e.button.button=SDL_BUTTON_LEFT;Input_Handle(&context,&e);
+    TEST_ASSERT(!ui->measurement.travel_dragging && !s->layout.geometryGestureActive && Editor_UndoCount(&s->editor)==1);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && valid());
+    TEST_ASSERT(fabs(s->layout.objectStore.constraints[0].target-before_drag)<1e-6);
+    TEST_ASSERT(click_measure(MEASURE_RULES) && click_measure(MEASURE_CHOICE_BASE));
+    TEST_ASSERT(ui->measurement.operation==3);
+    TEST_ASSERT(click_measure(MEASURE_REMOVE) && click_measure(MEASURE_SAVE));
+    TEST_ASSERT(!s->layout.objectStore.constraintCount && Editor_Undo(&s->editor,&s->layout) && valid());
+    UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_CREATE);ld_test_shutdown_runtime();return true;
+}
+
 bool constraints_run_tests(void) {
     const TestCase cases[]={
+        {"travel_chain_direct_edits",test_travel_chain_direct_edits},
+        {"travel_contract_rollback",test_travel_contract_rollback},
+        {"travel_persistence_units_export",test_travel_persistence_units_export},
+        {"travel_mouse_controls_slider",test_travel_mouse_controls_and_slider},
         {"measure_pane_mouse_workflow",test_measure_pane_mouse_workflow},
         {"measure_pane_tabs_scroll_focus",test_measure_pane_tabs_scroll_focus},
         {"offset_physical_frame_resize",test_offset_frame_physical_resize},

@@ -51,6 +51,68 @@ bool Layout_CanDeleteObject(const LayoutObjectStore* store, uint32_t id) {
                  "Remove the object's constraints before deleting or replacing it.");
     return false;
 }
+static bool travel_basis(const Layout* layout, const LayoutConstraint* c, double basis[3][3]) {
+    for (int k=0; k<3; ++k) {
+        LayoutGeometricReference ref=c->b;
+        ref.kind=(LayoutReferenceKind)(LAYOUT_REFERENCE_AXIS_U+k);
+        ref.face=OBJECT3D_FACE_NONE;
+        LayoutResolvedReference resolved;
+        if (Layout_ResolveReference(layout,&ref,&resolved)!=LAYOUT_MEASUREMENT_OK || !resolved.has_direction) return false;
+        memcpy(basis[k],resolved.direction,sizeof(basis[k]));
+    }
+    return true;
+}
+static bool travel_contract(const LayoutConstraint* c) {
+    if (!isfinite(c->travel_min) || !isfinite(c->travel_max) || !isfinite(c->travel_home) ||
+        !isfinite(c->travel_max-c->travel_min) || c->travel_min>c->travel_max || c->target<c->travel_min || c->target>c->travel_max ||
+        c->travel_home<c->travel_min || c->travel_home>c->travel_max) return false;
+    double length=hypot(hypot(c->axis.x,c->axis.y),c->axis.z);
+    if (!isfinite(length) || length<=1e-12) return false;
+    double axis[3]={c->axis.x/length,c->axis.y/length,c->axis.z/length},dot=0;
+    for (int k=0;k<3;++k) {
+        if (!isfinite(c->travel_offset[k])) return false;
+        dot+=axis[k]*c->travel_offset[k];
+        for (int j=0;j<3;++j) if (!isfinite(c->travel_basis[k][j])) return false;
+    }
+    if (fabs(dot)>1e-6) return false;
+    for (int k=0;k<3;++k) for (int j=0;j<3;++j) {
+        double d=0; for (int n=0;n<3;++n) d+=c->travel_basis[k][n]*c->travel_basis[j][n];
+        if (fabs(d-(k==j ? 1 : 0))>1e-5) return false;
+    }
+    return true;
+}
+static bool travel_on_rail(const Layout* layout, const LayoutConstraint* c) {
+    LayoutResolvedReference a,b;
+    double basis[3][3];
+    if (!travel_contract(c) || !travel_basis(layout,c,basis) ||
+        Layout_ResolveReference(layout,&c->a,&a)!=LAYOUT_MEASUREMENT_OK ||
+        Layout_ResolveReference(layout,&c->b,&b)!=LAYOUT_MEASUREMENT_OK) return false;
+    double length=hypot(hypot(c->axis.x,c->axis.y),c->axis.z);
+    double axis[3]={c->axis.x/length,c->axis.y/length,c->axis.z/length},projection=0;
+    for(int k=0;k<3;++k) projection+=(b.point_meters[k]-a.point_meters[k])*axis[k];
+    for(int k=0;k<3;++k) {
+        if (fabs(b.point_meters[k]-a.point_meters[k]-axis[k]*projection-c->travel_offset[k])>1e-6) return false;
+        for(int j=0;j<3;++j) if(fabs(basis[k][j]-c->travel_basis[k][j])>1e-5) return false;
+    }
+    return true;
+}
+bool Layout_InitLinearTravel(const Layout* layout, LayoutConstraint* rule, double minimum, double maximum) {
+    if (!layout || !rule) return false;
+    LayoutConstraint c=*rule;
+    c.kind=LAYOUT_CONSTRAINT_LINEAR_TRAVEL;
+    LayoutResolvedReference a,b;
+    LayoutMeasurementResult m=Layout_Measure(layout,&c.a,&c.b,LAYOUT_MEASURE_PROJECTED_DISTANCE,c.axis);
+    if(m.status!=LAYOUT_MEASUREMENT_OK || !travel_basis(layout,&c,c.travel_basis) ||
+       Layout_ResolveReference(layout,&c.a,&a)!=LAYOUT_MEASUREMENT_OK ||
+       Layout_ResolveReference(layout,&c.b,&b)!=LAYOUT_MEASUREMENT_OK) return false;
+    if(!isfinite(minimum) || !isfinite(maximum) || minimum>maximum || m.value<minimum-1e-6 || m.value>maximum+1e-6)return false;
+    c.target=c.travel_home=fmax(minimum,fmin(maximum,m.value)); c.travel_min=minimum; c.travel_max=maximum;
+    double length=hypot(hypot(c.axis.x,c.axis.y),c.axis.z);
+    double axis[3]={c.axis.x/length,c.axis.y/length,c.axis.z/length};
+    for(int k=0;k<3;++k)c.travel_offset[k]=b.point_meters[k]-a.point_meters[k]-axis[k]*m.value;
+    if(!travel_contract(&c))return false;
+    *rule=c;return true;
+}
 /* One incoming rule per entity gives a deterministic directed forest. Sort rules
  * by dependency rather than their insertion/storage order. */
 static bool order_rules(const Layout* layout, size_t order[LAYOUT_MAX_CONSTRAINTS], char* message, size_t size) {
@@ -60,13 +122,14 @@ static bool order_rules(const Layout* layout, size_t order[LAYOUT_MAX_CONSTRAINT
     for (size_t i=0; i<store->constraintCount; ++i) {
         const LayoutConstraint* c=&store->constraints[i];
         LayoutResolvedReference a,b;
-        if (!named(c->id,sizeof(c->id)) || c->kind < LAYOUT_CONSTRAINT_DISTANCE || c->kind > LAYOUT_CONSTRAINT_PLANAR_MATE ||
+        if (!named(c->id,sizeof(c->id)) || c->kind < LAYOUT_CONSTRAINT_DISTANCE || c->kind > LAYOUT_CONSTRAINT_LINEAR_TRAVEL ||
             !isfinite(c->target) || !isfinite(c->axis.x) || !isfinite(c->axis.y) || !isfinite(c->axis.z) ||
             (c->kind != LAYOUT_CONSTRAINT_COINCIDENT && hypot(hypot(c->axis.x,c->axis.y),c->axis.z)<=1e-12) ||
             (c->kind == LAYOUT_CONSTRAINT_PLANAR_MATE && (c->target<=-180 || c->target>180)) ||
             Layout_ResolveReference(layout,&c->a,&a)!=LAYOUT_MEASUREMENT_OK ||
             Layout_ResolveReference(layout,&c->b,&b)!=LAYOUT_MEASUREMENT_OK)
             return fail(message,size,"Constraint has invalid or unresolved operands, axis or target.");
+        if (c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL && !travel_contract(c)) return fail(message,size,"Travel needs finite ordered limits containing both position and reset pose, and a valid rail frame.");
         if (!strcmp(c->a.entity_id,c->b.entity_id)) return fail(message,size,"A constraint needs two different objects.");
         for (size_t j=0; j<i; ++j) {
             if (!strcmp(c->id,store->constraints[j].id)) return fail(message,size,"Duplicate constraint ID.");
@@ -91,16 +154,17 @@ LayoutConstraintFeedback Layout_ConstraintFeedback(const Layout* layout, const L
     LayoutConstraintFeedback f={0};
     f.position.status=f.angle.status=LAYOUT_MEASUREMENT_INVALID;
     if (!c) return f;
-    LayoutMeasurementKind kind=c->kind==LAYOUT_CONSTRAINT_DISTANCE ? LAYOUT_MEASURE_PROJECTED_DISTANCE : LAYOUT_MEASURE_POINT_DISTANCE;
+    LayoutMeasurementKind kind=(c->kind==LAYOUT_CONSTRAINT_DISTANCE || c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) ? LAYOUT_MEASURE_PROJECTED_DISTANCE : LAYOUT_MEASURE_POINT_DISTANCE;
     f.position=Layout_Measure(layout,&c->a,&c->b,kind,c->axis);
-    double target=c->kind==LAYOUT_CONSTRAINT_DISTANCE ? c->target : 0;
+    double target=(c->kind==LAYOUT_CONSTRAINT_DISTANCE || c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) ? c->target : 0;
     f.satisfied=isfinite(target) && f.position.status==LAYOUT_MEASUREMENT_OK &&
         fabs(f.position.value-target)<=1e-6+1e-7*fabs(target);
     if (c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE) {
         f.angle=Layout_Measure(layout,&c->a,&c->b,LAYOUT_MEASURE_PLANAR_ANGLE,c->axis);
         f.satisfied=f.satisfied && isfinite(c->target) && c->target>-180 && c->target<=180 &&
             f.angle.status==LAYOUT_MEASUREMENT_OK && fabs(remainder(f.angle.value-c->target,360))<=1e-4;
-    } else if (c->kind!=LAYOUT_CONSTRAINT_DISTANCE && c->kind!=LAYOUT_CONSTRAINT_COINCIDENT) f.satisfied=false;
+    } else if (c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) f.satisfied=f.satisfied && travel_on_rail(layout,c);
+    else if (c->kind!=LAYOUT_CONSTRAINT_DISTANCE && c->kind!=LAYOUT_CONSTRAINT_COINCIDENT) f.satisfied=false;
     return f;
 }
 static bool rule_satisfied(const Layout* layout, const LayoutConstraint* c) {
@@ -141,6 +205,11 @@ static bool solve(Layout* layout, uint32_t edited, char* message, size_t size) {
             for (int k=0; k<3; ++k) current-=delta[k]*axis[k];
             for (int k=0; k<3; ++k) delta[k]=(c->target-current)*axis[k];
         }
+        if (c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) {
+            double length=hypot(hypot(c->axis.x,c->axis.y),c->axis.z);
+            double axis[3]={c->axis.x/length,c->axis.y/length,c->axis.z/length};
+            for(int k=0;k<3;++k) delta[k]+=c->travel_offset[k]+axis[k]*c->target;
+        }
         Vec3 center;
         if (!Layout_Object3D_ComputeVisualCenter(b,&center)) return fail(message,size,"Invalid dependent center.");
         double world[3]={center.x+delta[0]/Layout_WorldScale(layout),center.y+delta[1]/Layout_WorldScale(layout),center.z+delta[2]/Layout_WorldScale(layout)};
@@ -164,6 +233,18 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
     if (bytes && !candidate.objectStore.items) return fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Could not allocate geometry transaction.");
     if (bytes) memcpy(candidate.objectStore.items,layout->objectStore.items,bytes);
     bool ok=mutate(&candidate,context);
+    /* Direct edits of B may translate along its rail; all other degrees of
+     * freedom remain constrained. The accepted pose updates the saved target. */
+    if (ok && edited) for(size_t i=0;i<candidate.objectStore.constraintCount;++i) {
+        LayoutConstraint* c=&candidate.objectStore.constraints[i];
+        Object3D* b=entity(&candidate,c->b.entity_id);
+        if(c->kind!=LAYOUT_CONSTRAINT_LINEAR_TRAVEL || !b || b->objectId!=edited)continue;
+        LayoutMeasurementResult m=Layout_Measure(&candidate,&c->a,&c->b,LAYOUT_MEASURE_PROJECTED_DISTANCE,c->axis);
+        if(m.status!=LAYOUT_MEASUREMENT_OK || m.value<c->travel_min-1e-6 || m.value>c->travel_max+1e-6 || !travel_on_rail(&candidate,c)) {
+            ok=fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Travel permits translation along its rail within Min and Max; orientation stays fixed."); break;
+        }
+        c->target=fmax(c->travel_min,fmin(c->travel_max,m.value));
+    }
     if (ok) ok=solve(&candidate,edited,layout->geometryMessage,sizeof(layout->geometryMessage));
     if (!ok && !layout->geometryMessage[0]) fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Geometry edit rejected.");
     bool changed=ok && ((bytes && memcmp(candidate.objectStore.items,layout->objectStore.items,bytes)) ||
@@ -221,4 +302,15 @@ bool Layout_ConstraintEdit(Layout* layout, const LayoutConstraint* rule, const c
         return fail(layout->geometryMessage, sizeof(layout->geometryMessage), "Persistent rules require the Scene workspace; object-asset files cannot store them.");
     RuleEdit edit={rule,remove_id};
     return Layout_RunGeometryEdit(layout,0,change_rule,&edit,hook,context);
+}
+
+bool Layout_SetTravelPosition(Layout* layout, const char* id, double meters, LayoutGeometryBeforePublish hook, void* context) {
+    if (!layout || !id || !isfinite(meters)) return false;
+    for(size_t i=0;i<layout->objectStore.constraintCount;++i) {
+        LayoutConstraint c=layout->objectStore.constraints[i];
+        if(strcmp(c.id,id) || c.kind!=LAYOUT_CONSTRAINT_LINEAR_TRAVEL)continue;
+        c.target=meters;
+        return Layout_ConstraintEdit(layout,&c,NULL,hook,context);
+    }
+    return false;
 }

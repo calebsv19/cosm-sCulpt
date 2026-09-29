@@ -105,6 +105,36 @@ bool UIPanel_MeasurementPickAt(int x, int y) {
 static void pivot_marker(SDL_Renderer* renderer, CorePaneRect rect,
     const EditorGeometricReference* ref, const char* label, SDL_Color color);
 
+static bool reference_visible(const EditorGeometricReference* ref);
+static void travel_rail(SDL_Renderer* renderer, CorePaneRect rect, const LayoutConstraint* c) {
+    if(!c || c->kind!=LAYOUT_CONSTRAINT_LINEAR_TRAVEL || !reference_visible(&c->a) || !reference_visible(&c->b))return;
+    GlobalState* state=Global_Get();LayoutResolvedReference a;
+    if(Layout_ResolveReference(&state->layout,&c->a,&a)!=LAYOUT_MEASUREMENT_OK)return;
+    double length=hypot(hypot(c->axis.x,c->axis.y),c->axis.z),scale=Layout_WorldScale(&state->layout);
+    if(!isfinite(length) || length<=1e-12)return;
+    double axis[3]={c->axis.x/length,c->axis.y/length,c->axis.z/length};
+    const double limits[]={c->travel_min,c->travel_max};Vec2 points[2];
+    SpaceViewContext view=SpaceAdapter_BuildViewContext(state);
+    TTF_Font* font=FontManager_Get(FONT_DEFAULT);
+    SDL_Color color={105,240,170,255};
+    SDL_SetRenderDrawColor(renderer,color.r,color.g,color.b,255);
+    for(int i=0;i<2;++i) {
+        Vec3 world={(float)((a.point_meters[0]+c->travel_offset[0]+axis[0]*limits[i])/scale),
+                    (float)((a.point_meters[1]+c->travel_offset[1]+axis[1]*limits[i])/scale),
+                    (float)((a.point_meters[2]+c->travel_offset[2]+axis[2]*limits[i])/scale)};
+        points[i]=WorldToScreen(SpaceAdapter_ProjectToView(world,&view),&state->grid);
+        if(!inside(rect,points[i].x,points[i].y))return;
+    }
+    SDL_RenderDrawLine(renderer,(int)points[0].x,(int)points[0].y,(int)points[1].x,(int)points[1].y);
+    for(int i=0;i<2;++i) {
+        SDL_RenderDrawLine(renderer,(int)points[i].x-8,(int)points[i].y,(int)points[i].x+8,(int)points[i].y);
+        double value=limits[i];(void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
+        char text[64];snprintf(text,sizeof(text),"%s %.5g %s",i?"Max":"Min",value,UIPanel_GetDisplayUnitSymbol());
+        int label_y=(int)points[i].y-18;
+        if(i && hypot(points[1].x-points[0].x,points[1].y-points[0].y)<48)label_y+=(font ? TTF_FontHeight(font)+6 : 26);
+        if(font)UIPanelSummary_DrawText(renderer,font,text,(int)points[i].x+12,label_y,color);
+    }
+}
 void UIPanel_RenderMeasurementViewport(SDL_Renderer* renderer) {
     CorePaneRect rect;
     if (!renderer || !viewport(&rect)) return;
@@ -123,6 +153,9 @@ void UIPanel_RenderMeasurementViewport(SDL_Renderer* renderer) {
         SDL_RenderDrawRect(renderer,&marker);
     }
     free(list);
+    int index=ui->measurement.constraint_index;
+    if(index>=0 && (size_t)index<Global_Get()->layout.objectStore.constraintCount)
+        travel_rail(renderer,rect,&Global_Get()->layout.objectStore.constraints[index]);
     Vec2 points[2];
     bool valid[2];
     for (int i=0; i<2; ++i) {
@@ -197,6 +230,7 @@ void UIPanel_RenderConstraintViewport(SDL_Renderer* renderer) {
         ++total;
         if (shown>=capacity-1) continue;
         ++shown;
+        travel_rail(renderer,rect,c);
         LayoutConstraintFeedback f=Layout_ConstraintFeedback(&state->layout,c);
         SDL_Color color=f.satisfied ? (SDL_Color){105,240,170,255} : (SDL_Color){255,160,95,255};
         Vec2 a,b;
@@ -204,11 +238,11 @@ void UIPanel_RenderConstraintViewport(SDL_Renderer* renderer) {
             SDL_SetRenderDrawColor(renderer,color.r,color.g,color.b,255);
             SDL_RenderDrawLine(renderer,(int)a.x,(int)a.y,(int)b.x,(int)b.y);
         }
-        pivot_marker(renderer,rect,&c->a,c->kind==LAYOUT_CONSTRAINT_DISTANCE ? "A pivot" : "A/B pivot",color);
+        pivot_marker(renderer,rect,&c->a,(c->kind==LAYOUT_CONSTRAINT_DISTANCE || c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) ? "A pivot" : "A/B pivot",color);
         /* Coincident points deliberately share one marker, with two direction rays. */
-        pivot_marker(renderer,rect,&c->b,c->kind==LAYOUT_CONSTRAINT_DISTANCE ? "B pivot" : "",color);
+        pivot_marker(renderer,rect,&c->b,(c->kind==LAYOUT_CONSTRAINT_DISTANCE || c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) ? "B pivot" : "",color);
         char text[256];
-        double actual=f.position.value,target=c->kind==LAYOUT_CONSTRAINT_DISTANCE ? c->target : 0;
+        double actual=f.position.value,target=(c->kind==LAYOUT_CONSTRAINT_DISTANCE || c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) ? c->target : 0;
         (void)core_units_convert(actual,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&actual);
         (void)core_units_convert(target,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&target);
         if (f.position.status!=LAYOUT_MEASUREMENT_OK || (c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE && f.angle.status!=LAYOUT_MEASUREMENT_OK))
@@ -216,7 +250,7 @@ void UIPanel_RenderConstraintViewport(SDL_Renderer* renderer) {
         else if (c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE)
             snprintf(text,sizeof(text),"%s: %s | angle %.5g / %.5g deg | pivot gap %.4g %s",c->id,f.satisfied ? "OK" : "CONFLICT",f.angle.value,c->target,actual,UIPanel_GetDisplayUnitSymbol());
         else snprintf(text,sizeof(text),"%s: %s | %s %.5g / %.5g %s",c->id,f.satisfied ? "OK" : "CONFLICT",
-            c->kind==LAYOUT_CONSTRAINT_DISTANCE ? "projection" : "pivot gap",actual,target,UIPanel_GetDisplayUnitSymbol());
+            (c->kind==LAYOUT_CONSTRAINT_DISTANCE || c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) ? "projection" : "pivot gap",actual,target,UIPanel_GetDisplayUnitSymbol());
         if (font) {
             SDL_Rect banner={clip.x+8,clip.y+8+row*h,clip.w-16,h};
             SDL_SetRenderDrawColor(renderer,25,30,38,255); SDL_RenderFillRect(renderer,&banner);

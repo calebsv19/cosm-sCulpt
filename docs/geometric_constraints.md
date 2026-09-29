@@ -1,6 +1,6 @@
 # Persistent Geometric Constraints
 
-Status: S1c delivered; S1d fixed mates, physical reference offsets and viewport feedback delivered.
+Status: S1c delivered; S1d fixed mates, physical reference offsets and viewport feedback delivered; S1e bounded linear travel delivered.
 Date: 2026-09-28
 
 ## User workflow
@@ -14,6 +14,7 @@ available beside the controls. No custom keyboard shortcut is needed.
 | Distance + target + Save rule | Maintain signed distance along the selected world axis |
 | Join + Save rule | Maintain coincident reference points |
 | Angle + target + Save rule | Join pivots and maintain signed relative angle in the selected world plane |
+| Travel | Save Min/Max/Position, then drag the live slider or click Min/Max/Reset |
 | Pivot offset | Expand local U/V/N fields; Set offset stages a physical offset |
 | Rules | Choose a saved rule and populate the form |
 | Update rule | Replace the selected rule under the same ID |
@@ -59,8 +60,48 @@ an edit preserves those points. A planar mate aligns those points and rotates B
 until its selected direction has the requested angle relative to A. Both selected
 directions must lie in the explicit world plane. A driver's in-plane rotation
 propagates. Out-of-plane configurations are refused, not silently projected.
-This is a fixed mate; it does not yet define hinge travel, rails or motion limits.
+This is a fixed mate; it does not define hinge travel. Linear travel is a separate driving rule described below.
 Coincident points and mates can overlap solids: there is no collision check here.
+
+## Linear travel (S1e opening slice)
+
+Choose A (rail anchor) and B (moving object), choose **Axis X/Y/Z**, then **Travel**.
+Set **Min**, **Max**, and **Position**, then **Save travel**. Enter unit-bearing values
+such as `900 mm`, `1.8 m`, or `36 in`; a bare number uses the current display unit.
+The initial form suggests a one-meter range from the current pose; these are
+editable suggestions, not dimensions inferred from the vehicle.
+
+Saved travel exposes a live slider and **Min**, **Max**, **Reset** buttons. The
+current numeric position and limits are edited together with **Update travel**.
+Each accepted drag is one undo step; rejected/no-op motion adds none. Reset returns
+to the pose captured when the rule was created, not the start of the last drag.
+Both the current target and reset position must remain within the edited limits.
+Selecting Rules reloads the saved settings; unstaged field text is not authoritative.
+
+The scalar position is the signed projection from A's selected reference to B's
+selected reference along a normalized **world-fixed axis**, in meters. Creation
+captures perpendicular separation and B's normalized U/V/N orientation. A moving
+anchor translates the rail; rotating A does not rotate the rail or B. B can be
+translated directly along the rail within its limits, updating the stored target.
+Sideways displacement, rotation, out-of-range targets and downstream conflicts
+refuse the whole transaction. Existing downstream distance/join/mate rules solve
+in dependency order. Existing one-incoming-rule and cycle restrictions still apply.
+To change the rail axis/reference/type, remove and recreate its rule explicitly.
+Primitive resizing remains possible when the selected reference and orientation
+still satisfy the rail; this is a positional constraint, not a frozen solid.
+
+Min/Max markers show the reference travel in the viewport; they are not a swept
+solid or a collision result. Hidden participants are omitted. Limits outside the
+viewport are not drawn; nearly coincident screen projections stagger the labels.
+The bed-lift fixture uses provisional 900–1800 mm travel and a downstream sensor.
+No verified van dimensions or structural safety claim is implied.
+
+C callers use `Layout_InitLinearTravel` to capture the rail, `Layout_ConstraintEdit`
+to save/update its rule, and `Layout_SetTravelPosition` to move it transactionally.
+These use the existing Layout engine; no separate geometry store or runtime solver
+is introduced. Shared unit conversion, projection, pane, font and theme APIs are
+reused; application-specific rail policy remains in Layout. No shared API change.
+The existing agent-scene request format does not yet expose a dedicated motion command.
 
 ## Viewport feedback
 
@@ -139,14 +180,18 @@ multi-command transaction API. Unrelated legacy anchor edits retain their own pa
 
 ## Persistence and compatibility
 
-Layout schema **12** requires `geometricConstraints` and `nextConstraintId`.
+Layout schema **13** requires `geometricConstraints` and `nextConstraintId`.
 Each rule stores ID, kind, A/B references, world vector and target (meters for
 projected distance, degrees for planar mate). Object identity, physical context,
-frame and display-unit contracts remain unchanged. Layout schemas 0–11 remain
+frame and display-unit contracts remain unchanged. Layout schemas 0–12 remain
 readable. Schema 11 references without offsets become zero-offset references.
-Schema 12 requires finite `offsetU_m`, `offsetV_m`, and `offsetN_m` on both
+Schemas 12 and 13 require finite `offsetU_m`, `offsetV_m`, and `offsetN_m` on both
 operands. Partial/malformed offsets are refused even in an older document.
-Older readers reject 12 rather than silently discard physical offsets.
+Schema 13 adds kind `LINEAR_TRAVEL`, `travelMin_m`, `travelMax_m`, `travelHome_m`,
+three-component `travelOffset_m` and nine-component `travelBasis`. These fields are
+required for travel; finite ranges, orthonormal basis, transverse offset, graph and
+actual geometry are validated. Older readers reject 13 rather than lose motion rules.
+The nested `file.schemaVersion` is now read correctly for offset requirements too.
 
 Loading validates the graph and stored geometry without silently solving stale
 input. An invalid import leaves the current document untouched. A malformed
@@ -156,14 +201,18 @@ The separate object-asset authoring format cannot store scene rules. Rule creati
 in the Object workspace is refused, and saving a constrained layout as an object
 asset fails before touching its destination file. Save it as a scene instead.
 
-The canonical authoring export retains schema 12 in its embedded layout snapshot;
+The canonical authoring export retains schema 13 in its embedded layout snapshot;
 runtime compilation consumes the solved geometry. The renderer is not a constraint
 solver. Exporting invalid geometry fails. A physical-scale export override that
 makes the saved targets inconsistent also fails instead of changing their meaning.
 
 ## Verification and continuation
 
-`make test`: 432 tests across 43 reported suites, including 23 constraint tests.
+`make test`: 436 tests across 43 reported suites, including 27 constraint tests.
+Travel coverage includes attached chains, direct in-range movement, sideways/rotation
+and range refusal, downstream lock/bounds rollback, reset, mixed-unit mouse fields,
+single-slider-gesture undo, non-meter world scale, malformed/legacy-schema import
+refusal and canonical authoring/runtime export.
 New coverage proves meter-valued offsets in a non-meter world scale, resize and
 rotation, offset mate propagation, undo/redo/reopen, legacy loading, atomic malformed
 input refusal, UI staging/cancel/save, and read-only feedback. Canonical authoring
@@ -172,7 +221,7 @@ reordered chains, target changes, cycles/multiple drivers, bounds/locks, every
 primitive mutation API, failed history reservation, malformed rules, identity
 collision prevention, atomic import, undo/reopen/export, UI rule lifecycle, and
 coincident/30/-30/180-degree mates including angle wraparound on reload.
-The agent-scene producer smoke suite passes. The separate 25-test primitive
+The agent-scene producer smoke suite passes. The included 25-test primitive
 resize suite, shape-tool build, and isolated Main Edit package self-test also pass. Repeatable UI fixtures render a
 saved 20 mm face gap and a saved 30-degree mate. The new offset-pivot fixture
 shows a saved edge mate and live feedback in the normal viewport:
@@ -181,10 +230,11 @@ shows a saved edge mate and live feedback in the normal viewport:
 make visual-artifact-constraints VISUAL_ARTIFACT_PATH=/tmp/distance.bmp
 make visual-artifact-constraints CONSTRAINT_VISUAL_MODE=constraint-angle VISUAL_ARTIFACT_PATH=/tmp/angle.bmp
 make visual-artifact-constraints CONSTRAINT_VISUAL_MODE=constraint-pivot VISUAL_ARTIFACT_PATH=/tmp/pivot.bmp
+make visual-artifact-constraints CONSTRAINT_VISUAL_MODE=constraint-travel VISUAL_ARTIFACT_PATH=/tmp/travel.bmp
 ```
 
-Next: S1e adds bounded translation and angular travel, then sampled poses and
-envelope validation. Independently named/reusable datums and arbitrary local axis
+Next: S1e continues with angular travel around explicit pivots, then sampled poses
+and motion envelopes with validation. Independently named/reusable datums and arbitrary local axis
 directions remain later extensions of the embedded offset reference contract. Keep these distinct
 from the fixed mate delivered here. Semantic organization and assemblies follow
 after this mechanical-layout foundation has been exercised on a measured van scene.

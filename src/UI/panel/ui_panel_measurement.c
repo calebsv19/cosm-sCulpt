@@ -74,6 +74,7 @@ bool UIPanel_BeginMeasurement(void) {
 
 static void finish_placement(void) {
     UIPanelState* ui = UIPanel_Get();
+    UIPanel_TravelStageInput();
     if (ui->measurement.placement_started_text_input) SDL_StopTextInput();
     ui->measurement.placement_started_text_input = false;
     ui->measurement.placing = 0;
@@ -118,9 +119,10 @@ static void cycle_rule(void) {
     const LayoutConstraint* rule = selected_rule();
     ui->measurement.use_rule_axis = rule != NULL;
     if (rule) {
+        if(rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL)UIPanel_TravelSelect(rule);
         ui->measurement.refs[0] = rule->a;
         ui->measurement.refs[1] = rule->b;
-        ui->measurement.operation=rule->kind==LAYOUT_CONSTRAINT_DISTANCE ? 0 : rule->kind==LAYOUT_CONSTRAINT_COINCIDENT ? 1 : 2;
+        ui->measurement.operation=rule->kind==LAYOUT_CONSTRAINT_DISTANCE ? 0 : rule->kind==LAYOUT_CONSTRAINT_COINCIDENT ? 1 : rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL ? 3 : 2;
         snprintf(ui->measurement.placement_text,64,"%.8g%s",rule->target,rule->kind==LAYOUT_CONSTRAINT_PLANAR_MATE ? "" : " m");
         snprintf(ui->measurement.placement_message,128,"Edit the target, then click Update rule.");
     } else snprintf(ui->measurement.placement_message, sizeof(ui->measurement.placement_message), "New rule mode; choose references and axis.");
@@ -129,6 +131,9 @@ static void cycle_rule(void) {
 static bool apply_rule(void) {
     UIPanelState* ui = UIPanel_Get();
     const LayoutConstraint* selected = selected_rule();
+    if(selected && selected->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL && ui->measurement.placing!=6) {
+        snprintf(ui->measurement.placement_message,128,"Use Travel to update this rule, or remove it first.");return false;
+    }
     const Vec3 axes[] = {{1,0,0}, {0,1,0}, {0,0,1}};
     LayoutConstraint rule = {.a=ui->measurement.refs[0], .b=ui->measurement.refs[1],
         .kind=ui->measurement.placing==3 ? LAYOUT_CONSTRAINT_DISTANCE : ui->measurement.placing==4
@@ -168,6 +173,7 @@ static bool apply_rule(void) {
 
 static void apply_placement(void) {
     UIPanelState* ui = UIPanel_Get();
+    if (ui->measurement.placing >= 10) { finish_placement(); return; }
     if (ui->measurement.placing >= 7) {
         double meters;
         if (!Editor_ParseLength(ui->measurement.placement_text,UIPanel_GetDisplayUnit(),&meters)) {
@@ -254,6 +260,7 @@ bool UIPanel_MeasurementKey(SDL_Keycode key) {
 
 
 void UIPanel_MeasurementStopInput(void) {
+    UIPanel_TravelEndDrag();
     finish_placement();
     UIPanel_Get()->measurement.picking=false;
     UIPanel_Get()->measurement.chooser=0;
@@ -271,7 +278,7 @@ void UIPanel_MeasurementApplyButton(int mode) {
     int index=ui->measurement.constraint_index;
     ui->measurement.placing=mode;
     apply_placement();
-    if (mode>=7 && !ui->measurement.placing) ui->measurement.placement_text[0]=0;
+    if (mode>=7 && mode<=9 && !ui->measurement.placing) ui->measurement.placement_text[0]=0;
     if (mode>=3 && mode<=5 && !ui->measurement.placing) {
         if (index<0) index=(int)Global_Get()->layout.objectStore.constraintCount-1;
         UIPanel_MeasurementSelectRule(index);
@@ -283,7 +290,7 @@ void UIPanel_MeasurementSelectRule(int index) {
     cycle_rule();
     const LayoutConstraint* c=selected_rule();
     if (c) {
-        UIPanel_Get()->measurement.operation=c->kind==LAYOUT_CONSTRAINT_DISTANCE ? 0 : c->kind==LAYOUT_CONSTRAINT_COINCIDENT ? 1 : 2;
+        UIPanel_Get()->measurement.operation=c->kind==LAYOUT_CONSTRAINT_DISTANCE ? 0 : c->kind==LAYOUT_CONSTRAINT_COINCIDENT ? 1 : c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL ? 3 : 2;
         snprintf(UIPanel_Get()->measurement.placement_text,64,"%.8g%s",c->target,c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE ? "" : " m");
         UIPanel_Get()->measurement.placement_message[0]=0;
     }

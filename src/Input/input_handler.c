@@ -11,6 +11,7 @@
 // ======================================
 void Input_Handle(AppContext *ctx, SDL_Event* event) {
     UIPanelState* panel=UIPanel_Get();
+    if(UIPanel_TravelEvent(event))return;
     if (panel->measurement.active && panel->activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE) {
         if (event->type==SDL_KEYDOWN && (panel->measurement.placing || panel->measurement.picking)) {
             if (panel->measurement.placing && (event->key.keysym.sym==SDLK_RETURN || event->key.keysym.sym==SDLK_KP_ENTER)) {
