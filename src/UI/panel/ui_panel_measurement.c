@@ -28,6 +28,7 @@ static void cycle_object(int step) {
         snprintf(ref->entity_id, sizeof(ref->entity_id), "%s", o->coreMeta.object_id);
         ref->kind = EDITOR_REFERENCE_ORIGIN;
         ref->face = OBJECT3D_FACE_NONE;
+        memset(ref->local_offset_meters, 0, sizeof(ref->local_offset_meters));
         return;
     }
 }
@@ -80,7 +81,7 @@ static void begin_placement(int mode) {
     ui->measurement.placing = mode;
     ui->measurement.placement_text[0] = '\0';
     ui->measurement.placement_message[0] = '\0';
-    if ((mode == 1 || mode == 3 || mode == 5) && !SDL_IsTextInputActive()) {
+    if ((mode == 1 || mode == 3 || mode == 5 || mode >= 7) && !SDL_IsTextInputActive()) {
         SDL_StartTextInput();
         ui->measurement.placement_started_text_input = true;
     }
@@ -88,7 +89,7 @@ static void begin_placement(int mode) {
 
 bool UIPanel_MeasurementText(const char* text) {
     UIPanelState* ui = UIPanel_Get();
-    if (!ui->measurement.active || (ui->measurement.placing != 1 && ui->measurement.placing != 3 && ui->measurement.placing != 5) || !text) return false;
+    if (!ui->measurement.active || (ui->measurement.placing != 1 && ui->measurement.placing != 3 && ui->measurement.placing != 5 && ui->measurement.placing < 7) || !text) return false;
     const size_t have = strlen(ui->measurement.placement_text), added = strlen(text);
     if (have + added >= sizeof(ui->measurement.placement_text)) return true;
     /* Length expressions here use an ASCII scalar and optional unit suffix. */
@@ -160,6 +161,24 @@ static bool apply_rule(void) {
 
 static void apply_placement(void) {
     UIPanelState* ui = UIPanel_Get();
+    if (ui->measurement.placing >= 7) {
+        double meters;
+        if (!Editor_ParseLength(ui->measurement.placement_text,UIPanel_GetDisplayUnit(),&meters)) {
+            snprintf(ui->measurement.placement_message,sizeof(ui->measurement.placement_message),"Enter a finite local offset, e.g. 25 mm; 0 resets it.");
+            return;
+        }
+        EditorGeometricReference candidate=ui->measurement.refs[ui->measurement.slot];
+        candidate.local_offset_meters[ui->measurement.placing-7]=meters;
+        EditorResolvedReference resolved;
+        if (Editor_ResolveReference(&Global_Get()->layout,&candidate,&resolved)!=EDITOR_MEASUREMENT_OK) {
+            snprintf(ui->measurement.placement_message,sizeof(ui->measurement.placement_message),"Offset cannot resolve on this reference.");
+            return;
+        }
+        ui->measurement.refs[ui->measurement.slot]=candidate;
+        snprintf(ui->measurement.placement_message,sizeof(ui->measurement.placement_message),"Reference offset staged. R/O/M saves it with a rule; D/C places once.");
+        finish_placement();
+        return;
+    }
     if (ui->measurement.placing >= 3) {
         if (apply_rule()) finish_placement();
         return;
@@ -190,7 +209,9 @@ bool UIPanel_MeasurementKey(SDL_Keycode key) {
         }
         return true;
     }
-    if (!ui->measurement.picking && key == SDLK_q) {
+    if (!ui->measurement.picking && (key == SDLK_x || key == SDLK_y || key == SDLK_z)) {
+        begin_placement(key==SDLK_x ? 7 : key==SDLK_y ? 8 : 9);
+    } else if (!ui->measurement.picking && key == SDLK_q) {
         cycle_rule();
     } else if (!ui->measurement.picking && (key == SDLK_r || key == SDLK_o || key == SDLK_m)) {
         begin_placement(key == SDLK_r ? 3 : key == SDLK_o ? 4 : 5);
@@ -289,7 +310,7 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
     char lines[18][256] = {{0}};
     snprintf(lines[0], sizeof(lines[0]), "Measure / place / constrain references (A driver, B dependent)");
     snprintf(lines[1], sizeof(lines[1]), "Tab: A/B   Up/Down: object   Left/Right: feature");
-    snprintf(lines[2], sizeof(lines[2]), "Click row left: next object; right: next feature");
+    snprintf(lines[2], sizeof(lines[2]), "X/Y/Z: edit active reference local U/V/N offset (length; 0 resets)");
     for (int i = 0; i < 2; ++i)
         snprintf(lines[3+i], sizeof(lines[3+i]), "%c %c: %.63s     |     %s",
             ui->measurement.slot == i ? '>' : ' ', 'A'+i,
@@ -338,6 +359,7 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
         if (ui->measurement.placing == 1 || ui->measurement.placing == 3)
             snprintf(lines[13], sizeof(lines[13]), "Signed A -> B target [%s]: %s_", UIPanel_GetDisplayUnitSymbol(), ui->measurement.placement_text);
         else if (ui->measurement.placing == 5) snprintf(lines[13], sizeof(lines[13]), "Pivot + signed planar angle [deg]: %s_", ui->measurement.placement_text);
+        else if (ui->measurement.placing >= 7) snprintf(lines[13], sizeof(lines[13]), "Local %c offset [%s]: %s_", "UVN"[ui->measurement.placing-7], UIPanel_GetDisplayUnitSymbol(), ui->measurement.placement_text);
         else if (ui->measurement.placing == 6) snprintf(lines[13], sizeof(lines[13]), "Confirm removal of chosen rule; geometry stays in place");
         else snprintf(lines[13], sizeof(lines[13]), "Confirm: align B reference point to A in all three axes");
         snprintf(lines[17], sizeof(lines[17]), "Cancel placement (Esc / click)");
@@ -354,7 +376,15 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
                 ui->measurement.refs[slot].entity_id[0] ? ui->measurement.refs[slot].entity_id : "No primitive");
             UIPanelSummary_DrawTextClipped(renderer, font, lines[i], p.x+12, row.y,
                 p.w/2-24, h, palette.text_primary);
-            UIPanelSummary_DrawTextClipped(renderer, font, feature_label(&ui->measurement.refs[slot]),
+            const EditorGeometricReference* ref=&ui->measurement.refs[slot];
+            double offset[3];
+            for (int j=0;j<3;++j) {
+                offset[j]=ref->local_offset_meters[j];
+                (void)core_units_convert(offset[j],CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&offset[j]);
+            }
+            char label[192];
+            snprintf(label,sizeof(label),"%s + (%.4g, %.4g, %.4g) %s",feature_label(ref),offset[0],offset[1],offset[2],UIPanel_GetDisplayUnitSymbol());
+            UIPanelSummary_DrawTextClipped(renderer, font, label,
                 p.x+p.w/2+12, row.y, p.w/2-24, h, palette.accent);
         } else {
             UIPanelSummary_DrawTextClipped(renderer, font, lines[i], p.x+12, p.y+12+i*h,

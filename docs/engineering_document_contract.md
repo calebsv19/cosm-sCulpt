@@ -1,6 +1,6 @@
 # Engineering Document Foundation (S0)
 
-Status: S0/S1a/S1b foundations implemented; S1c and initial S1d rules added (schema 11).
+Status: S0/S1a/S1b foundations implemented; S1c/S1d fixed mates and local-offset references added (schema 12).
 Date: 2026-09-28
 
 Current schema is **11**, adding persistent driving rules and validating them on
@@ -119,4 +119,5 @@ stable primitive origin/axis/face resolution and read-only distance/angle querie
 through the Object tab Measure dialog. The S1a exclusions above describe that
 checkpoint. Viewport markers/annotations and named views are implemented. The
 [persistent-rule follow-up](geometric_constraints.md) delivers S1c and initial S1d;
-broader snapping and authored datums remain future work.
+S1d now includes physical local reference offsets and viewport feedback. Broader
+snapping and independently named/reusable datum entities remain future work.

@@ -87,16 +87,24 @@ static bool order_rules(const Layout* layout, size_t order[LAYOUT_MAX_CONSTRAINT
     }
     return true;
 }
-static bool rule_satisfied(const Layout* layout, const LayoutConstraint* c) {
+LayoutConstraintFeedback Layout_ConstraintFeedback(const Layout* layout, const LayoutConstraint* c) {
+    LayoutConstraintFeedback f={0};
+    f.position.status=f.angle.status=LAYOUT_MEASUREMENT_INVALID;
+    if (!c) return f;
     LayoutMeasurementKind kind=c->kind==LAYOUT_CONSTRAINT_DISTANCE ? LAYOUT_MEASURE_PROJECTED_DISTANCE : LAYOUT_MEASURE_POINT_DISTANCE;
-    LayoutMeasurementResult m=Layout_Measure(layout,&c->a,&c->b,kind,c->axis);
+    f.position=Layout_Measure(layout,&c->a,&c->b,kind,c->axis);
     double target=c->kind==LAYOUT_CONSTRAINT_DISTANCE ? c->target : 0;
-    if (m.status!=LAYOUT_MEASUREMENT_OK || fabs(m.value-target)>1e-6+1e-7*fabs(target)) return false;
+    f.satisfied=isfinite(target) && f.position.status==LAYOUT_MEASUREMENT_OK &&
+        fabs(f.position.value-target)<=1e-6+1e-7*fabs(target);
     if (c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE) {
-        m=Layout_Measure(layout,&c->a,&c->b,LAYOUT_MEASURE_PLANAR_ANGLE,c->axis);
-        if (m.status!=LAYOUT_MEASUREMENT_OK || fabs(remainder(m.value-c->target,360))>1e-4) return false;
-    }
-    return true;
+        f.angle=Layout_Measure(layout,&c->a,&c->b,LAYOUT_MEASURE_PLANAR_ANGLE,c->axis);
+        f.satisfied=f.satisfied && isfinite(c->target) && c->target>-180 && c->target<=180 &&
+            f.angle.status==LAYOUT_MEASUREMENT_OK && fabs(remainder(f.angle.value-c->target,360))<=1e-4;
+    } else if (c->kind!=LAYOUT_CONSTRAINT_DISTANCE && c->kind!=LAYOUT_CONSTRAINT_COINCIDENT) f.satisfied=false;
+    return f;
+}
+static bool rule_satisfied(const Layout* layout, const LayoutConstraint* c) {
+    return Layout_ConstraintFeedback(layout,c).satisfied;
 }
 bool Layout_ValidateConstraints(const Layout* layout, char* message, size_t size) {
     size_t order[LAYOUT_MAX_CONSTRAINTS];

@@ -513,7 +513,8 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
     }
 
     const bool constraint_distance = proof_mode && strcmp(proof_mode, "constraint-distance") == 0;
-    const bool constraint_angle = proof_mode && strcmp(proof_mode, "constraint-angle") == 0;
+    const bool pivot_feedback = proof_mode && strcmp(proof_mode, "constraint-pivot") == 0;
+    const bool constraint_angle = pivot_feedback || (proof_mode && strcmp(proof_mode, "constraint-angle") == 0);
     const bool placement_proof = constraint_distance || constraint_angle || (proof_mode && strcmp(proof_mode, "placement") == 0);
     const bool measurement_proof = placement_proof || (proof_mode && strcmp(proof_mode, "measurement") == 0);
     if (measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
@@ -555,11 +556,20 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
                         ui->measurement.refs[i].kind = constraint_angle ? EDITOR_REFERENCE_AXIS_U : EDITOR_REFERENCE_FACE;
                         ui->measurement.refs[i].face = constraint_angle ? OBJECT3D_FACE_NONE : i ? OBJECT3D_FACE_RECT_PRISM_NEG_U : OBJECT3D_FACE_RECT_PRISM_POS_U;
                     }
+                    if (pivot_feedback) {
+                        (void)UIPanel_SetDisplayUnit(CORE_UNIT_MILLIMETER);
+                        ui->measurement.refs[0].local_offset_meters[0]=0.5;
+                        ui->measurement.refs[1].local_offset_meters[0]=-0.5;
+                        state->grid.scale=180;
+                        state->grid.offsetX=-(viewport.x+viewport.width/2)/180-1;
+                        state->grid.offsetY=-(viewport.y+viewport.height*0.65f)/180;
+                    }
                     UIPanel_MeasurementKey(constraint_angle ? SDLK_m : SDLK_r);
                     UIPanel_MeasurementText(constraint_angle ? "30" : "20 mm");
                     UIPanel_MeasurementKey(SDLK_RETURN);
                     if (state->layout.objectStore.constraintCount != 1 || ui->measurement.placing) return 1;
                     UIPanel_MeasurementKey(SDLK_q);
+                    if (pivot_feedback) ui->measurement.active=false;
                 } else {
                     UIPanel_MeasurementKey(SDLK_d);
                     UIPanel_MeasurementText("20 mm");

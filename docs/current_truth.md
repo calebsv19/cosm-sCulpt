@@ -2,6 +2,21 @@
 
 Last updated: 2026-09-28
 
+## S1d offset pivots and viewport feedback (2026-09-28)
+
+References can carry physical U/V/N offsets, rotate with their owning primitive,
+and serve as off-center fixed-mate pivots. Measure X/Y/Z stages offsets; R/O/M
+saves them atomically with a rule. Schema 12 preserves offsets, reads zero-offset
+schema 11 rules, and rejects malformed or unsatisfied snapshots.
+
+The selected object's related rules show live actual/target status and pivot/direction
+markers in the normal viewport. Feedback uses the solver's own tolerances and is
+read-only. Hidden participants are excluded. The offset edge-mate render was inspected.
+430 tests / 43 reported suites pass, including 21 constraint tests. Producer smoke
+and shape-tool build pass. The isolated Main Edit package self-test passes. See [the contract](geometric_constraints.md) for controls,
+proof and limits. Next: S1e bounded travel, then pose sampling and envelopes.
+Reusable named datum entities are not part of the embedded-offset implementation.
+
 ## Persistent constraints and unified mutations (2026-09-28)
 
 S1c now ships: saved signed projected distances, stable rule/entity references,

@@ -73,7 +73,8 @@ static bool test_pure_render_surfaces_avoid_mutating_entry_points(void) {
         "src/UI/panel/ui_panel_file_summary.c",
         "src/UI/panel/ui_panel_scene_summary.c",
         "src/UI/panel/ui_panel_summary_surface.c",
-        "src/UI/panel/ui_panel_view_summary.c"
+        "src/UI/panel/ui_panel_view_summary.c",
+        "src/UI/panel/ui_panel_measurement_viewport.c"
     };
     static const char* const forbidden_tokens[] = {
         "Global_Flag",

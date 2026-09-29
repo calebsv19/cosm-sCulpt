@@ -76,6 +76,11 @@ LayoutMeasurementStatus Layout_ResolveReference(const Layout* layout,
     out->point_meters[0] = (double)frame.origin.x * scale;
     out->point_meters[1] = (double)frame.origin.y * scale;
     out->point_meters[2] = (double)frame.origin.z * scale;
+    for (int i = 0; i < 3; ++i) {
+        if (!isfinite(reference->local_offset_meters[i])) return LAYOUT_MEASUREMENT_INVALID;
+        out->point_meters[i] += u[i]*reference->local_offset_meters[0]
+            + v[i]*reference->local_offset_meters[1] + n[i]*reference->local_offset_meters[2];
+    }
     for (int i = 0; i < 3; ++i)
         if (!isfinite(out->point_meters[i])) return LAYOUT_MEASUREMENT_INVALID;
     out->has_direction = reference->kind != LAYOUT_REFERENCE_ORIGIN;

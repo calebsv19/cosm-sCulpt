@@ -1,6 +1,6 @@
 # Persistent Geometric Constraints
 
-Status: S1c delivered; initial S1d coincident/planar-mate rules delivered.
+Status: S1c delivered; S1d fixed mates, physical reference offsets and viewport feedback delivered.
 Date: 2026-09-28
 
 ## User workflow
@@ -11,6 +11,7 @@ The persistent controls are separate:
 
 | Key | Operation |
 |---|---|
+| X / Y / Z | Stage the active reference offset along object-local U / V / N; enter a length such as `25 mm`, or `0` to reset. R/O/M saves it with the rule. |
 | R | Save a signed projected distance along the P-selected world axis; enter `20 mm`, `0.5 m`, etc. |
 | O | Save coincident reference points; confirm with Enter |
 | M | Save coincident points plus a signed relative angle about the N-selected plane normal; enter degrees such as `30` or `90` |
@@ -31,7 +32,27 @@ rule preserves B's other translation components and orientation. Moving B in a
 free perpendicular direction remains allowed. A conflicting direct edit of B is
 rejected; edit the target or driver instead.
 
-Face references are face centers and normals, not arbitrary surface points.
+References start at primitive origins or face centers. Each operand now carries
+an optional physical `local_offset_meters[3]` in its owning object's U/V/N basis.
+The result is an authored point, or an authored axis through that point when an
+axis/face direction is selected. Translation/rotation carries it with the object.
+Resize/scale does not multiply the offset; a face-based reference still follows
+the resized face center. The basis is the object's frame, including for face
+references, not a separately oriented face frame. Offsetting a face normal also
+shifts its reference plane; measured plane gaps are not solid-surface clearances.
+
+X/Y/Z edits are transient until R/O/M commits a rule (or D/C places once). Q then
+X/Y/Z then R/O/M updates a saved rule under the same ID, with geometry and offsets
+in one undo step. Escape cancels scalar entry. Changing objects resets offsets;
+changing features keeps them. The dialog displays all three offsets in the display
+unit. Viewport picking applies the active offset in each candidate object's own
+local frame. These are embedded operands, not independently named datum entities.
+Axis orientation still comes from U/V/N or the selected face normal.
+
+For an edge pivot, select +U axes on both prisms, enter X=`0.5 m` on A and
+X=`-0.5 m` on B, then save M=`30`. The offset points coincide while the primitive
+centers remain distinct. The mate maintains both point coincidence and direction.
+
 A coincident rule maintains the selected points but leaves orientation free when
 an edit preserves those points. A planar mate aligns those points and rotates B
 until its selected direction has the requested angle relative to A. Both selected
@@ -39,6 +60,22 @@ directions must lie in the explicit world plane. A driver's in-plane rotation
 propagates. Out-of-plane configurations are refused, not silently projected.
 This is a fixed mate; it does not yet define hinge travel, rails or motion limits.
 Coincident points and mates can overlap solids: there is no collision check here.
+
+## Viewport feedback
+
+Selecting either participant displays its related saved rules in the normal
+viewport. Green `OK` or amber `CONFLICT` labels show actual/target distance or
+angle; mates also show the residual pivot gap. The read-only
+`Layout_ConstraintFeedback` API shares the solver's tolerance calculation.
+Successful edit feedback therefore measures committed geometry, while an invalid
+attempt leaves that geometry intact and shows the existing refusal banner.
+
+Cross/square markers identify A/B pivots, short rays show reference directions,
+and a line joins separate points. Markers are X-ray engineering annotations, not
+occlusion-tested surface picks. Hidden participants are omitted; drawing is clipped
+to the viewport, and at most five rules plus a count/hint are shown to limit clutter.
+Open Measure and use Q to inspect/edit the saved rules. In K picking mode the
+selected offset points and their direction rays are visible too.
 
 ## Bounded dependency model
 
@@ -101,11 +138,14 @@ multi-command transaction API. Unrelated legacy anchor edits retain their own pa
 
 ## Persistence and compatibility
 
-Layout schema **11** requires `geometricConstraints` and `nextConstraintId`.
+Layout schema **12** requires `geometricConstraints` and `nextConstraintId`.
 Each rule stores ID, kind, A/B references, world vector and target (meters for
 projected distance, degrees for planar mate). Object identity, physical context,
-frame and display-unit contracts remain unchanged. Layout schemas 0–10 remain
-readable. Older readers reject 11 rather than silently discard rules.
+frame and display-unit contracts remain unchanged. Layout schemas 0–11 remain
+readable. Schema 11 references without offsets become zero-offset references.
+Schema 12 requires finite `offsetU_m`, `offsetV_m`, and `offsetN_m` on both
+operands. Partial/malformed offsets are refused even in an older document.
+Older readers reject 12 rather than silently discard physical offsets.
 
 Loading validates the graph and stored geometry without silently solving stale
 input. An invalid import leaves the current document untouched. A malformed
@@ -115,30 +155,35 @@ The separate object-asset authoring format cannot store scene rules. Rule creati
 in the Object workspace is refused, and saving a constrained layout as an object
 asset fails before touching its destination file. Save it as a scene instead.
 
-The canonical authoring export retains schema 11 in its embedded layout snapshot;
+The canonical authoring export retains schema 12 in its embedded layout snapshot;
 runtime compilation consumes the solved geometry. The renderer is not a constraint
 solver. Exporting invalid geometry fails. A physical-scale export override that
 makes the saved targets inconsistent also fails instead of changing their meaning.
 
 ## Verification and continuation
 
-`make test`: 425 tests across 43 reported suites, including 16 constraint tests.
-Coverage includes actual mouse-drag propagation/refusal, single-gesture undo,
+`make test`: 430 tests across 43 reported suites, including 21 constraint tests.
+New coverage proves meter-valued offsets in a non-meter world scale, resize and
+rotation, offset mate propagation, undo/redo/reopen, legacy loading, atomic malformed
+input refusal, UI staging/cancel/save, and read-only feedback. Canonical authoring
+export/import preserves nonzero offsets. Coverage also includes actual mouse-drag propagation/refusal, single-gesture undo,
 reordered chains, target changes, cycles/multiple drivers, bounds/locks, every
 primitive mutation API, failed history reservation, malformed rules, identity
 collision prevention, atomic import, undo/reopen/export, UI rule lifecycle, and
 coincident/30/-30/180-degree mates including angle wraparound on reload.
 The agent-scene producer smoke suite passes. The separate 25-test primitive
 resize suite, shape-tool build, and isolated Main Edit package self-test also pass. Repeatable UI fixtures render a
-saved 20 mm face gap and a saved 30-degree mate; both were visually inspected:
+saved 20 mm face gap and a saved 30-degree mate. The new offset-pivot fixture
+shows a saved edge mate and live feedback in the normal viewport:
 
 ```
 make visual-artifact-constraints VISUAL_ARTIFACT_PATH=/tmp/distance.bmp
 make visual-artifact-constraints CONSTRAINT_VISUAL_MODE=constraint-angle VISUAL_ARTIFACT_PATH=/tmp/angle.bmp
+make visual-artifact-constraints CONSTRAINT_VISUAL_MODE=constraint-pivot VISUAL_ARTIFACT_PATH=/tmp/pivot.bmp
 ```
 
-Next: extend S1d with authored point/axis datums for hinges away from primitive
-origins/face centers and explicit pivot feedback. Then S1e adds bounded translation
-and angular travel, sampled poses and envelope validation. Keep these distinct
+Next: S1e adds bounded translation and angular travel, then sampled poses and
+envelope validation. Independently named/reusable datums and arbitrary local axis
+directions remain later extensions of the embedded offset reference contract. Keep these distinct
 from the fixed mate delivered here. Semantic organization and assemblies follow
 after this mechanical-layout foundation has been exercised on a measured van scene.

@@ -245,6 +245,9 @@ typedef struct LayoutGeometricReference {
     char entity_id[64];
     LayoutReferenceKind kind;
     Object3DFaceKind face;
+    /* Physical offset from the named feature in the object's U/V/N basis.
+     * Rotates with the object; resizing does not scale this meter-valued offset. */
+    double local_offset_meters[3];
 } LayoutGeometricReference;
 
 #define LAYOUT_MAX_CONSTRAINTS 32

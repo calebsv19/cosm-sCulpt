@@ -6,8 +6,9 @@ Geometry mutations share an atomic Layout transaction, and saved distance rules
 propagate through a directed dependency graph. Initial S1d coincident points and
 fixed planar pivot/relative-angle rules are also implemented. See the
 [persistent constraint contract](geometric_constraints.md) for scope and proof.
-Next: authored pivot/axis datums and feedback, then S1e travel limits and motion
-sampling. Broader semantic organization remains later work.
+S1d now also supports physical local reference offsets and visible pivot/constraint
+feedback. Next: S1e travel limits, pose sampling and motion envelopes; independently
+named reusable datums remain an extension. Broader semantic organization remains later work.
 
 Last updated: 2026-09-28
 

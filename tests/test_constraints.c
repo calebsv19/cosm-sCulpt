@@ -301,13 +301,18 @@ static bool test_new_object_preserves_imported_identity(void) {
 static bool test_canonical_import_keeps_rules_and_rejects_broken_snapshot(void) {
     ld_test_init_runtime(); GlobalState* s=Global_Get();
     TEST_ASSERT(prism("A",(Vec3){0})); TEST_ASSERT(prism("B",(Vec3){2,0,0}));
-    TEST_ASSERT(put(rule("ab","A","B",0.5)));
+    LayoutConstraint offset_rule=rule("ab","A","B",0.5);
+    offset_rule.a.local_offset_meters[1]=0.025;
+    offset_rule.b.local_offset_meters[0]=-0.1;
+    TEST_ASSERT(put(offset_rule));
     char* authored=LineDrawingCanonicalScene_ExportLayoutToString(&s->layout,"rule_import"); TEST_ASSERT(authored);
     char path[]="/tmp/ld_rule_import_XXXXXX"; int fd=mkstemp(path); TEST_ASSERT(fd>=0);
     FILE* file=fdopen(fd,"w"); TEST_ASSERT(file && fputs(authored,file)>=0 && fclose(file)==0);
     Layout imported; Layout_Init(&imported,1); char diagnostics[256];
     TEST_ASSERT(LineDrawingSceneImport_LoadLayoutFromAuthoringFile(&imported,path,diagnostics,sizeof(diagnostics)));
     TEST_ASSERT(imported.objectStore.constraintCount==1 && Layout_ValidateConstraints(&imported,NULL,0));
+    TEST_ASSERT(imported.objectStore.constraints[0].a.local_offset_meters[1]==0.025);
+    TEST_ASSERT(imported.objectStore.constraints[0].b.local_offset_meters[0]==-0.1);
     cJSON* root=cJSON_Parse(authored);
     cJSON* extension=cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"extensions"),"line_drawing");
     TEST_ASSERT(cJSON_IsObject(extension));
@@ -349,8 +354,117 @@ static bool test_object_asset_boundary_preserves_scene_rules(void) {
     TEST_ASSERT(valid() && s->layout.objectStore.constraintCount==1);
     free(kept); unlink(path); ld_test_shutdown_runtime(); return true;
 }
+
+static bool test_offset_frame_physical_resize(void) {
+    ld_test_init_runtime(); GlobalState* s=Global_Get();
+    uint32_t id=prism("A",(Vec3){2,3,4}); TEST_ASSERT(id);
+    s->layout.metersPerWorldUnit=0.01;
+    LayoutGeometricReference a=ref("A",EDITOR_REFERENCE_AXIS_U,0);
+    a.local_offset_meters[0]=0.25; a.local_offset_meters[1]=-0.03;
+    LayoutResolvedReference before,after;
+    TEST_ASSERT(Layout_ResolveReference(&s->layout,&a,&before)==LAYOUT_MEASUREMENT_OK);
+    TEST_ASSERT(fabs(before.point_meters[0]-.27)<1e-8 && fabs(before.point_meters[1])<1e-8);
+    bool adjusted=false;
+    TEST_ASSERT(Layout_SetRectPrismDimensions(&s->layout,id,2,1,.4,&adjusted));
+    TEST_ASSERT(Layout_ResolveReference(&s->layout,&a,&after)==LAYOUT_MEASUREMENT_OK);
+    TEST_ASSERT(fabs(after.point_meters[0]-before.point_meters[0])<1e-8);
+    Object3D baseline=s->layout.objectStore.items[0];
+    TEST_ASSERT(Layout_RotateObject3D(&s->layout,id,(Vec3){0,0,1},90,&baseline,&adjusted));
+    TEST_ASSERT(Layout_ResolveReference(&s->layout,&a,&after)==LAYOUT_MEASUREMENT_OK);
+    TEST_ASSERT(fabs(after.point_meters[0]-.05)<1e-6 && fabs(after.point_meters[1]-.28)<1e-6);
+    TEST_ASSERT(fabs(after.direction[1]-1)<1e-6);
+    a.local_offset_meters[2]=NAN;
+    TEST_ASSERT(Layout_ResolveReference(&s->layout,&a,&after)==LAYOUT_MEASUREMENT_INVALID);
+    ld_test_shutdown_runtime(); return true;
+}
+static bool test_offset_mate_driver_undo_reopen(void) {
+    ld_test_init_runtime(); GlobalState* s=Global_Get();
+    uint32_t a=prism("A",(Vec3){0}); TEST_ASSERT(a && prism("B",(Vec3){2,0,0}));
+    LayoutConstraint c=rule("edge_mate","A","B",30);
+    c.kind=LAYOUT_CONSTRAINT_PLANAR_MATE; c.axis=(Vec3){0,0,1};
+    c.a.kind=c.b.kind=LAYOUT_REFERENCE_AXIS_U;
+    c.a.local_offset_meters[0]=.5; c.b.local_offset_meters[0]=-.5;
+    TEST_ASSERT(put(c) && valid());
+    LayoutConstraintFeedback feedback=Layout_ConstraintFeedback(&s->layout,&c);
+    TEST_ASSERT(feedback.satisfied && fabs(feedback.angle.value-30)<1e-4 && feedback.position.value<1e-6);
+    Editor_ClearHistory(&s->editor);
+    Object3D baseline=s->layout.objectStore.items[0]; bool adjusted=false;
+    TEST_ASSERT(Layout_RotateObject3D(&s->layout,a,(Vec3){0,0,1},90,&baseline,&adjusted) && valid());
+    LayoutResolvedReference pivot;
+    TEST_ASSERT(Layout_ResolveReference(&s->layout,&c.b,&pivot)==LAYOUT_MEASUREMENT_OK);
+    TEST_ASSERT(fabs(pivot.point_meters[0])<1e-6 && fabs(pivot.point_meters[1]-.5)<1e-6);
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==1 && Editor_Undo(&s->editor,&s->layout) && valid());
+    TEST_ASSERT(Editor_Redo(&s->editor,&s->layout) && valid());
+    char* json=Layout_SaveToString(&s->layout); Layout loaded; Layout_Init(&loaded,1);
+    TEST_ASSERT(json && Layout_LoadFromString(&loaded,json));
+    TEST_ASSERT(loaded.objectStore.constraints[0].a.local_offset_meters[0]==.5);
+    TEST_ASSERT(Layout_ConstraintFeedback(&loaded,&loaded.objectStore.constraints[0]).satisfied);
+    /* Failed operand update must preserve the exact saved scene and undo. */
+    c.b.local_offset_meters[0]=INFINITY; size_t count=Editor_UndoCount(&s->editor);
+    TEST_ASSERT(!put(c)); char* after=Layout_SaveToString(&s->layout);
+    TEST_ASSERT(after && !strcmp(json,after) && Editor_UndoCount(&s->editor)==count);
+    free(json); free(after); Layout_Free(&loaded); ld_test_shutdown_runtime(); return true;
+}
+static bool test_offset_schema_legacy_and_atomic(void) {
+    ld_test_init_runtime(); GlobalState* s=Global_Get();
+    TEST_ASSERT(prism("A",(Vec3){0}) && prism("B",(Vec3){1,0,0}) && put(rule("ab","A","B",1)));
+    char* json=Layout_SaveToString(&s->layout); cJSON* root=cJSON_Parse(json); TEST_ASSERT(root);
+    cJSON* c=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(root,"geometricConstraints"),0);
+    cJSON* a=cJSON_GetObjectItemCaseSensitive(c,"a");
+    cJSON_DeleteItemFromObjectCaseSensitive(a,"offsetU_m");
+    char* broken=cJSON_PrintUnformatted(root);
+    TEST_ASSERT(!Layout_LoadFromString(&s->layout,broken));
+    char* after=Layout_SaveToString(&s->layout); TEST_ASSERT(!strcmp(json,after));
+    free(after); free(broken);
+    /* Schema 11 without offsets retains its exact previous origin semantics. */
+    cJSON_SetNumberValue(cJSON_GetObjectItemCaseSensitive(root,"schemaVersion"),11);
+    const char* fields[]={"offsetU_m","offsetV_m","offsetN_m"};
+    for (int i=0;i<3;++i) {
+        cJSON_DeleteItemFromObjectCaseSensitive(a,fields[i]);
+        cJSON_DeleteItemFromObjectCaseSensitive(cJSON_GetObjectItemCaseSensitive(c,"b"),fields[i]);
+    }
+    char* legacy=cJSON_PrintUnformatted(root);
+    TEST_ASSERT(Layout_LoadFromString(&s->layout,legacy) && valid());
+    TEST_ASSERT(s->layout.objectStore.constraints[0].a.local_offset_meters[0]==0);
+    free(legacy); free(json); cJSON_Delete(root); ld_test_shutdown_runtime(); return true;
+}
+static bool test_offset_ui_staging_update_cancel(void) {
+    ld_test_init_runtime(); GlobalState* s=Global_Get();
+    TEST_ASSERT(prism("A",(Vec3){0}) && prism("B",(Vec3){2,0,0}));
+    TEST_ASSERT(put(rule("ab","A","B",1)));
+    Editor_ClearHistory(&s->editor); UIPanel_BeginMeasurement(); UIPanel_MeasurementKey(SDLK_q);
+    UIPanelState* ui=UIPanel_Get();
+    UIPanel_MeasurementKey(SDLK_x); UIPanel_MeasurementText("25 mm"); UIPanel_MeasurementKey(SDLK_RETURN);
+    TEST_ASSERT(!ui->measurement.placing && fabs(ui->measurement.refs[0].local_offset_meters[0]-.025)<1e-12);
+    TEST_ASSERT(s->layout.objectStore.constraints[0].a.local_offset_meters[0]==0 && !Editor_UndoCount(&s->editor));
+    UIPanel_MeasurementKey(SDLK_y); UIPanel_MeasurementText("2 cm"); UIPanel_MeasurementKey(SDLK_ESCAPE);
+    TEST_ASSERT(ui->measurement.refs[0].local_offset_meters[1]==0);
+    UIPanel_MeasurementKey(SDLK_r); UIPanel_MeasurementText("1 m"); UIPanel_MeasurementKey(SDLK_RETURN);
+    TEST_ASSERT(!ui->measurement.placing && s->layout.objectStore.constraintCount==1 && valid());
+    TEST_ASSERT(fabs(s->layout.objectStore.constraints[0].a.local_offset_meters[0]-.025)<1e-12);
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==1 && Editor_Undo(&s->editor,&s->layout));
+    TEST_ASSERT(s->layout.objectStore.constraints[0].a.local_offset_meters[0]==0 && valid());
+    UIPanel_MeasurementKey(SDLK_ESCAPE); ld_test_shutdown_runtime(); return true;
+}
+static bool test_constraint_feedback_readonly_conflict(void) {
+    ld_test_init_runtime(); GlobalState* s=Global_Get();
+    TEST_ASSERT(prism("A",(Vec3){0}) && prism("B",(Vec3){1,0,0}));
+    LayoutConstraint c=rule("ab","A","B",1);
+    char* before=Layout_SaveToString(&s->layout);
+    TEST_ASSERT(Layout_ConstraintFeedback(&s->layout,&c).satisfied);
+    c.target=2; TEST_ASSERT(!Layout_ConstraintFeedback(&s->layout,&c).satisfied);
+    snprintf(c.b.entity_id,sizeof(c.b.entity_id),"missing");
+    TEST_ASSERT(Layout_ConstraintFeedback(&s->layout,&c).position.status==LAYOUT_MEASUREMENT_UNRESOLVED);
+    char* after=Layout_SaveToString(&s->layout); TEST_ASSERT(!strcmp(before,after));
+    free(before); free(after); ld_test_shutdown_runtime(); return true;
+}
 bool constraints_run_tests(void) {
     const TestCase cases[]={
+        {"offset_physical_frame_resize",test_offset_frame_physical_resize},
+        {"offset_mate_driver_undo_reopen",test_offset_mate_driver_undo_reopen},
+        {"offset_schema_legacy_atomic",test_offset_schema_legacy_and_atomic},
+        {"offset_ui_staging_update_cancel",test_offset_ui_staging_update_cancel},
+        {"feedback_readonly_conflict",test_constraint_feedback_readonly_conflict},
         {"object_asset_boundary",test_object_asset_boundary_preserves_scene_rules},
         {"canonical_import_rules_and_atomic_failure",test_canonical_import_keeps_rules_and_rejects_broken_snapshot},
         {"persistent_precision_refusal",test_persistent_precision_refusal},

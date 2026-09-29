@@ -1,5 +1,6 @@
 #include "UI/ui_panel_measurement.h"
 #include "Core/global_state.h"
+#include "Layout/layout_constraints.h"
 #include "Core/space_mode_adapter.h"
 #include "Layout/scene/layout_object_faces.h"
 #include "UI/font_manager.h"
@@ -46,7 +47,8 @@ static bool project(const EditorGeometricReference* ref, Vec2* pixel, double* de
 }
 
 /* Only the active named feature is offered on each eligible object. Markers are
- * explicit X-ray datums, not an occlusion or nearest-surface query. */
+ * explicit X-ray datums, not an occlusion or nearest-surface query. The active
+ * local offset is applied in each candidate object's own U/V/N frame. */
 static MeasurementMarker* markers(size_t* count) {
     *count = 0;
     CorePaneRect rect;
@@ -102,6 +104,9 @@ bool UIPanel_MeasurementPickAt(int x, int y) {
     return ok;
 }
 
+static void pivot_marker(SDL_Renderer* renderer, CorePaneRect rect,
+    const EditorGeometricReference* ref, const char* label, SDL_Color color);
+
 void UIPanel_RenderMeasurementViewport(SDL_Renderer* renderer) {
     CorePaneRect rect;
     if (!renderer || !viewport(&rect)) return;
@@ -127,9 +132,7 @@ void UIPanel_RenderMeasurementViewport(SDL_Renderer* renderer) {
     for (int i=0; i<2; ++i) {
         valid[i]=project(&ui->measurement.refs[i],&points[i],NULL);
         if (valid[i] && inside(rect,points[i].x,points[i].y)) {
-            int x=(int)points[i].x,y=(int)points[i].y;
-            SDL_RenderDrawLine(renderer,x-8,y,x+8,y); SDL_RenderDrawLine(renderer,x,y-8,x,y+8);
-            if (font) UIPanelSummary_DrawText(renderer,font,i==0?"A":"B",x+10,y,(SDL_Color){255,230,100,255});
+            pivot_marker(renderer,rect,&ui->measurement.refs[i],i==0?"A":"B",(SDL_Color){255,230,100,255});
         }
     }
     /* Clip endpoints before converting huge offscreen projections to integer pixels. */
@@ -142,7 +145,8 @@ void UIPanel_RenderMeasurementViewport(SDL_Renderer* renderer) {
         const EditorGeometricReference* ref=&ui->measurement.refs[ui->measurement.slot];
         const char* kind=ref->kind==EDITOR_REFERENCE_ORIGIN?"origin":ref->kind==EDITOR_REFERENCE_AXIS_U?"+U axis":
             ref->kind==EDITOR_REFERENCE_AXIS_V?"+V axis":ref->kind==EDITOR_REFERENCE_AXIS_N?"+N axis":Layout_Object3DFaceKind_Label(ref->face);
-        snprintf(lines[0],sizeof(lines[0]),"Pick %c %s marker (X-ray; hidden objects excluded)",'A'+ui->measurement.slot,kind);
+        snprintf(lines[0],sizeof(lines[0]),"Pick %c %s + local (%.4g, %.4g, %.4g) m [X-ray]",'A'+ui->measurement.slot,kind,
+            ref->local_offset_meters[0],ref->local_offset_meters[1],ref->local_offset_meters[2]);
         snprintf(lines[1],sizeof(lines[1]),"Tab: A/B   Left/Right: feature   Enter/Esc: return to measurements");
         EditorMeasurementResult distance=Editor_Measure(&Global_Get()->layout,&ui->measurement.refs[0],&ui->measurement.refs[1],EDITOR_MEASURE_POINT_DISTANCE,(Vec3){0});
         if (distance.status==EDITOR_MEASUREMENT_OK) {
@@ -154,4 +158,101 @@ void UIPanel_RenderMeasurementViewport(SDL_Renderer* renderer) {
         for (int i=0;i<5;++i) UIPanelSummary_DrawTextClipped(renderer,font,lines[i],banner.x+6,banner.y+6+i*h,banner.w-12,h,(SDL_Color){235,240,250,255});
     }
     SDL_RenderSetClipRect(renderer,had_clip?&old_clip:NULL);
+}
+
+/* X-ray engineering overlay. Only rules touching the selected object are shown;
+ * hidden participants are excluded, and nothing here mutates scene or history. */
+static bool reference_visible(const EditorGeometricReference* ref) {
+    const LayoutObjectStore* store=&Global_Get()->layout.objectStore;
+    for (size_t i=0;i<store->count;++i) {
+        const Object3D* o=&store->items[i];
+        if (!o->isDeleted && !strcmp(o->coreMeta.object_id,ref->entity_id)) return o->coreMeta.flags.visible;
+    }
+    return false;
+}
+static void pivot_marker(SDL_Renderer* renderer, CorePaneRect rect,
+    const EditorGeometricReference* ref, const char* label, SDL_Color color) {
+    Vec2 p;
+    if (!reference_visible(ref) || !project(ref,&p,NULL) || !inside(rect,p.x,p.y)) return;
+    int x=(int)p.x,y=(int)p.y;
+    SDL_SetRenderDrawColor(renderer,color.r,color.g,color.b,255);
+    SDL_Rect marker={x-6,y-6,12,12};
+    SDL_RenderDrawRect(renderer,&marker);
+    SDL_RenderDrawLine(renderer,x-10,y,x+10,y);
+    SDL_RenderDrawLine(renderer,x,y-10,x,y+10);
+    LayoutResolvedReference resolved;
+    if (Layout_ResolveReference(&Global_Get()->layout,ref,&resolved)==LAYOUT_MEASUREMENT_OK && resolved.has_direction) {
+        GlobalState* state=Global_Get();
+        double scale=Layout_WorldScale(&state->layout);
+        Vec3 point={(float)(resolved.point_meters[0]/scale),(float)(resolved.point_meters[1]/scale),(float)(resolved.point_meters[2]/scale)};
+        Vec3 end=Vec3_Add(point,(Vec3){(float)resolved.direction[0],(float)resolved.direction[1],(float)resolved.direction[2]});
+        SpaceViewContext view=SpaceAdapter_BuildViewContext(state);
+        Vec2 e=WorldToScreen(SpaceAdapter_ProjectToView(end,&view),&state->grid);
+        double dx=(double)e.x-p.x,dy=(double)e.y-p.y,length=hypot(dx,dy);
+        if (isfinite(length) && length>1e-5) {
+            /* Fixed screen length keeps direction rays readable at every zoom. */
+            SDL_RenderDrawLine(renderer,x,y,x+(int)(48*dx/length),y+(int)(48*dy/length));
+        }
+    }
+    TTF_Font* font=FontManager_Get(FONT_DEFAULT);
+    if (font) UIPanelSummary_DrawText(renderer,font,label,x+12,y+8,color);
+}
+void UIPanel_RenderConstraintViewport(SDL_Renderer* renderer) {
+    CorePaneRect rect;
+    if (!renderer || !viewport(&rect)) return;
+    GlobalState* state=Global_Get();
+    const Object3D* selected=Layout_ObjectStore_FindConst(&state->layout.objectStore,state->editor.selectedObject3DId);
+    if (!selected || selected->isDeleted || !selected->coreMeta.flags.visible) return;
+    SDL_Rect old_clip;
+    bool had_clip=SDL_RenderIsClipEnabled(renderer);
+    SDL_RenderGetClipRect(renderer,&old_clip);
+    SDL_Rect clip={(int)rect.x,(int)rect.y,(int)rect.width,(int)rect.height};
+    SDL_RenderSetClipRect(renderer,&clip);
+    TTF_Font* font=FontManager_Get(FONT_DEFAULT);
+    int h=font ? TTF_FontHeight(font)+6 : 24;
+    int row=0,shown=0,total=0;
+    int capacity=(clip.h-24)/h;
+    if (capacity>6) capacity=6;
+    for (size_t i=0;i<state->layout.objectStore.constraintCount;++i) {
+        const LayoutConstraint* c=&state->layout.objectStore.constraints[i];
+        if (strcmp(c->a.entity_id,selected->coreMeta.object_id) && strcmp(c->b.entity_id,selected->coreMeta.object_id)) continue;
+        if (!reference_visible(&c->a) || !reference_visible(&c->b)) continue;
+        ++total;
+        if (shown>=capacity-1) continue;
+        ++shown;
+        LayoutConstraintFeedback f=Layout_ConstraintFeedback(&state->layout,c);
+        SDL_Color color=f.satisfied ? (SDL_Color){105,240,170,255} : (SDL_Color){255,160,95,255};
+        Vec2 a,b;
+        if (project(&c->a,&a,NULL) && project(&c->b,&b,NULL) && inside(rect,a.x,a.y) && inside(rect,b.x,b.y)) {
+            SDL_SetRenderDrawColor(renderer,color.r,color.g,color.b,255);
+            SDL_RenderDrawLine(renderer,(int)a.x,(int)a.y,(int)b.x,(int)b.y);
+        }
+        pivot_marker(renderer,rect,&c->a,c->kind==LAYOUT_CONSTRAINT_DISTANCE ? "A pivot" : "A/B pivot",color);
+        /* Coincident points deliberately share one marker, with two direction rays. */
+        pivot_marker(renderer,rect,&c->b,c->kind==LAYOUT_CONSTRAINT_DISTANCE ? "B pivot" : "",color);
+        char text[256];
+        double actual=f.position.value,target=c->kind==LAYOUT_CONSTRAINT_DISTANCE ? c->target : 0;
+        (void)core_units_convert(actual,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&actual);
+        (void)core_units_convert(target,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&target);
+        if (f.position.status!=LAYOUT_MEASUREMENT_OK || (c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE && f.angle.status!=LAYOUT_MEASUREMENT_OK))
+            snprintf(text,sizeof(text),"%s: UNRESOLVED - inspect references in Measure",c->id);
+        else if (c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE)
+            snprintf(text,sizeof(text),"%s: %s | angle %.5g / %.5g deg | pivot gap %.4g %s",c->id,f.satisfied ? "OK" : "CONFLICT",f.angle.value,c->target,actual,UIPanel_GetDisplayUnitSymbol());
+        else snprintf(text,sizeof(text),"%s: %s | %s %.5g / %.5g %s",c->id,f.satisfied ? "OK" : "CONFLICT",
+            c->kind==LAYOUT_CONSTRAINT_DISTANCE ? "projection" : "pivot gap",actual,target,UIPanel_GetDisplayUnitSymbol());
+        if (font) {
+            SDL_Rect banner={clip.x+8,clip.y+8+row*h,clip.w-16,h};
+            SDL_SetRenderDrawColor(renderer,25,30,38,255); SDL_RenderFillRect(renderer,&banner);
+            UIPanelSummary_DrawTextClipped(renderer,font,text,banner.x+6,banner.y,banner.w-12,h,color);
+        }
+        ++row;
+    }
+    if (total && font && capacity>0) {
+        char text[128];
+        snprintf(text,sizeof(text),"X-ray pivots | actual / target | %d of %d rules | Measure: Q inspect/edit",shown,total);
+        SDL_Rect banner={clip.x+8,clip.y+8+row*h,clip.w-16,h};
+        SDL_SetRenderDrawColor(renderer,25,30,38,255); SDL_RenderFillRect(renderer,&banner);
+        UIPanelSummary_DrawTextClipped(renderer,font,text,banner.x+6,banner.y,banner.w-12,h,(SDL_Color){220,230,245,255});
+    }
+    SDL_RenderSetClipRect(renderer,had_clip ? &old_clip : NULL);
 }

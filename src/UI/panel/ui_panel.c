@@ -1,6 +1,7 @@
 #include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_create_summary.h"
 #include "UI/ui_panel.h"
+#include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel_file_summary.h"
 #include "UI/ui_panel_file_controls.h"
 #include "UI/ui_panel_file_layout.h"
@@ -1096,6 +1097,7 @@ void UIPanel_ResetTransientUiState(void) {
 }
 
 void UIPanel_RenderOverlays(SDL_Renderer* renderer) {
+    if (!g_uiPanel.measurement.active) UIPanel_RenderConstraintViewport(renderer);
     UIPanel_RenderOverlayDialogs(renderer, &g_uiPanel);
     const char* message = Global_Get()->layout.geometryMessage;
     if (message[0]) {

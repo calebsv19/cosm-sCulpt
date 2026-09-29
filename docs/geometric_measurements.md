@@ -129,7 +129,7 @@ The editor compatibility entry points are `Editor_ResolveReference` and `Editor_
 `src/Editor/editor_measurement.h`. They are synchronous, read-only operations,
 not a revision-checked external agent protocol. They now alias the Layout reference
 API. Measurement selections/results are transient; persisted driving rules use
-layout schema 11 as documented separately. Tests retain an operand across a
+layout schema 12, including local-meter reference offsets, as documented separately. Tests retain an operand across a
 layout round trip to prove its entity/feature identity resolves consistently.
 This does not mean saved measurement annotations have been implemented.
 

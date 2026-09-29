@@ -13,6 +13,12 @@ bool Layout_ReplaceGeometryObject(Layout* layout, const Object3D* object,
     LayoutGeometryBeforePublish before_publish, void* context);
 bool Layout_ConstraintEdit(Layout* layout, const LayoutConstraint* rule, const char* remove_id,
     LayoutGeometryBeforePublish before_publish, void* context);
+typedef struct LayoutConstraintFeedback {
+    bool satisfied;
+    LayoutMeasurementResult position;
+    LayoutMeasurementResult angle;
+} LayoutConstraintFeedback;
+LayoutConstraintFeedback Layout_ConstraintFeedback(const Layout* layout, const LayoutConstraint* rule);
 bool Layout_ValidateConstraints(const Layout* layout, char* message, size_t capacity);
 bool Layout_CanDeleteObject(const LayoutObjectStore* store, uint32_t id);
 bool Layout_HasConstraintParticipant(const LayoutObjectStore* store, uint32_t id);
