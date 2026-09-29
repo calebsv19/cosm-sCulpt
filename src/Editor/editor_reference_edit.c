@@ -1,5 +1,6 @@
 #include "Editor/editor_reference_edit.h"
 #include "Core/global_state.h"
+#include "Layout/layout_constraints.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -66,13 +67,8 @@ EditorNumericEditResult Editor_ApplyReferencePlacement(EditorState* editor,
         snprintf(r.message, sizeof(r.message), "References already satisfy this placement.");
         return r;
     }
-    if (!Editor_TryHistoryCapture(editor, layout))
-        return result(EDITOR_NUMERIC_NO_MEMORY, "Could not reserve undo history; placement was not applied.");
-    *Layout_ObjectStore_Find(&layout->objectStore, candidate.objectId) = candidate;
-    if (layout == &Global_Get()->layout) {
-        Global_FlagLayoutChanged();
-        Global_FlagHitboxesDirty();
-    }
+    if (!Layout_ReplaceGeometryObject(layout, &candidate, Editor_ReserveGeometryHistory, editor))
+        return result(EDITOR_NUMERIC_CONFLICT, layout->geometryMessage);
     snprintf(r.message, sizeof(r.message), "Placed B once; no persistent constraint was created.");
     return r;
 }

@@ -1,6 +1,6 @@
 # Geometric References, Measurements and Exact Placement
 
-Status: measurements and one-time reference placements implemented; persistent driving constraints pending.
+Status: measurements and one-time placements implemented; persistent rules are now available in the [constraint contract](geometric_constraints.md).
 Date: 2026-09-28
 
 ## Use in the editor
@@ -73,27 +73,15 @@ coordinate precision rejection, undo/reopen/runtime export and modal input.
 `make visual-artifact-placement VISUAL_ARTIFACT_PATH=/tmp/placement.bmp` renders a
 disposable entry fixture; the 20 mm entry was visually inspected. No shared-module
 API/version changes: core_units and existing primitive/reference math are reused;
-application-specific placement/history policy stays in Editor.
+application-specific command/history policy stays in the app, with publication
+now routed through the Layout transaction.
 
-## Next implementation boundary
+## Persistent-rule follow-up
 
-This prerequisite does not close S1c. Persistent distance requires a common
-transaction boundary across the current mutation routes:
-
-| Route | Current owner | Required before enabling saved rules |
-|---|---|---|
-| Numeric edits | `editor_numeric_edit.c` | Expand candidate transaction to all affected objects |
-| Position/rotation drags | `Input/mouse/input_mouse_drag.c` | Solve dependent candidates; capture history only for accepted movement |
-| Resize handles | same input module and `Editor/gizmo/object_handle_gizmo.c` | Re-resolve face references after resize |
-| Rotation dialog | `UI/panel/ui_panel_dialog_logic.c` | Validate affected references or explicitly refuse |
-| Deletion | keyboard, scene list, face extrusion | Reject dangling participants or explicitly remove rules in same transaction |
-| Import/replacement | `Tools/scene_import.c`, layout JSON | Validate document graph atomically |
-
-Then persist explicit rule ID, A driver/B dependent, axis and target meters;
-implement deterministic grounded dependencies and reject cycles/conflicts. Prove
-all routes, undo/redo, reopen and export. S1d adds persistent coincident pivots and
-directed relative angles; S1e adds bounded translation/angle limits. One-time point
-alignment is not evidence that S1d is implemented.
+S1c is now implemented at the common Layout transaction boundary, with initial
+S1d coincident/planar-mate rules. See [persistent geometric constraints](geometric_constraints.md)
+for R/O/M controls, saved-rule selection/editing, enforcement coverage and limits.
+D/C remain one-time operations and do not themselves create rules.
 
 ## Operand and measurement meaning
 
@@ -137,10 +125,11 @@ and read-only command remain app-owned until a second consumer establishes a
 shared need. core_space/core_scene were reviewed; no new coordinate conversion,
 scene schema or shared API/version change is required by this slice.
 
-The C entry points are `Editor_ResolveReference` and `Editor_Measure` in
+The editor compatibility entry points are `Editor_ResolveReference` and `Editor_Measure` in
 `src/Editor/editor_measurement.h`. They are synchronous, read-only operations,
-not a revision-checked external agent protocol. No layout schema bump is needed:
-measurement selections/results are transient. Tests retain an operand across a
+not a revision-checked external agent protocol. They now alias the Layout reference
+API. Measurement selections/results are transient; persisted driving rules use
+layout schema 11 as documented separately. Tests retain an operand across a
 layout round trip to prove its entity/feature identity resolves consistently.
 This does not mean saved measurement annotations have been implemented.
 
@@ -167,6 +156,5 @@ hidden/unselectable exclusion, pane bounds and named-view construction-plane iso
 
 Remaining S1b extensions: exact visible-surface picking, independently authored
 point datums, mesh feature naming, broader snapping, and saved measurement records
-if required. These do not prevent the first grounded primitive distance rule. S1c then adds a grounded, directed persistent
-distance rule; S1d adds pivot/relative-angle rules. Neither solver nor driving
-constraints are implemented here. Existing numerical edits remain one-shot edits.
+if required. Persistent distance and initial pivot/angle rules now exist in the
+separate constraint contract; the numerical D/C commands remain one-shot edits.

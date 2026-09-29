@@ -1,5 +1,6 @@
 #include "Editor/editor_numeric_edit.h"
 #include "Core/global_state.h"
+#include "Layout/layout_constraints.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -108,6 +109,7 @@ EditorNumericEditResult Editor_PrepareNumericEdit(const Layout* layout,
      * publish dirty state when called with the active layout itself. */
     Object3D candidate = *live;
     Layout scratch = *layout;
+    scratch.geometryEditActive = true;
     scratch.objectStore.items = &candidate;
     scratch.objectStore.count = 1;
     bool adjusted = false, ok = false;
@@ -145,12 +147,11 @@ EditorNumericEditResult Editor_ApplyNumericEdit(EditorState* editor, Layout* lay
     Object3D candidate;
     EditorNumericEditResult r = Editor_PrepareNumericEdit(layout, edit, &candidate);
     if (r.status != EDITOR_NUMERIC_APPLIED) return r;
-    if (!Editor_TryHistoryCapture(editor, layout))
-        return result(EDITOR_NUMERIC_NO_MEMORY, "Could not reserve undo history; edit was not applied.");
-    *Layout_ObjectStore_Find(&layout->objectStore, candidate.objectId) = candidate;
-    if (layout == &Global_Get()->layout) {
-        Global_FlagLayoutChanged();
-        Global_FlagHitboxesDirty();
-    }
+    if (!Layout_ReplaceGeometryObject(layout, &candidate, Editor_ReserveGeometryHistory, editor))
+        return result(EDITOR_NUMERIC_CONFLICT, layout->geometryMessage);
     return r;
+}
+
+bool Editor_ReserveGeometryHistory(const Layout* layout, void* editor) {
+    return editor && Editor_TryHistoryCapture(editor, (Layout*)layout);
 }

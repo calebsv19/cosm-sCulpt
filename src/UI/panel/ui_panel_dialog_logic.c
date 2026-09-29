@@ -611,7 +611,7 @@ bool UIPanel_ApplyObjectTransformDialog(UIPanelState* ui) {
             return false;
         }
 
-        Editor_HistoryCapture(&state->editor, &state->layout);
+        if (!state->layout.objectStore.constraintCount) Editor_HistoryCapture(&state->editor, &state->layout);
         {
             const float delta = typedDegrees - currentDegrees;
             if (fabsf(delta) > 0.0001f) {

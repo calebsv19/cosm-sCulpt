@@ -89,6 +89,8 @@ bool UIPanel_MeasurementPickAt(int x, int y) {
             core_screen_pick_query_nearest(&index,x,y,&picked).code == CORE_OK && picked.found &&
             picked.payload >= 0 && (size_t)picked.payload < count) {
             ui->measurement.refs[ui->measurement.slot] = list[picked.payload].reference;
+            ui->measurement.constraint_index = -1;
+            ui->measurement.use_rule_axis = false;
             snprintf(ui->measurement.pick_message,sizeof(ui->measurement.pick_message),"%c: %s",
                 'A'+ui->measurement.slot, list[picked.payload].reference.entity_id);
             ok = true;

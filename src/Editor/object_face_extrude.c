@@ -1,3 +1,4 @@
+#include "Layout/layout_constraints.h"
 #include "Editor/object_face_extrude.h"
 
 #include "Core/space_mode_adapter.h"
@@ -433,6 +434,7 @@ static bool ObjectFaceExtrude_CommitCut(GlobalState* state) {
 
     target = Layout_ObjectStore_FindConst(&state->layout.objectStore, editor->objectFaceSketchBodyId);
     if (!target || target->kind != OBJECT3D_KIND_RECT_PRISM) return false;
+    if (!Layout_CanDeleteObject(&state->layout.objectStore, editor->objectFaceSketchBodyId)) return false;
     target_body_id = editor->objectFaceSketchBodyId;
     target_face = editor->objectFaceSketchFace;
     target_depth = editor->objectFaceExtrudeDepth;

@@ -2,6 +2,22 @@
 
 Last updated: 2026-09-28
 
+## Persistent constraints and unified mutations (2026-09-28)
+
+S1c now ships: saved signed projected distances, stable rule/entity references,
+deterministic driver chains and atomic conflict rejection. Numeric edits, primitive
+move/resize/rotate/scale APIs and their drag/dialog routes share the transaction.
+Accepted constrained drags reserve one undo snapshot; deletion/cut replacement
+refuses participating objects. Schema 11 validates rules on load/save/export.
+Initial S1d adds coincident points and fixed planar relative-angle mates.
+
+425 tests / 43 reported suites pass, including 16 constraint tests and actual mouse
+input, graph/lock failures, history reservation, persistence/export and UI lifecycle.
+Agent-scene producer smoke, the separate 25-test resize suite, shape-tool build
+and isolated Main Edit package self-test pass. Saved 20 mm and 30-degree UI fixtures rendered
+and inspected. [Contract, controls and remaining limits](geometric_constraints.md).
+Earlier entries below describe their respective checkpoints.
+
 ## Exact reference placement (2026-09-28)
 
 Measure now offers D to set a signed projected distance and C to align reference
@@ -19,8 +35,8 @@ objects are excluded. Marker picks are explicit X-ray datums, not occluded surfa
 queries. Keys 1/2/3 select world XY/YZ/XZ orthographic views without changing the
 construction plane or geometry. Failed picks preserve the selected reference.
 Full tests: 404 across 41 reported suites. Source visual fixture was rendered and
-inspected; Main Edit package self-test passed. Next: S1c grounded persistent
-projected-distance enforcement, followed by S1d pivot/relative-angle constraints.
+inspected; Main Edit package self-test passed. The S1c and initial S1d follow-up
+that was next at this checkpoint is now implemented above.
 
 ## Geometric measurements (2026-09-28)
 

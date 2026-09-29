@@ -1,5 +1,7 @@
 #include "Layout/layout.h"
 #include "Core/global_state.h"
+#include "Layout/layout_constraints.h"
+#include <string.h>
 
 #include <math.h>
 #include <stdlib.h>
@@ -71,6 +73,9 @@ void Layout_ObjectStore_Init(LayoutObjectStore* store) {
     store->items = NULL;
     store->count = 0;
     store->nextObjectId = 1u;
+    store->constraintCount = 0;
+    store->nextConstraintId = 1u;
+    memset(store->constraints, 0, sizeof(store->constraints));
 }
 
 void Layout_ObjectStore_Free(LayoutObjectStore* store) {
@@ -79,6 +84,9 @@ void Layout_ObjectStore_Free(LayoutObjectStore* store) {
     store->items = NULL;
     store->count = 0;
     store->nextObjectId = 1u;
+    store->constraintCount = 0;
+    store->nextConstraintId = 1u;
+    memset(store->constraints, 0, sizeof(store->constraints));
 }
 
 Object3D* Layout_ObjectStore_Find(LayoutObjectStore* store, uint32_t objectId) {
@@ -105,9 +113,9 @@ const Object3D* Layout_ObjectStore_FindConst(const LayoutObjectStore* store, uin
 
 bool Layout_ObjectStore_Delete(LayoutObjectStore* store, uint32_t objectId) {
     Object3D* object = Layout_ObjectStore_Find(store, objectId);
-    if (!object) return false;
+    if (!object || !Layout_CanDeleteObject(store, objectId)) return false;
     object->isDeleted = true;
-    Global_FlagLayoutChanged();
+    if (store == &Global_Get()->layout.objectStore) Global_FlagLayoutChanged();
     return true;
 }
 

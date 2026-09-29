@@ -512,7 +512,9 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         return 1;
     }
 
-    const bool placement_proof = proof_mode && strcmp(proof_mode, "placement") == 0;
+    const bool constraint_distance = proof_mode && strcmp(proof_mode, "constraint-distance") == 0;
+    const bool constraint_angle = proof_mode && strcmp(proof_mode, "constraint-angle") == 0;
+    const bool placement_proof = constraint_distance || constraint_angle || (proof_mode && strcmp(proof_mode, "placement") == 0);
     const bool measurement_proof = placement_proof || (proof_mode && strcmp(proof_mode, "measurement") == 0);
     if (measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
         LineDrawingHostEnterEditor();
@@ -547,8 +549,21 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
             UIPanel_BeginMeasurement();
             UIPanel_Get()->measurement.picking=!placement_proof;
             if (placement_proof) {
-                UIPanel_MeasurementKey(SDLK_d);
-                UIPanel_MeasurementText("20 mm");
+                if (constraint_distance || constraint_angle) {
+                    UIPanelState* ui = UIPanel_Get();
+                    for (int i=0; i<2; ++i) {
+                        ui->measurement.refs[i].kind = constraint_angle ? EDITOR_REFERENCE_AXIS_U : EDITOR_REFERENCE_FACE;
+                        ui->measurement.refs[i].face = constraint_angle ? OBJECT3D_FACE_NONE : i ? OBJECT3D_FACE_RECT_PRISM_NEG_U : OBJECT3D_FACE_RECT_PRISM_POS_U;
+                    }
+                    UIPanel_MeasurementKey(constraint_angle ? SDLK_m : SDLK_r);
+                    UIPanel_MeasurementText(constraint_angle ? "30" : "20 mm");
+                    UIPanel_MeasurementKey(SDLK_RETURN);
+                    if (state->layout.objectStore.constraintCount != 1 || ui->measurement.placing) return 1;
+                    UIPanel_MeasurementKey(SDLK_q);
+                } else {
+                    UIPanel_MeasurementKey(SDLK_d);
+                    UIPanel_MeasurementText("20 mm");
+                }
             }
             Global_FlagLayoutChanged();
             Global_FlagHitboxesDirty();

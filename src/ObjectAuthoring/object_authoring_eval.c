@@ -209,6 +209,11 @@ bool ObjectAuthoring_ApplyEvaluatedDocumentToLayout(
         return false;
     }
 
+    if (layout->objectStore.constraintCount) {
+        ObjectAuthoringEval_SetDiag(diagnostics, OBJECT_AUTHORING_EVAL_INVALID_ARGUMENT, 0u,
+            "Remove scene constraints before replacing geometry through Object Authoring.");
+        return false;
+    }
     Layout_ObjectStore_Free(&layout->objectStore);
     Layout_ObjectStore_Init(&layout->objectStore);
     for (size_t i = 0; i < evaluated->bodyCount; ++i) {

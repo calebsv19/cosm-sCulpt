@@ -1,3 +1,4 @@
+#include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_create_summary.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_file_summary.h"
@@ -1096,4 +1097,16 @@ void UIPanel_ResetTransientUiState(void) {
 
 void UIPanel_RenderOverlays(SDL_Renderer* renderer) {
     UIPanel_RenderOverlayDialogs(renderer, &g_uiPanel);
+    const char* message = Global_Get()->layout.geometryMessage;
+    if (message[0]) {
+        TTF_Font* font = FontManager_Get(FONT_DEFAULT);
+        if (font) {
+            int h = TTF_FontHeight(font) + 12;
+            SDL_Rect notice = {12, Global_GetScreenHeight()-h-12, Global_GetScreenWidth()-24, h};
+            SDL_SetRenderDrawColor(renderer, 40, 24, 20, 255);
+            SDL_RenderFillRect(renderer, &notice);
+            UIPanelSummary_DrawTextClipped(renderer, font, message, notice.x+6, notice.y+4,
+                notice.w-12, h-8, (SDL_Color){255,210,180,255});
+        }
+    }
 }

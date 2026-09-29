@@ -1,3 +1,4 @@
+#include "Layout/layout_constraints.h"
 // src/Input/input_keyboard.c
 #include "input_keyboard.h"
 #include "input_editor_actions.h"
@@ -542,6 +543,7 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
             bool hasWall = state->editor.selectedWallIndex >= 0;
             bool hasAnchor = state->editor.selectedAnchorIndex >= 0;
             bool hasObject = state->editor.selectedObject3DId != 0u;
+            if (hasObject && !Layout_CanDeleteObject(&state->layout.objectStore, state->editor.selectedObject3DId)) return;
             if (hasWall || hasAnchor || hasObject) {
                 Editor_HistoryCapture(&state->editor, &state->layout);
             }

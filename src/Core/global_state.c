@@ -1,3 +1,4 @@
+#include "Layout/layout_constraints.h"
 // src/Core/global_state.c
 #include "Core/global_state.h"
 #include "Layout/scene/layout_scene_path_traversal.h"
@@ -512,6 +513,11 @@ static void Global_ApplyPaneChromeTargets(GlobalState* state) {
                                          (float)metrics.desired_right_pane_width_px);
 }
 
+static bool Global_ReserveGeometryHistory(const Layout* layout, void* context) {
+    (void)context;
+    return Editor_TryHistoryCapture(&Global_Get()->editor, (Layout*)layout);
+}
+
 void Global_Init(int screenWidth, int screenHeight) {
     global = malloc(sizeof(GlobalState));
     memset(global, 0, sizeof(*global));
@@ -560,6 +566,7 @@ void Global_Init(int screenWidth, int screenHeight) {
     global->workspaceMode = LINE_DRAWING_WORKSPACE_MODE_SCENE;
     global->activePlane = Layout_ConstructionPlane3D_ToViewPlane(&global->layout.scene3d.constructionPlane);
     Editor_Init(&global->editor);
+    Layout_SetGeometryHistoryHook(Global_ReserveGeometryHistory);
     if (!LineDrawingPaneHost_Init(&global->paneHost, (float)screenWidth, (float)screenHeight)) {
         fprintf(stderr, "[Core] pane host init failed: %s\n", LineDrawingPaneHost_LastError(&global->paneHost));
     }

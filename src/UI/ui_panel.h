@@ -422,7 +422,9 @@ typedef struct {
         bool active;
         bool picking;
         char pick_message[128];
-        int placing; /* 0: inspect, 1: projected distance, 2: coincident points */
+        int placing; /* 1/2: once; 3/4/5: distance/coincident/mate rule; 6: remove */
+        int constraint_index; /* -1 creates a new rule; Q selects an existing rule */
+        bool use_rule_axis;
         bool placement_started_text_input;
         char placement_text[64];
         char placement_message[128];

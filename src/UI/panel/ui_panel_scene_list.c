@@ -1,3 +1,4 @@
+#include "Layout/layout_constraints.h"
 #include "UI/ui_panel_scene_list.h"
 
 #include "UI/font_manager.h"
@@ -457,6 +458,7 @@ bool UIPanel_SceneListDeleteSelectedObject(void) {
         return true;
     }
     selected_id = state->editor.selectedObject3DId;
+    if (!Layout_CanDeleteObject(&state->layout.objectStore, selected_id)) return false;
     if (selected_id == 0u) return false;
     Editor_HistoryCapture(&state->editor, &state->layout);
     if (!Layout_ObjectStore_Delete(&state->layout.objectStore, selected_id)) {

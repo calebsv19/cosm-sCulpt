@@ -1,7 +1,12 @@
 # Engineering Document Foundation (S0)
 
-Status: implemented S0/S1a; S1b references/measurements added; driving constraints pending
+Status: S0/S1a/S1b foundations implemented; S1c and initial S1d rules added (schema 11).
 Date: 2026-09-28
+
+Current schema is **11**, adding persistent driving rules and validating them on
+load/save/export. See [geometric constraints](geometric_constraints.md). The schema
+10 account below records the original physical-context migration; 0–10 are still
+readable, while older readers reject 11.
 
 ## Physical meaning and compatibility
 
@@ -44,7 +49,8 @@ numeric-handle-derived IDs; no new UUID scheme or bulk re-identification is intr
 Future geometric operands are `(entity_id, reference_kind, feature_or_datum_id)`.
 Begin with origin, local axis, primitive face and explicit point. Do not use screen
 coordinates, preview triangle indices or array offsets as persistent references.
-This operand contract is design guidance; constraint records are not implemented.
+Origin/axis/named-face operands are implemented and now used by persistent rules.
+Independently authored point/axis datums remain future work.
 Clone/reparent/fork semantics need their own operations and tests before adoption.
 
 ## Numerical command boundary (S1a)
@@ -55,8 +61,8 @@ physical inputs, build an isolated candidate, check requested against actual
 physical values, reserve undo history, and only then publish one change.
 Failure/no-op must preserve geometry, dirty state and undo/redo counts. A numerical
 edit that existing bounds/plane-lock policy changes is rejected, not silently
-reported as the requested result. Driving constraints and multi-command/revision-
-checked agent transactions are later slices.
+reported as the requested result. Driving constraints now participate through the common Layout transaction.
+Multi-command/revision-checked external agent transactions remain future work.
 
 Primitive numerical dimensions initially require unit instance scale. This avoids
 confusing raw primitive size with scaled physical dimensions. Position refers to
@@ -74,14 +80,15 @@ physical units in diagnostics. Do not use screen-pixel tolerance for engineering
 ## Ownership and next gates
 
 core_units owns conversion; core_object/core_scene retain identity/root contracts.
-App Layout owns physical context and persistence, Editor owns candidate/history
-commands, UI owns input/display. No shared API/version changes are needed.
+App Layout owns physical context, reference evaluation, persistent rules and
+geometry transactions; Editor owns typed commands/history hooks, UI owns input/display. No shared API/version changes are needed.
 
 S0 verification covers scale-loss regression, retained-scale UI conversion,
 legacy layout loading, physical context/identity round trips and invalid/duplicate
 context rejection. S1a adds edit-conflict/undo/reopen/export tests. Named views,
-measurement selection, persistent gaps/angles, movement limits and assemblies
-remain S1b onward. See [product direction](spatial_engineering_direction.md).
+At that checkpoint, measurement selection, persistent gaps/angles, movement limits
+and assemblies were the subsequent slices. The current S1b/S1c and initial S1d
+status is recorded below and in the constraint contract. See [product direction](spatial_engineering_direction.md).
 
 ## Delivered S1a and evidence
 
@@ -110,5 +117,6 @@ rotation transactions or revision-checked multi-operation agent edits.
 The [geometric measurement contract](geometric_measurements.md) now implements
 stable primitive origin/axis/face resolution and read-only distance/angle queries
 through the Object tab Measure dialog. The S1a exclusions above describe that
-checkpoint; viewport picking/annotations, navigation/snap changes and persistent
-driving constraints remain future work.
+checkpoint. Viewport markers/annotations and named views are implemented. The
+[persistent-rule follow-up](geometric_constraints.md) delivers S1c and initial S1d;
+broader snapping and authored datums remain future work.

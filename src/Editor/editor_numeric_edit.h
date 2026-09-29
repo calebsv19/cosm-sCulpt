@@ -47,3 +47,6 @@ bool Editor_ParseLength(const char* text, CoreUnitKind default_unit, double* met
  * flags; prepared is valid only for APPLIED/UNCHANGED. Publish synchronously. */
 EditorNumericEditResult Editor_PrepareNumericEdit(const Layout* layout,
     const EditorNumericEdit* edit, Object3D* prepared);
+
+/* History hook shared by typed compound geometry commands. */
+bool Editor_ReserveGeometryHistory(const Layout* layout, void* editor);

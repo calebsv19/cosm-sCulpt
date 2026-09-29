@@ -1,3 +1,4 @@
+#include "Layout/layout_constraints.h"
 #include "Layout/layout_json.h"
 #include "Layout/scene/layout_scene_camera_authoring.h"
 #include "Layout/scene/layout_scene_light_authoring.h"
@@ -698,6 +699,7 @@ static cJSON* Layout_CreateJson(const Layout* layout) {
     }
     cJSON_AddItemToObject(root, "file", file);
     cJSON_AddNumberToObject(file, "schemaVersion", LAYOUT_JSON_SCHEMA_VERSION);
+    if (!Layout_ConstraintsWriteJson(layout, root)) { cJSON_Delete(root); return NULL; }
     cJSON_AddStringToObject(file, "generator", LAYOUT_JSON_GENERATOR);
     cJSON_AddNumberToObject(file, "gridSize", layout->gridSize);
     cJSON* physical = cJSON_AddObjectToObject(root, "physicalContext");
@@ -1229,6 +1231,10 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
         }
     }
 
+    if (!Layout_ConstraintsReadJson(&temp, root, schemaVersion >= LAYOUT_JSON_SCHEMA_VERSION_CONSTRAINTS)) {
+        Layout_Free(&temp);
+        return false;
+    }
     Layout_Free(layout);
     *layout = temp;
     temp.anchors = NULL;

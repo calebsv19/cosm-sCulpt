@@ -1,6 +1,10 @@
 #include "UI/ui_panel_measurement.h"
 #include "Core/global_state.h"
 #include "Editor/editor_reference_edit.h"
+#include "Layout/layout_constraints.h"
+#include <math.h>
+#include <stdlib.h>
+#include <ctype.h>
 #include "Layout/scene/layout_object_faces.h"
 #include "UI/font_manager.h"
 #include "UI/ui_panel_summary_surface.h"
@@ -10,6 +14,7 @@
 
 static void cycle_object(int step) {
     UIPanelState* ui = UIPanel_Get();
+    ui->measurement.constraint_index = -1;
     const LayoutObjectStore* store = &Global_Get()->layout.objectStore;
     EditorGeometricReference* ref = &ui->measurement.refs[ui->measurement.slot];
     if (!store->count) return;
@@ -29,6 +34,7 @@ static void cycle_object(int step) {
 
 static void cycle_feature(int step) {
     UIPanelState* ui = UIPanel_Get();
+    ui->measurement.constraint_index = -1;
     EditorGeometricReference* ref = &ui->measurement.refs[ui->measurement.slot];
     const LayoutObjectStore* store = &Global_Get()->layout.objectStore;
     const Object3D* object = NULL;
@@ -49,6 +55,7 @@ bool UIPanel_BeginMeasurement(void) {
     UIPanelState* ui = UIPanel_Get();
     memset(&ui->measurement, 0, sizeof(ui->measurement));
     ui->measurement.active = true;
+    ui->measurement.constraint_index = -1;
     const Object3D* selected = Layout_ObjectStore_FindConst(&Global_Get()->layout.objectStore,
         Global_Get()->editor.selectedObject3DId);
     if (selected && (selected->kind == OBJECT3D_KIND_PLANE || selected->kind == OBJECT3D_KIND_RECT_PRISM))
@@ -73,7 +80,7 @@ static void begin_placement(int mode) {
     ui->measurement.placing = mode;
     ui->measurement.placement_text[0] = '\0';
     ui->measurement.placement_message[0] = '\0';
-    if (mode == 1 && !SDL_IsTextInputActive()) {
+    if ((mode == 1 || mode == 3 || mode == 5) && !SDL_IsTextInputActive()) {
         SDL_StartTextInput();
         ui->measurement.placement_started_text_input = true;
     }
@@ -81,7 +88,7 @@ static void begin_placement(int mode) {
 
 bool UIPanel_MeasurementText(const char* text) {
     UIPanelState* ui = UIPanel_Get();
-    if (!ui->measurement.active || ui->measurement.placing != 1 || !text) return false;
+    if (!ui->measurement.active || (ui->measurement.placing != 1 && ui->measurement.placing != 3 && ui->measurement.placing != 5) || !text) return false;
     const size_t have = strlen(ui->measurement.placement_text), added = strlen(text);
     if (have + added >= sizeof(ui->measurement.placement_text)) return true;
     /* Length expressions here use an ASCII scalar and optional unit suffix. */
@@ -90,8 +97,73 @@ bool UIPanel_MeasurementText(const char* text) {
     return true;
 }
 
+static const LayoutConstraint* selected_rule(void) {
+    int index = UIPanel_Get()->measurement.constraint_index;
+    const LayoutObjectStore* store = &Global_Get()->layout.objectStore;
+    return index >= 0 && (size_t)index < store->constraintCount ? &store->constraints[index] : NULL;
+}
+
+static void cycle_rule(void) {
+    UIPanelState* ui = UIPanel_Get();
+    if (++ui->measurement.constraint_index >= (int)Global_Get()->layout.objectStore.constraintCount)
+        ui->measurement.constraint_index = -1;
+    const LayoutConstraint* rule = selected_rule();
+    ui->measurement.use_rule_axis = rule != NULL;
+    if (rule) {
+        ui->measurement.refs[0] = rule->a;
+        ui->measurement.refs[1] = rule->b;
+        snprintf(ui->measurement.placement_message, sizeof(ui->measurement.placement_message),
+            "%s: target %.8g %s; R/O/M replaces this rule, Delete removes it", rule->id, rule->target,
+            rule->kind == LAYOUT_CONSTRAINT_PLANAR_MATE ? "deg" : "m");
+    } else snprintf(ui->measurement.placement_message, sizeof(ui->measurement.placement_message), "New rule mode; choose references and axis.");
+}
+
+static bool apply_rule(void) {
+    UIPanelState* ui = UIPanel_Get();
+    const LayoutConstraint* selected = selected_rule();
+    const Vec3 axes[] = {{1,0,0}, {0,1,0}, {0,0,1}};
+    LayoutConstraint rule = {.a=ui->measurement.refs[0], .b=ui->measurement.refs[1],
+        .kind=ui->measurement.placing==3 ? LAYOUT_CONSTRAINT_DISTANCE : ui->measurement.placing==4
+            ? LAYOUT_CONSTRAINT_COINCIDENT : LAYOUT_CONSTRAINT_PLANAR_MATE,
+        .axis=ui->measurement.placing==5 ? axes[(ui->measurement.angle_plane+2)%3] : axes[ui->measurement.projection_axis]};
+    if (selected) {
+        snprintf(rule.id, sizeof(rule.id), "%s", selected->id);
+        if (selected->kind == rule.kind && ui->measurement.use_rule_axis) rule.axis = selected->axis;
+    }
+    if (ui->measurement.placing == 3 && !Editor_ParseLength(ui->measurement.placement_text, UIPanel_GetDisplayUnit(), &rule.target)) {
+        snprintf(ui->measurement.placement_message, sizeof(ui->measurement.placement_message), "Enter a finite length, e.g. 20 mm.");
+        return false;
+    }
+    if (ui->measurement.placing == 5) {
+        char* end;
+        rule.target = strtod(ui->measurement.placement_text, &end);
+        if (end == ui->measurement.placement_text) {
+            snprintf(ui->measurement.placement_message, sizeof(ui->measurement.placement_message), "Enter a signed angle in degrees, e.g. 30.");
+            return false;
+        }
+        while (isspace((unsigned char)*end)) ++end;
+        if (*end || !isfinite(rule.target) || rule.target <= -180 || rule.target > 180) {
+            snprintf(ui->measurement.placement_message, sizeof(ui->measurement.placement_message), "Enter degrees greater than -180 and at most 180, e.g. 30.");
+            return false;
+        }
+    }
+    if (ui->measurement.placing == 6 && !selected) return false;
+    char remove_id[64] = {0};
+    if (selected) snprintf(remove_id, sizeof(remove_id), "%s", selected->id);
+    bool ok = Layout_ConstraintEdit(&Global_Get()->layout, ui->measurement.placing==6 ? NULL : &rule,
+        remove_id, Editor_ReserveGeometryHistory, &Global_Get()->editor);
+    snprintf(ui->measurement.placement_message, sizeof(ui->measurement.placement_message), "%s",
+        ok ? "Saved rule change; dependent geometry validated. Undo restores both." : Global_Get()->layout.geometryMessage);
+    if (ok) ui->measurement.constraint_index = -1;
+    return ok;
+}
+
 static void apply_placement(void) {
     UIPanelState* ui = UIPanel_Get();
+    if (ui->measurement.placing >= 3) {
+        if (apply_rule()) finish_placement();
+        return;
+    }
     const Vec3 axes[] = {{1,0,0}, {0,1,0}, {0,0,1}};
     EditorReferencePlacement command = {.a = ui->measurement.refs[0], .b = ui->measurement.refs[1],
         .kind = ui->measurement.placing == 1 ? EDITOR_PLACE_PROJECTED_DISTANCE : EDITOR_PLACE_COINCIDENT_POINTS,
@@ -118,7 +190,13 @@ bool UIPanel_MeasurementKey(SDL_Keycode key) {
         }
         return true;
     }
-    if (!ui->measurement.picking && (key == SDLK_d || key == SDLK_c)) {
+    if (!ui->measurement.picking && key == SDLK_q) {
+        cycle_rule();
+    } else if (!ui->measurement.picking && (key == SDLK_r || key == SDLK_o || key == SDLK_m)) {
+        begin_placement(key == SDLK_r ? 3 : key == SDLK_o ? 4 : 5);
+    } else if (!ui->measurement.picking && key == SDLK_DELETE && selected_rule()) {
+        begin_placement(6);
+    } else if (!ui->measurement.picking && (key == SDLK_d || key == SDLK_c)) {
         begin_placement(key == SDLK_d ? 1 : 2);
     } else if (key == SDLK_k) {
         ui->measurement.picking = !ui->measurement.picking;
@@ -137,8 +215,8 @@ bool UIPanel_MeasurementKey(SDL_Keycode key) {
     else if (key == SDLK_TAB) ui->measurement.slot = 1 - ui->measurement.slot;
     else if (key == SDLK_UP || key == SDLK_DOWN) cycle_object(key == SDLK_DOWN ? 1 : -1);
     else if (key == SDLK_LEFT || key == SDLK_RIGHT) cycle_feature(key == SDLK_RIGHT ? 1 : -1);
-    else if (key == SDLK_p) ui->measurement.projection_axis = (ui->measurement.projection_axis + 1) % 3;
-    else if (key == SDLK_n) ui->measurement.angle_plane = (ui->measurement.angle_plane + 1) % 3;
+    else if (key == SDLK_p) { ui->measurement.use_rule_axis = false; ui->measurement.projection_axis = (ui->measurement.projection_axis + 1) % 3; }
+    else if (key == SDLK_n) { ui->measurement.use_rule_axis = false; ui->measurement.angle_plane = (ui->measurement.angle_plane + 1) % 3; }
     return true;
 }
 
@@ -148,7 +226,7 @@ static SDL_Rect panel_rect(int* line_height) {
     if (line_height) *line_height = h;
     int width = Global_GetScreenWidth() - 32;
     if (width > 820) width = 820;
-    return (SDL_Rect){(Global_GetScreenWidth() - width)/2, 40, width, h * 16 + 24};
+    return (SDL_Rect){(Global_GetScreenWidth() - width)/2, 40, width, h * 18 + 24};
 }
 
 bool UIPanel_MeasurementClick(int x, int y) {
@@ -164,18 +242,20 @@ bool UIPanel_MeasurementClick(int x, int y) {
     int row = (y-p.y-12)/h;
     if (ui->measurement.placing) {
         if (row == 13) apply_placement();
-        else if (row == 15) finish_placement();
+        else if (row == 17) finish_placement();
         return true;
     }
     if (row == 13) begin_placement(x < p.x+p.w/2 ? 1 : 2);
+    else if (row == 14) begin_placement(x < p.x+p.w/3 ? 3 : x < p.x+2*p.w/3 ? 4 : 5);
+    else if (row == 15) cycle_rule();
     else if (row == 7) ui->measurement.picking = true;
     else if (row == 3 || row == 4) {
         ui->measurement.slot = row - 3;
         if (x < p.x+p.w/2) cycle_object(1);
         else cycle_feature(1);
-    } else if (row == 5) ui->measurement.projection_axis = (ui->measurement.projection_axis + 1) % 3;
-    else if (row == 6) ui->measurement.angle_plane = (ui->measurement.angle_plane + 1) % 3;
-    else if (row == 15) ui->measurement.active = false;
+    } else if (row == 5) { ui->measurement.use_rule_axis = false; ui->measurement.projection_axis = (ui->measurement.projection_axis + 1) % 3; }
+    else if (row == 6) { ui->measurement.use_rule_axis = false; ui->measurement.angle_plane = (ui->measurement.angle_plane + 1) % 3; }
+    else if (row == 17) ui->measurement.active = false;
     return true;
 }
 
@@ -206,8 +286,8 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180);
     SDL_RenderFillRect(renderer, NULL);
     UIPanelSummary_DrawCard(renderer, p, palette.pane_fill, palette.pane_border, palette.accent, 3);
-    char lines[16][256] = {{0}};
-    snprintf(lines[0], sizeof(lines[0]), "Measure / place references (A fixed, B moves once)");
+    char lines[18][256] = {{0}};
+    snprintf(lines[0], sizeof(lines[0]), "Measure / place / constrain references (A driver, B dependent)");
     snprintf(lines[1], sizeof(lines[1]), "Tab: A/B   Up/Down: object   Left/Right: feature");
     snprintf(lines[2], sizeof(lines[2]), "Click row left: next object; right: next feature");
     for (int i = 0; i < 2; ++i)
@@ -220,11 +300,21 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
     const Vec3 vectors[] = {{1,0,0}, {0,1,0}, {0,0,1}};
     snprintf(lines[5], sizeof(lines[5]), "P / click: projection axis %s (world)", axes[ui->measurement.projection_axis]);
     snprintf(lines[6], sizeof(lines[6]), "N / click: signed angle plane %s (world)", planes[ui->measurement.angle_plane]);
+    if (selected_rule() && ui->measurement.use_rule_axis) {
+        const LayoutConstraint* c = selected_rule();
+        snprintf(lines[c->kind == LAYOUT_CONSTRAINT_PLANAR_MATE ? 6 : 5], 256,
+            "Saved rule %s: (%.4g, %.4g, %.4g); P/N chooses a new axis/plane",
+            c->kind == LAYOUT_CONSTRAINT_PLANAR_MATE ? "normal" : "axis", c->axis.x, c->axis.y, c->axis.z);
+    }
     snprintf(lines[7], sizeof(lines[7]), "K / click: pick the active reference in the viewport");
     const char* labels[] = {"Point distance", "Signed projection A -> B", "Direction angle [0,180]", "Signed planar angle (-180,180]", "Signed plane gap along A normal"};
     for (int i = 0; i < 5; ++i) {
         Vec3 vector = i == EDITOR_MEASURE_PLANAR_ANGLE ? vectors[(ui->measurement.angle_plane+2)%3]
             : vectors[ui->measurement.projection_axis];
+        const LayoutConstraint* selected = selected_rule();
+        if (selected && ui->measurement.use_rule_axis &&
+            ((i == EDITOR_MEASURE_PROJECTED_DISTANCE && selected->kind == LAYOUT_CONSTRAINT_DISTANCE) ||
+             (i == EDITOR_MEASURE_PLANAR_ANGLE && selected->kind == LAYOUT_CONSTRAINT_PLANAR_MATE))) vector = selected->axis;
         EditorMeasurementResult r = Editor_Measure(&Global_Get()->layout, &ui->measurement.refs[0],
             &ui->measurement.refs[1], (EditorMeasurementKind)i, vector);
         if (r.status == EDITOR_MEASUREMENT_OK) {
@@ -237,18 +327,22 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
                 ? "Create a plane or prism to measure" : r.message);
     }
     snprintf(lines[13], sizeof(lines[13]), "D / left: set projected distance   C / right: align points");
-    snprintf(lines[14], sizeof(lines[14]), "%s", ui->measurement.placement_message[0]
-        ? ui->measurement.placement_message : "Face points are centers. No persistent constraints or clearance checks.");
-    snprintf(lines[15], sizeof(lines[15]), "Close (Enter / Esc / click)");
+    snprintf(lines[14], sizeof(lines[14]), "Persistent: R distance | O coincident | M planar pivot + angle");
+    snprintf(lines[15], sizeof(lines[15]), "Q: choose rule (%s); Delete: remove chosen rule", selected_rule() ? selected_rule()->id : "new");
+    snprintf(lines[16], sizeof(lines[16]), "%s", ui->measurement.placement_message[0]
+        ? ui->measurement.placement_message : "Face points are centers. Rules maintain geometry; no collision/clearance checks.");
+    snprintf(lines[17], sizeof(lines[17]), "Close (Enter / Esc / click)");
     if (ui->measurement.placing) {
-        snprintf(lines[1], sizeof(lines[1]), "A fixed; B translates once. Enter/click target row: apply. Esc: cancel.");
+        snprintf(lines[1], sizeof(lines[1]), "Enter/click target row: apply. Esc: cancel. A is the driver; B is dependent.");
         snprintf(lines[2], sizeof(lines[2]), "Reference selection is frozen while entering a placement.");
-        if (ui->measurement.placing == 1)
+        if (ui->measurement.placing == 1 || ui->measurement.placing == 3)
             snprintf(lines[13], sizeof(lines[13]), "Signed A -> B target [%s]: %s_", UIPanel_GetDisplayUnitSymbol(), ui->measurement.placement_text);
+        else if (ui->measurement.placing == 5) snprintf(lines[13], sizeof(lines[13]), "Pivot + signed planar angle [deg]: %s_", ui->measurement.placement_text);
+        else if (ui->measurement.placing == 6) snprintf(lines[13], sizeof(lines[13]), "Confirm removal of chosen rule; geometry stays in place");
         else snprintf(lines[13], sizeof(lines[13]), "Confirm: align B reference point to A in all three axes");
-        snprintf(lines[15], sizeof(lines[15]), "Cancel placement (Esc / click)");
+        snprintf(lines[17], sizeof(lines[17]), "Cancel placement (Esc / click)");
     }
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < 18; ++i) {
         if (i == 3 || i == 4) {
             int slot = i - 3;
             SDL_Rect row = {p.x+8, p.y+12+i*h, p.w-16, h};
@@ -264,7 +358,7 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
                 p.x+p.w/2+12, row.y, p.w/2-24, h, palette.accent);
         } else {
             UIPanelSummary_DrawTextClipped(renderer, font, lines[i], p.x+12, p.y+12+i*h,
-                p.w-24, h, i == 15 ? palette.accent : palette.text_primary);
+                p.w-24, h, i == 17 ? palette.accent : palette.text_primary);
         }
     }
 }

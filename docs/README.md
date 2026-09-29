@@ -10,9 +10,12 @@ Public identity:
 
 ## Spatial Engineering Direction
 
+- [Persistent constraints](geometric_constraints.md): maintained distance rules,
+  coincident points, planar mates, atomic mutation coverage and next mechanical steps.
+
 - [Geometric measurements](geometric_measurements.md): selectable primitive
   origins, axes and faces; distance/angle measurements, exact one-time gap/point
-  placement, and the pending persistent-constraint boundary.
+  placement, and links to persistent rule controls.
 
 - [Engineering document contract](engineering_document_contract.md): implemented
   S0/S1a physical context, identity persistence and numerical edits with proof limits.

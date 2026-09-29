@@ -518,7 +518,11 @@ bool LineDrawingSceneImport_LoadLayoutFromAuthoringFile(Layout* layout,
     }
 
     layout_snapshot = find_layout_snapshot(root);
-    if (!cJSON_IsObject(layout_snapshot)) {
+    if (layout_snapshot && !cJSON_IsObject(layout_snapshot)) {
+        write_diagnostics(diagnostics, diagnostics_size, "embedded layout snapshot must be an object");
+        goto cleanup;
+    }
+    if (!layout_snapshot) {
         ok = import_legacy_scene_authoring(layout,
                                            root,
                                            &canonical_authoring,

@@ -231,10 +231,46 @@ typedef struct {
     bool isDeleted;
 } Object3D;
 
+typedef enum LayoutReferenceKind {
+    LAYOUT_REFERENCE_ORIGIN,
+    LAYOUT_REFERENCE_AXIS_U,
+    LAYOUT_REFERENCE_AXIS_V,
+    LAYOUT_REFERENCE_AXIS_N,
+    LAYOUT_REFERENCE_FACE
+} LayoutReferenceKind;
+
+/* Stable operand: no selection index, mesh triangle or cached world coordinate.
+ * Primitive U/V/N use the authored frame, which already includes rotation. */
+typedef struct LayoutGeometricReference {
+    char entity_id[64];
+    LayoutReferenceKind kind;
+    Object3DFaceKind face;
+} LayoutGeometricReference;
+
+#define LAYOUT_MAX_CONSTRAINTS 32
+
+typedef enum LayoutConstraintKind {
+    LAYOUT_CONSTRAINT_DISTANCE,
+    LAYOUT_CONSTRAINT_COINCIDENT,
+    LAYOUT_CONSTRAINT_PLANAR_MATE
+} LayoutConstraintKind;
+
+typedef struct LayoutConstraint {
+    char id[64];
+    LayoutGeometricReference a;
+    LayoutGeometricReference b;
+    LayoutConstraintKind kind;
+    Vec3 axis; /* world projection axis, or planar mate normal */
+    double target; /* meters for distance; degrees for planar mate */
+} LayoutConstraint;
+
 typedef struct {
     Object3D* items;
     size_t count;
     uint32_t nextObjectId;
+    LayoutConstraint constraints[LAYOUT_MAX_CONSTRAINTS];
+    size_t constraintCount;
+    uint32_t nextConstraintId;
 } LayoutObjectStore;
 
 
@@ -247,6 +283,11 @@ typedef struct {
     Scene3DSettings scene3d;
     LineDrawingSceneAuthoringState sceneAuthoring;
     LayoutObjectStore objectStore;
+    /* Transient mutation scope and human-readable last refusal; never serialized. */
+    bool geometryEditActive;
+    bool geometryGestureActive;
+    bool geometryGestureCaptured;
+    char geometryMessage[160];
 
     Anchor* anchors;
     size_t anchorCount;

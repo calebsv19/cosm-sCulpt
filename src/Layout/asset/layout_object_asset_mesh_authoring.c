@@ -207,6 +207,11 @@ bool LayoutObjectAssetMeshAuthoring_Save(const Layout* layout,
         return false;
     }
 
+    if (layout->objectStore.constraintCount) {
+        LayoutObjectAsset_SetDiagnostics(diagnostics, diagnostics_size,
+            "Object assets cannot store scene constraints; save a scene document or explicitly remove its rules.");
+        return false;
+    }
     core_mesh_asset_authoring_document_init(&document);
     LayoutObjectAsset_BuildAssetIdFromPath(path, asset_id, sizeof(asset_id));
     r = core_mesh_asset_authoring_contract_set_asset_id(&document.contract, asset_id);

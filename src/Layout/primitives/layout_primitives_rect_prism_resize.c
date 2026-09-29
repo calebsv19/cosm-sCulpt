@@ -1,5 +1,6 @@
 // src/Layout/layout_primitives_rect_prism_resize.c
 #include "Layout/layout.h"
+#include "Layout/layout_constraints.h"
 #include "Core/global_state.h"
 
 #include <math.h>
@@ -515,11 +516,29 @@ RectPrismResizeHandleKind Layout_ResolveRectPrismResizeHandleFor3DDrag(
     return (resolved == RECT_PRISM_RESIZE_HANDLE_NONE) ? handle : resolved;
 }
 
+typedef struct {
+    uint32_t objectId;
+    RectPrismResizeHandleKind handle;
+    Vec3 draggedWorldPoint;
+    bool adjusted;
+} ResizeRectPrismFrom3DHandleContext;
+static bool ResizeRectPrismFrom3DHandleCandidate(Layout* candidate, void* context) {
+    ResizeRectPrismFrom3DHandleContext* c=context;
+    return Layout_ResizeRectPrismFrom3DHandle(candidate, c->objectId, c->handle, c->draggedWorldPoint, &c->adjusted);
+}
+
 bool Layout_ResizeRectPrismFrom3DHandle(Layout* layout,
                                         uint32_t objectId,
                                         RectPrismResizeHandleKind handle,
                                         Vec3 draggedWorldPoint,
                                         bool* outBoundsAdjusted) {
+    if (layout && !layout->geometryEditActive) {
+        ResizeRectPrismFrom3DHandleContext c={.objectId=objectId, .handle=handle, .draggedWorldPoint=draggedWorldPoint};
+        bool ok=Layout_RunGeometryEdit(layout, objectId, ResizeRectPrismFrom3DHandleCandidate, &c,
+            layout->objectStore.constraintCount ? Layout_GeometryHistory : NULL, NULL);
+        if (outBoundsAdjusted) *outBoundsAdjusted=ok && c.adjusted;
+        return ok;
+    }
     if (outBoundsAdjusted) *outBoundsAdjusted = false;
     if (!layout) return false;
 
@@ -619,7 +638,7 @@ bool Layout_ResizeRectPrismFrom3DHandle(Layout* layout,
     }
 
     if (outBoundsAdjusted) *outBoundsAdjusted = boundsAdjusted;
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
     return true;
 }
 
@@ -701,11 +720,29 @@ bool Layout_RectPrismHandleWorldPoint(const Object3D* object,
     return true;
 }
 
+typedef struct {
+    uint32_t objectId;
+    PlaneResizeHandleKind handle;
+    Vec3 draggedWorldPoint;
+    bool adjusted;
+} ResizeRectPrismPrimitiveFromHandleContext;
+static bool ResizeRectPrismPrimitiveFromHandleCandidate(Layout* candidate, void* context) {
+    ResizeRectPrismPrimitiveFromHandleContext* c=context;
+    return Layout_ResizeRectPrismPrimitiveFromHandle(candidate, c->objectId, c->handle, c->draggedWorldPoint, &c->adjusted);
+}
+
 bool Layout_ResizeRectPrismPrimitiveFromHandle(Layout* layout,
                                                uint32_t objectId,
                                                PlaneResizeHandleKind handle,
                                                Vec3 draggedWorldPoint,
                                                bool* outBoundsAdjusted) {
+    if (layout && !layout->geometryEditActive) {
+        ResizeRectPrismPrimitiveFromHandleContext c={.objectId=objectId, .handle=handle, .draggedWorldPoint=draggedWorldPoint};
+        bool ok=Layout_RunGeometryEdit(layout, objectId, ResizeRectPrismPrimitiveFromHandleCandidate, &c,
+            layout->objectStore.constraintCount ? Layout_GeometryHistory : NULL, NULL);
+        if (outBoundsAdjusted) *outBoundsAdjusted=ok && c.adjusted;
+        return ok;
+    }
     if (outBoundsAdjusted) *outBoundsAdjusted = false;
     if (!layout) return false;
 
@@ -794,8 +831,20 @@ bool Layout_ResizeRectPrismPrimitiveFromHandle(Layout* layout,
     }
 
     if (outBoundsAdjusted) *outBoundsAdjusted = boundsAdjusted;
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
     return true;
+}
+
+typedef struct {
+    uint32_t objectId;
+    PlaneResizeHandleKind handle;
+    bool useTopFace;
+    Vec3 draggedWorldPoint;
+    bool adjusted;
+} ResizeRectPrismDepthFromFaceHandleContext;
+static bool ResizeRectPrismDepthFromFaceHandleCandidate(Layout* candidate, void* context) {
+    ResizeRectPrismDepthFromFaceHandleContext* c=context;
+    return Layout_ResizeRectPrismDepthFromFaceHandle(candidate, c->objectId, c->handle, c->useTopFace, c->draggedWorldPoint, &c->adjusted);
 }
 
 bool Layout_ResizeRectPrismDepthFromFaceHandle(Layout* layout,
@@ -804,6 +853,13 @@ bool Layout_ResizeRectPrismDepthFromFaceHandle(Layout* layout,
                                                bool useTopFace,
                                                Vec3 draggedWorldPoint,
                                                bool* outBoundsAdjusted) {
+    if (layout && !layout->geometryEditActive) {
+        ResizeRectPrismDepthFromFaceHandleContext c={.objectId=objectId, .handle=handle, .useTopFace=useTopFace, .draggedWorldPoint=draggedWorldPoint};
+        bool ok=Layout_RunGeometryEdit(layout, objectId, ResizeRectPrismDepthFromFaceHandleCandidate, &c,
+            layout->objectStore.constraintCount ? Layout_GeometryHistory : NULL, NULL);
+        if (outBoundsAdjusted) *outBoundsAdjusted=ok && c.adjusted;
+        return ok;
+    }
     if (outBoundsAdjusted) *outBoundsAdjusted = false;
     if (!layout) return false;
 
@@ -881,8 +937,20 @@ bool Layout_ResizeRectPrismDepthFromFaceHandle(Layout* layout,
     }
 
     if (outBoundsAdjusted) *outBoundsAdjusted = boundsAdjusted;
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
     return true;
+}
+
+typedef struct {
+    uint32_t objectId;
+    float width;
+    float height;
+    float depth;
+    bool adjusted;
+} SetRectPrismDimensionsContext;
+static bool SetRectPrismDimensionsCandidate(Layout* candidate, void* context) {
+    SetRectPrismDimensionsContext* c=context;
+    return Layout_SetRectPrismDimensions(candidate, c->objectId, c->width, c->height, c->depth, &c->adjusted);
 }
 
 bool Layout_SetRectPrismDimensions(Layout* layout,
@@ -891,6 +959,13 @@ bool Layout_SetRectPrismDimensions(Layout* layout,
                                    float height,
                                    float depth,
                                    bool* outBoundsAdjusted) {
+    if (layout && !layout->geometryEditActive) {
+        SetRectPrismDimensionsContext c={.objectId=objectId, .width=width, .height=height, .depth=depth};
+        bool ok=Layout_RunGeometryEdit(layout, objectId, SetRectPrismDimensionsCandidate, &c,
+            layout->objectStore.constraintCount ? Layout_GeometryHistory : NULL, NULL);
+        if (outBoundsAdjusted) *outBoundsAdjusted=ok && c.adjusted;
+        return ok;
+    }
     if (outBoundsAdjusted) *outBoundsAdjusted = false;
     if (!layout) return false;
     if (!isfinite(width) || !isfinite(height) || !isfinite(depth)) return false;

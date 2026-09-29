@@ -1,5 +1,6 @@
 // src/Layout/layout_primitives_resize.c
 #include "Layout/layout.h"
+#include "Layout/layout_constraints.h"
 #include "Core/global_state.h"
 
 #include <math.h>
@@ -584,11 +585,29 @@ bool Layout_PlaneResizeHandleWorldPoint(const Object3D* object,
     return true;
 }
 
+typedef struct {
+    uint32_t objectId;
+    PlaneResizeHandleKind handle;
+    Vec3 draggedWorldPoint;
+    bool adjusted;
+} ResizePlanePrimitiveFromHandleContext;
+static bool ResizePlanePrimitiveFromHandleCandidate(Layout* candidate, void* context) {
+    ResizePlanePrimitiveFromHandleContext* c=context;
+    return Layout_ResizePlanePrimitiveFromHandle(candidate, c->objectId, c->handle, c->draggedWorldPoint, &c->adjusted);
+}
+
 bool Layout_ResizePlanePrimitiveFromHandle(Layout* layout,
                                            uint32_t objectId,
                                            PlaneResizeHandleKind handle,
                                            Vec3 draggedWorldPoint,
                                            bool* outBoundsAdjusted) {
+    if (layout && !layout->geometryEditActive) {
+        ResizePlanePrimitiveFromHandleContext c={.objectId=objectId, .handle=handle, .draggedWorldPoint=draggedWorldPoint};
+        bool ok=Layout_RunGeometryEdit(layout, objectId, ResizePlanePrimitiveFromHandleCandidate, &c,
+            layout->objectStore.constraintCount ? Layout_GeometryHistory : NULL, NULL);
+        if (outBoundsAdjusted) *outBoundsAdjusted=ok && c.adjusted;
+        return ok;
+    }
     if (outBoundsAdjusted) *outBoundsAdjusted = false;
     if (!layout) return false;
 
@@ -672,13 +691,30 @@ bool Layout_ResizePlanePrimitiveFromHandle(Layout* layout,
     }
 
     if (outBoundsAdjusted) *outBoundsAdjusted = boundsAdjusted;
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
     return true;
 }
+typedef struct {
+    uint32_t objectId;
+    Vec3 position;
+    bool adjusted;
+} SetObject3DPositionContext;
+static bool SetObject3DPositionCandidate(Layout* candidate, void* context) {
+    SetObject3DPositionContext* c=context;
+    return Layout_SetObject3DPosition(candidate, c->objectId, c->position, &c->adjusted);
+}
+
 bool Layout_SetObject3DPosition(Layout* layout,
                                 uint32_t objectId,
                                 Vec3 position,
                                 bool* outBoundsAdjusted) {
+    if (layout && !layout->geometryEditActive) {
+        SetObject3DPositionContext c={.objectId=objectId, .position=position};
+        bool ok=Layout_RunGeometryEdit(layout, objectId, SetObject3DPositionCandidate, &c,
+            layout->objectStore.constraintCount ? Layout_GeometryHistory : NULL, NULL);
+        if (outBoundsAdjusted) *outBoundsAdjusted=ok && c.adjusted;
+        return ok;
+    }
     if (outBoundsAdjusted) *outBoundsAdjusted = false;
     if (!layout || objectId == 0u) return false;
     if (!isfinite(position.x) || !isfinite(position.y) || !isfinite(position.z)) return false;
@@ -741,11 +777,29 @@ bool Layout_SetObject3DPosition(Layout* layout,
     return true;
 }
 
+typedef struct {
+    uint32_t objectId;
+    float width;
+    float height;
+    bool adjusted;
+} SetPlaneDimensionsContext;
+static bool SetPlaneDimensionsCandidate(Layout* candidate, void* context) {
+    SetPlaneDimensionsContext* c=context;
+    return Layout_SetPlaneDimensions(candidate, c->objectId, c->width, c->height, &c->adjusted);
+}
+
 bool Layout_SetPlaneDimensions(Layout* layout,
                                uint32_t objectId,
                                float width,
                                float height,
                                bool* outBoundsAdjusted) {
+    if (layout && !layout->geometryEditActive) {
+        SetPlaneDimensionsContext c={.objectId=objectId, .width=width, .height=height};
+        bool ok=Layout_RunGeometryEdit(layout, objectId, SetPlaneDimensionsCandidate, &c,
+            layout->objectStore.constraintCount ? Layout_GeometryHistory : NULL, NULL);
+        if (outBoundsAdjusted) *outBoundsAdjusted=ok && c.adjusted;
+        return ok;
+    }
     if (outBoundsAdjusted) *outBoundsAdjusted = false;
     if (!layout) return false;
     if (!isfinite(width) || !isfinite(height)) return false;
@@ -803,12 +857,31 @@ bool Layout_SetPlaneDimensions(Layout* layout,
     return true;
 }
 
+typedef struct {
+    uint32_t objectId;
+    Vec3 axisWorld;
+    float angleDeg;
+    const Object3D* baselineObject;
+    bool adjusted;
+} RotateObject3DContext;
+static bool RotateObject3DCandidate(Layout* candidate, void* context) {
+    RotateObject3DContext* c=context;
+    return Layout_RotateObject3D(candidate, c->objectId, c->axisWorld, c->angleDeg, c->baselineObject, &c->adjusted);
+}
+
 bool Layout_RotateObject3D(Layout* layout,
                            uint32_t objectId,
                            Vec3 axisWorld,
                            float angleDeg,
                            const Object3D* baselineObject,
                            bool* outBoundsAdjusted) {
+    if (layout && !layout->geometryEditActive) {
+        RotateObject3DContext c={.objectId=objectId, .axisWorld=axisWorld, .angleDeg=angleDeg, .baselineObject=baselineObject};
+        bool ok=Layout_RunGeometryEdit(layout, objectId, RotateObject3DCandidate, &c,
+            layout->objectStore.constraintCount ? Layout_GeometryHistory : NULL, NULL);
+        if (outBoundsAdjusted) *outBoundsAdjusted=ok && c.adjusted;
+        return ok;
+    }
     if (outBoundsAdjusted) *outBoundsAdjusted = false;
     if (!layout || objectId == 0u) return false;
     if (!isfinite(axisWorld.x) || !isfinite(axisWorld.y) || !isfinite(axisWorld.z)) return false;
@@ -900,8 +973,19 @@ bool Layout_RotateObject3D(Layout* layout,
     }
 
     if (outBoundsAdjusted) *outBoundsAdjusted = boundsAdjusted;
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
     return true;
+}
+
+typedef struct {
+    uint32_t objectId;
+    Vec3 scaleFactors;
+    const Object3D* baselineObject;
+    bool adjusted;
+} ScaleObject3DContext;
+static bool ScaleObject3DCandidate(Layout* candidate, void* context) {
+    ScaleObject3DContext* c=context;
+    return Layout_ScaleObject3D(candidate, c->objectId, c->scaleFactors, c->baselineObject, &c->adjusted);
 }
 
 bool Layout_ScaleObject3D(Layout* layout,
@@ -909,6 +993,13 @@ bool Layout_ScaleObject3D(Layout* layout,
                           Vec3 scaleFactors,
                           const Object3D* baselineObject,
                           bool* outBoundsAdjusted) {
+    if (layout && !layout->geometryEditActive) {
+        ScaleObject3DContext c={.objectId=objectId, .scaleFactors=scaleFactors, .baselineObject=baselineObject};
+        bool ok=Layout_RunGeometryEdit(layout, objectId, ScaleObject3DCandidate, &c,
+            layout->objectStore.constraintCount ? Layout_GeometryHistory : NULL, NULL);
+        if (outBoundsAdjusted) *outBoundsAdjusted=ok && c.adjusted;
+        return ok;
+    }
     if (outBoundsAdjusted) *outBoundsAdjusted = false;
     if (!layout || objectId == 0u) return false;
     if (!isfinite(scaleFactors.x) || !isfinite(scaleFactors.y) || !isfinite(scaleFactors.z)) return false;
@@ -985,6 +1076,6 @@ bool Layout_ScaleObject3D(Layout* layout,
         return false;
     }
 
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
     return true;
 }

@@ -261,7 +261,19 @@ uint32_t Layout_ObjectStore_Create(LayoutObjectStore* store,
 
     Object3D candidate;
     memset(&candidate, 0, sizeof(candidate));
-    candidate.objectId = store->nextObjectId;
+    candidate.objectId = store->nextObjectId ? store->nextObjectId : 1u;
+    /* Imported stable names need not follow numeric handles. Do not let a new
+     * generated identity alias an existing (including deleted) entity. */
+    for (;;) {
+        if (candidate.objectId == UINT32_MAX) return 0u;
+        char proposed[64];
+        snprintf(proposed, sizeof(proposed), "obj3d_%u", candidate.objectId);
+        bool unique = true;
+        for (size_t i = 0; i < store->count; ++i)
+            if (store->items[i].objectId == candidate.objectId || !strcmp(store->items[i].coreMeta.object_id, proposed)) unique = false;
+        if (unique) break;
+        ++candidate.objectId;
+    }
     candidate.kind = kind;
     candidate.transform = resolvedTransform;
     candidate.plane.width = kPlanePrimitiveDefaultSize;
@@ -320,8 +332,8 @@ uint32_t Layout_ObjectStore_Create(LayoutObjectStore* store,
     if (!resized) return 0u;
     store->items = resized;
     store->items[store->count++] = candidate;
-    store->nextObjectId += 1u;
-    Global_FlagLayoutChanged();
+    store->nextObjectId = candidate.objectId + 1u;
+    if (store == &Global_Get()->layout.objectStore) Global_FlagLayoutChanged();
     return candidate.objectId;
 }
 

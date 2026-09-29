@@ -179,7 +179,7 @@ int Layout_AddAnchor3(Layout* layout, Vec3 pos) {
         .handleOutAngleDeg = 0.0f
     };
     layout->anchors[layout->anchorCount] = newAnchor;
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
     return (int)layout->anchorCount++;
 }
 
@@ -257,7 +257,7 @@ void Layout_MarkAnchorDeleted(Layout* layout, int anchorIndex) {
     free(a->connectedWalls);
     a->connectedWalls = NULL;
     a->connectionCount = 0;
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
 }
 
 bool Layout_CanAnchorBecomeCurve(const Layout* layout, int anchorIndex) {
@@ -278,7 +278,7 @@ bool Layout_SetAnchorType(Layout* layout, int anchorIndex, AnchorType type) {
             anchor->type = ANCHOR_TYPE_CORNER;
             anchor->handlesLinked = true;
             Anchor_ResetHandles(anchor);
-            Global_FlagLayoutChanged();
+            if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
             return true;
         case ANCHOR_TYPE_CURVE:
             if (!Layout_CanAnchorBecomeCurve(layout, anchorIndex)) {
@@ -290,7 +290,7 @@ bool Layout_SetAnchorType(Layout* layout, int anchorIndex, AnchorType type) {
             anchor->handleAxis = Layout_GetActivePlaneAxis();
             Anchor_SeedHandlesFromWalls(layout, anchorIndex);
             Anchor_ForceLinkedHandles(anchor);
-            Global_FlagLayoutChanged();
+            if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
             return true;
         default:
             break;
@@ -308,7 +308,7 @@ bool Layout_SetHandlesLinked(Layout* layout, int anchorIndex, bool linked) {
         Anchor_ForceLinkedHandles(anchor);
     }
 
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
     return true;
 }
 
@@ -361,7 +361,7 @@ void Layout_AddWall3(Layout* layout, Vec3 from, Vec3 to) {
 
     b->connectedWalls = realloc(b->connectedWalls, sizeof(int) * (b->connectionCount + 1));
     b->connectedWalls[b->connectionCount++] = wallIndex;
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
 
     Anchor_EnsureHandleForWall(layout, indexA, wallIndex);
     Anchor_EnsureHandleForWall(layout, indexB, wallIndex);
@@ -457,7 +457,7 @@ void Layout_MarkWallDeleted(Layout* layout, int wallIndex) {
     if (w->anchorB >= 0 && w->anchorB < (int)layout->anchorCount) {
         RemoveWallFromAnchor(&layout->anchors[w->anchorB], wallIndex);
     }
-    Global_FlagLayoutChanged();
+    if (layout == &Global_Get()->layout) Global_FlagLayoutChanged();
 }
 
 
@@ -466,6 +466,10 @@ void Layout_MarkWallDeleted(Layout* layout, int wallIndex) {
 // 	       Layout State
 
 void Layout_Init(Layout* layout, float gridSize) {
+    layout->geometryEditActive = false;
+    layout->geometryGestureActive = false;
+    layout->geometryGestureCaptured = false;
+    layout->geometryMessage[0] = '\0';
     layout->gridSize = gridSize;
     layout->metersPerWorldUnit = 1.0;
     Layout_Scene3DSettings_SetDefaults(&layout->scene3d);

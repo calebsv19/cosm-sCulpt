@@ -1,57 +1,28 @@
 #pragma once
-#include "Layout/layout.h"
+#include "Layout/layout_reference.h"
 
-typedef enum EditorReferenceKind {
-    EDITOR_REFERENCE_ORIGIN,
-    EDITOR_REFERENCE_AXIS_U,
-    EDITOR_REFERENCE_AXIS_V,
-    EDITOR_REFERENCE_AXIS_N,
-    EDITOR_REFERENCE_FACE
-} EditorReferenceKind;
-
-/* Stable operand: no selection index, mesh triangle or cached world coordinate.
- * Primitive U/V/N use the authored frame, which already includes rotation. */
-typedef struct EditorGeometricReference {
-    char entity_id[64];
-    EditorReferenceKind kind;
-    Object3DFaceKind face;
-} EditorGeometricReference;
-
-typedef enum EditorMeasurementStatus {
-    EDITOR_MEASUREMENT_OK,
-    EDITOR_MEASUREMENT_INVALID,
-    EDITOR_MEASUREMENT_UNRESOLVED,
-    EDITOR_MEASUREMENT_UNSUPPORTED,
-    EDITOR_MEASUREMENT_DEGENERATE
-} EditorMeasurementStatus;
-
-typedef struct EditorResolvedReference {
-    double point_meters[3];
-    double direction[3];
-    bool has_direction;
-    bool is_plane;
-} EditorResolvedReference;
-
-typedef enum EditorMeasurementKind {
-    EDITOR_MEASURE_POINT_DISTANCE,
-    EDITOR_MEASURE_PROJECTED_DISTANCE,
-    EDITOR_MEASURE_DIRECTION_ANGLE,
-    EDITOR_MEASURE_PLANAR_ANGLE,
-    EDITOR_MEASURE_PARALLEL_PLANE_GAP
-} EditorMeasurementKind;
-
-typedef struct EditorMeasurementResult {
-    EditorMeasurementStatus status;
-    double value; /* meters for distances, degrees for angles */
-    char message[128];
-} EditorMeasurementResult;
-
-EditorMeasurementStatus Editor_ResolveReference(const Layout* layout,
-    const EditorGeometricReference* reference, EditorResolvedReference* out);
-/* Read-only, synchronous evaluation against current geometry. The supplied world
- * vector is the projection axis or planar angle normal. Planar angles require
- * both directions in that plane; they are not projected silently. */
-EditorMeasurementResult Editor_Measure(const Layout* layout,
-    const EditorGeometricReference* a, const EditorGeometricReference* b,
-    EditorMeasurementKind kind, Vec3 world_vector);
-const char* Editor_MeasurementStatusLabel(EditorMeasurementStatus status);
+/* Existing editor API names forward to the UI-free layout reference contract. */
+#define EditorReferenceKind LayoutReferenceKind
+#define EditorGeometricReference LayoutGeometricReference
+#define EditorMeasurementStatus LayoutMeasurementStatus
+#define EditorResolvedReference LayoutResolvedReference
+#define EditorMeasurementKind LayoutMeasurementKind
+#define EditorMeasurementResult LayoutMeasurementResult
+#define Editor_ResolveReference Layout_ResolveReference
+#define Editor_Measure Layout_Measure
+#define Editor_MeasurementStatusLabel Layout_MeasurementStatusLabel
+#define EDITOR_MEASUREMENT_DEGENERATE LAYOUT_MEASUREMENT_DEGENERATE
+#define EDITOR_MEASUREMENT_INVALID LAYOUT_MEASUREMENT_INVALID
+#define EDITOR_MEASUREMENT_OK LAYOUT_MEASUREMENT_OK
+#define EDITOR_MEASUREMENT_UNRESOLVED LAYOUT_MEASUREMENT_UNRESOLVED
+#define EDITOR_MEASUREMENT_UNSUPPORTED LAYOUT_MEASUREMENT_UNSUPPORTED
+#define EDITOR_MEASURE_DIRECTION_ANGLE LAYOUT_MEASURE_DIRECTION_ANGLE
+#define EDITOR_MEASURE_PARALLEL_PLANE_GAP LAYOUT_MEASURE_PARALLEL_PLANE_GAP
+#define EDITOR_MEASURE_PLANAR_ANGLE LAYOUT_MEASURE_PLANAR_ANGLE
+#define EDITOR_MEASURE_POINT_DISTANCE LAYOUT_MEASURE_POINT_DISTANCE
+#define EDITOR_MEASURE_PROJECTED_DISTANCE LAYOUT_MEASURE_PROJECTED_DISTANCE
+#define EDITOR_REFERENCE_AXIS_N LAYOUT_REFERENCE_AXIS_N
+#define EDITOR_REFERENCE_AXIS_U LAYOUT_REFERENCE_AXIS_U
+#define EDITOR_REFERENCE_AXIS_V LAYOUT_REFERENCE_AXIS_V
+#define EDITOR_REFERENCE_FACE LAYOUT_REFERENCE_FACE
+#define EDITOR_REFERENCE_ORIGIN LAYOUT_REFERENCE_ORIGIN

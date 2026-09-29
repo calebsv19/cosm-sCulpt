@@ -1,3 +1,4 @@
+#include "Layout/layout_constraints.h"
 #include "Input/input_mouse_drag.h"
 
 #include "Input/input_mouse_drag_shared.h"
@@ -133,6 +134,7 @@ static float Object3D_CenterGizmoAxisWorldLen(const Object3D* object, float grid
 }
 
 void ResetObjectResizeDrag(EditorState* editor) {
+    if (objectResizeDrag.active) Layout_EndGeometryGesture(&Global_Get()->layout);
     objectResizeDrag.active = false;
     objectResizeDrag.objectId = 0u;
     objectResizeDrag.handle = PLANE_RESIZE_HANDLE_NONE;
@@ -142,6 +144,7 @@ void ResetObjectResizeDrag(EditorState* editor) {
 }
 
 void ResetObjectGizmoDrag(EditorState* editor) {
+    if (objectGizmoDrag.active) Layout_EndGeometryGesture(&Global_Get()->layout);
     objectGizmoDrag.active = false;
     objectGizmoDrag.target = ObjectHandleGizmoTarget_None();
     objectGizmoDrag.axisDirection = RECT_PRISM_AXIS_DIR_POS_U;
@@ -154,6 +157,7 @@ void ResetObjectGizmoDrag(EditorState* editor) {
 }
 
 void ResetObjectTranslateDrag(EditorState* editor) {
+    if (objectTranslateDrag.active) Layout_EndGeometryGesture(&Global_Get()->layout);
     objectTranslateDrag.active = false;
     objectTranslateDrag.objectId = 0u;
     objectTranslateDrag.axis = GIZMO_AXIS_DIR_POS_X;
@@ -168,6 +172,7 @@ void ResetObjectTranslateDrag(EditorState* editor) {
 }
 
 void ResetObjectRotateDrag(EditorState* editor) {
+    if (objectRotateDrag.active) Layout_EndGeometryGesture(&Global_Get()->layout);
     objectRotateDrag.active = false;
     objectRotateDrag.objectId = 0u;
     objectRotateDrag.axis = GIZMO_AXIS_DIR_POS_X;
@@ -184,6 +189,7 @@ void ResetObjectRotateDrag(EditorState* editor) {
 }
 
 void ResetObjectScaleDrag(EditorState* editor) {
+    if (objectScaleDrag.active) Layout_EndGeometryGesture(&Global_Get()->layout);
     objectScaleDrag.active = false;
     objectScaleDrag.objectId = 0u;
     objectScaleDrag.axis = GIZMO_AXIS_DIR_POS_X;
@@ -304,6 +310,7 @@ bool BeginObjectResizeDragSession(GlobalState* state,
     }
     if (!Layout_ObjectStore_ValidateObject(object)) return false;
 
+    Layout_BeginGeometryGesture(&state->layout);
     objectResizeDrag.active = true;
     objectResizeDrag.objectId = objectId;
     objectResizeDrag.handle = handle;
@@ -359,6 +366,7 @@ bool BeginObjectHandleGizmoDragSession(GlobalState* state,
     float axisPixels = Vec2_Distance(startScreen, tipScreen);
     if (axisPixels <= 1e-4f) return false;
 
+    Layout_BeginGeometryGesture(&state->layout);
     objectGizmoDrag.active = true;
     objectGizmoDrag.target = target;
     objectGizmoDrag.axisDirection = axisDirection;
@@ -485,6 +493,7 @@ bool BeginObjectTranslateDragSession(GlobalState* state,
     float axisPixels = Vec2_Distance(startScreen, tipScreen);
     if (axisPixels <= 1e-4f) return false;
 
+    Layout_BeginGeometryGesture(&state->layout);
     objectTranslateDrag.active = true;
     objectTranslateDrag.objectId = objectId;
     objectTranslateDrag.axis = axis;
@@ -535,6 +544,7 @@ bool BeginObjectRotateDragSession(GlobalState* state,
     float axisPixels = Vec2_Distance(startScreen, tipScreen);
     if (axisPixels <= 1e-4f) return false;
 
+    Layout_BeginGeometryGesture(&state->layout);
     objectRotateDrag.active = true;
     objectRotateDrag.objectId = objectId;
     objectRotateDrag.axis = axis;
@@ -586,6 +596,7 @@ bool BeginObjectScaleDragSession(GlobalState* state,
     float axisPixels = Vec2_Distance(startScreen, tipScreen);
     if (axisPixels <= 1e-4f) return false;
 
+    Layout_BeginGeometryGesture(&state->layout);
     objectScaleDrag.active = true;
     objectScaleDrag.objectId = objectId;
     objectScaleDrag.axis = axis;
@@ -731,7 +742,7 @@ static void UpdateObjectResizeDragPosition(int mx, int my) {
     }
 
     if (!objectResizeDrag.historyCaptured) {
-        Editor_HistoryCapture(editor, &state->layout);
+        if (!state->layout.objectStore.constraintCount) Editor_HistoryCapture(editor, &state->layout);
         objectResizeDrag.historyCaptured = true;
     }
 
@@ -805,7 +816,7 @@ static void UpdateObjectGizmoDragPosition(int mx, int my) {
 
     const bool canMutate = ObjectHandleGizmoTarget_CanMutate(&objectGizmoDrag.target);
     if (canMutate && !objectGizmoDrag.historyCaptured) {
-        Editor_HistoryCapture(editor, &state->layout);
+        if (!state->layout.objectStore.constraintCount) Editor_HistoryCapture(editor, &state->layout);
         objectGizmoDrag.historyCaptured = true;
     }
 
@@ -943,7 +954,7 @@ static void UpdateObjectTranslateDragPosition(int mx, int my) {
     if (!Layout_ObjectStore_ValidateObject(object)) return;
 
     if (!objectTranslateDrag.historyCaptured) {
-        Editor_HistoryCapture(editor, &state->layout);
+        if (!state->layout.objectStore.constraintCount) Editor_HistoryCapture(editor, &state->layout);
         objectTranslateDrag.historyCaptured = true;
     }
 
@@ -1009,7 +1020,7 @@ static void UpdateObjectRotateDragPosition(int mx, int my) {
     if (!Layout_ObjectStore_ValidateObject(object)) return;
 
     if (!objectRotateDrag.historyCaptured) {
-        Editor_HistoryCapture(editor, &state->layout);
+        if (!state->layout.objectStore.constraintCount) Editor_HistoryCapture(editor, &state->layout);
         objectRotateDrag.historyCaptured = true;
     }
 
@@ -1140,7 +1151,7 @@ static void UpdateObjectScaleDragPosition(int mx, int my) {
     if (!Layout_ObjectStore_ValidateObject(object)) return;
 
     if (!objectScaleDrag.historyCaptured) {
-        Editor_HistoryCapture(editor, &state->layout);
+        if (!state->layout.objectStore.constraintCount) Editor_HistoryCapture(editor, &state->layout);
         objectScaleDrag.historyCaptured = true;
     }
 

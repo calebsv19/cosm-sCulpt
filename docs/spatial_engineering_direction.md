@@ -1,17 +1,15 @@
 # Spatial Engineering Direction
 
 
-Implementation update (2026-09-28): Exact one-time projected distance and point
-alignment now ship as S1c prerequisites; saved driving rules remain pending.
+Implementation update (2026-09-28): S0/S1a/S1b and bounded S1c are delivered.
+Geometry mutations share an atomic Layout transaction, and saved distance rules
+propagate through a directed dependency graph. Initial S1d coincident points and
+fixed planar pivot/relative-angle rules are also implemented. See the
+[persistent constraint contract](geometric_constraints.md) for scope and proof.
+Next: authored pivot/axis datums and feedback, then S1e travel limits and motion
+sampling. Broader semantic organization remains later work.
 
-Earlier foundation:  S0 and S1a are delivered. See the
-[engineering document contract](engineering_document_contract.md) for exact scope
-and verification. S1b primitive reference selection and read-only measurements are now delivered
-([contract](geometric_measurements.md)); viewport marker picking, transient annotations and named orthographic views are
-also implemented. Next: S1c persistent directed distance, then S1d pivot/angle
-constraints; the broader roadmap below is future direction.
-
-Status: accepted foundational direction; detailed design proposed, not implemented
+Status: roadmap accepted; opening CAD slices implemented as noted above, later phases proposed
 Date: 2026-09-28
 Inspected source baseline: `c8f5bf1` (program VERSION `0.4.0`)
 
