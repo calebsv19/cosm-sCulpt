@@ -123,7 +123,9 @@ static void cycle_rule(void) {
         ui->measurement.refs[0] = rule->a;
         ui->measurement.refs[1] = rule->b;
         ui->measurement.operation=rule->kind==LAYOUT_CONSTRAINT_DISTANCE ? 0 : rule->kind==LAYOUT_CONSTRAINT_COINCIDENT ? 1 : rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL ? 3 : 2;
-        snprintf(ui->measurement.placement_text,64,"%.8g%s",rule->target,rule->kind==LAYOUT_CONSTRAINT_PLANAR_MATE ? "" : " m");
+        double value=rule->target;
+        if(rule->kind!=LAYOUT_CONSTRAINT_PLANAR_MATE)(void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
+        snprintf(ui->measurement.placement_text,64,"%.9g %s",value,rule->kind==LAYOUT_CONSTRAINT_PLANAR_MATE ? "" : UIPanel_GetDisplayUnitSymbol());
         snprintf(ui->measurement.placement_message,128,"Edit the target, then click Update rule.");
     } else snprintf(ui->measurement.placement_message, sizeof(ui->measurement.placement_message), "New rule mode; choose references and axis.");
 }
@@ -282,7 +284,7 @@ void UIPanel_MeasurementApplyButton(int mode) {
     if (mode>=3 && mode<=5 && !ui->measurement.placing) {
         if (index<0) index=(int)Global_Get()->layout.objectStore.constraintCount-1;
         UIPanel_MeasurementSelectRule(index);
-        snprintf(ui->measurement.placement_message,128,"Rule saved. Geometry validated; Undo restores the edit.");
+        snprintf(ui->measurement.placement_message,128,"Constraint applied. Undo is available.");
     }
 }
 void UIPanel_MeasurementSelectRule(int index) {
@@ -291,7 +293,9 @@ void UIPanel_MeasurementSelectRule(int index) {
     const LayoutConstraint* c=selected_rule();
     if (c) {
         UIPanel_Get()->measurement.operation=c->kind==LAYOUT_CONSTRAINT_DISTANCE ? 0 : c->kind==LAYOUT_CONSTRAINT_COINCIDENT ? 1 : c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL ? 3 : 2;
-        snprintf(UIPanel_Get()->measurement.placement_text,64,"%.8g%s",c->target,c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE ? "" : " m");
+        double value=c->target;
+        if(c->kind!=LAYOUT_CONSTRAINT_PLANAR_MATE)(void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
+        snprintf(UIPanel_Get()->measurement.placement_text,64,"%.9g %s",value,c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE ? "" : UIPanel_GetDisplayUnitSymbol());
         UIPanel_Get()->measurement.placement_message[0]=0;
     }
 }

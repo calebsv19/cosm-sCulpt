@@ -33,7 +33,7 @@ void UIPanel_TravelEndDrag(void) {
 static bool position(const char* id,double meters) {
     UIPanelState* ui=UIPanel_Get();Layout* layout=&Global_Get()->layout;
     bool ok=Layout_SetTravelPosition(layout,id,meters,Layout_GeometryHistory,NULL);
-    snprintf(ui->measurement.placement_message,128,"%s",ok ? "Travel applied; attached geometry validated." : layout->geometryMessage);
+    snprintf(ui->measurement.placement_message,128,"%s",ok ? "Position updated." : layout->geometryMessage);
     if(ok)UIPanel_TravelSelect(selected());
     return ok;
 }
@@ -62,10 +62,14 @@ void UIPanel_TravelAction(int action) {
             const Vec3 axes[]={{1,0,0},{0,1,0},{0,0,1}};
             LayoutMeasurementResult m=Layout_Measure(&Global_Get()->layout,&ui->measurement.refs[0],&ui->measurement.refs[1],LAYOUT_MEASURE_PROJECTED_DISTANCE,axes[ui->measurement.projection_axis]);
             double current=m.status==LAYOUT_MEASUREMENT_OK ? m.value : 0;
-            snprintf(ui->measurement.travel_text[0],64,"%.9g m",current);
-            snprintf(ui->measurement.travel_text[1],64,"%.9g m",current+1);
-            snprintf(ui->measurement.travel_text[2],64,"%.9g m",current);
-            snprintf(ui->measurement.placement_message,128,"Suggested limits span 1 m from the current pose. Edit before saving.");
+            /* Match the solver tolerance without exposing float-storage noise. */
+            if(fabs(current)<1e9)current=round(current*1e6)/1e6;
+            double values[]={current,current+1,current};
+            for(int i=0;i<3;++i) {
+                (void)core_units_convert(values[i],CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&values[i]);
+                snprintf(ui->measurement.travel_text[i],64,"%.9g %s",values[i],UIPanel_GetDisplayUnitSymbol());
+            }
+            ui->measurement.placement_message[0]=0;
         }
         return;
     }
@@ -84,6 +88,10 @@ void UIPanel_TravelAction(int action) {
     for(int i=0;i<3;++i)if(!Editor_ParseLength(ui->measurement.travel_text[i],UIPanel_GetDisplayUnit(),&values[i])) {
         snprintf(ui->measurement.placement_message,128,"Enter finite Min, Max and Position lengths, e.g. 900 mm.");return;
     }
+    if(values[0]>values[1]) {snprintf(ui->measurement.placement_message,128,"Min must be less than or equal to Max.");return;}
+    if(fabs(values[2]-values[0])<=1e-6)values[2]=values[0];
+    if(fabs(values[2]-values[1])<=1e-6)values[2]=values[1];
+    if(values[2]<values[0] || values[2]>values[1]) {snprintf(ui->measurement.placement_message,128,"Position must be between Min and Max.");return;}
     const Vec3 axes[]={{1,0,0},{0,1,0},{0,0,1}};
     LayoutConstraint c={.a=ui->measurement.refs[0],.b=ui->measurement.refs[1],.axis=axes[ui->measurement.projection_axis]};
     if(saved) {
@@ -100,6 +108,6 @@ void UIPanel_TravelAction(int action) {
     if(Layout_ConstraintEdit(&Global_Get()->layout,&c,NULL,Layout_GeometryHistory,NULL)) {
         if(index<0)index=(int)Global_Get()->layout.objectStore.constraintCount-1;
         UIPanel_MeasurementSelectRule(index);
-        snprintf(ui->measurement.placement_message,128,"Travel saved. Drag the slider, or use Min, Max and Reset.");
+        snprintf(ui->measurement.placement_message,128,"Travel created. Movement controls enabled.");
     } else snprintf(ui->measurement.placement_message,128,"%s",Global_Get()->layout.geometryMessage);
 }

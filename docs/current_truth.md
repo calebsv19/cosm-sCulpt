@@ -1,6 +1,20 @@
 # Sculpt Current Truth
 
-Last updated: 2026-09-28
+Last updated: 2026-09-29
+
+## Measure workflow redesign (2026-09-29)
+
+The Measure tab now shows one selected tool at a time. Buttons, inset numeric fields,
+plain readouts and dropdowns have distinct styling. Advanced references/offsets and
+saved-constraint management are collapsed initially. Travel always displays its slider
+and Min/Max/Reset controls, disabled before creation; invalid limits receive local feedback.
+Staged limit changes disable movement until applied or reset. Unit selection converts
+staged lengths without changing physical geometry. Backend constraints and schema are unchanged.
+
+437 host tests / 43 reported suites pass (28 Constraints tests), plus Main Edit package
+self-test. Native-rendered initial, error and active travel fixtures were inspected.
+Human usability review remains pending; do not treat automated control tests as acceptance.
+Next: review this focused flow in the Desktop app before adding angular travel or envelopes.
 
 ## S1e bounded linear travel (2026-09-28)
 
@@ -17,7 +31,7 @@ smoke, shape-tool build and Main Edit package self-test pass. A disposable bed-l
 render with 900–1800 mm travel and an attached sensor was inspected; these are
 provisional demonstration values, not van measurements. Human interaction review
 remains separate from automated coverage. [Controls and limits](geometric_constraints.md).
-Next: bounded angular travel around a pivot, then pose sampling and motion envelopes.
+This historical slice is superseded by the Measure review gate above.
 
 ## Persistent Measure pane (2026-09-28)
 

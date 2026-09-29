@@ -9,7 +9,8 @@ fixed planar pivot/relative-angle rules are also implemented. See the
 S1d now also supports physical local reference offsets and visible pivot/constraint
 feedback. The persistent Measure pane now exposes mouse controls for these operations.
 S1e now includes saved linear travel with Min/Max/Position, slider, reset, downstream
-propagation and undo/reopen. Next: angular travel, pose sampling and motion envelopes; independently
+propagation and undo/reopen. Next: human review of the focused Measure redesign. Angular travel, pose sampling and
+motion envelopes follow only after that usability gate; independently
 named reusable datums remain an extension. Broader semantic organization remains later work.
 
 Status: roadmap accepted; opening CAD slices implemented as noted above, later phases proposed

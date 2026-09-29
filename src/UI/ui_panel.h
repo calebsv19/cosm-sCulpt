@@ -436,6 +436,8 @@ typedef struct {
         int chooser; /* 1/2 objects, 3/4 features, 5 saved rules */
         bool offsets_open;
         bool details_open;
+        bool advanced_open;
+        bool rules_open;
         int operation; /* distance, join, angle */
         bool replace_text;
         char travel_text[3][64]; /* Min, Max, Position; staged until Save */

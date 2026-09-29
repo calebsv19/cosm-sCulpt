@@ -11,15 +11,15 @@ available beside the controls. No custom keyboard shortcut is needed.
 
 | Control | Operation |
 |---|---|
-| Distance + target + Save rule | Maintain signed distance along the selected world axis |
-| Join + Save rule | Maintain coincident reference points |
-| Angle + target + Save rule | Join pivots and maintain signed relative angle in the selected world plane |
+| Distance + target + Create distance | Maintain signed distance along the selected world axis |
+| Join + Create join | Maintain coincident reference points |
+| Angle + target + Create angle | Join pivots and maintain signed relative angle in the selected world plane |
 | Travel | Save Min/Max/Position, then drag the live slider or click Min/Max/Reset |
 | Pivot offset | Expand local U/V/N fields; Set offset stages a physical offset |
-| Rules | Choose a saved rule and populate the form |
-| Update rule | Replace the selected rule under the same ID |
+| Saved constraints | Choose a saved rule and populate the form |
+| Apply changes | Replace the selected rule under the same ID |
 | Remove | Confirm deletion of the rule, leaving geometry in place |
-| New rule | Return to creation mode with the chosen references |
+| New | Return to creation mode with the chosen references |
 
 **Move once** / **Join once** are separate one-time placement actions. Changing an
 object/feature returns to new-rule mode. A chosen rule retains its stored world
@@ -65,18 +65,18 @@ Coincident points and mates can overlap solids: there is no collision check here
 
 ## Linear travel (S1e opening slice)
 
-Choose A (rail anchor) and B (moving object), choose **Axis X/Y/Z**, then **Travel**.
-Set **Min**, **Max**, and **Position**, then **Save travel**. Enter unit-bearing values
+Choose A (rail anchor) and B (moving object), choose **Travel** from Tool, then world **X/Y/Z**.
+Set **Min**, **Max**, and **Position**, then **Create travel**. Enter unit-bearing values
 such as `900 mm`, `1.8 m`, or `36 in`; a bare number uses the current display unit.
 The initial form suggests a one-meter range from the current pose; these are
 editable suggestions, not dimensions inferred from the vehicle.
 
-Saved travel exposes a live slider and **Min**, **Max**, **Reset** buttons. The
-current numeric position and limits are edited together with **Update travel**.
+Travel always shows a slider (disabled until creation succeeds) and **Min**, **Max**, **Reset** buttons. The
+current numeric position and limits are edited together with **Apply changes**.
 Each accepted drag is one undo step; rejected/no-op motion adds none. Reset returns
 to the pose captured when the rule was created, not the start of the last drag.
 Both the current target and reset position must remain within the edited limits.
-Selecting Rules reloads the saved settings; unstaged field text is not authoritative.
+Selecting a saved constraint reloads the saved settings; unstaged field text is not authoritative.
 
 The scalar position is the signed projection from A's selected reference to B's
 selected reference along a normalized **world-fixed axis**, in meters. Creation

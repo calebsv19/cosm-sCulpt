@@ -6,8 +6,10 @@
 #include "UI/font_manager.h"
 #include "Core/global_state.h"
 #include "Layout/layout_constraints.h"
+#include "Editor/editor_reference_edit.h"
 #include "Layout/scene/layout_object_faces.h"
 #include <stdio.h>
+#include <math.h>
 #include <string.h>
 
 /* Rendering and hit testing share this layout, including disabled controls and
@@ -23,27 +25,80 @@ typedef struct MeasurePane {
 static bool contains(SDL_Rect r,int x,int y) {
     return x>=r.x && y>=r.y && x<r.x+r.w && y<r.y+r.h;
 }
+static bool field_action(int action) {
+    return action==MEASURE_VALUE || (action>=MEASURE_TRAVEL_MIN && action<=MEASURE_TRAVEL_POSITION) ||
+        (action>=MEASURE_OFFSET_U && action<=MEASURE_OFFSET_N);
+}
+static bool dropdown_action(int action) {
+    return action==MEASURE_TOOL || action==MEASURE_UNITS || action==MEASURE_OBJECT_A || action==MEASURE_OBJECT_B ||
+        action==MEASURE_FEATURE_A || action==MEASURE_FEATURE_B || action==MEASURE_RULES;
+}
 static void cell(MeasurePane* p,int action,const char* label,int column,int columns,bool enabled,bool selected) {
-    int gap=5,w=(p->body.w-24-(columns-1)*gap)/columns;
-    SDL_Rect rect={p->body.x+6+column*(w+gap),p->y,w,p->h-4};
+    int gap=6,w=(p->body.w-24-(columns-1)*gap)/columns;
+    SDL_Rect rect={p->body.x+6+column*(w+gap),p->y,w,p->h-5};
+    bool field=field_action(action);
+    const char* value=field ? strstr(label,": ") : NULL;
+    SDL_Color text=enabled ? p->palette.text_primary : p->palette.text_muted;
+    if(value) {
+        int label_width=w/3;
+        if(p->renderer && p->font) {
+            char title[48];snprintf(title,sizeof(title),"%.*s",(int)(value-label),label);
+            UIPanelSummary_DrawTextClipped(p->renderer,p->font,title,rect.x+2,rect.y+5,label_width-4,rect.h-4,text);
+        }
+        rect.x+=label_width;rect.w-=label_width;label=value+2;
+    }
     if (action==p->wanted) p->found=rect;
     if (action && enabled && contains(rect,p->click_x,p->click_y) && contains(p->body,p->click_x,p->click_y)) p->hit=action;
     if (!p->renderer) return;
-    SDL_Color text=enabled ? p->palette.text_primary : (SDL_Color){130,135,145,255};
+    int mx,my;Uint32 buttons=SDL_GetMouseState(&mx,&my);
+    bool hovered=action && enabled && contains(rect,mx,my) && contains(p->body,mx,my);
+    bool pressed=hovered && (buttons & SDL_BUTTON_LMASK);
+    UIPanelState* ui=UIPanel_Get();
+    bool focused=(action==MEASURE_VALUE && ui->measurement.placing>0) ||
+        (action>=MEASURE_TRAVEL_MIN && action<=MEASURE_TRAVEL_POSITION && ui->measurement.placing==10+action-MEASURE_TRAVEL_MIN) ||
+        (action>=MEASURE_OFFSET_U && action<=MEASURE_OFFSET_N && ui->measurement.placing==7+action-MEASURE_OFFSET_U);
+    bool primary=action==MEASURE_SAVE || action==MEASURE_TRAVEL_SAVE || action==MEASURE_APPLY_OFFSET;
+    if (action) {
+        SDL_Color fill=field ? UIPanelVisual_AdjustColor(p->palette.workspace_fill,-8,0) :
+            UIPanelVisual_AdjustColor(p->palette.button_fill,12,0);
+        if(primary && enabled)fill=UIPanelVisual_BlendColor(fill,p->palette.accent,120);
+        if(selected || pressed)fill=p->palette.button_fill_active;
+        else if(hovered && !field)fill=UIPanelVisual_AdjustColor(p->palette.button_fill_hover,18,0);
+        if(!enabled)fill=UIPanelVisual_BlendColor(fill,p->palette.pane_fill,170);
+        SDL_Color border=(focused || selected || hovered) ? p->palette.accent :
+            UIPanelVisual_AdjustColor(p->palette.button_border,30,0);
+        UIPanelVisual_DrawFrame(p->renderer,rect,fill,border,0);
+        if(selected) {
+            SDL_SetRenderDrawColor(p->renderer,border.r,border.g,border.b,255);
+            SDL_Rect underline={rect.x+3,rect.y+rect.h-5,rect.w-6,3};SDL_RenderFillRect(p->renderer,&underline);
+        }
+    }
     if (enabled && action==MEASURE_OBJECT_A) text=(SDL_Color){100,210,255,255};
     if (enabled && action==MEASURE_OBJECT_B) text=(SDL_Color){255,190,90,255};
-    if (action) {
-        SDL_Color fill=selected ? p->palette.pane_border : p->palette.pane_fill;
-        SDL_SetRenderDrawColor(p->renderer,fill.r,fill.g,fill.b,255);
-        SDL_RenderFillRect(p->renderer,&rect);
-        SDL_Color border=selected ? p->palette.accent : p->palette.pane_border;
-        SDL_SetRenderDrawColor(p->renderer,border.r,border.g,border.b,255);
-        SDL_RenderDrawRect(p->renderer,&rect);
+    int arrow=dropdown_action(action) ? 18 : 0;
+    if (p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,label,rect.x+7,rect.y+5,rect.w-14-arrow,rect.h-6,text);
+    if(arrow) {
+        int cx=rect.x+rect.w-12,cy=rect.y+rect.h/2;
+        SDL_SetRenderDrawColor(p->renderer,text.r,text.g,text.b,255);
+        SDL_RenderDrawLine(p->renderer,cx-4,cy-2,cx,cy+2);SDL_RenderDrawLine(p->renderer,cx,cy+2,cx+4,cy-2);
     }
-    if (p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,label,rect.x+5,rect.y+3,rect.w-10,rect.h-4,text);
 }
 static void row(MeasurePane* p,int action,const char* label,bool enabled) {
-    cell(p,action,label,0,1,enabled,action==MEASURE_VALUE && UIPanel_Get()->measurement.placing!=0); p->y+=p->h;
+    cell(p,action,label,0,1,enabled,false);p->y+=p->h;
+}
+static void note(MeasurePane* p,const char* message) {
+    char text[256];size_t length=strlen(message),start=0;
+    int chars=(p->body.w-34)/(p->font ? TTF_FontHeight(p->font)/2+1 : 9);if(chars<12)chars=12;
+    while(start<length) {
+        size_t n=length-start;if(n>(size_t)chars)n=(size_t)chars;
+        if(start+n<length){size_t split=n;while(split && message[start+split]!=' ')--split;if(split)n=split;}
+        snprintf(text,sizeof(text),"%.*s",(int)n,message+start);row(p,0,text,true);
+        start+=n;while(message[start]==' ')++start;
+    }
+}
+static void object_label(const Object3D* o,char* out,size_t capacity) {
+    if(o)snprintf(out,capacity,"#%u %s",o->objectId,o->kind==OBJECT3D_KIND_RECT_PRISM ? "Prism" : "Plane");
+    else snprintf(out,capacity,"Choose object");
 }
 static const char* feature(const LayoutGeometricReference* ref) {
     switch(ref->kind) {
@@ -79,7 +134,8 @@ static void choices(MeasurePane* p,int chooser) {
         for (size_t i=0;i<s->count;++i) {
             const Object3D* o=&s->items[i];
             if (o->isDeleted || (o->kind!=OBJECT3D_KIND_PLANE && o->kind!=OBJECT3D_KIND_RECT_PRISM)) continue;
-            row(p,MEASURE_CHOICE_BASE+(int)i,o->coreMeta.object_id,true); ++found;
+            char label[96];object_label(o,label,sizeof(label));
+            row(p,MEASURE_CHOICE_BASE+(int)i,label,true); ++found;
         }
         if (!found) row(p,0,"Create a plane or prism first",false);
     } else if (chooser<=4) {
@@ -90,6 +146,13 @@ static void choices(MeasurePane* p,int chooser) {
             LayoutGeometricReference f=feature_at(ref,i,plane);
             row(p,MEASURE_CHOICE_BASE+i,feature(&f),true);
         }
+    } else if(chooser==6) {
+        const int actions[]={MEASURE_DISTANCE,MEASURE_JOIN,MEASURE_ANGLE,MEASURE_TRAVEL};
+        const char* names[]={"Distance","Join","Angle","Travel"};
+        for(int i=0;i<4;++i)row(p,actions[i],names[i],true);
+    } else if(chooser==7) {
+        const char* names[]={"mm","cm","m","in","ft"};
+        for(int i=0;i<5;++i)row(p,MEASURE_CHOICE_BASE+i,names[i],true);
     } else {
         for (size_t i=0;i<s->constraintCount;++i) {
             char text[160]; const LayoutConstraint* c=&s->constraints[i];
@@ -118,138 +181,157 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         row(&p,MEASURE_FILE,"Open layout",true);
         return p;
     }
-    char text[256];
-    snprintf(text,sizeof(text),"Units: %s",UIPanel_GetDisplayUnitSymbol()); row(&p,MEASURE_UNITS,text,true);
-    for (int i=0;i<2;++i) {
+    char text[256],name[96];
+    int op=ui->measurement.operation;
+    const char* tools[]={"Distance","Join","Angle","Travel"};
+    snprintf(text,sizeof(text),"Tool: %s",tools[op]);cell(&p,MEASURE_TOOL,text,0,2,true,false);
+    snprintf(text,sizeof(text),"Units: %s",UIPanel_GetDisplayUnitSymbol());cell(&p,MEASURE_UNITS,text,1,2,true,false);p.y+=p.h;
+    choices(&p,6);choices(&p,7);p.y+=4;
+    const LayoutConstraint* rule=selected();
+    bool travel=op==3,active_travel=travel && rule && rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL;
+    for(int i=0;i<2;++i) {
         const LayoutGeometricReference* ref=&ui->measurement.refs[i];
-        snprintf(text,sizeof(text),"%c  %s  v",'A'+i,ref->entity_id[0] ? ref->entity_id : "Choose object");
-        row(&p,i?MEASURE_OBJECT_B:MEASURE_OBJECT_A,text,true); choices(&p,i+1);
-        snprintf(text,sizeof(text),"%s  v",feature(ref));
-        cell(&p,i?MEASURE_FEATURE_B:MEASURE_FEATURE_A,text,0,2,object(ref->entity_id)!=NULL,false);
-        cell(&p,i?MEASURE_PICK_B:MEASURE_PICK_A,ui->measurement.picking && ui->measurement.slot==i ? "Cancel pick" : "Pick in view",1,2,true,ui->measurement.picking && ui->measurement.slot==i); p.y+=p.h;
-        choices(&p,i+3);
+        row(&p,0,i ? "B  Moving object" : "A  Fixed reference",true);
+        object_label(object(ref->entity_id),name,sizeof(name));
+        cell(&p,i?MEASURE_OBJECT_B:MEASURE_OBJECT_A,name,0,2,true,false);
+        cell(&p,i?MEASURE_PICK_B:MEASURE_PICK_A,ui->measurement.picking && ui->measurement.slot==i ? "Cancel pick" : "Pick in view",1,2,true,ui->measurement.picking && ui->measurement.slot==i);p.y+=p.h;
+        choices(&p,i+1);
+        if(op==2) {
+            snprintf(text,sizeof(text),"%c direction: %s",'A'+i,feature(ref));
+            row(&p,i?MEASURE_FEATURE_B:MEASURE_FEATURE_A,text,object(ref->entity_id)!=NULL);choices(&p,i+3);
+        }
     }
-    if (ui->measurement.picking) row(&p,0,"Click a reference marker in the view",true);
+    if(ui->measurement.picking)note(&p,"Click a highlighted reference in the view.");
     const Vec3 axes[]={{1,0,0},{0,1,0},{0,0,1}};
     Vec3 axis=axes[ui->measurement.projection_axis],normal=axes[(ui->measurement.angle_plane+2)%3];
-    const LayoutConstraint* rule=selected();
-    if (rule && ui->measurement.use_rule_axis) {
-        if (rule->kind==LAYOUT_CONSTRAINT_DISTANCE || rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) axis=rule->axis;
-        else if (rule->kind==LAYOUT_CONSTRAINT_PLANAR_MATE) normal=rule->axis;
+    if(rule && ui->measurement.use_rule_axis) {
+        if(rule->kind==LAYOUT_CONSTRAINT_DISTANCE || rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL)axis=rule->axis;
+        else if(rule->kind==LAYOUT_CONSTRAINT_PLANAR_MATE)normal=rule->axis;
     }
-    const char* labels[]={"Distance","Along axis","Angle"};
-    LayoutMeasurementResult measured[3];
-    for (int i=0;i<3;++i) {
-        measured[i]=Layout_Measure(&Global_Get()->layout,&ui->measurement.refs[0],&ui->measurement.refs[1],
-            i==2 ? LAYOUT_MEASURE_PLANAR_ANGLE : i==1 ? LAYOUT_MEASURE_PROJECTED_DISTANCE : LAYOUT_MEASURE_POINT_DISTANCE,i==2 ? normal : axis);
-        if (measured[i].status==LAYOUT_MEASUREMENT_OK) {
-            double value=measured[i].value;
-            if (i!=2) (void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
-            snprintf(text,sizeof(text),"%s: %.6g %s",labels[i],value,i==2 ? "deg" : UIPanel_GetDisplayUnitSymbol());
-        } else snprintf(text,sizeof(text),"%s: %s",labels[i],i==2 ? "select coplanar axes/faces" : "choose valid references");
-        row(&p,0,text,true);
-    }
-    row(&p,MEASURE_DETAILS,ui->measurement.details_open ? "More measurements  -" : "More measurements  +",true);
-    if (ui->measurement.details_open) {
-        const LayoutMeasurementKind kinds[]={LAYOUT_MEASURE_DIRECTION_ANGLE,LAYOUT_MEASURE_PARALLEL_PLANE_GAP};
-        for(int i=0;i<2;++i) {
-            LayoutMeasurementResult m=Layout_Measure(&Global_Get()->layout,&ui->measurement.refs[0],&ui->measurement.refs[1],kinds[i],axis);
-            double value=m.value;
-            if(i==1)(void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
-            if(m.status==LAYOUT_MEASUREMENT_OK)snprintf(text,sizeof(text),"%s: %.6g %s",i?"Plane gap":"Direction angle",value,i?UIPanel_GetDisplayUnitSymbol():"deg");
-            else snprintf(text,sizeof(text),"%s",i?"Gap: select parallel faces":"Direction angle: select axes/faces");
-            row(&p,0,text,true);
-        }
-    }
-    for(int i=0;i<3;++i) cell(&p,MEASURE_AXIS_X+i,(const char*[]){"Axis X","Axis Y","Axis Z"}[i],i,3,true,!ui->measurement.use_rule_axis && ui->measurement.projection_axis==i);
-    p.y+=p.h;
-    for(int i=0;i<3;++i) cell(&p,MEASURE_PLANE_XY+i,(const char*[]){"Plane XY","Plane YZ","Plane ZX"}[i],i,3,true,!ui->measurement.use_rule_axis && ui->measurement.angle_plane==i);
-    p.y+=p.h;
-    if (rule && ui->measurement.use_rule_axis) {
-        snprintf(text,sizeof(text),"Saved %s: %.3g, %.3g, %.3g",rule->kind==LAYOUT_CONSTRAINT_PLANAR_MATE ? "normal" : "axis",rule->axis.x,rule->axis.y,rule->axis.z);
-        row(&p,0,text,true);
-    }
-    row(&p,MEASURE_OFFSETS,ui->measurement.offsets_open ? "Pivot offset  -" : "Pivot offset  +",true);
-    if (ui->measurement.offsets_open) {
-        cell(&p,MEASURE_SLOT_A,"Reference A",0,2,true,ui->measurement.slot==0);
-        cell(&p,MEASURE_SLOT_B,"Reference B",1,2,true,ui->measurement.slot==1);p.y+=p.h;
+    if(op==0 || travel) {
+        row(&p,0,travel ? "Travel direction (world)" : "Measure along (world)",true);
         for(int i=0;i<3;++i) {
-            double value=0;(void)core_units_convert(ui->measurement.refs[ui->measurement.slot].local_offset_meters[i],CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
-            snprintf(text,sizeof(text),"Local %c: %.6g %s", "UVN"[i],value,UIPanel_GetDisplayUnitSymbol());
-            row(&p,MEASURE_OFFSET_U+i,text,true);
+            bool chosen=axis.x==axes[i].x && axis.y==axes[i].y && axis.z==axes[i].z;
+            cell(&p,MEASURE_AXIS_X+i,(const char*[]){"X","Y","Z"}[i],i,3,!active_travel,chosen);
         }
-        row(&p,MEASURE_RESET_OFFSET,"Reset offsets",true);
-    }
-    if (ui->measurement.placing>=7 && ui->measurement.placing<=9) {
-        snprintf(text,sizeof(text),"Local %c [%s]: %s_","UVN"[ui->measurement.placing-7],UIPanel_GetDisplayUnitSymbol(),ui->measurement.placement_text);
-        row(&p,MEASURE_VALUE,text,true);
-        cell(&p,MEASURE_APPLY_OFFSET,"Set offset",0,2,true,false);cell(&p,MEASURE_CANCEL,"Cancel",1,2,true,false);p.y+=p.h;
-    } else if (ui->measurement.placing==6) {
-        row(&p,0,"Remove rule? Geometry stays in place.",true);
-        cell(&p,MEASURE_SAVE,"Remove rule",0,2,true,false);cell(&p,MEASURE_CANCEL,"Cancel",1,2,true,false);p.y+=p.h;
-    } else {
-        row(&p,0,"A stays fixed; B moves",true);
-        for(int i=0;i<3;++i) cell(&p,MEASURE_DISTANCE+i,(const char*[]){"Distance","Join","Angle"}[i],i,3,true,ui->measurement.operation==i);
         p.y+=p.h;
-        cell(&p,MEASURE_TRAVEL,"Travel",0,1,true,ui->measurement.operation==3);p.y+=p.h;
-        if(ui->measurement.operation==3) {
-            row(&p,0,"World axis; B keeps its orientation",true);
+    } else if(op==2) {
+        row(&p,0,"Angle plane",true);
+        for(int i=0;i<3;++i)cell(&p,MEASURE_PLANE_XY+i,(const char*[]){"XY","YZ","ZX"}[i],i,3,true,
+            normal.x==axes[(i+2)%3].x && normal.y==axes[(i+2)%3].y && normal.z==axes[(i+2)%3].z);
+        p.y+=p.h;
+    }
+    bool different=strcmp(ui->measurement.refs[0].entity_id,ui->measurement.refs[1].entity_id)!=0;
+    LayoutMeasurementResult measured=Layout_Measure(&Global_Get()->layout,&ui->measurement.refs[0],&ui->measurement.refs[1],
+        op==2 ? LAYOUT_MEASURE_PLANAR_ANGLE : op==1 ? LAYOUT_MEASURE_POINT_DISTANCE : LAYOUT_MEASURE_PROJECTED_DISTANCE,op==2?normal:axis);
+    bool valid=measured.status==LAYOUT_MEASUREMENT_OK && different;
+    bool scene=Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_SCENE;
+    p.y+=5;
+    if(ui->measurement.placing==6) {
+        note(&p,"Remove constraint? Objects stay in place.");
+        cell(&p,MEASURE_SAVE,"Remove",0,2,true,false);cell(&p,MEASURE_CANCEL,"Cancel",1,2,true,false);p.y+=p.h;
+    } else if(travel) {
+        for(int i=0;i<3;++i) {
+            const char* value=ui->measurement.placing==10+i ? ui->measurement.placement_text : ui->measurement.travel_text[i];
+            snprintf(text,sizeof(text),"%s: %s%s",(const char*[]){"Min","Max","Position"}[i],value,ui->measurement.placing==10+i?"|":"");
+            row(&p,MEASURE_TRAVEL_MIN+i,text,true);
+        }
+        row(&p,MEASURE_TRAVEL_SAVE,active_travel ? "Apply changes" : "Create travel",valid && scene);
+        if(!valid)note(&p,"Choose two different objects.");
+        if(ui->measurement.placement_message[0])note(&p,ui->measurement.placement_message);
+        bool pending=false;
+        if(active_travel) {
+            const double saved_values[]={rule->travel_min,rule->travel_max,rule->target};
             for(int i=0;i<3;++i) {
-                const char* value=ui->measurement.placing==10+i ? ui->measurement.placement_text : ui->measurement.travel_text[i];
-                snprintf(text,sizeof(text),"%s: %s%s",(const char*[]){"Min","Max","Position"}[i],value,ui->measurement.placing==10+i ? "_" : "");
-                row(&p,MEASURE_TRAVEL_MIN+i,text,true);
+                const char* input=ui->measurement.placing==10+i ? ui->measurement.placement_text : ui->measurement.travel_text[i];
+                double value;
+                if(!Editor_ParseLength(input,UIPanel_GetDisplayUnit(),&value) || fabs(value-saved_values[i])>1e-6)pending=true;
             }
-            row(&p,MEASURE_TRAVEL_SAVE,rule ? "Update travel" : "Save travel",Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_SCENE);
-            if(rule && rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL) {
-                double position=rule->target,home=rule->travel_home;
-                (void)core_units_convert(position,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&position);
-                (void)core_units_convert(home,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&home);
-                snprintf(text,sizeof(text),"Live: %.6g %s",position,UIPanel_GetDisplayUnitSymbol());row(&p,0,text,true);
-                SDL_Rect track={p.body.x+6,p.y,p.body.w-24,p.h-4};
-                cell(&p,MEASURE_TRAVEL_SLIDER,"",0,1,rule->travel_max>rule->travel_min,false);
-                if(renderer) {
-                    double t=rule->travel_max>rule->travel_min ? (rule->target-rule->travel_min)/(rule->travel_max-rule->travel_min) : 0;
-                    SDL_SetRenderDrawColor(renderer,p.palette.accent.r,p.palette.accent.g,p.palette.accent.b,255);
-                    SDL_RenderDrawLine(renderer,track.x+6,track.y+track.h/2,track.x+track.w-6,track.y+track.h/2);
-                    SDL_Rect thumb={track.x+3+(int)(t*(track.w-12)),track.y+3,6,track.h-6};SDL_RenderFillRect(renderer,&thumb);
-                }
-                p.y+=p.h;
-                cell(&p,MEASURE_TRAVEL_TO_MIN,"Min",0,3,true,false);
-                cell(&p,MEASURE_TRAVEL_TO_MAX,"Max",1,3,true,false);
-                cell(&p,MEASURE_TRAVEL_RESET,"Reset",2,3,true,false);p.y+=p.h;
-                snprintf(text,sizeof(text),"Reset: %.6g %s",home,UIPanel_GetDisplayUnitSymbol());row(&p,0,text,true);
-            } else row(&p,0,"Set limits, then save to enable travel",true);
-        } else {
-        if (ui->measurement.operation!=1) {
-            snprintf(text,sizeof(text),"Target [%s]: %s%s",ui->measurement.operation==2 ? "deg" : UIPanel_GetDisplayUnitSymbol(),ui->measurement.placement_text[0]?ui->measurement.placement_text:"click to enter",ui->measurement.placing?"_":"");
+        }
+        double current=active_travel ? rule->target : measured.value;
+        (void)core_units_convert(current,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&current);
+        if(pending)snprintf(text,sizeof(text),"Apply edits or Reset to move.");
+        else snprintf(text,sizeof(text),active_travel ? "Move: %.6g %s" : "Move (create travel to enable)",current,UIPanel_GetDisplayUnitSymbol());
+        row(&p,0,text,true);
+        bool movable=active_travel && !pending && rule->travel_max>rule->travel_min;
+        SDL_Rect track={p.body.x+6,p.y,p.body.w-24,p.h-5};
+        cell(&p,MEASURE_TRAVEL_SLIDER,"",0,1,movable,false);
+        if(renderer) {
+            double t=movable ? (rule->target-rule->travel_min)/(rule->travel_max-rule->travel_min) : 0.5;
+            SDL_Color color=movable ? p.palette.accent : p.palette.text_muted;
+            SDL_SetRenderDrawColor(renderer,color.r,color.g,color.b,255);
+            SDL_Rect rail={track.x+6,track.y+track.h/2-2,track.w-12,4};SDL_RenderFillRect(renderer,&rail);
+            SDL_Rect thumb={track.x+1+(int)(t*(track.w-12)),track.y+3,10,track.h-6};SDL_RenderFillRect(renderer,&thumb);
+        }
+        p.y+=p.h;
+        cell(&p,MEASURE_TRAVEL_TO_MIN,"Min",0,3,active_travel && !pending,false);
+        cell(&p,MEASURE_TRAVEL_TO_MAX,"Max",1,3,active_travel && !pending,false);
+        cell(&p,MEASURE_TRAVEL_RESET,"Reset",2,3,active_travel,false);p.y+=p.h;
+        row(&p,0,"Position is measured from A along",true);
+        row(&p,0,"the direction above; B does not rotate.",true);
+    } else if(ui->measurement.placing<7 || ui->measurement.placing>9) {
+        if(measured.status==LAYOUT_MEASUREMENT_OK) {
+            double value=measured.value;if(op!=2)(void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
+            snprintf(text,sizeof(text),"%s: %.6g %s",op==2?"Current angle":op==1?"Point gap":"Current distance",value,op==2?"deg":UIPanel_GetDisplayUnitSymbol());
+        } else snprintf(text,sizeof(text),"%s",op==2 ? "Choose axes/faces in the angle plane." : "Choose valid reference points.");
+        note(&p,text);
+        if(op!=1) {
+            snprintf(text,sizeof(text),"Target: %s%s",ui->measurement.placement_text[0]?ui->measurement.placement_text:"Enter value",ui->measurement.placing==3 || ui->measurement.placing==5 ? "|" : "");
             row(&p,MEASURE_VALUE,text,true);
         }
-        bool valid=measured[ui->measurement.operation==2 ? 2 : ui->measurement.operation==0 ? 1 : 0].status==LAYOUT_MEASUREMENT_OK;
-        bool different=strcmp(ui->measurement.refs[0].entity_id,ui->measurement.refs[1].entity_id)!=0;
-        cell(&p,MEASURE_ONCE,ui->measurement.operation==1 ? "Join once" : "Move once",0,2,valid && different && ui->measurement.operation!=2,false);
-        cell(&p,MEASURE_SAVE,rule?"Update rule":"Save rule",1,2,valid && different && Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_SCENE,false);p.y+=p.h;
-        if (ui->measurement.placing) row(&p,MEASURE_CANCEL,"Cancel input",true);
-        if (!different) row(&p,0,"Pick two different objects to move B",false);
-        if (ui->measurement.operation==2) row(&p,0,"Angle also joins the two pivot points",true);
-        }
-        if (Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_SCENE) row(&p,0,"Saved rules require the Scene workspace",false);
+        row(&p,MEASURE_SAVE,rule ? "Apply changes" : op==1 ? "Create join" : op==2 ? "Create angle" : "Create distance",valid && scene);
+        if(op!=2)row(&p,MEASURE_ONCE,op==1?"Join once (no constraint)":"Move once (no constraint)",valid);
+        if(op==2)note(&p,"Joins the pivot points and sets the angle.");
+        if(ui->measurement.placement_message[0])note(&p,ui->measurement.placement_message);
     }
-    snprintf(text,sizeof(text),"Rules: %s  v",rule?rule->id:"choose saved rule");row(&p,MEASURE_RULES,text,true);choices(&p,5);
-    cell(&p,MEASURE_NEW,"New rule",0,2,true,false);cell(&p,MEASURE_REMOVE,"Remove",1,2,rule!=NULL,false);p.y+=p.h;
-    if (rule) {
-        LayoutConstraintFeedback f=Layout_ConstraintFeedback(&Global_Get()->layout,rule);
-        row(&p,0,f.satisfied ? "Saved rule: satisfied" : "Saved rule: check references",f.satisfied);
-    }
-    const char* message=ui->measurement.placement_message;
-    /* Wrap feedback to fit the pane instead of truncating the reason for refusal. */
-    if (message[0]) {
-        size_t length=strlen(message),start=0;
-        int chars=(p.body.w-34)/(p.font ? TTF_FontHeight(p.font)/2+1 : 9);if(chars<12) chars=12;
-        while(start<length) {
-            size_t n=length-start;if(n>(size_t)chars)n=(size_t)chars;
-            if(start+n<length) {size_t split=n;while(split && message[start+split]!=' ')--split;if(split)n=split;}
-            snprintf(text,sizeof(text),"%.*s",(int)n,message+start);row(&p,0,text,true);start+=n;while(message[start]==' ')++start;
+    if(!scene)note(&p,"Create constraints in the Scene workspace.");
+    p.y+=8;
+    row(&p,MEASURE_ADVANCED,ui->measurement.advanced_open ? "- Advanced" : "+ Advanced",true);
+    if(ui->measurement.advanced_open) {
+        if(op!=2)for(int i=0;i<2;++i) {
+            snprintf(text,sizeof(text),"%c reference: %s",'A'+i,feature(&ui->measurement.refs[i]));
+            row(&p,i?MEASURE_FEATURE_B:MEASURE_FEATURE_A,text,true);choices(&p,i+3);
         }
+        if(rule) {
+            snprintf(text,sizeof(text),"Saved axis: %.3g, %.3g, %.3g",rule->axis.x,rule->axis.y,rule->axis.z);row(&p,0,text,true);
+            if(active_travel) {
+                double home=rule->travel_home;(void)core_units_convert(home,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&home);
+                snprintf(text,sizeof(text),"Reset position: %.6g %s",home,UIPanel_GetDisplayUnitSymbol());row(&p,0,text,true);
+                note(&p,"Remove travel before changing its axis.");
+            }
+        }
+        row(&p,MEASURE_OFFSETS,ui->measurement.offsets_open ? "- Pivot offsets" : "+ Pivot offsets",true);
+        if(ui->measurement.offsets_open) {
+            cell(&p,MEASURE_SLOT_A,"Reference A",0,2,true,ui->measurement.slot==0);
+            cell(&p,MEASURE_SLOT_B,"Reference B",1,2,true,ui->measurement.slot==1);p.y+=p.h;
+            for(int i=0;i<3;++i) {
+                double value=0;(void)core_units_convert(ui->measurement.refs[ui->measurement.slot].local_offset_meters[i],CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
+                snprintf(text,sizeof(text),"Local %c: %.6g %s","UVN"[i],value,UIPanel_GetDisplayUnitSymbol());row(&p,MEASURE_OFFSET_U+i,text,true);
+            }
+            if(ui->measurement.placing>=7 && ui->measurement.placing<=9) {
+                snprintf(text,sizeof(text),"Offset: %s|",ui->measurement.placement_text);row(&p,MEASURE_VALUE,text,true);
+                cell(&p,MEASURE_APPLY_OFFSET,"Set offset",0,2,true,false);cell(&p,MEASURE_CANCEL,"Cancel",1,2,true,false);p.y+=p.h;
+            }
+            row(&p,MEASURE_RESET_OFFSET,"Reset offsets",true);
+        }
+        row(&p,MEASURE_DETAILS,ui->measurement.details_open ? "- Other measurements" : "+ Other measurements",true);
+        if(ui->measurement.details_open) {
+            const LayoutMeasurementKind kinds[]={LAYOUT_MEASURE_POINT_DISTANCE,LAYOUT_MEASURE_DIRECTION_ANGLE,LAYOUT_MEASURE_PARALLEL_PLANE_GAP};
+            for(int i=0;i<3;++i) {
+                LayoutMeasurementResult m=Layout_Measure(&Global_Get()->layout,&ui->measurement.refs[0],&ui->measurement.refs[1],kinds[i],axis);
+                double v=m.value;if(i!=1)(void)core_units_convert(v,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&v);
+                if(m.status==LAYOUT_MEASUREMENT_OK)snprintf(text,sizeof(text),"%s: %.6g %s",(const char*[]){"Point distance","Direction angle","Plane gap"}[i],v,i==1?"deg":UIPanel_GetDisplayUnitSymbol());
+                else snprintf(text,sizeof(text),"%s: unavailable",(const char*[]){"Point distance","Direction angle","Plane gap"}[i]);
+                note(&p,text);
+            }
+        }
+    }
+    snprintf(text,sizeof(text),"%c Saved constraints (%zu)",ui->measurement.rules_open?'-':'+',store->constraintCount);
+    row(&p,MEASURE_SAVED,text,true);
+    if(ui->measurement.rules_open) {
+        snprintf(text,sizeof(text),"%s",rule?rule->id:"Choose constraint");row(&p,MEASURE_RULES,text,true);choices(&p,5);
+        cell(&p,MEASURE_NEW,"New",0,2,true,false);cell(&p,MEASURE_REMOVE,"Remove",1,2,rule!=NULL,false);p.y+=p.h;
+        if(rule)row(&p,0,Layout_ConstraintFeedback(&Global_Get()->layout,rule).satisfied ? "Constraint satisfied" : "Check constraint references",true);
     }
     return p;
 }
@@ -266,6 +348,40 @@ void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
     UIPanelState* ui=UIPanel_Get();if(!renderer || ui->activeRightTab!=UI_PANEL_RIGHT_TAB_MEASURE)return;
     SDL_Rect old;bool clipped=SDL_RenderIsClipEnabled(renderer);SDL_RenderGetClipRect(renderer,&old);
     SDL_RenderSetClipRect(renderer,&ui->rightBodyRect);(void)build(renderer,-1,-1,0);SDL_RenderSetClipRect(renderer,clipped?&old:NULL);
+}
+/* Preserve the physical value of pending fields when display units change. */
+static bool change_units(CoreUnitKind next) {
+    UIPanelState* ui=UIPanel_Get();UIPanel_MeasurementStopInput();
+    double travel[3]={0},target=0;bool has_target=ui->measurement.placement_text[0] && ui->measurement.operation==0;
+    if(ui->measurement.operation==3)for(int i=0;i<3;++i) {
+        if(!Editor_ParseLength(ui->measurement.travel_text[i],UIPanel_GetDisplayUnit(),&travel[i])) {
+            snprintf(ui->measurement.placement_message,128,"Correct the length fields before changing units.");return false;
+        }
+    }
+    if(has_target && !Editor_ParseLength(ui->measurement.placement_text,UIPanel_GetDisplayUnit(),&target)) {
+        snprintf(ui->measurement.placement_message,128,"Correct the target before changing units.");return false;
+    }
+    if(!UIPanel_SetDisplayUnit(next))return false;
+    if(ui->measurement.operation==3)for(int i=0;i<3;++i) {
+        (void)core_units_convert(travel[i],CORE_UNIT_METER,next,&travel[i]);
+        snprintf(ui->measurement.travel_text[i],64,"%.9g %s",travel[i],UIPanel_GetDisplayUnitSymbol());
+    }
+    if(has_target) {
+        (void)core_units_convert(target,CORE_UNIT_METER,next,&target);
+        snprintf(ui->measurement.placement_text,64,"%.9g %s",target,UIPanel_GetDisplayUnitSymbol());
+    }
+    return true;
+}
+static void choose_tool(int operation) {
+    UIPanelState* ui=UIPanel_Get();UIPanel_MeasurementStopInput();
+    if(ui->measurement.operation==operation)return;
+    ui->measurement.constraint_index=-1;ui->measurement.use_rule_axis=false;
+    ui->measurement.operation=operation;ui->measurement.placement_text[0]=0;ui->measurement.placement_message[0]=0;
+    if(operation==3)UIPanel_TravelAction(MEASURE_TRAVEL);
+    if(operation==2)for(int i=0;i<2;++i) {
+        if(ui->measurement.refs[i].kind==LAYOUT_REFERENCE_ORIGIN)ui->measurement.refs[i].kind=LAYOUT_REFERENCE_AXIS_U;
+    }
+    ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx=0;
 }
 bool UIPanel_MeasurementClick(int x,int y) {
     UIPanelState* ui=UIPanel_Get();if(!ui->measurement.active || ui->activeRightTab!=UI_PANEL_RIGHT_TAB_MEASURE)return false;
@@ -284,7 +400,15 @@ bool UIPanel_MeasurementClick(int x,int y) {
     MeasurePane p=build(NULL,x,y,0);int action=p.hit;
     if(!action)return true;
     int chooser=ui->measurement.chooser;
-    if(action>=MEASURE_TRAVEL && action<=MEASURE_TRAVEL_SLIDER) {
+    if(action==MEASURE_TOOL || action==MEASURE_UNITS) {
+        int next=action==MEASURE_TOOL ? 6 : 7;
+        UIPanel_MeasurementStopInput();ui->measurement.chooser=chooser==next ? 0 : next;
+    } else if(action==MEASURE_ADVANCED) {
+        UIPanel_MeasurementStopInput();ui->measurement.advanced_open=!ui->measurement.advanced_open;
+    } else if(action==MEASURE_SAVED) {
+        UIPanel_MeasurementStopInput();ui->measurement.rules_open=!ui->measurement.rules_open;
+    } else if(action==MEASURE_TRAVEL)choose_tool(3);
+    else if(action>=MEASURE_TRAVEL_MIN && action<=MEASURE_TRAVEL_SLIDER) {
         if(action==MEASURE_TRAVEL_SLIDER) {
             const LayoutConstraint* c=selected();
             if(c && UIPanel_MeasurementControlRect(action,&ui->measurement.travel_track)) {
@@ -309,7 +433,13 @@ bool UIPanel_MeasurementClick(int x,int y) {
             int slot=chooser-3;const Object3D* o=object(ui->measurement.refs[slot].entity_id);
             if(o)ui->measurement.refs[slot]=feature_at(ui->measurement.refs[slot],index,o->kind==OBJECT3D_KIND_PLANE);
             ui->measurement.constraint_index=-1;
-        } else if(chooser==5)UIPanel_MeasurementSelectRule(index);
+        } else if(chooser==5) {
+            UIPanel_MeasurementStopInput();UIPanel_MeasurementSelectRule(index);
+            ui->measurement.rules_open=false;ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx=0;
+        } else if(chooser==7) {
+            const CoreUnitKind units[]={CORE_UNIT_MILLIMETER,CORE_UNIT_CENTIMETER,CORE_UNIT_METER,CORE_UNIT_INCH,CORE_UNIT_FOOT};
+            if(index>=0 && index<5)(void)change_units(units[index]);
+        }
         ui->measurement.chooser=0;
     } else if(action==MEASURE_OBJECT_A || action==MEASURE_OBJECT_B || action==MEASURE_FEATURE_A || action==MEASURE_FEATURE_B || action==MEASURE_RULES) {
         int next=action==MEASURE_RULES ? 5 : action==MEASURE_OBJECT_A ? 1 : action==MEASURE_OBJECT_B ? 2 : action==MEASURE_FEATURE_A ? 3 : 4;
@@ -317,10 +447,10 @@ bool UIPanel_MeasurementClick(int x,int y) {
     } else if(action==MEASURE_PICK_A || action==MEASURE_PICK_B) {
         int slot=action==MEASURE_PICK_A?0:1;bool cancel=ui->measurement.picking && ui->measurement.slot==slot;
         UIPanel_MeasurementStopInput();ui->measurement.slot=slot;ui->measurement.picking=!cancel;
-    } else if(action==MEASURE_UNITS) {
-        const CoreUnitKind units[]={CORE_UNIT_MILLIMETER,CORE_UNIT_CENTIMETER,CORE_UNIT_METER,CORE_UNIT_INCH,CORE_UNIT_FOOT};
-        for(int i=0;i<5;++i)if(UIPanel_GetDisplayUnit()==units[i]){UIPanel_SetDisplayUnit(units[(i+1)%5]);break;}
-    } else if(action>=MEASURE_AXIS_X && action<=MEASURE_AXIS_Z) {ui->measurement.projection_axis=action-MEASURE_AXIS_X;ui->measurement.use_rule_axis=false;}
+    } else if(action>=MEASURE_AXIS_X && action<=MEASURE_AXIS_Z) {
+        ui->measurement.projection_axis=action-MEASURE_AXIS_X;ui->measurement.use_rule_axis=false;
+        if(ui->measurement.operation==3 && !selected())UIPanel_TravelAction(MEASURE_TRAVEL);
+    }
     else if(action>=MEASURE_PLANE_XY && action<=MEASURE_PLANE_ZX) {ui->measurement.angle_plane=action-MEASURE_PLANE_XY;ui->measurement.use_rule_axis=false;}
     else if(action==MEASURE_DETAILS)ui->measurement.details_open=!ui->measurement.details_open;
     else if(action==MEASURE_OFFSETS)ui->measurement.offsets_open=!ui->measurement.offsets_open;
@@ -331,14 +461,18 @@ bool UIPanel_MeasurementClick(int x,int y) {
         UIPanel_MeasurementStartValue(7+component);
     } else if(action==MEASURE_RESET_OFFSET)memset(ui->measurement.refs[ui->measurement.slot].local_offset_meters,0,sizeof(ui->measurement.refs[0].local_offset_meters));
     else if(action>=MEASURE_DISTANCE && action<=MEASURE_ANGLE) {
-        UIPanel_MeasurementStopInput();ui->measurement.operation=action-MEASURE_DISTANCE;ui->measurement.placement_text[0]=0;
+        choose_tool(action-MEASURE_DISTANCE);
     } else if(action==MEASURE_VALUE)UIPanel_MeasurementStartValue(ui->measurement.placing>=7 && ui->measurement.placing<=9 ? ui->measurement.placing : ui->measurement.operation==2?5:3);
     else if(action==MEASURE_APPLY_OFFSET) {
         UIPanel_MeasurementApplyButton(ui->measurement.placing);
         if(!ui->measurement.placing)ui->measurement.placement_text[0]=0;
     }
     else if(action==MEASURE_CANCEL)UIPanel_MeasurementStopInput();
-    else if(action==MEASURE_NEW) {UIPanel_MeasurementStopInput();ui->measurement.constraint_index=-1;ui->measurement.use_rule_axis=false;ui->measurement.placement_message[0]=0;}
+    else if(action==MEASURE_NEW) {
+        UIPanel_MeasurementStopInput();ui->measurement.constraint_index=-1;ui->measurement.use_rule_axis=false;ui->measurement.placement_message[0]=0;
+        ui->measurement.rules_open=false;ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx=0;
+        if(ui->measurement.operation==3)UIPanel_TravelAction(MEASURE_TRAVEL);
+    }
     else if(action==MEASURE_REMOVE) {UIPanel_MeasurementStopInput();ui->measurement.placing=6;}
     else if(action==MEASURE_ONCE || action==MEASURE_SAVE) {
         int mode=ui->measurement.placing==6?6:ui->measurement.operation==2?5:ui->measurement.operation==1?(action==MEASURE_ONCE?2:4):(action==MEASURE_ONCE?1:3);

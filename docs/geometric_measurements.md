@@ -11,12 +11,23 @@ Empty scenes offer Create object and Open layout entry buttons.
 Selections survive switching tabs. Scene/object creation and editing retain their
 existing tabs. Scroll within Measure when the window is short or a section expands.
 
-1. Click the A/B object selector to choose a primitive from the list.
-2. Choose **Center**, a local axis, or a named face from its feature selector.
-3. Alternatively click **Pick in view**, then a displayed reference marker.
-4. Read distance, signed axis projection and signed planar angle. Use the visible
-   axis and plane buttons to choose world directions. **More measurements** expands
-   unsigned direction angle and signed parallel-plane gap.
+1. Choose **Tool**: Distance, Join, Angle or Travel. Only that tool's controls appear.
+2. Choose A (fixed reference) and B (moving object) using the object selectors or
+   **Pick in view**. Labels match the scene list, such as `#1 Prism`.
+3. Choose the relevant world axis or angle plane. Angle exposes direction references;
+   other tools keep feature selectors under **Advanced**.
+4. Enter a target and click the prominent **Create distance/join/angle/travel** button.
+   Existing constraints use **Apply changes**. Measurement readouts remain plain text.
+
+Buttons have filled faces and hover states; numeric fields have separate labels and
+inset value areas. **Units** is a dropdown that converts staged lengths without
+moving geometry. **Advanced** holds feature references, pivot offsets and secondary
+measurements. **Saved constraints** holds selection, New and Remove controls.
+
+For **Travel**, enter Min, Max and Position, then click **Create travel**. The slider
+and Min/Max/Reset buttons are always visible; they are disabled until creation succeeds.
+Invalid ranges show a message beside the action. Editing saved limits disables movement
+until **Apply changes**, or **Reset** restores saved fields and the creation pose.
 
 A is blue and B orange in the pane and viewport. Picking uses the chosen feature
 and local offset on each eligible primitive, with a 12-pixel capture radius.
@@ -37,12 +48,12 @@ or **Cancel input** ends entry. Lengths accept unit suffixes such as `20 mm` and
 Choose **Distance**, **Join**, or **Angle**. A stays fixed and B moves.
 
 - **Distance → Move once** changes the signed axis projection to the entered
-  target. **Save rule** keeps that distance through later supported edits.
-- **Join → Join once** makes the reference points coincide. **Save rule** keeps
+  target. **Create distance** keeps that distance through later supported edits.
+- **Join → Join once** makes the reference points coincide. **Create join** keeps
   them coincident. No target scalar is needed.
-- **Angle → Save rule** joins the reference points and maintains the signed angle
+- **Angle → Create angle** joins the reference points and maintains the signed angle
   in the selected world plane. This is a fixed planar mate. There is no one-time
-  angle operation in this slice; its Move once button is disabled.
+  angle operation in this slice; no Move once control is shown.
 
 Unsupported references and same-object operands disable mutation actions. Rule
 saving requires Scene workspace. Geometry errors appear in the pane. Failed edits
@@ -50,25 +61,24 @@ preserve geometry and undo/redo. One-time placement uses
 `Editor_ApplyReferencePlacement`; persistent rules use the existing atomic Layout
 transaction. These are application C operations, not a new MCP transport.
 
-Expand **Pivot offset**, choose Reference A or B, click a local U/V/N field,
+Expand **Advanced → Pivot offsets**, choose Reference A or B, click a local U/V/N field,
 enter a physical length, and click **Set offset**. **Reset offsets** zeros all
 three staged components. Save/update a rule to persist offsets. The definition and
 resize/rotation behavior are in the [constraint contract](geometric_constraints.md).
 
-Open **Rules** to select an existing rule. Its operands, operation, world vector,
-and target populate the form. Click **Update rule** to replace it under the same
-ID. **Remove** presents a confirmation; geometry stays in place. **New rule**
+Expand **Saved constraints**, then open its selector to select an existing rule. Its operands, operation, world vector,
+and target populate the form. Click **Apply changes** to replace it under the same
+ID. **Remove** presents a confirmation; geometry stays in place. **New**
 leaves the selected operands available for a separate rule.
 
 ## Verification
 
-432 tests across 43 reported suites pass. Two mouse-event regressions cover object
-and feature selectors, typed targets, move-once, rule creation/update/removal,
-confirmation/cancel, undo, offset controls, scrollbar routing, tab switching,
-reference retention and focused keyboard capture. Existing geometry, import,
-constraint, reference-picking and editor tests continue to pass. Native pane
-fixtures were visually inspected at the compact pane width. The isolated Main
-Edit package self-test passes. No shared module API or scene-schema changes.
+437 host tests across 43 reported suites pass, including 28 Constraints tests.
+Mouse-event regressions cover selectors, numeric entry, create/update/remove, undo,
+slider gestures, disabled pre-creation controls, invalid limits, display-unit conversion,
+compact-pane control visibility and save/reopen. Native-rendered setup, error and active
+travel fixtures were inspected. Package self-test passes. These checks do not establish
+human usability acceptance. No shared API or scene schema changed in this redesign.
 
 ## Operand and measurement meaning
 

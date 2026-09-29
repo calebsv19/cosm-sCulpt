@@ -487,19 +487,19 @@ static bool test_measure_pane_mouse_workflow(void) {
     UIPanelState* ui=UIPanel_Get();TEST_ASSERT(!UIPanel_IsCapturingKeyboard());
     TEST_ASSERT(click_measure(MEASURE_OBJECT_B));TEST_ASSERT(ui->measurement.chooser==2);
     TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE+1));TEST_ASSERT(!strcmp(ui->measurement.refs[1].entity_id,"B"));
-    TEST_ASSERT(click_measure(MEASURE_FEATURE_A));TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE+1));
+    TEST_ASSERT(click_measure(MEASURE_ADVANCED));TEST_ASSERT(click_measure(MEASURE_FEATURE_A));TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE+1));
     TEST_ASSERT(ui->measurement.refs[0].kind==LAYOUT_REFERENCE_AXIS_U);
     TEST_ASSERT(click_measure(MEASURE_VALUE));type_measure("20 mm");
     TEST_ASSERT(!Editor_UndoCount(&s->editor) && !s->layout.objectStore.constraintCount);
     TEST_ASSERT(click_measure(MEASURE_ONCE));TEST_ASSERT(Editor_UndoCount(&s->editor)==1);
     TEST_ASSERT(near_measure(&s->layout,ui->measurement.refs[0],ui->measurement.refs[1],EDITOR_MEASURE_PROJECTED_DISTANCE,(Vec3){1,0,0},.02));
     TEST_ASSERT(click_measure(MEASURE_SAVE));TEST_ASSERT(s->layout.objectStore.constraintCount==1 && valid());
-    TEST_ASSERT(click_measure(MEASURE_RULES));TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE));
+    TEST_ASSERT(click_measure(MEASURE_SAVED));TEST_ASSERT(click_measure(MEASURE_RULES));TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE));
     TEST_ASSERT(ui->measurement.constraint_index==0);
     TEST_ASSERT(click_measure(MEASURE_VALUE));type_measure("50 mm");
     TEST_ASSERT(click_measure(MEASURE_SAVE));TEST_ASSERT(valid() && s->layout.objectStore.constraints[0].target==.05);
-    TEST_ASSERT(click_measure(MEASURE_RULES));TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE));
-    TEST_ASSERT(click_measure(MEASURE_REMOVE));TEST_ASSERT(s->layout.objectStore.constraintCount==1);
+    TEST_ASSERT(click_measure(MEASURE_SAVED));TEST_ASSERT(click_measure(MEASURE_RULES));TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE));
+    TEST_ASSERT(click_measure(MEASURE_SAVED));TEST_ASSERT(click_measure(MEASURE_REMOVE));TEST_ASSERT(s->layout.objectStore.constraintCount==1);
     TEST_ASSERT(click_measure(MEASURE_CANCEL));TEST_ASSERT(!ui->measurement.placing);
     TEST_ASSERT(click_measure(MEASURE_REMOVE));TEST_ASSERT(click_measure(MEASURE_SAVE));TEST_ASSERT(!s->layout.objectStore.constraintCount);
     TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && valid() && s->layout.objectStore.constraintCount==1);
@@ -525,6 +525,7 @@ static bool test_measure_pane_tabs_scroll_focus(void) {
     AppContext ctx={0};SDL_Event e={.type=SDL_KEYDOWN};e.key.keysym.sym=SDLK_RETURN;Input_Handle(&ctx,&e);
     TEST_ASSERT(!UIPanel_IsCapturingKeyboard() && Editor_UndoCount(&s->editor)==undo);
     TEST_ASSERT(!s->layout.objectStore.constraintCount);
+    TEST_ASSERT(click_measure(MEASURE_ADVANCED) && click_measure(MEASURE_OFFSETS));
     TEST_ASSERT(UIPanel_RightScrollHandleWheel(ui->rightBodyRect.x+20,ui->rightBodyRect.y+20,-2));
     TEST_ASSERT(UIPanel_RightScrollOffset(ui)>0);
     TEST_ASSERT(click_measure(MEASURE_PICK_B) && ui->measurement.picking);
@@ -621,7 +622,7 @@ static bool test_travel_mouse_controls_and_slider(void) {
     ld_test_init_runtime();GlobalState* s=Global_Get();
     uint32_t a=prism("floor",(Vec3){0});TEST_ASSERT(a && prism("bed",(Vec3){0,0,.9f}));
     s->editor.selectedObject3DId=a;UIPanel_BeginMeasurement();UIPanelState* ui=UIPanel_Get();
-    TEST_ASSERT(click_measure(MEASURE_AXIS_Z) && click_measure(MEASURE_TRAVEL));
+    TEST_ASSERT(click_measure(MEASURE_AXIS_Z) && click_measure(MEASURE_TOOL) && click_measure(MEASURE_TRAVEL));
     TEST_ASSERT(click_measure(MEASURE_TRAVEL_MIN));type_measure("900 mm");
     TEST_ASSERT(click_measure(MEASURE_TRAVEL_MAX));type_measure("1.8 m");
     TEST_ASSERT(click_measure(MEASURE_TRAVEL_POSITION));type_measure("120 cm");
@@ -647,15 +648,61 @@ static bool test_travel_mouse_controls_and_slider(void) {
     TEST_ASSERT(!ui->measurement.travel_dragging && !s->layout.geometryGestureActive && Editor_UndoCount(&s->editor)==1);
     TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && valid());
     TEST_ASSERT(fabs(s->layout.objectStore.constraints[0].target-before_drag)<1e-6);
-    TEST_ASSERT(click_measure(MEASURE_RULES) && click_measure(MEASURE_CHOICE_BASE));
+    TEST_ASSERT(click_measure(MEASURE_SAVED) && click_measure(MEASURE_RULES) && click_measure(MEASURE_CHOICE_BASE));
     TEST_ASSERT(ui->measurement.operation==3);
-    TEST_ASSERT(click_measure(MEASURE_REMOVE) && click_measure(MEASURE_SAVE));
+    TEST_ASSERT(click_measure(MEASURE_SAVED) && click_measure(MEASURE_REMOVE) && click_measure(MEASURE_SAVE));
     TEST_ASSERT(!s->layout.objectStore.constraintCount && Editor_Undo(&s->editor,&s->layout) && valid());
+    UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_CREATE);ld_test_shutdown_runtime();return true;
+}
+
+static bool test_measure_task_surface_and_units(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    Global_SetWindowSize(1200,900);UIPanel_OnWindowResized(1200,900);
+    uint32_t a=prism("rail",(Vec3){0});TEST_ASSERT(a && prism("moving",(Vec3){0,0,.9f}));
+    s->editor.selectedObject3DId=a;UIPanel_BeginMeasurement();UIPanelState* ui=UIPanel_Get();
+    UIPanel_SetDisplayUnit(CORE_UNIT_FOOT);Editor_ClearHistory(&s->editor);
+    TEST_ASSERT(click_measure(MEASURE_AXIS_Z) && click_measure(MEASURE_TOOL) && click_measure(MEASURE_TRAVEL));
+    SDL_Rect slider,primary,reset,hidden;
+    TEST_ASSERT(!UIPanel_MeasurementControlRect(MEASURE_PLANE_XY,&hidden));
+    TEST_ASSERT(!UIPanel_MeasurementControlRect(MEASURE_OFFSETS,&hidden));
+    TEST_ASSERT(!UIPanel_MeasurementControlRect(MEASURE_RULES,&hidden));
+    TEST_ASSERT(!UIPanel_MeasurementControlRect(MEASURE_DISTANCE,&hidden));
+    TEST_ASSERT(strstr(ui->measurement.travel_text[0]," ft"));
+    TEST_ASSERT(UIPanel_MeasurementControlRect(MEASURE_TRAVEL_SLIDER,&slider));
+    TEST_ASSERT(UIPanel_MeasurementControlRect(MEASURE_TRAVEL_SAVE,&primary));
+    TEST_ASSERT(UIPanel_MeasurementControlRect(MEASURE_TRAVEL_RESET,&reset));
+    TEST_ASSERT(primary.y>=ui->rightBodyRect.y && reset.y+reset.h<=ui->rightBodyRect.y+ui->rightBodyRect.h);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_SLIDER) && click_measure(MEASURE_TRAVEL_TO_MAX));
+    TEST_ASSERT(!ui->measurement.travel_dragging && !s->layout.objectStore.constraintCount && !Editor_UndoCount(&s->editor));
+    TEST_ASSERT(click_measure(MEASURE_UNITS) && click_measure(MEASURE_CHOICE_BASE));
+    double meters;TEST_ASSERT(Editor_ParseLength(ui->measurement.travel_text[0],UIPanel_GetDisplayUnit(),&meters));
+    TEST_ASSERT(UIPanel_GetDisplayUnit()==CORE_UNIT_MILLIMETER && fabs(meters-.9)<1e-6 && strstr(ui->measurement.travel_text[0]," mm"));
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_MIN));type_measure("2000 mm");
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_MAX));type_measure("1000 mm");
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_SAVE));
+    TEST_ASSERT(!s->layout.objectStore.constraintCount && !Editor_UndoCount(&s->editor));
+    TEST_ASSERT(strstr(ui->measurement.placement_message,"Min must"));
+    TEST_ASSERT(UIPanel_MeasurementControlRect(MEASURE_TRAVEL_SLIDER,&hidden));
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_MIN));type_measure("900 mm");
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_MAX));type_measure("1800 mm");
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_SAVE) && s->layout.objectStore.constraintCount==1 && valid());
+    TEST_ASSERT(UIPanel_MeasurementControlRect(MEASURE_TRAVEL_SLIDER,&hidden));
+    TEST_ASSERT(abs(hidden.y-slider.y)<=2*(slider.h+5));
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_TO_MAX) && s->layout.objectStore.constraints[0].target==1.8);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_RESET) && fabs(s->layout.objectStore.constraints[0].target-.9)<1e-6);
+    char* saved=Layout_SaveToString(&s->layout);TEST_ASSERT(saved && Layout_LoadFromString(&s->layout,saved));free(saved);
+    UIPanel_BeginMeasurement();TEST_ASSERT(click_measure(MEASURE_SAVED) && click_measure(MEASURE_RULES) && click_measure(MEASURE_CHOICE_BASE));
+    TEST_ASSERT(ui->measurement.operation==3 && !ui->measurement.rules_open && valid());
+    TEST_ASSERT(click_measure(MEASURE_TOOL) && click_measure(MEASURE_ANGLE));
+    TEST_ASSERT(ui->measurement.operation==2 && ui->measurement.constraint_index==-1);
+    TEST_ASSERT(UIPanel_MeasurementControlRect(MEASURE_PLANE_XY,&hidden) && !UIPanel_MeasurementControlRect(MEASURE_TRAVEL_SLIDER,&hidden));
+    TEST_ASSERT(s->layout.objectStore.constraintCount==1 && valid());
     UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_CREATE);ld_test_shutdown_runtime();return true;
 }
 
 bool constraints_run_tests(void) {
     const TestCase cases[]={
+        {"measure_task_surface_units",test_measure_task_surface_and_units},
         {"travel_chain_direct_edits",test_travel_chain_direct_edits},
         {"travel_contract_rollback",test_travel_contract_rollback},
         {"travel_persistence_units_export",test_travel_persistence_units_export},
