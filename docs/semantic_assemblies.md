@@ -1,12 +1,14 @@
 # Semantic parts and rigid assemblies (S2)
 
 Status: bounded semantic organization and nested rigid assemblies implemented.
-Date: 2026-09-29. Layout schema: **15**. Program VERSION remains 0.4.0.
+Date: 2026-09-29. S2 introduced schema 15; current schema 16 adds
+[explicit relationships through Links](relationships.md). Program VERSION remains 0.4.0.
 
 ## Using Parts
 
-Open an existing scene and choose the right-hand **Parts** tab. Its three modes
-are Objects, Assemblies and Filters. Inputs have separate labels and inset fields;
+Open an existing scene and choose the right-hand **Parts** tab. Its four modes
+are Objects, Assemblies, Filters and Links. The S2 workflow is below; the
+[Links guide](relationships.md) describes S3a. Inputs have separate labels and inset fields;
 selectors have arrows and actions have filled button faces. No new shortcuts are required.
 
 1. In **Objects**, select a part in the viewport/list or the object selector.
@@ -130,11 +132,11 @@ Parts tab is still separate from those automated/rendered checks.
 S2 here means the bounded semantic organization and assembly foundation. Types
 such as Panel/StructuralMember/KeepoutVolume label existing geometry; assigning
 these types does not create a new primitive, impose clearance or calculate loads.
-There are no relationship edges, saved query collections, inherited properties,
+Relationship edges now ship in S3a. Remaining exclusions include saved query collections, inherited properties,
 assembly scaling, group viewport handles, constraint solver for arbitrary meshes,
 collision/service checks, cable routing or MCP transport additions in this slice.
 
-Next: S3 explicit attachment/support/containment relationships and reserved/service
-volumes, followed by structured intersection/clearance checks. New panel/beam/volume
+S3a explicit relationships are now implemented. Next: S3b reserved/service volumes,
+followed by S3c structured intersection/clearance checks. New panel/beam/volume
 creation presets can then make those workflows easier. Sampled movement/envelopes
 remain S4; compiler/telemetry bindings remain later phases.

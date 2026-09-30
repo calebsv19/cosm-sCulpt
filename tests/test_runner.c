@@ -10,6 +10,7 @@ bool measurement_run_tests(void);
 bool reference_edit_run_tests(void);
 bool constraints_run_tests(void);
 bool engineering_run_tests(void);
+bool relationships_run_tests(void);
 bool test_layout_core_run_tests(void);
 bool test_layout_object3d_run_tests(void);
 bool test_layout_object3d_store_run_tests(void);
@@ -64,6 +65,7 @@ static const TestGroup kTestGroups[] = {
     {"ReferenceEdit", reference_edit_run_tests, true},
     {"Constraints", constraints_run_tests, true},
     {"Engineering", engineering_run_tests, true},
+    {"Relationships", relationships_run_tests, true},
     {"LayoutCore", test_layout_core_run_tests, false},
     {"LayoutObject3D", test_layout_object3d_run_tests, false},
     {"LayoutObject3DStore", test_layout_object3d_store_run_tests, false},

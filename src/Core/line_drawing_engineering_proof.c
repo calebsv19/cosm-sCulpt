@@ -1,6 +1,7 @@
 #include "Core/line_drawing_engineering_proof.h"
 #include "Core/global_state.h"
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_relationships.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_shell.h"
 #include <stdio.h>
@@ -40,6 +41,21 @@ bool LineDrawingEngineering_StageProof(const char* mode) {
             UIPanel_Get()->parts.mode=2;UIPanel_Get()->parts.filter.designation=1;
             layout->objectStore.view_query=UIPanel_Get()->parts.filter;
         }
+    }
+    if (!strncmp(mode,"parts-links",11)) {
+        for (int k=0;k<3;++k) {
+            LayoutRelationship r={.kind=(LayoutRelationshipKind)k};
+            snprintf(r.source,64,"%s",layout->objectStore.items[1].coreMeta.object_id);
+            snprintf(r.target,64,"%s",k==2?parents[1]:layout->objectStore.items[0].coreMeta.object_id);
+            if(!Layout_EditRelationship(layout,&r,NULL,NULL,NULL))return false;
+        }
+        UIPanelState* ui=UIPanel_Get();ui->parts.mode=3;ui->parts.properties_open=false;
+        ui->parts.link=ui->parts.observed_link=layout->objectStore.relationships[1];ui->parts.link_observed=true;
+        if(!strcmp(mode,"parts-links-incoming")) {
+            state->editor.selectedObject3DId=layout->objectStore.items[0].objectId;
+            memset(&ui->parts.link,0,sizeof(ui->parts.link));ui->parts.link_observed=false;
+            snprintf(ui->parts.link.source,64,"%s",layout->objectStore.items[0].coreMeta.object_id);
+        } else if(!strcmp(mode,"parts-links-choices"))ui->parts.chooser=6;
     }
     UIPanel_LayoutParts();return true;
 }

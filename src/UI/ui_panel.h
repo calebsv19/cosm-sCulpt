@@ -450,7 +450,7 @@ typedef struct {
     } measurement;
 
     struct {
-        int mode; /* objects, assemblies, filters */
+        int mode; /* objects, assemblies, filters, links */
         char id[64];
         LayoutEntityInfo draft, observed;
         bool observed_valid, creating, properties_open, movement_open, delete_pending;
@@ -458,6 +458,8 @@ typedef struct {
         bool replace_text;
         char key[48], value[128], move[3][64], angle[64], message[160];
         LayoutEntityQuery filter;
+        LayoutRelationship link, observed_link;
+        bool link_observed, link_remove_pending;
     } parts;
 
 

@@ -10,7 +10,9 @@ visible feedback complete this S1 refinement. See the
 [S1 audit](s1_engineering_audit.md) and [constraint contract](geometric_constraints.md)
 for proof and exclusions. S2 semantic organization and nested rigid assemblies
 now ship through Parts; see [S2 workflows and contract](semantic_assemblies.md).
-Next is S3 relationships plus reserved/service volumes and structured checks.
+S3a attachment/support/containment relationships now ship through Links; see the
+[relationship contract](relationships.md). Next is S3b reserved/service volumes,
+then S3c structured intersection/clearance checks.
 Broader snapping/reusable datums remain extensions; sampled poses and envelopes
 belong to S4 after S3 reserved volumes and validation. New hinge human acceptance
 remains separate from regression and rendered-UI proof.

@@ -7,6 +7,7 @@
 #include "Core/global_state.h"
 #include "Editor/editor_numeric_edit.h"
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_relationships.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,7 +46,7 @@ static void cell(PartsPane* p,int action,const char* title,const char* value,int
             SDL_Rect underline={rect.x+3,rect.y+rect.h-4,rect.w-6,2};SDL_RenderFillRect(p->renderer,&underline);
         }
     }
-    bool chooser=action==PARTS_SELECT || action==PARTS_TYPE || action==PARTS_PARENT || action==PARTS_PROPERTY_KIND;
+    bool chooser=action==PARTS_SELECT || action==PARTS_TYPE || action==PARTS_PARENT || action==PARTS_PROPERTY_KIND || action==PARTS_LINK_SOURCE || action==PARTS_LINK_TARGET || action==PARTS_LINK_TYPE;
     if (p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,title,rect.x+7,rect.y+5,rect.w-(chooser?30:14),rect.h-6,text);
     if (chooser) {
         int cx=rect.x+rect.w-13,cy=rect.y+rect.h/2;
@@ -91,6 +92,90 @@ static void label(const char* id,char* text,size_t capacity) {
     else if (id && id[0]) snprintf(text,capacity,"%s",id);
     else snprintf(text,capacity,"Choose object");
 }
+static const char* link_label(LayoutRelationshipKind kind) {
+    static const char* labels[]={"Attached to","Supported by","Contained by"};
+    return Layout_RelationshipType(kind) ? labels[kind] : "Choose relationship";
+}
+static void select_link_source(void) {
+    GlobalState* state=Global_Get();const char* id=UIPanel_Get()->parts.link.source;
+    state->editor.selectedObject3DId=0;
+    for (size_t i=0;i<state->layout.objectStore.count;++i) {
+        const Object3D* object=&state->layout.objectStore.items[i];
+        if (!object->isDeleted && !strcmp(object->coreMeta.object_id,id))state->editor.selectedObject3DId=object->objectId;
+    }
+}
+static void new_link(const char* source) {
+    UIPanelState* ui=UIPanel_Get();
+    char id[64];snprintf(id,sizeof(id),"%s",source ? source : "");
+    memset(&ui->parts.link,0,sizeof(ui->parts.link));
+    snprintf(ui->parts.link.source,64,"%s",id);
+    ui->parts.link_observed=false;ui->parts.link_remove_pending=false;
+    select_link_source();
+}
+static void choose_link(const LayoutRelationship* relationship) {
+    UIPanelState* ui=UIPanel_Get();
+    ui->parts.link=ui->parts.observed_link=*relationship;
+    ui->parts.link_observed=true;ui->parts.link_remove_pending=false;
+    ui->parts.message[0]=0;
+    select_link_source();
+}
+static void links_form(PartsPane* p) {
+    UIPanelState* ui=UIPanel_Get();LayoutObjectStore* store=&layout()->objectStore;
+    char text[256],name[96];
+    label(ui->parts.link.source,name,sizeof(name));
+    snprintf(text,sizeof(text),"Part: %s",ui->parts.link.source[0]?name:"Choose object or assembly");row(p,PARTS_LINK_SOURCE,text,true);
+    row(p,PARTS_LINK_TYPE,link_label(ui->parts.link.kind),true);
+    label(ui->parts.link.target,name,sizeof(name));
+    snprintf(text,sizeof(text),"Target: %s",ui->parts.link.target[0]?name:"Choose object or assembly");row(p,PARTS_LINK_TARGET,text,true);
+    row(p,PARTS_LINK_SAVE,ui->parts.link.id[0]?"Update link":"Create link",ui->parts.link.source[0] && ui->parts.link.target[0]);
+    cell(p,PARTS_LINK_NEW,"New link",NULL,0,2,true,false);
+    cell(p,PARTS_LINK_REMOVE,"Remove link...",NULL,1,2,ui->parts.link.id[0]!=0,false);p->y+=p->h;
+    if (ui->parts.link_remove_pending) {
+        row(p,PARTS_LINK_CONFIRM_REMOVE,"Confirm remove link",true);row(p,PARTS_LINK_CANCEL,"Cancel",true);
+    }
+    note(p,"Links describe the system; they do not move geometry.");
+    if (ui->parts.link.id[0]) {snprintf(text,sizeof(text),"ID: %s",ui->parts.link.id);row(p,0,text,true);}
+    size_t count=Layout_QueryRelationships(store,ui->parts.link.source,-1,0,NULL,0);
+    snprintf(text,sizeof(text),"%zu links for this part",count);row(p,0,text,true);
+    if (!ui->parts.link.source[0]) {note(p,"Choose a part to inspect its links.");return;}
+    for (size_t i=0; i<store->relationship_count; ++i) {
+        const LayoutRelationship* r=&store->relationships[i];
+        bool outgoing=!strcmp(r->source,ui->parts.link.source);
+        if (!outgoing && strcmp(r->target,ui->parts.link.source)) continue;
+        label(outgoing?r->target:r->source,name,sizeof(name));
+        if (outgoing) snprintf(text,sizeof(text),"%s: %.160s",link_label(r->kind),name);
+        else snprintf(text,sizeof(text),"%s: %.150s",(const char*[]){"Attached from","Supports","Contains"}[r->kind],name);
+        row(p,7000+(int)i,text,true);
+    }
+}
+/* Choosers use stable IDs, including entities hidden by a view filter. */
+static bool choose_link_value(int chooser, int index) {
+    UIPanelState* ui=UIPanel_Get();LayoutObjectStore* store=&layout()->objectStore;
+    if (chooser==7) {
+        if (index<0 || index>LAYOUT_RELATIONSHIP_CONTAINED_BY) return false;
+        ui->parts.link.kind=(LayoutRelationshipKind)index;
+    } else if (chooser==5 || chooser==6) {
+        const char* id=NULL;
+        if (index>=0 && (size_t)index<store->count && !store->items[index].isDeleted) id=store->items[index].coreMeta.object_id;
+        else if (index>=0 && (size_t)index>=store->count && (size_t)index-store->count<store->assembly_count) id=store->assemblies[(size_t)index-store->count].id;
+        if (!id) return false;
+        snprintf(chooser==5?ui->parts.link.source:ui->parts.link.target,64,"%s",id);
+        ui->parts.link_remove_pending=false;
+        if (chooser==5)select_link_source();
+    } else return false;
+    return true;
+}
+static bool save_link(void) {
+    UIPanelState* ui=UIPanel_Get();
+    bool creating=!ui->parts.link.id[0];
+    bool ok=Layout_EditRelationship(layout(),&ui->parts.link,NULL,Layout_GeometryHistory,NULL);
+    if (ok) {
+        const LayoutRelationship* saved=creating ? &layout()->objectStore.relationships[layout()->objectStore.relationship_count-1] : Layout_FindRelationship(&layout()->objectStore,ui->parts.link.id);
+        if (saved) choose_link(saved);
+    }
+    snprintf(ui->parts.message,sizeof(ui->parts.message),"%s",ok?"Link saved; geometry unchanged.":layout()->geometryMessage);
+    return ok;
+}
 static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     UIPanelState* ui=UIPanel_Get();PartsPane p={.renderer=renderer,.font=FontManager_Get(FONT_DEFAULT),
         .body=ui->rightBodyRect,.x=x,.click_y=y,.wanted=wanted};
@@ -98,9 +183,13 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     p.h=(p.font ? TTF_FontHeight(p.font) : 18)+18;p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui);
     if (ui->activeRightTab!=UI_PANEL_RIGHT_TAB_PARTS) return p;
     if (Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_SCENE) {note(&p,"Parts are edited in the Scene workspace.");return p;}
-    for (int i=0;i<3;++i) cell(&p,PARTS_OBJECTS+i,(const char*[]){"Objects","Assemblies","Filters"}[i],NULL,i,3,true,ui->parts.mode==i);
-    p.y+=p.h+5;char text[256];LayoutObjectStore* store=&layout()->objectStore;
-    if (ui->parts.mode==2) {
+    for (int i=0;i<4;++i) {
+        cell(&p,PARTS_OBJECTS+i,(const char*[]){"Objects","Assemblies","Filters","Links"}[i],NULL,i%2,2,true,ui->parts.mode==i);
+        if (i%2) p.y+=p.h;
+    }
+    p.y+=5;char text[256];LayoutObjectStore* store=&layout()->objectStore;
+    if (ui->parts.mode==3) links_form(&p);
+    else if (ui->parts.mode==2) {
         note(&p,"Show matching objects. Filters do not delete geometry.");
         snprintf(text,sizeof(text),"Type: %s",ui->parts.filter.entity_type[0]?ui->parts.filter.entity_type:"All");row(&p,PARTS_TYPE,text,true);
         snprintf(text,sizeof(text),"Role: %s",(const char*[]){"All","Design","Reference"}[ui->parts.filter.designation]);row(&p,PARTS_ROLE,text,true);
@@ -177,7 +266,7 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     }
     if (ui->parts.chooser) {
         /* One open chooser replaces the form below the mode buttons. */
-        p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui)+p.h+5;
+        p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui)+2*p.h+5;
         if (renderer) {SDL_SetRenderDrawColor(renderer,p.palette.pane_fill.r,p.palette.pane_fill.g,p.palette.pane_fill.b,255);SDL_Rect cover={p.body.x,p.y,p.body.w,p.body.h};SDL_RenderFillRect(renderer,&cover);}
         p.hit=0;
         row(&p,PARTS_CANCEL,"Close choices",true);
@@ -193,6 +282,15 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
             row(&p,1000,ui->parts.mode==2?"All assemblies":"Scene root",true);
             for (size_t i=0;i<store->assembly_count;++i) {label(store->assemblies[i].id,text,sizeof(text));row(&p,1001+(int)i,text,true);}
         } else if (chooser==4) for (int i=0;i<4;++i) row(&p,1000+i,property_types[i],true);
+        else if (chooser==5 || chooser==6) {
+            for (size_t i=0;i<store->count+store->assembly_count;++i) {
+                const char* id;
+                if (i<store->count) {if(store->items[i].isDeleted)continue;id=store->items[i].coreMeta.object_id;}
+                else id=store->assemblies[i-store->count].id;
+                label(id,text,sizeof(text));char choice[256];snprintf(choice,sizeof(choice),"[%s] %.160s",id,text);
+                row(&p,1000+(int)i,choice,true);
+            }
+        } else if (chooser==7) for (int i=0;i<3;++i) row(&p,1000+i,link_label((LayoutRelationshipKind)i),true);
     }
     if (ui->parts.message[0] && !ui->parts.chooser) note(&p,ui->parts.message);
     return p;
@@ -221,6 +319,16 @@ static void focus(int action) {
 void UIPanel_LayoutParts(void) {
     UIPanelState* ui=UIPanel_Get();
     if (ui->activeRightTab!=UI_PANEL_RIGHT_TAB_PARTS) return;
+    if (ui->parts.mode==3) {
+        const LayoutRelationship* saved=Layout_FindRelationship(&layout()->objectStore,ui->parts.link.id);
+        if (ui->parts.link_observed && (!saved || memcmp(saved,&ui->parts.observed_link,sizeof(*saved)))) {
+            if (saved) choose_link(saved);
+            else new_link(ui->parts.link.source);
+            snprintf(ui->parts.message,160,"Links refreshed from the document.");
+        }
+        if (ui->parts.link.source[0] && !Layout_EntityInfo(&layout()->objectStore,ui->parts.link.source))new_link(NULL);
+        if (ui->parts.link.target[0] && !Layout_EntityInfo(&layout()->objectStore,ui->parts.link.target))ui->parts.link.target[0]=0;
+    }
     if (ui->parts.mode==0) {
         const Object3D* o=Layout_ObjectStore_FindConst(&layout()->objectStore,Global_Get()->editor.selectedObject3DId);
         if (o && strcmp(o->coreMeta.object_id,ui->parts.id)) select_entity(o->coreMeta.object_id);
@@ -303,7 +411,28 @@ bool UIPanel_PartsClick(int x,int y) {
     if(!action)return true;
     if(is_field(action)) {focus(action);return true;}
     UIPanel_PartsStopInput();
-    if(action>=PARTS_OBJECTS && action<=PARTS_FILTERS) {
+    if (chooser>=5 && chooser<=7 && action>=1000) {
+        (void)choose_link_value(chooser,action-1000);UIPanel_LayoutParts();return true;
+    }
+    if (action==PARTS_LINK_SOURCE || action==PARTS_LINK_TARGET || action==PARTS_LINK_TYPE) {
+        ui->parts.chooser=action==PARTS_LINK_SOURCE?5:action==PARTS_LINK_TARGET?6:7;
+        ui->rightScroll[UI_PANEL_RIGHT_TAB_PARTS].scrollOffsetPx=0;
+    } else if (action==PARTS_LINK_SAVE) (void)save_link();
+    else if (action==PARTS_LINK_NEW)new_link(ui->parts.link.source);
+    else if (action==PARTS_LINK_REMOVE)ui->parts.link_remove_pending=true;
+    else if (action==PARTS_LINK_CANCEL)ui->parts.link_remove_pending=false;
+    else if (action==PARTS_LINK_CONFIRM_REMOVE) {
+        bool ok=Layout_EditRelationship(layout(),NULL,ui->parts.link.id,Layout_GeometryHistory,NULL);
+        if (ok)new_link(ui->parts.link.source);
+        snprintf(ui->parts.message,160,"%s",ok?"Link removed; geometry unchanged.":layout()->geometryMessage);
+    } else if (ui->parts.mode==3 && !chooser && action>=7000) {
+        size_t i=(size_t)(action-7000);
+        if (i<layout()->objectStore.relationship_count)choose_link(&layout()->objectStore.relationships[i]);
+    } else if(action>=PARTS_OBJECTS && action<=PARTS_LINKS) {
+        if (action==PARTS_LINKS) {
+            const Object3D* object=Layout_ObjectStore_FindConst(&layout()->objectStore,Global_Get()->editor.selectedObject3DId);
+            new_link(Layout_EntityInfo(&layout()->objectStore,ui->parts.id)?ui->parts.id:object?object->coreMeta.object_id:NULL);
+        }
         ui->parts.mode=action-PARTS_OBJECTS;ui->parts.properties_open=false;ui->parts.movement_open=false;ui->parts.creating=false;ui->parts.id[0]=0;ui->parts.observed_valid=false;ui->parts.message[0]=0;ui->parts.delete_pending=false;
         ui->rightScroll[UI_PANEL_RIGHT_TAB_PARTS].scrollOffsetPx=0;
         if(ui->parts.mode==2){ui->parts.filter=layout()->objectStore.view_query;snprintf(ui->parts.key,48,"%s",ui->parts.filter.property_key);snprintf(ui->parts.value,128,"%s",ui->parts.filter.property_value);}
@@ -342,11 +471,11 @@ bool UIPanel_PartsClick(int x,int y) {
         snprintf(ui->parts.filter.property_key,48,"%s",ui->parts.key);snprintf(ui->parts.filter.property_value,128,"%s",ui->parts.value);
         layout()->objectStore.view_query=ui->parts.filter;Global_Get()->layoutDirty=true;Global_FlagHitboxesDirty();
         snprintf(ui->parts.message,160,"%s",action==PARTS_CLEAR_FILTER?"Showing all authored visible objects.":"Filter applied.");
-    } else if(action>=6000) {
+    } else if(!chooser && action>=6000) {
         size_t i=(size_t)(action-6000);if(i<layout()->objectStore.count){ui->parts.mode=0;Global_Get()->editor.selectedObject3DId=layout()->objectStore.items[i].objectId;select_entity(layout()->objectStore.items[i].coreMeta.object_id);}
-    } else if(action>=5000) {
+    } else if(!chooser && action>=5000) {
         size_t i=(size_t)(action-5000);if(i<layout()->objectStore.assembly_count)select_entity(layout()->objectStore.assemblies[i].id);
-    } else if(action>=4000) {
+    } else if(!chooser && action>=4000) {
         size_t i=(size_t)(action-4000);if(i<ui->parts.draft.property_count) {
             const LayoutProperty* property=&ui->parts.draft.properties[i];ui->parts.property_kind=property->kind;snprintf(ui->parts.key,48,"%s",property->key);
             if(property->kind==LAYOUT_PROPERTY_TEXT)snprintf(ui->parts.value,128,"%s",property->text);

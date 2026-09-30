@@ -1,4 +1,5 @@
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_relationships.h"
 #include "Tools/canonical_scene_export.h"
 
 #include "Layout/layout_json.h"
@@ -748,6 +749,8 @@ static bool append_primitive_scene_objects(cJSON* objects,
 
         cJSON* engineering=Layout_EntityInfoToJson(&object->info);
         if (!engineering) return false;
+        cJSON* links=Layout_RelationshipsToJson(&layout->objectStore,object->coreMeta.object_id);
+        if (!links || !cJSON_AddItemToObject(engineering,"relationships",links)) {cJSON_Delete(links);cJSON_Delete(engineering);return false;}
         if (!upsert_object_item(object_extensions,"engineering",engineering)) {cJSON_Delete(engineering);return false;}
 
         hierarchy_item = cJSON_CreateObject();

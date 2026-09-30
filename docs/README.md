@@ -4,6 +4,7 @@ Last updated: 2026-09-29
 
 Start here for public repository documentation.
 
+- [Links: attachment, support and containment](relationships.md) — S3a controls, schema and proof.
 - [Parts: semantic organization and assemblies](semantic_assemblies.md) — S2 controls, schema, proof and limits.
 
 Public identity:

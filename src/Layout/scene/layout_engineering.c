@@ -1,4 +1,5 @@
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_relationships.h"
 #include <ctype.h>
 #include <float.h>
 #include <math.h>
@@ -85,11 +86,11 @@ bool Layout_ValidateEngineering(const Layout* layout, char* message, size_t capa
         valid=info_valid(&o->info) && (!o->info.parent_id[0] || Layout_FindAssembly(store,o->info.parent_id));
     }
     if (!valid && message && capacity) snprintf(message,capacity,"Invalid metadata or assembly tree: check IDs, parent cycles, properties and rigid frames.");
-    return valid;
+    return valid && Layout_ValidateRelationships(layout,message,capacity);
 }
 bool Layout_HasEngineeringData(const Layout* layout) {
     if (!layout) return false;
-    if (layout->objectStore.assembly_count) return true;
+    if (layout->objectStore.assembly_count || layout->objectStore.relationship_count) return true;
     for (size_t i=0;i<layout->objectStore.count;++i) {
         const Object3D* o=&layout->objectStore.items[i];
         if (!o->isDeleted && (o->info.label[0] || o->info.entity_type[0] || o->info.parent_id[0] || o->info.reference || o->info.property_count)) return true;
@@ -115,6 +116,8 @@ static bool edit_assembly(Layout* layout, void* context) {
     AssemblyEdit* edit=context;
     LayoutObjectStore* store=&layout->objectStore;
     if (edit->remove) {
+        if (Layout_QueryRelationships(store,edit->remove,-1,0,NULL,0))
+            return refuse(layout,"Remove this assembly's links before deleting it.");
         size_t index=store->assembly_count;
         for (size_t i=0;i<store->assembly_count;++i) {
             if (!strcmp(store->assemblies[i].info.parent_id,edit->remove)) return refuse(layout,"Remove or reparent children before deleting this assembly.");

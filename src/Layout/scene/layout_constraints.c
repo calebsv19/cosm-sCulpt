@@ -1,5 +1,6 @@
 #include "Layout/layout_constraints.h"
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_relationships.h"
 #include "Core/global_state.h"
 #include <float.h>
 #include <math.h>
@@ -46,6 +47,12 @@ bool Layout_HasConstraintParticipant(const LayoutObjectStore* store, uint32_t id
     return false;
 }
 bool Layout_CanDeleteObject(const LayoutObjectStore* store, uint32_t id) {
+    const Object3D* object=Layout_ObjectStore_FindConst(store,id);
+    if (object && Layout_QueryRelationships(store,object->coreMeta.object_id,-1,0,NULL,0)) {
+        if (store==&Global_Get()->layout.objectStore)
+            snprintf(Global_Get()->layout.geometryMessage,sizeof(Global_Get()->layout.geometryMessage),"Remove the object's links in Parts before deleting or replacing it.");
+        return false;
+    }
     if (!Layout_HasConstraintParticipant(store,id)) return true;
     if (store == &Global_Get()->layout.objectStore)
         snprintf(Global_Get()->layout.geometryMessage, sizeof(Global_Get()->layout.geometryMessage),
@@ -287,7 +294,8 @@ bool Layout_SolveGeometryCandidate(Layout* candidate) {
 }
 bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutation mutate, void* context,
     LayoutGeometryBeforePublish before_publish, void* history_context) {
-    if (!layout || !mutate || layout->geometryEditActive || layout->objectStore.constraintCount > LAYOUT_MAX_CONSTRAINTS) return false;
+    if (!layout || !mutate || layout->geometryEditActive || layout->objectStore.constraintCount > LAYOUT_MAX_CONSTRAINTS ||
+        layout->objectStore.assembly_count>LAYOUT_MAX_ASSEMBLIES || layout->objectStore.relationship_count>LAYOUT_MAX_RELATIONSHIPS) return false;
     layout->geometryMessage[0]=0;
     const Object3D* object=Layout_ObjectStore_FindConst(&layout->objectStore,edited);
     if (object && object->coreMeta.flags.locked) return fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Object is locked.");
@@ -324,6 +332,9 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
     if (ok) ok=solve(&candidate,edited,layout->geometryMessage,sizeof(layout->geometryMessage));
     if (!ok && !layout->geometryMessage[0]) fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Geometry edit rejected.");
     bool changed=ok && ((bytes && memcmp(candidate.objectStore.items,layout->objectStore.items,bytes)) ||
+        candidate.objectStore.relationship_count!=layout->objectStore.relationship_count ||
+        candidate.objectStore.next_relationship_id!=layout->objectStore.next_relationship_id ||
+        memcmp(candidate.objectStore.relationships,layout->objectStore.relationships,sizeof(layout->objectStore.relationships)) ||
         candidate.objectStore.assembly_count!=layout->objectStore.assembly_count ||
         candidate.objectStore.next_assembly_id!=layout->objectStore.next_assembly_id ||
         memcmp(candidate.objectStore.assemblies,layout->objectStore.assemblies,sizeof(layout->objectStore.assemblies)) ||
@@ -334,6 +345,9 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
     if (ok && changed) {
         if (bytes) memcpy(layout->objectStore.items,candidate.objectStore.items,bytes);
         memcpy(layout->objectStore.assemblies,candidate.objectStore.assemblies,sizeof(layout->objectStore.assemblies));
+        memcpy(layout->objectStore.relationships,candidate.objectStore.relationships,sizeof(layout->objectStore.relationships));
+        layout->objectStore.relationship_count=candidate.objectStore.relationship_count;
+        layout->objectStore.next_relationship_id=candidate.objectStore.next_relationship_id;
         layout->objectStore.assembly_count=candidate.objectStore.assembly_count;
         layout->objectStore.next_assembly_id=candidate.objectStore.next_assembly_id;
         memcpy(layout->objectStore.constraints,candidate.objectStore.constraints,sizeof(layout->objectStore.constraints));

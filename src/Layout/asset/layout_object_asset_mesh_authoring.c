@@ -210,7 +210,7 @@ bool LayoutObjectAssetMeshAuthoring_Save(const Layout* layout,
 
     if (layout->objectStore.constraintCount || Layout_HasEngineeringData(layout)) {
         LayoutObjectAsset_SetDiagnostics(diagnostics, diagnostics_size,
-            "Object assets cannot store scene constraints, semantics or assemblies; save a scene document.");
+            "Object assets cannot store scene constraints, semantics, assemblies or links; save a scene document.");
         return false;
     }
     core_mesh_asset_authoring_document_init(&document);

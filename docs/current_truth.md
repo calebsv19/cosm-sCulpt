@@ -2,6 +2,25 @@
 
 Last updated: 2026-09-29
 
+## S3a attachment, support and containment links (2026-09-29)
+
+**Parts → Links** now provides source/type/target selectors, Create/Update/New
+and confirmed Remove controls, and clickable incoming/outgoing link inspection.
+Objects and assemblies use their existing stable IDs; rename/reparent/movement
+preserve references. Links describe physical relationships separately from transform
+parenting and driving constraints, without changing geometry.
+
+Schema 16 saves up to 128 directed links. Duplicates, self-links, missing endpoints,
+invalid types and containment cycles are refused before publish; linked endpoints
+must have their links removed before deletion. Undo, old-schema migration, saved
+form refresh and canonical/runtime graph preservation are covered.
+
+457 tests / 45 reported suites pass, plus scene-producer smoke and Main Edit package
+self-test. Native form and chooser captures were inspected. Human acceptance of
+Links remains pending. See [relationship controls and contract](relationships.md).
+Next is S3b reserved/service volumes, then S3c intersection/clearance checks. No
+physical containment, attachment-fit or structural-capacity checks are claimed.
+
 ## S2 semantic organization and rigid assemblies (2026-09-29)
 
 The new **Parts** tab provides Objects, Assemblies and Filters with explicit

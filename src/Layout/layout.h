@@ -308,6 +308,21 @@ typedef struct LayoutConstraint {
     double hinge_reference[3]; /* A direction at capture; hinge limits/home are degrees */
 } LayoutConstraint;
 
+#define LAYOUT_MAX_RELATIONSHIPS 128
+
+typedef enum {
+    LAYOUT_RELATIONSHIP_ATTACHED_TO,
+    LAYOUT_RELATIONSHIP_SUPPORTED_BY,
+    LAYOUT_RELATIONSHIP_CONTAINED_BY
+} LayoutRelationshipKind;
+
+typedef struct {
+    char id[64];
+    char source[64];
+    char target[64];
+    LayoutRelationshipKind kind;
+} LayoutRelationship;
+
 typedef struct {
     Object3D* items;
     size_t count;
@@ -318,6 +333,9 @@ typedef struct {
     LayoutAssembly assemblies[LAYOUT_MAX_ASSEMBLIES];
     size_t assembly_count;
     uint32_t next_assembly_id;
+    LayoutRelationship relationships[LAYOUT_MAX_RELATIONSHIPS];
+    size_t relationship_count;
+    uint32_t next_relationship_id;
     LayoutEntityQuery view_query; /* transient viewport filter; never changes authored visibility */
 } LayoutObjectStore;
 

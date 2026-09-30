@@ -80,6 +80,9 @@ void Layout_ObjectStore_Init(LayoutObjectStore* store) {
     memset(&store->view_query, 0, sizeof(store->view_query));
     store->assembly_count=0;
     store->next_assembly_id=1;
+    memset(store->relationships,0,sizeof(store->relationships));
+    store->relationship_count=0;
+    store->next_relationship_id=1;
 }
 
 void Layout_ObjectStore_Free(LayoutObjectStore* store) {
@@ -95,6 +98,9 @@ void Layout_ObjectStore_Free(LayoutObjectStore* store) {
     memset(&store->view_query, 0, sizeof(store->view_query));
     store->assembly_count=0;
     store->next_assembly_id=1;
+    memset(store->relationships,0,sizeof(store->relationships));
+    store->relationship_count=0;
+    store->next_relationship_id=1;
 }
 
 Object3D* Layout_ObjectStore_Find(LayoutObjectStore* store, uint32_t objectId) {

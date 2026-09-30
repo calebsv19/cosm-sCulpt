@@ -212,7 +212,7 @@ bool ObjectAuthoring_ApplyEvaluatedDocumentToLayout(
 
     if (layout->objectStore.constraintCount || Layout_HasEngineeringData(layout)) {
         ObjectAuthoringEval_SetDiag(diagnostics, OBJECT_AUTHORING_EVAL_INVALID_ARGUMENT, 0u,
-            "Scene constraints, semantics or assemblies would be lost by whole-store Object Authoring replacement.");
+            "Scene constraints, semantics, assemblies or links would be lost by whole-store Object Authoring replacement.");
         return false;
     }
     Layout_ObjectStore_Free(&layout->objectStore);
