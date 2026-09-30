@@ -232,11 +232,14 @@ typedef struct {
     char text[128];
     double number; /* dimensionless number, boolean 0/1, or canonical meters */
 } LayoutProperty;
+typedef enum { LAYOUT_VOLUME_NONE, LAYOUT_VOLUME_KEEPOUT, LAYOUT_VOLUME_SERVICE } LayoutVolumeRole;
 typedef struct {
     char label[96]; /* display only; empty falls back to the existing primitive label */
     char entity_type[64]; /* extensible category; empty means PhysicalObject */
     char parent_id[64]; /* assembly ID; transform hierarchy, never electrical/support connectivity */
     bool reference;
+    LayoutVolumeRole volume_role; /* explicit reserved-space meaning, independent of display type */
+    char volume_owner[64]; /* exempt object or assembly subtree; not transform parenting */
     size_t property_count;
     LayoutProperty properties[LAYOUT_MAX_PROPERTIES];
 } LayoutEntityInfo;
@@ -323,6 +326,14 @@ typedef struct {
     LayoutRelationshipKind kind;
 } LayoutRelationship;
 
+#define LAYOUT_MAX_SPATIAL_RULES 32
+typedef enum { LAYOUT_SPATIAL_NO_INTERSECTION, LAYOUT_SPATIAL_CLEARANCE } LayoutSpatialRuleKind;
+typedef struct {
+    char id[64], source[64], target[64];
+    LayoutSpatialRuleKind kind;
+    double clearance_meters;
+} LayoutSpatialRule;
+
 typedef struct {
     Object3D* items;
     size_t count;
@@ -336,6 +347,9 @@ typedef struct {
     LayoutRelationship relationships[LAYOUT_MAX_RELATIONSHIPS];
     size_t relationship_count;
     uint32_t next_relationship_id;
+    LayoutSpatialRule spatial_rules[LAYOUT_MAX_SPATIAL_RULES];
+    size_t spatial_rule_count;
+    uint32_t next_spatial_rule_id;
     LayoutEntityQuery view_query; /* transient viewport filter; never changes authored visibility */
 } LayoutObjectStore;
 

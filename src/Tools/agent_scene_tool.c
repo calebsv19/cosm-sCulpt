@@ -1,6 +1,7 @@
 #include "Layout/layout.h"
 #include "Tools/agent_scene_material_flow.h"
 #include "Layout/layout_json.h"
+#include "Layout/layout_spatial.h"
 #include "Tools/canonical_scene_export.h"
 #include "core_scene_compile.h"
 #include "cjson/cJSON.h"
@@ -16,6 +17,7 @@
 #define AGENT_SCENE_PATH_MAX 1024
 
 typedef struct AgentSceneOptions {
+    const char* check_layout_path;
     const char* request_path;
     const char* output_dir;
     bool determinism_check;
@@ -33,13 +35,17 @@ static void print_usage(const char* argv0) {
     fprintf(stderr,
             "usage: %s --request <agent_scene_request.json> --out <scene_dir> [--determinism-check]\n",
             argv0 ? argv0 : "agent_scene_tool");
+    fprintf(stderr,"       %s --check-layout <layout.json> (read-only JSON report to stdout)\n",argv0?argv0:"agent_scene_tool");
 }
 
 static bool parse_args(int argc, char** argv, AgentSceneOptions* out) {
     if (!out) return false;
     memset(out, 0, sizeof(*out));
     for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "--request") == 0) {
+        if (strcmp(argv[i], "--check-layout") == 0) {
+            if (++i >= argc || !argv[i][0]) return false;
+            out->check_layout_path=argv[i];
+        } else if (strcmp(argv[i], "--request") == 0) {
             if (++i >= argc || !argv[i][0]) return false;
             out->request_path = argv[i];
         } else if (strcmp(argv[i], "--out") == 0) {
@@ -54,7 +60,7 @@ static bool parse_args(int argc, char** argv, AgentSceneOptions* out) {
             return false;
         }
     }
-    return out->request_path && out->output_dir;
+    return out->check_layout_path ? !out->request_path && !out->output_dir && !out->determinism_check : out->request_path && out->output_dir;
 }
 
 static bool read_text_file(const char* path, char** out_text) {
@@ -917,6 +923,13 @@ int main(int argc, char** argv) {
     if (!parse_args(argc, argv, &opts)) {
         print_usage(argv[0]);
         return 2;
+    }
+    if (opts.check_layout_path) {
+        Layout_Init(&layout,1);
+        if (!Layout_LoadFromFile(&layout,opts.check_layout_path)) {Layout_Free(&layout);fprintf(stderr,"Could not load layout for spatial checks.\n");return 1;}
+        cJSON* report=Layout_SpatialReportJson(&layout);char* text=report?cJSON_PrintUnformatted(report):NULL;
+        if(text)puts(text);
+        bool ok=text!=NULL;free(text);cJSON_Delete(report);Layout_Free(&layout);return ok?0:1;
     }
     if (!ensure_dir(opts.output_dir)) {
         fprintf(stderr, "[agent_scene_tool] ERROR: failed to create output directory: %s\n", opts.output_dir);

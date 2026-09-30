@@ -1,13 +1,14 @@
 # Semantic parts and rigid assemblies (S2)
 
 Status: bounded semantic organization and nested rigid assemblies implemented.
-Date: 2026-09-29. S2 introduced schema 15; current schema 16 adds
-[explicit relationships through Links](relationships.md). Program VERSION remains 0.4.0.
+Date: 2026-09-29. S2 introduced schema 15; current schema 17 includes
+[explicit relationships through Links](relationships.md) and
+[reserved volumes and checks](spatial_checks.md). Program VERSION remains 0.4.0.
 
 ## Using Parts
 
-Open an existing scene and choose the right-hand **Parts** tab. Its four modes
-are Objects, Assemblies, Filters and Links. The S2 workflow is below; the
+Open an existing scene and choose the right-hand **Parts** tab. Its six modes
+are Objects, Assemblies, Filters, Links, Volumes and Checks. The S2 workflow is below; the
 [Links guide](relationships.md) describes S3a. Inputs have separate labels and inset fields;
 selectors have arrows and actions have filled button faces. No new shortcuts are required.
 
@@ -136,7 +137,7 @@ Relationship edges now ship in S3a. Remaining exclusions include saved query col
 assembly scaling, group viewport handles, constraint solver for arbitrary meshes,
 collision/service checks, cable routing or MCP transport additions in this slice.
 
-S3a explicit relationships are now implemented. Next: S3b reserved/service volumes,
-followed by S3c structured intersection/clearance checks. New panel/beam/volume
+S3A relationships and [S3B/S3C reserved volumes/checks](spatial_checks.md) are
+implemented. Next: S4 sampled motion and conservative envelopes. New panel/beam
 creation presets can then make those workflows easier. Sampled movement/envelopes
 remain S4; compiler/telemetry bindings remain later phases.

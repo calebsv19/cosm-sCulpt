@@ -126,6 +126,6 @@ be promoted deliberately when compiler/simulation consumers need it.
 
 This completes the relationship portion of S3. Reserved/service-volume authoring,
 solid intersection/clearance validation, physical attachment verification and
-structural load analysis are not implemented here. Next is S3b reserved/service
-volumes, followed by S3c visible structured intersection/clearance failures.
+structural load analysis are not implemented here. S3B/S3C now add [reserved volumes and spatial checks](spatial_checks.md).
+Next is S4 sampled motion and conservative envelopes.
 Sampled motion and swept envelopes remain the later S4 boundary.

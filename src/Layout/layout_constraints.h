@@ -5,7 +5,8 @@
 typedef bool (*LayoutGeometryMutation)(Layout* candidate, void* context);
 typedef bool (*LayoutGeometryBeforePublish)(const Layout* original, void* context);
 /* Full object-store candidate transaction. No side effects until validation and
- * optional history reservation succeed. Raw callbacks may only edit object/rule data; never resize the store. */
+ * optional history reservation succeed. Callbacks may append objects through the store API; never shrink/reorder the store.
+ * Candidate storage transfers only after validation and history reservation. */
 bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited_id,
     LayoutGeometryMutation mutate, void* context,
     LayoutGeometryBeforePublish before_publish, void* history_context);

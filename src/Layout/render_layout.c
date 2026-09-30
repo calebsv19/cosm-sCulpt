@@ -467,7 +467,10 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                     SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
                     thickness = meshPreviewDrawn ? 1 : 2;
                 } else {
-                    if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+                    if (object->info.volume_role!=LAYOUT_VOLUME_NONE) {
+                        SDL_SetRenderDrawColor(renderer, object->info.volume_role==LAYOUT_VOLUME_SERVICE?80:245,
+                            object->info.volume_role==LAYOUT_VOLUME_SERVICE?210:105, 175, 255);
+                    } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
                         SDL_SetRenderDrawColor(renderer,
                                                ApplyDepthToChannel(170, depthFactor),
                                                ApplyDepthToChannel(140, depthFactor),

@@ -4,6 +4,7 @@
 #include "Layout/layout_relationships.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_shell.h"
+#include "UI/ui_panel_spatial.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -56,6 +57,22 @@ bool LineDrawingEngineering_StageProof(const char* mode) {
             memset(&ui->parts.link,0,sizeof(ui->parts.link));ui->parts.link_observed=false;
             snprintf(ui->parts.link.source,64,"%s",layout->objectStore.items[0].coreMeta.object_id);
         } else if(!strcmp(mode,"parts-links-choices"))ui->parts.chooser=6;
+    }
+    if(!strncmp(mode,"parts-volumes",13) || !strncmp(mode,"parts-checks",12)) {
+        const Object3D* panel=&layout->objectStore.items[1];
+        LayoutVolumeEdit v={.role=LAYOUT_VOLUME_SERVICE,.size_meters={1.2,.8,.5},
+            .center_meters={panel->transform.position.x,panel->transform.position.y,panel->transform.position.z}};
+        snprintf(v.name,96,"Fuse box service access");snprintf(v.owner,64,"%s",layout->objectStore.items[0].coreMeta.object_id);
+        if(!Layout_EditVolume(layout,&v,false,NULL,NULL))return false;
+        UIPanelState* ui=UIPanel_Get();ui->parts.properties_open=false;ui->parts.mode=4;
+        state->editor.selectedObject3DId=layout->objectStore.items[2].objectId;UIPanel_SpatialEnterVolumes();
+        if(!strncmp(mode,"parts-checks",12)) {
+            ui->parts.mode=5;state->editor.selectedObject3DId=layout->objectStore.items[1].objectId;LayoutSpatialRule r={.kind=LAYOUT_SPATIAL_CLEARANCE,.clearance_meters=2.5};
+            snprintf(r.source,64,"%s",layout->objectStore.items[0].coreMeta.object_id);snprintf(r.target,64,"%s",layout->objectStore.items[1].coreMeta.object_id);
+            if(!Layout_EditSpatialRule(layout,&r,NULL,NULL,NULL))return false;
+            UIPanel_SpatialRunChecks();ui->spatial.selected_result=0;
+            if(!strcmp(mode,"parts-checks-rules")){ui->spatial.rules_open=true;ui->spatial.rule=layout->objectStore.spatial_rules[0];snprintf(ui->spatial.distance,64,"2500 mm");ui->spatial.selected_result=-1;}
+        }
     }
     UIPanel_LayoutParts();return true;
 }

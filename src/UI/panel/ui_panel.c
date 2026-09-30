@@ -1078,6 +1078,7 @@ void UIPanel_ResetTransientUiState(void) {
     ui->pathPointPlacementArmed = false;
     UIPanel_PartsStopInput();
     memset(&ui->parts,0,sizeof(ui->parts));
+    memset(&ui->spatial,0,sizeof(ui->spatial));
     ui->parts.rotation_axis=2;
     memset(&ui->measurement, 0, sizeof(ui->measurement));
     for (int i = 0; i < UI_PANEL_RIGHT_TAB_COUNT; ++i) {

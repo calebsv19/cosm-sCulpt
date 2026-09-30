@@ -274,7 +274,8 @@ bool LineDrawingCanonicalScene_ComputeFramingBounds(const Layout* layout, SceneB
         scene_bounds_include_anchor(&bounds, &layout->anchors[i], &has_points);
     }
     for (size_t i = 0; i < layout->objectStore.count; ++i) {
-        scene_bounds_include_object(&bounds, &layout->objectStore.items[i], &has_points);
+        if (layout->objectStore.items[i].info.volume_role==LAYOUT_VOLUME_NONE)
+            scene_bounds_include_object(&bounds, &layout->objectStore.items[i], &has_points);
     }
 
     if (!has_points &&

@@ -1,6 +1,28 @@
 # Sculpt Current Truth
 
-Last updated: 2026-09-29
+Last updated: 2026-09-30
+
+## S3B/S3C reserved volumes and spatial checks (2026-09-30)
+
+**Parts → Volumes** now creates/edits named Keep-out and Service wire boxes, with
+physical dimensions, expandable world position/owner fields and confirmed deletion.
+**Parts → Checks** runs read-only obstruction checks and expands saved pair-rule
+editing separately. Results expose IDs, names, measured/required gaps, errors or
+warnings, object selection and stale-result feedback. Hidden design objects remain
+in checks; automatic checks exempt Reference geometry and a volume's declared owner.
+
+Schema 17 persists roles, owner IDs and up to 32 stable intersection/clearance rules.
+Existing object identities, assembly movement, undo, old-document migration and
+atomic load/edit refusal remain intact. Canonical/runtime snapshots preserve all
+spatial records; reserved space is omitted from solid export and camera framing.
+Prisms/panels use oriented geometry; mesh bounds are explicitly approximate warnings.
+Contact counts as intersection. No structural, triangle-collision or swept-motion
+acceptance is claimed. See [controls, contract and limits](spatial_checks.md).
+
+465 tests / 46 reported suites pass, including 8 spatial test cases; producer
+smoke, read-only CLI report and package self-test are separate evidence. Native UI
+renders were inspected. User acceptance remains pending. Next is S4 sampled motion
+and conservative envelopes, using these volume and checker contracts.
 
 ## S3a attachment, support and containment links (2026-09-29)
 

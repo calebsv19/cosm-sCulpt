@@ -1,6 +1,7 @@
 #include "Layout/layout_constraints.h"
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_relationships.h"
+#include "Layout/layout_spatial.h"
 #include "Core/global_state.h"
 #include <float.h>
 #include <math.h>
@@ -48,6 +49,11 @@ bool Layout_HasConstraintParticipant(const LayoutObjectStore* store, uint32_t id
 }
 bool Layout_CanDeleteObject(const LayoutObjectStore* store, uint32_t id) {
     const Object3D* object=Layout_ObjectStore_FindConst(store,id);
+    if (object && Layout_SpatialEntityReferenced(store,object->coreMeta.object_id)) {
+        if (store==&Global_Get()->layout.objectStore)
+            snprintf(Global_Get()->layout.geometryMessage,sizeof(Global_Get()->layout.geometryMessage),"Remove the object's checks or volume ownership in Parts first.");
+        return false;
+    }
     if (object && Layout_QueryRelationships(store,object->coreMeta.object_id,-1,0,NULL,0)) {
         if (store==&Global_Get()->layout.objectStore)
             snprintf(Global_Get()->layout.geometryMessage,sizeof(Global_Get()->layout.geometryMessage),"Remove the object's links in Parts before deleting or replacing it.");
@@ -295,7 +301,7 @@ bool Layout_SolveGeometryCandidate(Layout* candidate) {
 bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutation mutate, void* context,
     LayoutGeometryBeforePublish before_publish, void* history_context) {
     if (!layout || !mutate || layout->geometryEditActive || layout->objectStore.constraintCount > LAYOUT_MAX_CONSTRAINTS ||
-        layout->objectStore.assembly_count>LAYOUT_MAX_ASSEMBLIES || layout->objectStore.relationship_count>LAYOUT_MAX_RELATIONSHIPS) return false;
+        layout->objectStore.assembly_count>LAYOUT_MAX_ASSEMBLIES || layout->objectStore.relationship_count>LAYOUT_MAX_RELATIONSHIPS || layout->objectStore.spatial_rule_count>LAYOUT_MAX_SPATIAL_RULES) return false;
     layout->geometryMessage[0]=0;
     const Object3D* object=Layout_ObjectStore_FindConst(&layout->objectStore,edited);
     if (object && object->coreMeta.flags.locked) return fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Object is locked.");
@@ -306,6 +312,7 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
     if (bytes && !candidate.objectStore.items) return fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Could not allocate geometry transaction.");
     if (bytes) memcpy(candidate.objectStore.items,layout->objectStore.items,bytes);
     bool ok=mutate(&candidate,context);
+    if (ok && candidate.objectStore.count<layout->objectStore.count) ok=fail(candidate.geometryMessage,sizeof(candidate.geometryMessage),"Geometry commands cannot shrink the store.");
     if (!ok && candidate.geometryMessage[0]) snprintf(layout->geometryMessage,sizeof(layout->geometryMessage),"%s",candidate.geometryMessage);
     /* Direct edits of B may translate along its rail; all other degrees of
      * freedom remain constrained. The accepted pose updates the saved target. */
@@ -331,7 +338,12 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
     if (ok) ok=Layout_ValidateEngineering(&candidate,layout->geometryMessage,sizeof(layout->geometryMessage));
     if (ok) ok=solve(&candidate,edited,layout->geometryMessage,sizeof(layout->geometryMessage));
     if (!ok && !layout->geometryMessage[0]) fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Geometry edit rejected.");
-    bool changed=ok && ((bytes && memcmp(candidate.objectStore.items,layout->objectStore.items,bytes)) ||
+    bool changed=ok && (candidate.objectStore.count!=layout->objectStore.count ||
+        candidate.objectStore.nextObjectId!=layout->objectStore.nextObjectId ||
+        (bytes && memcmp(candidate.objectStore.items,layout->objectStore.items,bytes)) ||
+        candidate.objectStore.spatial_rule_count!=layout->objectStore.spatial_rule_count ||
+        candidate.objectStore.next_spatial_rule_id!=layout->objectStore.next_spatial_rule_id ||
+        memcmp(candidate.objectStore.spatial_rules,layout->objectStore.spatial_rules,sizeof(layout->objectStore.spatial_rules)) ||
         candidate.objectStore.relationship_count!=layout->objectStore.relationship_count ||
         candidate.objectStore.next_relationship_id!=layout->objectStore.next_relationship_id ||
         memcmp(candidate.objectStore.relationships,layout->objectStore.relationships,sizeof(layout->objectStore.relationships)) ||
@@ -343,7 +355,16 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
         memcmp(candidate.objectStore.constraints,layout->objectStore.constraints,sizeof(layout->objectStore.constraints)));
     if (changed && before_publish && !before_publish(layout,history_context)) ok=fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Could not reserve undo history.");
     if (ok && changed) {
-        if (bytes) memcpy(layout->objectStore.items,candidate.objectStore.items,bytes);
+        if (candidate.objectStore.count!=layout->objectStore.count) {
+            free(layout->objectStore.items);
+            layout->objectStore.items=candidate.objectStore.items;
+            candidate.objectStore.items=NULL;
+            layout->objectStore.count=candidate.objectStore.count;
+        } else if (bytes) memcpy(layout->objectStore.items,candidate.objectStore.items,bytes);
+        layout->objectStore.nextObjectId=candidate.objectStore.nextObjectId;
+        memcpy(layout->objectStore.spatial_rules,candidate.objectStore.spatial_rules,sizeof(layout->objectStore.spatial_rules));
+        layout->objectStore.spatial_rule_count=candidate.objectStore.spatial_rule_count;
+        layout->objectStore.next_spatial_rule_id=candidate.objectStore.next_spatial_rule_id;
         memcpy(layout->objectStore.assemblies,candidate.objectStore.assemblies,sizeof(layout->objectStore.assemblies));
         memcpy(layout->objectStore.relationships,candidate.objectStore.relationships,sizeof(layout->objectStore.relationships));
         layout->objectStore.relationship_count=candidate.objectStore.relationship_count;

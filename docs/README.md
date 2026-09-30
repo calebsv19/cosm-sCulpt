@@ -161,3 +161,5 @@ Current verification contract:
 ## Private Planning Docs
 - Private scaffold plans and internal execution docs are in the workspace private docs bucket:
   - `../../docs/private_program_docs/line_drawing/`
+
+- [Reserved space and spatial checks (S3B/S3C)](spatial_checks.md) — volume controls, check results, schema 17 and read-only agent reports.

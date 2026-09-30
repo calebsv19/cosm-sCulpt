@@ -1,5 +1,6 @@
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_relationships.h"
+#include "Layout/layout_spatial.h"
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
@@ -19,6 +20,7 @@ cJSON* Layout_EntityInfoToJson(const LayoutEntityInfo* info) {
         !cJSON_AddStringToObject(o,"parent",info->parent_id) || !cJSON_AddBoolToObject(o,"reference",info->reference)) {
         cJSON_Delete(o); return NULL;
     }
+    if (!cJSON_AddNumberToObject(o,"volumeRole",info->volume_role) || !cJSON_AddStringToObject(o,"volumeOwner",info->volume_owner)) {cJSON_Delete(o);return NULL;}
     cJSON* properties=cJSON_AddArrayToObject(o,"properties");
     if (!properties) {cJSON_Delete(o);return NULL;}
     for (size_t i=0;i<info->property_count;++i) {
@@ -35,6 +37,11 @@ cJSON* Layout_EntityInfoToJson(const LayoutEntityInfo* info) {
 static bool read_info(const cJSON* o, LayoutEntityInfo* info) {
     if (!cJSON_IsObject(o) || !string(o,"name",info->label,sizeof(info->label)) ||
         !string(o,"type",info->entity_type,sizeof(info->entity_type)) || !string(o,"parent",info->parent_id,sizeof(info->parent_id))) return false;
+    const cJSON* role=cJSON_GetObjectItemCaseSensitive(o,"volumeRole"),*owner=cJSON_GetObjectItemCaseSensitive(o,"volumeOwner");
+    if (role || owner) {
+        if (!cJSON_IsNumber(role) || !isfinite(role->valuedouble) || role->valuedouble<0 || role->valuedouble>LAYOUT_VOLUME_SERVICE || floor(role->valuedouble)!=role->valuedouble || !string(o,"volumeOwner",info->volume_owner,sizeof(info->volume_owner))) return false;
+        info->volume_role=(LayoutVolumeRole)role->valueint;
+    }
     const cJSON* reference=cJSON_GetObjectItemCaseSensitive(o,"reference");
     const cJSON* properties=cJSON_GetObjectItemCaseSensitive(o,"properties");
     if (!cJSON_IsBool(reference) || !cJSON_IsArray(properties) || cJSON_GetArraySize(properties)>LAYOUT_MAX_PROPERTIES) return false;
@@ -76,7 +83,7 @@ bool Layout_EngineeringWriteJson(const Layout* layout, cJSON* root) {
         if (!cJSON_AddItemToObject(o,"worldFrame",frame)) {cJSON_Delete(frame);return false;}
         if (!cJSON_AddStringToObject(o,"id",a->id)) return false;
     }
-    return Layout_RelationshipsWriteJson(layout,engineering);
+    return Layout_RelationshipsWriteJson(layout,engineering) && Layout_SpatialWriteJson(layout,engineering);
 }
 bool Layout_EngineeringReadJson(Layout* layout, const cJSON* root, bool required) {
     const cJSON* engineering=cJSON_GetObjectItemCaseSensitive(root,"engineering");

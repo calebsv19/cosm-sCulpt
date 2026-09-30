@@ -595,7 +595,7 @@ static bool append_primitive_scene_objects(cJSON* objects,
         cJSON* object_extensions = NULL;
         cJSON* hierarchy_item = NULL;
 
-        if (object->isDeleted) continue;
+        if (object->isDeleted || object->info.volume_role!=LAYOUT_VOLUME_NONE) continue;
         if (!object->coreMeta.object_id[0]) {
             if (debug_export) {
                 fprintf(stderr, "[scene_export] skip object index=%zu id=%u: missing core object_id\n",

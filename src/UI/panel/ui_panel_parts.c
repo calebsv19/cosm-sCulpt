@@ -15,58 +15,8 @@
 
 static const char* types[]={"PhysicalObject","Panel","StructuralMember","Device","Controller","Sensor","Cable","Pipe","Tank","Battery","KeepoutVolume","ServiceVolume"};
 static const char* property_types[]={"Text","Number","Boolean","Length"};
-typedef struct {
-    SDL_Renderer* renderer;TTF_Font* font;UIPanelVisualPalette palette;
-    SDL_Rect body,found;int y,h,x,click_y,hit,wanted;
-} PartsPane;
-static bool contains(SDL_Rect r,int x,int y) {return x>=r.x && y>=r.y && x<r.x+r.w && y<r.y+r.h;}
-static bool is_field(int action) {
-    return action==PARTS_NAME || action==PARTS_KEY || action==PARTS_VALUE ||
-        (action>=PARTS_DX && action<=PARTS_ANGLE);
-}
-static void cell(PartsPane* p,int action,const char* title,const char* value,int column,int columns,bool enabled,bool selected) {
-    int gap=6,w=(p->body.w-24-(columns-1)*gap)/columns;
-    SDL_Rect rect={p->body.x+6+column*(w+gap),p->y,w,p->h-5};
-    if (value) {
-        int label_width=w/3;
-        if (p->renderer && p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,title,rect.x+2,rect.y+5,label_width-4,rect.h-4,p->palette.text_primary);
-        rect.x+=label_width;rect.w-=label_width;title=value;
-    }
-    if (action==p->wanted) p->found=rect;
-    if (action && enabled && contains(rect,p->x,p->click_y) && contains(p->body,p->x,p->click_y)) p->hit=action;
-    if (!p->renderer) return;
-    SDL_Color text=enabled ? p->palette.text_primary : p->palette.text_muted;
-    if (action) {
-        int x,y;Uint32 buttons=SDL_GetMouseState(&x,&y);bool hover=enabled && contains(rect,x,y) && contains(p->body,x,y);
-        SDL_Color fill=is_field(action) ? UIPanelVisual_AdjustColor(p->palette.pane_fill,-8,0) :
-            selected || (hover && (buttons&SDL_BUTTON_LMASK)) ? p->palette.button_fill_active : hover ? p->palette.button_fill_hover : p->palette.button_fill;
-        UIPanelVisual_DrawFrame(p->renderer,rect,fill,p->palette.button_border,0);
-        if(selected || UIPanel_Get()->parts.input==action) {
-            SDL_SetRenderDrawColor(p->renderer,p->palette.accent.r,p->palette.accent.g,p->palette.accent.b,255);
-            SDL_Rect underline={rect.x+3,rect.y+rect.h-4,rect.w-6,2};SDL_RenderFillRect(p->renderer,&underline);
-        }
-    }
-    bool chooser=action==PARTS_SELECT || action==PARTS_TYPE || action==PARTS_PARENT || action==PARTS_PROPERTY_KIND || action==PARTS_LINK_SOURCE || action==PARTS_LINK_TARGET || action==PARTS_LINK_TYPE;
-    if (p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,title,rect.x+7,rect.y+5,rect.w-(chooser?30:14),rect.h-6,text);
-    if (chooser) {
-        int cx=rect.x+rect.w-13,cy=rect.y+rect.h/2;
-        SDL_SetRenderDrawColor(p->renderer,text.r,text.g,text.b,255);
-        SDL_RenderDrawLine(p->renderer,cx-4,cy-2,cx,cy+2);
-        SDL_RenderDrawLine(p->renderer,cx,cy+2,cx+4,cy-2);
-    }
-}
-static void row(PartsPane* p,int action,const char* text,bool enabled) {cell(p,action,text,NULL,0,1,enabled,false);p->y+=p->h;}
-static void field(PartsPane* p,int action,const char* label,const char* value) {cell(p,action,label,value,0,1,true,false);p->y+=p->h;}
-static void note(PartsPane* p,const char* text) {
-    int chars=(p->body.w-34)/(p->font ? TTF_FontHeight(p->font)/2+1 : 9);if (chars<12) chars=12;
-    size_t start=0,length=strlen(text);
-    while (start<length) {
-        size_t n=length-start;if (n>(size_t)chars) n=(size_t)chars;
-        if (start+n<length) {size_t k=n;while (k && text[start+k]!=' ') --k;if (k) n=k;}
-        char line[256];snprintf(line,sizeof(line),"%.*s",(int)n,text+start);row(p,0,line,true);
-        start+=n;while (text[start]==' ') ++start;
-    }
-}
+#include "UI/ui_panel_parts_surface.h"
+#include "UI/ui_panel_spatial.h"
 static Layout* layout(void) {return &Global_Get()->layout;}
 static const LayoutEntityInfo* selected(void) {return Layout_EntityInfo(&layout()->objectStore,UIPanel_Get()->parts.id);}
 static void select_entity(const char* id) {
@@ -183,11 +133,12 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     p.h=(p.font ? TTF_FontHeight(p.font) : 18)+18;p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui);
     if (ui->activeRightTab!=UI_PANEL_RIGHT_TAB_PARTS) return p;
     if (Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_SCENE) {note(&p,"Parts are edited in the Scene workspace.");return p;}
-    for (int i=0;i<4;++i) {
-        cell(&p,PARTS_OBJECTS+i,(const char*[]){"Objects","Assemblies","Filters","Links"}[i],NULL,i%2,2,true,ui->parts.mode==i);
+    for (int i=0;i<6;++i) {
+        cell(&p,(const int[]){PARTS_OBJECTS,PARTS_ASSEMBLIES,PARTS_FILTERS,PARTS_LINKS,PARTS_VOLUMES,PARTS_CHECKS}[i],(const char*[]){"Objects","Assemblies","Filters","Links","Volumes","Checks"}[i],NULL,i%2,2,true,ui->parts.mode==i);
         if (i%2) p.y+=p.h;
     }
     p.y+=5;char text[256];LayoutObjectStore* store=&layout()->objectStore;
+    if (ui->parts.mode>=4) {UIPanel_SpatialBuild(&p);return p;}
     if (ui->parts.mode==3) links_form(&p);
     else if (ui->parts.mode==2) {
         note(&p,"Show matching objects. Filters do not delete geometry.");
@@ -266,7 +217,7 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     }
     if (ui->parts.chooser) {
         /* One open chooser replaces the form below the mode buttons. */
-        p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui)+2*p.h+5;
+        p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui)+3*p.h+5;
         if (renderer) {SDL_SetRenderDrawColor(renderer,p.palette.pane_fill.r,p.palette.pane_fill.g,p.palette.pane_fill.b,255);SDL_Rect cover={p.body.x,p.y,p.body.w,p.body.h};SDL_RenderFillRect(renderer,&cover);}
         p.hit=0;
         row(&p,PARTS_CANCEL,"Close choices",true);
@@ -281,7 +232,7 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         } else if (chooser==3) {
             row(&p,1000,ui->parts.mode==2?"All assemblies":"Scene root",true);
             for (size_t i=0;i<store->assembly_count;++i) {label(store->assemblies[i].id,text,sizeof(text));row(&p,1001+(int)i,text,true);}
-        } else if (chooser==4) for (int i=0;i<4;++i) row(&p,1000+i,property_types[i],true);
+        } else if (chooser==4) for (int i=0;i<6;++i) row(&p,1000+i,property_types[i],true);
         else if (chooser==5 || chooser==6) {
             for (size_t i=0;i<store->count+store->assembly_count;++i) {
                 const char* id;
@@ -302,6 +253,7 @@ void UIPanel_PartsStopInput(void) {
 }
 static char* input_buffer(size_t* capacity) {
     UIPanelState* ui=UIPanel_Get();
+    char* spatial=UIPanel_SpatialInputBuffer(capacity);if(spatial)return spatial;
     switch(ui->parts.input) {
         case PARTS_NAME:*capacity=sizeof(ui->parts.draft.label);return ui->parts.draft.label;
         case PARTS_TYPE:*capacity=64;return ui->parts.mode==2 ? ui->parts.filter.entity_type : ui->parts.draft.entity_type;
@@ -319,6 +271,7 @@ static void focus(int action) {
 void UIPanel_LayoutParts(void) {
     UIPanelState* ui=UIPanel_Get();
     if (ui->activeRightTab!=UI_PANEL_RIGHT_TAB_PARTS) return;
+    UIPanel_SpatialRefresh();
     if (ui->parts.mode==3) {
         const LayoutRelationship* saved=Layout_FindRelationship(&layout()->objectStore,ui->parts.link.id);
         if (ui->parts.link_observed && (!saved || memcmp(saved,&ui->parts.observed_link,sizeof(*saved)))) {
@@ -411,6 +364,9 @@ bool UIPanel_PartsClick(int x,int y) {
     if(!action)return true;
     if(is_field(action)) {focus(action);return true;}
     UIPanel_PartsStopInput();
+    if (ui->parts.mode>=4 && action!=PARTS_VOLUMES && action!=PARTS_CHECKS && !(action>=PARTS_OBJECTS && action<=PARTS_LINKS)) {
+        (void)UIPanel_SpatialClick(action,chooser);UIPanel_LayoutParts();return true;
+    }
     if (chooser>=5 && chooser<=7 && action>=1000) {
         (void)choose_link_value(chooser,action-1000);UIPanel_LayoutParts();return true;
     }
@@ -428,13 +384,14 @@ bool UIPanel_PartsClick(int x,int y) {
     } else if (ui->parts.mode==3 && !chooser && action>=7000) {
         size_t i=(size_t)(action-7000);
         if (i<layout()->objectStore.relationship_count)choose_link(&layout()->objectStore.relationships[i]);
-    } else if(action>=PARTS_OBJECTS && action<=PARTS_LINKS) {
+    } else if((action>=PARTS_OBJECTS && action<=PARTS_LINKS) || action==PARTS_VOLUMES || action==PARTS_CHECKS) {
         if (action==PARTS_LINKS) {
             const Object3D* object=Layout_ObjectStore_FindConst(&layout()->objectStore,Global_Get()->editor.selectedObject3DId);
             new_link(Layout_EntityInfo(&layout()->objectStore,ui->parts.id)?ui->parts.id:object?object->coreMeta.object_id:NULL);
         }
-        ui->parts.mode=action-PARTS_OBJECTS;ui->parts.properties_open=false;ui->parts.movement_open=false;ui->parts.creating=false;ui->parts.id[0]=0;ui->parts.observed_valid=false;ui->parts.message[0]=0;ui->parts.delete_pending=false;
+        ui->parts.mode=action==PARTS_VOLUMES?4:action==PARTS_CHECKS?5:action-PARTS_OBJECTS;ui->parts.properties_open=false;ui->parts.movement_open=false;ui->parts.creating=false;ui->parts.id[0]=0;ui->parts.observed_valid=false;ui->parts.message[0]=0;ui->parts.delete_pending=false;ui->spatial.remove_pending=false;
         ui->rightScroll[UI_PANEL_RIGHT_TAB_PARTS].scrollOffsetPx=0;
+        if(ui->parts.mode==4)UIPanel_SpatialEnterVolumes();
         if(ui->parts.mode==2){ui->parts.filter=layout()->objectStore.view_query;snprintf(ui->parts.key,48,"%s",ui->parts.filter.property_key);snprintf(ui->parts.value,128,"%s",ui->parts.filter.property_value);}
         else {ui->parts.key[0]=ui->parts.value[0]=0;}
     } else if(action==PARTS_SELECT)ui->parts.chooser=chooser==1?0:1;

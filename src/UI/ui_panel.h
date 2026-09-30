@@ -6,6 +6,7 @@
 #include "Math/math_util.h"
 #include "core_units.h"
 #include "Editor/editor_measurement.h"
+#include "Layout/layout_spatial.h"
 #define UI_BTN_MEASURE 98
 
 #define MAX_UI_BUTTONS 128
@@ -450,7 +451,7 @@ typedef struct {
     } measurement;
 
     struct {
-        int mode; /* objects, assemblies, filters, links */
+        int mode; /* objects, assemblies, filters, links, volumes, checks */
         char id[64];
         LayoutEntityInfo draft, observed;
         bool observed_valid, creating, properties_open, movement_open, delete_pending;
@@ -461,6 +462,18 @@ typedef struct {
         LayoutRelationship link, observed_link;
         bool link_observed, link_remove_pending;
     } parts;
+    struct {
+        LayoutVolumeEdit volume;
+        Object3D observed_volume;
+        bool volume_observed, position_open, remove_pending, rules_open;
+        char size[3][64], center[3][64], distance[64];
+        LayoutSpatialRule rule, observed_rule;
+        bool rule_observed, checked;
+        uint64_t checked_digest;
+        LayoutSpatialResult results[256];
+        size_t result_count, total_count;
+        int selected_result;
+    } spatial;
 
 
     struct {
