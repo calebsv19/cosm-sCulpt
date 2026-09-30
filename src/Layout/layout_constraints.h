@@ -17,7 +17,12 @@ bool Layout_ConstraintEdit(Layout* layout, const LayoutConstraint* rule, const c
  * and orientation without changing geometry; target/home start at the current pose. */
 bool Layout_InitLinearTravel(const Layout* layout, LayoutConstraint* rule,
     double minimum_meters, double maximum_meters);
-bool Layout_SetTravelPosition(Layout* layout, const char* rule_id, double meters,
+/* Capture a single-plane hinge. Directions must be coplanar, limits in (-180,180].
+ * Creation joins the authored pivots; home is the current relative angle. */
+bool Layout_InitAngularTravel(const Layout* layout, LayoutConstraint* rule,
+    double minimum_degrees, double maximum_degrees);
+/* Position is meters for linear travel and degrees for angular travel. */
+bool Layout_SetTravelPosition(Layout* layout, const char* rule_id, double position,
     LayoutGeometryBeforePublish before_publish, void* context);
 typedef struct LayoutConstraintFeedback {
     bool satisfied;

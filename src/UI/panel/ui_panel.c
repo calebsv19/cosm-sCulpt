@@ -1090,9 +1090,9 @@ void UIPanel_ResetTransientUiState(void) {
 }
 
 void UIPanel_RenderOverlays(SDL_Renderer* renderer) {
+    UIPanel_RenderConstraintViewport(renderer);
     if (g_uiPanel.measurement.active && g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE)
         UIPanel_RenderMeasurementViewport(renderer);
-    else UIPanel_RenderConstraintViewport(renderer);
     UIPanel_RenderOverlayDialogs(renderer, &g_uiPanel);
     const char* message = Global_Get()->layout.geometryMessage;
     if (message[0]) {

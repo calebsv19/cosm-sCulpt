@@ -2,6 +2,31 @@
 
 Last updated: 2026-09-29
 
+## S1E bounded hinges and S1 refinement (2026-09-29)
+
+Bounded movement now includes **Travel** and **Hinge**, using the same compact
+Measure form: Min, Max, Position, an always-visible slider, and Min/Max/Reset.
+Hinges join authored pivots and rotate in an explicit world plane; their scalars
+are degrees independent of length display units. Schema 14 preserves the captured
+hinge frame and reset angle. Existing linear travel and fixed rules remain supported.
+
+The S1 refinement adds named Top/Side/Front/Free views, an Advanced physical grid-step
+field, direct access to pivot offsets, form refresh after undo/redo or rule changes,
+and viewport range/actual-target feedback while Measure is open. Primitive scene-list
+positions/sizes and the object selection header display physical units. No second geometry store was introduced.
+
+442 host tests / 43 reported suites pass, including 33 Constraints tests. Producer
+smoke, shape-sanity tool build and Main Edit package self-test pass. The final native-rendered
+hinge fixture was inspected, and a disposable native app loaded the saved fixture
+through its catalog. Further native coordinate clicks failed in the computer-control
+tool with `noWindowsAvailable` while the app remained running; the complete native
+Measure mouse walkthrough remains unverified. SDL mouse-event regressions cover the
+controls, slider gesture history and invalid input. These are distinct proof levels.
+
+The user confirmed the earlier compact Measure/linear-travel redesign works. That
+acceptance does not cover this new hinge. [S1 audit and next boundary](s1_engineering_audit.md)
+records the implemented primitive scope, remaining CAD gaps and S2 continuation.
+
 ## Measure workflow redesign (2026-09-29)
 
 The Measure tab now shows one selected tool at a time. Buttons, inset numeric fields,
@@ -13,8 +38,9 @@ staged lengths without changing physical geometry. Backend constraints and schem
 
 437 host tests / 43 reported suites pass (28 Constraints tests), plus Main Edit package
 self-test. Native-rendered initial, error and active travel fixtures were inspected.
-Human usability review remains pending; do not treat automated control tests as acceptance.
-Next: review this focused flow in the Desktop app before adding angular travel or envelopes.
+At this checkpoint human usability review was pending. The later user-confirmed
+compact flow and S1E continuation are recorded above. Automated tests alone do not
+establish human acceptance.
 
 ## S1e bounded linear travel (2026-09-28)
 

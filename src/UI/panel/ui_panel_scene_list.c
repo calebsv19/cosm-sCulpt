@@ -723,12 +723,17 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
                          object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE
                              ? "Mesh"
                              : (object->kind == OBJECT3D_KIND_RECT_PRISM ? "Prism" : "Plane"));
+                double px=0,py=0,pz=0,w=0,h=0,d=0;
+                (void)UIPanel_ConvertWorldToDisplay(object->transform.position.x,&px);
+                (void)UIPanel_ConvertWorldToDisplay(object->transform.position.y,&py);
+                (void)UIPanel_ConvertWorldToDisplay(object->transform.position.z,&pz);
+                (void)UIPanel_ConvertWorldToDisplay(object->kind==OBJECT3D_KIND_RECT_PRISM ? object->rectPrism.width : object->plane.width,&w);
+                (void)UIPanel_ConvertWorldToDisplay(object->kind==OBJECT3D_KIND_RECT_PRISM ? object->rectPrism.height : object->plane.height,&h);
+                (void)UIPanel_ConvertWorldToDisplay(object->rectPrism.depth,&d);
                 snprintf(line1,
                          sizeof(line1),
-                         "Pos %.1f, %.1f, %.1f",
-                         object->transform.position.x,
-                         object->transform.position.y,
-                         object->transform.position.z);
+                         "Pos (%s) %.4g, %.4g, %.4g",
+                         UIPanel_GetDisplayUnitSymbol(),px,py,pz);
                 if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
                     snprintf(line2,
                              sizeof(line2),
@@ -738,18 +743,15 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
                 } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
                     snprintf(line2,
                              sizeof(line2),
-                             "Size %.1f x %.1f x %.1f   Locks P:%s B:%s",
-                             object->rectPrism.width,
-                             object->rectPrism.height,
-                             object->rectPrism.depth,
+                             "Size %.4g x %.4g x %.4g %s   Locks P:%s B:%s",
+                             w,h,d,UIPanel_GetDisplayUnitSymbol(),
                              object->rectPrism.lockToConstructionPlane ? "On" : "Off",
                              object->rectPrism.lockToBounds ? "On" : "Off");
                 } else {
                     snprintf(line2,
                              sizeof(line2),
-                             "Size %.1f x %.1f   Locks P:%s B:%s",
-                             object->plane.width,
-                             object->plane.height,
+                             "Size %.4g x %.4g %s   Locks P:%s B:%s",
+                             w,h,UIPanel_GetDisplayUnitSymbol(),
                              object->plane.lockToConstructionPlane ? "On" : "Off",
                              object->plane.lockToBounds ? "On" : "Off");
                 }

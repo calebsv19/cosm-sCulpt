@@ -1,19 +1,19 @@
 # Line Drawing Future Intent
 
 
-Implementation update (2026-09-28): S0/S1a/S1b and bounded S1c are delivered.
-Geometry mutations share an atomic Layout transaction, and saved distance rules
-propagate through a directed dependency graph. Initial S1d coincident points and
-fixed planar pivot/relative-angle rules are also implemented. See the
-[persistent constraint contract](geometric_constraints.md) for scope and proof.
-S1d now also supports physical local reference offsets and visible pivot/constraint
-feedback. The persistent Measure pane now exposes mouse controls for these operations.
-S1e now includes saved linear travel with Min/Max/Position, slider, reset, downstream
-propagation and undo/reopen. Next: human review of the focused Measure redesign. Angular travel, pose sampling and
-motion envelopes follow only after that usability gate; independently
-named reusable datums remain an extension. Broader semantic organization remains later work.
+Implementation update (2026-09-29): the bounded S0/S1 mechanical-layout baseline
+now includes persistent distance/join/fixed-angle rules, physical pivot offsets,
+linear Travel and single-plane Hinge movement with limits, slider and reset.
+The compact Measure redesign was confirmed usable by the user before this hinge
+continuation. Named views, physical grid-step editing, form/history refresh and
+visible feedback complete this S1 refinement. See the
+[S1 audit](s1_engineering_audit.md) and [constraint contract](geometric_constraints.md)
+for proof and exclusions. Next is S2 semantic organization, then assemblies.
+Broader snapping/reusable datums remain extensions; sampled poses and envelopes
+belong to S4 after S3 reserved volumes and validation. New hinge human acceptance
+remains separate from regression and rendered-UI proof.
 
-Last updated: 2026-09-28
+Last updated: 2026-09-29
 
 ## Spatial Engineering Priority
 

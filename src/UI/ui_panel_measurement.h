@@ -28,7 +28,7 @@ enum {
     MEASURE_APPLY_OFFSET, MEASURE_RESET_OFFSET, MEASURE_DETAILS, MEASURE_CREATE, MEASURE_FILE,
     MEASURE_TRAVEL, MEASURE_TRAVEL_MIN, MEASURE_TRAVEL_MAX, MEASURE_TRAVEL_POSITION,
     MEASURE_TRAVEL_SAVE, MEASURE_TRAVEL_TO_MIN, MEASURE_TRAVEL_TO_MAX, MEASURE_TRAVEL_RESET,
-    MEASURE_TRAVEL_SLIDER, MEASURE_TOOL, MEASURE_ADVANCED, MEASURE_SAVED, MEASURE_CHOICE_BASE=100
+    MEASURE_TRAVEL_SLIDER, MEASURE_TOOL, MEASURE_ADVANCED, MEASURE_SAVED, MEASURE_HINGE, MEASURE_VIEW, MEASURE_VIEW_TOP, MEASURE_VIEW_SIDE, MEASURE_VIEW_FRONT, MEASURE_VIEW_FREE, MEASURE_PIVOT_EDITOR, MEASURE_GRID, MEASURE_GRID_APPLY, MEASURE_CHOICE_BASE=100
 };
 bool UIPanel_MeasurementControlRect(int action, SDL_Rect* rect);
 
@@ -37,3 +37,8 @@ void UIPanel_TravelStageInput(void);
 void UIPanel_TravelAction(int action);
 bool UIPanel_TravelEvent(const SDL_Event* event);
 void UIPanel_TravelEndDrag(void);
+
+/* Travel scalars are meters; hinge scalars are degrees, independent of display units. */
+bool UIPanel_TravelParse(const char* text, bool angular, double* value);
+
+bool UIPanel_ApplyEngineeringGrid(const char* text);

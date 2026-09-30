@@ -700,8 +700,162 @@ static bool test_measure_task_surface_and_units(void) {
     UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_CREATE);ld_test_shutdown_runtime();return true;
 }
 
+static LayoutConstraint hinge_rule(void) {
+    LayoutConstraint c=rule("door_hinge","A","B",0);
+    c.a.kind=c.b.kind=LAYOUT_REFERENCE_AXIS_U;c.axis=(Vec3){0,0,1};
+    c.a.local_offset_meters[0]=.5;c.b.local_offset_meters[0]=-.5;
+    return c;
+}
+static bool test_hinge_pivot_chain_and_history(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    uint32_t a=prism("A",(Vec3){0}),b=prism("B",(Vec3){1,0,0});TEST_ASSERT(a && b && prism("C",(Vec3){2,0,0}));
+    LayoutConstraint c=hinge_rule();TEST_ASSERT(Layout_InitAngularTravel(&s->layout,&c,0,110) && put(c));
+    TEST_ASSERT(put(rule("bc","B","C",.25)));Editor_ClearHistory(&s->editor);
+    LayoutResolvedReference pivot_before,pivot_after;
+    TEST_ASSERT(Layout_ResolveReference(&s->layout,&c.a,&pivot_before)==LAYOUT_MEASUREMENT_OK);
+    TEST_ASSERT(Layout_SetTravelPosition(&s->layout,c.id,90,Layout_GeometryHistory,NULL) && valid());
+    TEST_ASSERT(near_measure(&s->layout,c.a,c.b,EDITOR_MEASURE_PLANAR_ANGLE,c.axis,90));
+    TEST_ASSERT(near_measure(&s->layout,c.a,c.b,EDITOR_MEASURE_POINT_DISTANCE,c.axis,0));
+    TEST_ASSERT(Layout_ResolveReference(&s->layout,&c.b,&pivot_after)==LAYOUT_MEASUREMENT_OK);
+    for(int k=0;k<3;++k)TEST_ASSERT(fabs(pivot_before.point_meters[k]-pivot_after.point_meters[k])<1e-6);
+    TEST_ASSERT(near_measure(&s->layout,ref("B",0,0),ref("C",0,0),EDITOR_MEASURE_PROJECTED_DISTANCE,(Vec3){1,0,0},.25));
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==1 && Editor_Undo(&s->editor,&s->layout) && valid());
+    TEST_ASSERT(s->layout.objectStore.constraints[0].target==0 && Editor_Redo(&s->editor,&s->layout) && valid());
+    TEST_ASSERT(Layout_SetTravelPosition(&s->layout,c.id,110,Layout_GeometryHistory,NULL) && valid());
+    for(int n=0;n<80;++n)TEST_ASSERT(Layout_SetTravelPosition(&s->layout,c.id,(n*37)%111,Layout_GeometryHistory,NULL) && valid());
+    TEST_ASSERT(Layout_SetTravelPosition(&s->layout,c.id,0,Layout_GeometryHistory,NULL) && valid());
+    TEST_ASSERT(Layout_SetObject3DPosition(&s->layout,a,(Vec3){.1f,.2f,0},NULL) && valid());
+    Object3D baseline=*Layout_ObjectStore_Find(&s->layout.objectStore,a);bool adjusted=false;
+    TEST_ASSERT(Layout_RotateObject3D(&s->layout,a,(Vec3){0,0,1},30,&baseline,&adjusted) && !adjusted && valid());
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_hinge_conflict_rollback(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    TEST_ASSERT(prism("A",(Vec3){0}));uint32_t b=prism("B",(Vec3){1,0,0});TEST_ASSERT(b);
+    LayoutConstraint c=hinge_rule();TEST_ASSERT(Layout_InitAngularTravel(&s->layout,&c,0,110) && put(c));
+    Editor_ClearHistory(&s->editor);char* before=Layout_SaveToString(&s->layout);TEST_ASSERT(before);
+    TEST_ASSERT(!Layout_SetTravelPosition(&s->layout,c.id,111,Layout_GeometryHistory,NULL));
+    TEST_ASSERT(!Layout_SetTravelPosition(&s->layout,c.id,-1,Layout_GeometryHistory,NULL));
+    TEST_ASSERT(!Layout_SetObject3DPosition(&s->layout,b,(Vec3){2,0,0},NULL));
+    Object3D baseline=*Layout_ObjectStore_Find(&s->layout.objectStore,b);bool adjusted=false;
+    TEST_ASSERT(!Layout_RotateObject3D(&s->layout,b,(Vec3){1,0,0},30,&baseline,&adjusted));
+    s->layout.objectStore.items[1].coreMeta.flags.locked=true;
+    TEST_ASSERT(!Layout_SetTravelPosition(&s->layout,c.id,90,Layout_GeometryHistory,NULL));
+    s->layout.objectStore.items[1].coreMeta.flags.locked=false;
+    char* after=Layout_SaveToString(&s->layout);TEST_ASSERT(after && !strcmp(before,after) && !Editor_UndoCount(&s->editor));free(before);free(after);
+    c.travel_min=-180;TEST_ASSERT(!put(c));
+    c=hinge_rule();TEST_ASSERT(!Layout_InitAngularTravel(&s->layout,&c,20,110));
+    /* Center-pivot direct rotation is the permitted numeric-edit degree of freedom. */
+    c=hinge_rule();memset(c.a.local_offset_meters,0,sizeof(c.a.local_offset_meters));memset(c.b.local_offset_meters,0,sizeof(c.b.local_offset_meters));
+    TEST_ASSERT(Layout_InitAngularTravel(&s->layout,&c,0,110) && put(c));
+    baseline=*Layout_ObjectStore_Find(&s->layout.objectStore,b);
+    TEST_ASSERT(Layout_RotateObject3D(&s->layout,b,(Vec3){0,0,1},30,&baseline,&adjusted) && valid());
+    TEST_ASSERT(fabs(s->layout.objectStore.constraints[0].target-30)<1e-4);
+    c=s->layout.objectStore.constraints[0];c.travel_max=180;TEST_ASSERT(put(c));
+    TEST_ASSERT(Layout_SetTravelPosition(&s->layout,c.id,180,Layout_GeometryHistory,NULL) && valid());
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_hinge_persistence_and_export(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    TEST_ASSERT(prism("A",(Vec3){0}) && prism("B",(Vec3){100,0,0}));s->layout.metersPerWorldUnit=.01;
+    LayoutConstraint c=hinge_rule();TEST_ASSERT(Layout_InitAngularTravel(&s->layout,&c,-30,110) && put(c));
+    TEST_ASSERT(Layout_SetTravelPosition(&s->layout,c.id,110,Layout_GeometryHistory,NULL));
+    char* json=Layout_SaveToString(&s->layout);TEST_ASSERT(json && strstr(json,"travelMin_deg"));
+    Layout loaded;Layout_Init(&loaded,1);TEST_ASSERT(Layout_LoadFromString(&loaded,json) && Layout_ValidateConstraints(&loaded,NULL,0));
+    TEST_ASSERT(Layout_SetTravelPosition(&loaded,c.id,-30,NULL,NULL) && Layout_ValidateConstraints(&loaded,NULL,0));
+    for(int mode=0;mode<5;++mode) {
+        cJSON* root=cJSON_Parse(json);cJSON* v=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(root,"geometricConstraints"),0);
+        if(mode==0)cJSON_DeleteItemFromObjectCaseSensitive(v,"travelHome_deg");
+        if(mode==1)cJSON_SetNumberValue(cJSON_GetObjectItemCaseSensitive(v,"target"),70);
+        if(mode==2)cJSON_SetNumberValue(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"file"),"schemaVersion"),13);
+        if(mode==3)cJSON_SetNumberValue(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(v,"hingeReference"),0),0);
+        if(mode==4)cJSON_SetNumberValue(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(v,"travelBasis"),0),-1);
+        char* invalid=cJSON_PrintUnformatted(root);char* before=Layout_SaveToString(&loaded);
+        TEST_ASSERT(!Layout_LoadFromString(&loaded,invalid));char* after=Layout_SaveToString(&loaded);TEST_ASSERT(!strcmp(before,after));
+        free(before);free(after);free(invalid);cJSON_Delete(root);
+    }
+    char* authored=LineDrawingCanonicalScene_ExportLayoutToString(&s->layout,"door_fixture");char* runtime=NULL;char diagnostic[256];
+    TEST_ASSERT(authored && strstr(authored,"hingeReference") && core_scene_compile_authoring_to_runtime(authored,&runtime,diagnostic,sizeof(diagnostic)).code==CORE_OK);
+    free(authored);free(runtime);free(json);Layout_Free(&loaded);ld_test_shutdown_runtime();return true;
+}
+static bool test_hinge_mouse_flow(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();Global_SetWindowSize(1200,1000);UIPanel_OnWindowResized(1200,1000);
+    uint32_t a=prism("A",(Vec3){0});TEST_ASSERT(a && prism("B",(Vec3){1,0,0}));
+    s->editor.selectedObject3DId=a;UIPanel_BeginMeasurement();UIPanelState* ui=UIPanel_Get();
+    TEST_ASSERT(click_measure(MEASURE_TOOL) && click_measure(MEASURE_HINGE));TEST_ASSERT(ui->measurement.operation==4);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_MIN));type_measure("0 deg");
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_MAX));type_measure("110 deg");
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_POSITION));type_measure("30 deg");
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_SAVE) && valid() && s->layout.objectStore.constraintCount==1);
+    TEST_ASSERT(s->layout.objectStore.constraints[0].kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_TO_MAX) && s->layout.objectStore.constraints[0].target==110);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_RESET) && s->layout.objectStore.constraints[0].target==0);
+    SDL_Rect rect;TEST_ASSERT(UIPanel_MeasurementControlRect(MEASURE_TRAVEL_SLIDER,&rect));
+    TEST_ASSERT(rect.y+rect.h<=ui->rightBodyRect.y+ui->rightBodyRect.h);
+    TEST_ASSERT(click_measure(MEASURE_UNITS) && click_measure(MEASURE_CHOICE_BASE+4));
+    TEST_ASSERT(strstr(ui->measurement.travel_text[1],"110 deg"));
+    Editor_ClearHistory(&s->editor);AppContext context={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};
+    e.button.button=SDL_BUTTON_LEFT;e.button.x=rect.x+6;e.button.y=rect.y+rect.h/2;Input_Handle(&context,&e);
+    e.type=SDL_MOUSEMOTION;e.motion.x=rect.x+rect.w+10;Input_Handle(&context,&e);
+    e.type=SDL_MOUSEBUTTONUP;e.button.button=SDL_BUTTON_LEFT;Input_Handle(&context,&e);
+    TEST_ASSERT(valid() && s->layout.objectStore.constraints[0].target==110 && Editor_UndoCount(&s->editor)==1);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && valid());
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_RESET));
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_MAX));type_measure("200 deg");size_t undo=Editor_UndoCount(&s->editor);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_SAVE) && Editor_UndoCount(&s->editor)==undo && s->layout.objectStore.constraints[0].travel_max==110);
+    TEST_ASSERT(strstr(ui->measurement.placement_message,"180"));
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_RESET));
+    TEST_ASSERT(click_measure(MEASURE_SAVED) && click_measure(MEASURE_RULES) && click_measure(MEASURE_CHOICE_BASE));
+    TEST_ASSERT(ui->measurement.operation==4 && strstr(ui->measurement.travel_text[1],"110 deg"));
+    UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_CREATE);ld_test_shutdown_runtime();return true;
+}
+
+static bool test_s1_views_grid_and_form_refresh(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();Global_SetWindowSize(1200,1000);UIPanel_OnWindowResized(1200,1000);
+    uint32_t a=prism("A",(Vec3){0});TEST_ASSERT(a && prism("B",(Vec3){1,0,0}));
+    s->editor.selectedObject3DId=a;UIPanel_BeginMeasurement();UIPanelState* ui=UIPanel_Get();
+    ConstructionPlane3D plane=s->layout.scene3d.constructionPlane;Editor_ClearHistory(&s->editor);
+    TEST_ASSERT(click_measure(MEASURE_VIEW) && click_measure(MEASURE_VIEW_SIDE));
+    TEST_ASSERT(!s->freeViewCamera.enabled && s->activePlane.axis==VIEW_PLANE_YZ);
+    TEST_ASSERT(click_measure(MEASURE_VIEW) && click_measure(MEASURE_VIEW_FRONT));
+    TEST_ASSERT(s->activePlane.axis==VIEW_PLANE_XZ);
+    TEST_ASSERT(click_measure(MEASURE_VIEW) && click_measure(MEASURE_VIEW_TOP));
+    TEST_ASSERT(s->activePlane.axis==VIEW_PLANE_XY && !memcmp(&plane,&s->layout.scene3d.constructionPlane,sizeof(plane)) && !Editor_UndoCount(&s->editor));
+    TEST_ASSERT(click_measure(MEASURE_VIEW) && click_measure(MEASURE_VIEW_FREE) && s->freeViewCamera.enabled);
+    TEST_ASSERT(click_measure(MEASURE_ADVANCED) && click_measure(MEASURE_GRID));type_measure("25 mm");
+    double pixels=s->grid.gridSize*s->grid.scale;
+    TEST_ASSERT(click_measure(MEASURE_GRID_APPLY));
+    TEST_ASSERT(fabs(s->layout.gridSize-.025)<1e-7 && fabs(s->grid.gridSize*s->grid.scale-pixels)<1e-4 && Editor_UndoCount(&s->editor)==1);
+    char* json=Layout_SaveToString(&s->layout);Layout loaded;Layout_Init(&loaded,1);
+    TEST_ASSERT(json && Layout_LoadFromString(&loaded,json) && fabs(loaded.gridSize-.025)<1e-7);free(json);Layout_Free(&loaded);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout));UIPanel_LayoutMeasurementPane();TEST_ASSERT(s->grid.gridSize==s->layout.gridSize);
+    TEST_ASSERT(Editor_Redo(&s->editor,&s->layout));UIPanel_LayoutMeasurementPane();TEST_ASSERT(fabs(s->grid.gridSize-.025)<1e-7);
+    TEST_ASSERT(click_measure(MEASURE_GRID));type_measure("0 mm");size_t undo=Editor_UndoCount(&s->editor);
+    TEST_ASSERT(click_measure(MEASURE_GRID_APPLY) && Editor_UndoCount(&s->editor)==undo && ui->measurement.placing==13);
+    TEST_ASSERT(click_measure(MEASURE_CANCEL));
+    TEST_ASSERT(click_measure(MEASURE_TOOL) && click_measure(MEASURE_HINGE));
+    TEST_ASSERT(click_measure(MEASURE_PIVOT_EDITOR) && ui->measurement.offsets_open);
+    TEST_ASSERT(click_measure(MEASURE_SLOT_B) && click_measure(MEASURE_OFFSET_U));type_measure("-500 mm");
+    TEST_ASSERT(click_measure(MEASURE_APPLY_OFFSET));TEST_ASSERT(ui->measurement.refs[1].local_offset_meters[0]==-.5);
+    ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx=0;
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_SAVE) && valid());
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_TO_MAX));
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout));UIPanel_LayoutMeasurementPane();
+    double value;TEST_ASSERT(UIPanel_TravelParse(ui->measurement.travel_text[2],true,&value) && fabs(value)<1e-4);
+    TEST_ASSERT(click_measure(MEASURE_TRAVEL_TO_MAX) && s->layout.objectStore.constraints[0].target==110);
+    TEST_ASSERT(Editor_RedoCount(&s->editor)==0);
+    TEST_ASSERT(UIPanel_MeasurementKey(SDLK_ESCAPE));
+    TEST_ASSERT(ui->activeRightTab==UI_PANEL_RIGHT_TAB_VIEW && !ui->measurement.active);
+    ld_test_shutdown_runtime();return true;
+}
+
 bool constraints_run_tests(void) {
     const TestCase cases[]={
+        {"s1_views_grid_form_refresh",test_s1_views_grid_and_form_refresh},
+        {"hinge_pivot_chain_history",test_hinge_pivot_chain_and_history},
+        {"hinge_conflict_rollback",test_hinge_conflict_rollback},
+        {"hinge_persistence_export",test_hinge_persistence_and_export},
+        {"hinge_mouse_flow",test_hinge_mouse_flow},
         {"measure_task_surface_units",test_measure_task_surface_and_units},
         {"travel_chain_direct_edits",test_travel_chain_direct_edits},
         {"travel_contract_rollback",test_travel_contract_rollback},

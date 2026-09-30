@@ -1,7 +1,7 @@
 # Geometric References, Measurements and Exact Placement
 
 Status: measurements and one-time placements implemented; persistent rules are now available in the [constraint contract](geometric_constraints.md).
-Date: 2026-09-28
+Date: 2026-09-29
 
 ## Use in the editor
 
@@ -11,12 +11,12 @@ Empty scenes offer Create object and Open layout entry buttons.
 Selections survive switching tabs. Scene/object creation and editing retain their
 existing tabs. Scroll within Measure when the window is short or a section expands.
 
-1. Choose **Tool**: Distance, Join, Angle or Travel. Only that tool's controls appear.
+1. Choose **Tool**: Distance, Join, Angle, Travel or Hinge. Only that tool's controls appear.
 2. Choose A (fixed reference) and B (moving object) using the object selectors or
    **Pick in view**. Labels match the scene list, such as `#1 Prism`.
-3. Choose the relevant world axis or angle plane. Angle exposes direction references;
+3. Choose the relevant world axis or angle plane. Angle/Hinge expose direction references;
    other tools keep feature selectors under **Advanced**.
-4. Enter a target and click the prominent **Create distance/join/angle/travel** button.
+4. Enter a target and click the prominent **Create distance/join/angle/travel/hinge** button.
    Existing constraints use **Apply changes**. Measurement readouts remain plain text.
 
 Buttons have filled faces and hover states; numeric fields have separate labels and
@@ -28,6 +28,15 @@ For **Travel**, enter Min, Max and Position, then click **Create travel**. The s
 and Min/Max/Reset buttons are always visible; they are disabled until creation succeeds.
 Invalid ranges show a message beside the action. Editing saved limits disables movement
 until **Apply changes**, or **Reset** restores saved fields and the creation pose.
+
+**Hinge** uses the same movement controls in degrees. Choose a world plane and
+axis/face references, use **Edit pivot offsets…** for an off-center pivot, then
+Create hinge. See [hinge meaning and limits](geometric_constraints.md).
+**View** offers Top (XY), Side (YZ), Front (ZX) and Free without changing the
+construction plane. **Advanced → Grid step** accepts physical lengths; Apply grid
+preserves viewport scale and creates one undo step. Saved-rule controls refresh
+when undo/redo or direct edits change the selected rule. Leaving Measure returns
+to View rather than leaving an inactive form on screen.
 
 A is blue and B orange in the pane and viewport. Picking uses the chosen feature
 and local offset on each eligible primitive, with a 12-pixel capture radius.
@@ -73,12 +82,16 @@ leaves the selected operands available for a separate rule.
 
 ## Verification
 
-437 host tests across 43 reported suites pass, including 28 Constraints tests.
+442 host tests across 43 reported suites pass, including 33 Constraints tests.
 Mouse-event regressions cover selectors, numeric entry, create/update/remove, undo,
-slider gestures, disabled pre-creation controls, invalid limits, display-unit conversion,
-compact-pane control visibility and save/reopen. Native-rendered setup, error and active
-travel fixtures were inspected. Package self-test passes. These checks do not establish
-human usability acceptance. No shared API or scene schema changed in this redesign.
+linear/hinge slider gestures, invalid limits, display-unit conversion, compact-pane
+visibility, grid/view/pivot controls and saved-rule refresh. A native hinge render
+was inspected and its saved document loaded through the native catalog. Further
+native coordinate clicks failed in the computer-control tool; full native control
+walkthrough remains unverified. Package self-test passes. Earlier compact Measure
+usability was confirmed by the user; new hinge human acceptance is still separate.
+Schema 14 adds hinge persistence; physical identity/units remain unchanged. See
+[the audit](s1_engineering_audit.md) for evidence and remaining scope.
 
 ## Operand and measurement meaning
 

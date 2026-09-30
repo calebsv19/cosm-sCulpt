@@ -263,10 +263,7 @@ void Render_UIPanelSceneSummary(const UIPanelState* ui, SDL_Renderer* renderer) 
                  walls);
         snprintf(line_locks,
                  sizeof(line_locks),
-                 "Center  %.1f, %.1f, %.1f   Size %s x %s x %s",
-                 object->transform.position.x,
-                 object->transform.position.y,
-                 object->transform.position.z,
+                 "Size %s x %s x %s",
                  w_text,
                  h_text,
                  d_text);

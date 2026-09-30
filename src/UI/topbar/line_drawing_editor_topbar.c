@@ -453,6 +453,13 @@ static void Topbar_FormatPrimary(GlobalState* state, char* out, size_t out_size)
         return;
     }
 
+    double position[3] = {0};
+    const Object3D* position_object = selected_object ? selected_object : hovered_object;
+    if (position_object) {
+        (void)UIPanel_ConvertWorldToDisplay(position_object->transform.position.x, &position[0]);
+        (void)UIPanel_ConvertWorldToDisplay(position_object->transform.position.y, &position[1]);
+        (void)UIPanel_ConvertWorldToDisplay(position_object->transform.position.z, &position[2]);
+    }
     if (selected_object) {
         if (has_operation_report) {
             (void)snprintf(out,
@@ -464,22 +471,20 @@ static void Topbar_FormatPrimary(GlobalState* state, char* out, size_t out_size)
         } else {
             (void)snprintf(out,
                            out_size,
-                           "Selected  Object #%u  %s  Pos %.2f, %.2f, %.2f",
+                           "Selected  Object #%u  %s  Pos (%s) %.4g, %.4g, %.4g",
                            selected_object->objectId,
                            Topbar_ObjectKindLabel(selected_object->kind),
-                           selected_object->transform.position.x,
-                           selected_object->transform.position.y,
-                           selected_object->transform.position.z);
+                           UIPanel_GetDisplayUnitSymbol(),
+                       position[0], position[1], position[2]);
         }
     } else if (hovered_object) {
         (void)snprintf(out,
                        out_size,
-                       "Hover  Object #%u  %s  Pos %.2f, %.2f, %.2f",
+                       "Hover  Object #%u  %s  Pos (%s) %.4g, %.4g, %.4g",
                        hovered_object->objectId,
                        Topbar_ObjectKindLabel(hovered_object->kind),
-                       hovered_object->transform.position.x,
-                       hovered_object->transform.position.y,
-                       hovered_object->transform.position.z);
+                       UIPanel_GetDisplayUnitSymbol(),
+                       position[0], position[1], position[2]);
     } else if (editor->selectedAnchorIndex >= 0 &&
                editor->selectedAnchorIndex < (int)layout->anchorCount) {
         Anchor* anchor = &layout->anchors[editor->selectedAnchorIndex];

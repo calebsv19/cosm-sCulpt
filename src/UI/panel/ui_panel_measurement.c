@@ -119,21 +119,22 @@ static void cycle_rule(void) {
     const LayoutConstraint* rule = selected_rule();
     ui->measurement.use_rule_axis = rule != NULL;
     if (rule) {
-        if(rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL)UIPanel_TravelSelect(rule);
+        ui->measurement.observed_rule=*rule;ui->measurement.observed_rule_valid=true;
+        if((rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL || rule->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL))UIPanel_TravelSelect(rule);
         ui->measurement.refs[0] = rule->a;
         ui->measurement.refs[1] = rule->b;
-        ui->measurement.operation=rule->kind==LAYOUT_CONSTRAINT_DISTANCE ? 0 : rule->kind==LAYOUT_CONSTRAINT_COINCIDENT ? 1 : rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL ? 3 : 2;
+        ui->measurement.operation=rule->kind==LAYOUT_CONSTRAINT_DISTANCE ? 0 : rule->kind==LAYOUT_CONSTRAINT_COINCIDENT ? 1 : rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL ? 3 : rule->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL ? 4 : 2;
         double value=rule->target;
-        if(rule->kind!=LAYOUT_CONSTRAINT_PLANAR_MATE)(void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
-        snprintf(ui->measurement.placement_text,64,"%.9g %s",value,rule->kind==LAYOUT_CONSTRAINT_PLANAR_MATE ? "" : UIPanel_GetDisplayUnitSymbol());
-        snprintf(ui->measurement.placement_message,128,"Edit the target, then click Update rule.");
+        if(rule->kind!=LAYOUT_CONSTRAINT_PLANAR_MATE && rule->kind!=LAYOUT_CONSTRAINT_ANGULAR_TRAVEL)(void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
+        snprintf(ui->measurement.placement_text,64,"%.9g %s",value,(rule->kind==LAYOUT_CONSTRAINT_PLANAR_MATE || rule->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL) ? "" : UIPanel_GetDisplayUnitSymbol());
+        snprintf(ui->measurement.placement_message,128,"Edit the target, then click Apply changes.");
     } else snprintf(ui->measurement.placement_message, sizeof(ui->measurement.placement_message), "New rule mode; choose references and axis.");
 }
 
 static bool apply_rule(void) {
     UIPanelState* ui = UIPanel_Get();
     const LayoutConstraint* selected = selected_rule();
-    if(selected && selected->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL && ui->measurement.placing!=6) {
+    if(selected && (selected->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL || selected->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL) && ui->measurement.placing!=6) {
         snprintf(ui->measurement.placement_message,128,"Use Travel to update this rule, or remove it first.");return false;
     }
     const Vec3 axes[] = {{1,0,0}, {0,1,0}, {0,0,1}};
@@ -175,6 +176,7 @@ static bool apply_rule(void) {
 
 static void apply_placement(void) {
     UIPanelState* ui = UIPanel_Get();
+    if(ui->measurement.placing==13){(void)UIPanel_ApplyEngineeringGrid(ui->measurement.placement_text);return;}
     if (ui->measurement.placing >= 10) { finish_placement(); return; }
     if (ui->measurement.placing >= 7) {
         double meters;
@@ -243,7 +245,7 @@ bool UIPanel_MeasurementKey(SDL_Keycode key) {
         ui->measurement.pick_message[0] = '\0';
     } else if (key == SDLK_ESCAPE || key == SDLK_RETURN || key == SDLK_KP_ENTER) {
         if (ui->measurement.picking) ui->measurement.picking = false;
-        else ui->measurement.active = false;
+        else UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_VIEW);
     }
     else if (ui->measurement.picking && (key == SDLK_1 || key == SDLK_2 || key == SDLK_3)) {
         GlobalState* state = Global_Get();
@@ -292,10 +294,10 @@ void UIPanel_MeasurementSelectRule(int index) {
     cycle_rule();
     const LayoutConstraint* c=selected_rule();
     if (c) {
-        UIPanel_Get()->measurement.operation=c->kind==LAYOUT_CONSTRAINT_DISTANCE ? 0 : c->kind==LAYOUT_CONSTRAINT_COINCIDENT ? 1 : c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL ? 3 : 2;
+        UIPanel_Get()->measurement.operation=c->kind==LAYOUT_CONSTRAINT_DISTANCE ? 0 : c->kind==LAYOUT_CONSTRAINT_COINCIDENT ? 1 : c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL ? 3 : c->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL ? 4 : 2;
         double value=c->target;
-        if(c->kind!=LAYOUT_CONSTRAINT_PLANAR_MATE)(void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
-        snprintf(UIPanel_Get()->measurement.placement_text,64,"%.9g %s",value,c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE ? "" : UIPanel_GetDisplayUnitSymbol());
+        if(c->kind!=LAYOUT_CONSTRAINT_PLANAR_MATE && c->kind!=LAYOUT_CONSTRAINT_ANGULAR_TRAVEL)(void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
+        snprintf(UIPanel_Get()->measurement.placement_text,64,"%.9g %s",value,(c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE || c->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL) ? "" : UIPanel_GetDisplayUnitSymbol());
         UIPanel_Get()->measurement.placement_message[0]=0;
     }
 }

@@ -9,6 +9,7 @@
 #include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel_right_scroll.h"
 #include "Layout/layout_constraints.h"
+#include "Layout/layout_json.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
 
 
@@ -514,12 +515,13 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         return 1;
     }
 
+    const bool hinge_proof=proof_mode && !strncmp(proof_mode,"constraint-hinge",16);
     const bool travel_setup=proof_mode && (!strcmp(proof_mode,"constraint-travel-setup") || !strcmp(proof_mode,"constraint-travel-error"));
     const bool travel_proof = travel_setup || (proof_mode && strcmp(proof_mode,"constraint-travel")==0);
     const bool constraint_distance = proof_mode && strcmp(proof_mode, "constraint-distance") == 0;
     const bool pivot_feedback = proof_mode && strcmp(proof_mode, "constraint-pivot") == 0;
     const bool constraint_angle = pivot_feedback || (proof_mode && strcmp(proof_mode, "constraint-angle") == 0);
-    const bool placement_proof = travel_proof || constraint_distance || constraint_angle || (proof_mode && strcmp(proof_mode, "placement") == 0);
+    const bool placement_proof = hinge_proof || travel_proof || constraint_distance || constraint_angle || (proof_mode && strcmp(proof_mode, "placement") == 0);
     const bool measurement_proof = placement_proof || (proof_mode && strcmp(proof_mode, "measurement") == 0);
     if (measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
         LineDrawingHostEnterEditor();
@@ -579,6 +581,20 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
                     UIPanel_MeasurementText("20 mm");
                 }
             }
+            if(hinge_proof) {
+                for(int i=0;i<2;++i)if(!Layout_SetObject3DPosition(&state->layout,state->layout.objectStore.items[i].objectId,(Vec3){i,0,0},NULL))return 1;
+                UIPanelState* ui=UIPanel_Get();
+                for(int i=0;i<2;++i)ui->measurement.refs[i].kind=LAYOUT_REFERENCE_AXIS_U;
+                ui->measurement.refs[0].local_offset_meters[0]=.5;
+                ui->measurement.refs[1].local_offset_meters[0]=-.5;
+                LayoutConstraint c={.a=ui->measurement.refs[0],.b=ui->measurement.refs[1],.axis={0,0,1}};
+                if(!Layout_InitAngularTravel(&state->layout,&c,0,110) || !Layout_ConstraintEdit(&state->layout,&c,NULL,NULL,NULL))return 1;
+                if(!Layout_SetTravelPosition(&state->layout,state->layout.objectStore.constraints[0].id,60,NULL,NULL))return 1;
+                UIPanel_MeasurementSelectRule(0);ui->measurement.picking=false;
+                state->grid.scale=210;state->grid.offsetX=-(viewport.x+viewport.width/2)/210+1;
+                state->grid.offsetY=-(viewport.y+viewport.height*.6f)/210;
+                UIPanel_LayoutMeasurementPane();
+            }
             if(travel_proof) {
                 Object3D* a=&state->layout.objectStore.items[0];Object3D* b=&state->layout.objectStore.items[1];
                 (void)core_object_set_identity(&a->coreMeta,"floor_reference","rect_prism_primitive");
@@ -620,6 +636,12 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
             Global_FlagLayoutChanged();
             Global_FlagHitboxesDirty();
             handleUpdate(app);
+            if(hinge_proof) {
+                state->grid.scale=210;state->grid.offsetX=.5f-(viewport.x+viewport.width/2)/210;
+                state->grid.offsetY=-(viewport.y+viewport.height*.5f)/210;
+                const char* fixture=getenv("LINE_DRAWING_PROOF_LAYOUT_PATH");
+                if(fixture && fixture[0] && !Layout_SaveToFile(&state->layout,fixture))return 1;
+            }
         }
     }
 

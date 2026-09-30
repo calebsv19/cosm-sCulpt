@@ -1,13 +1,14 @@
 # Engineering Document Foundation (S0)
 
-Status: S0/S1a/S1b foundations, S1c/S1d fixed rules/offsets, and S1e linear travel implemented.
-Date: 2026-09-28
+Status: bounded S0/S1 foundations, fixed rules/offsets and linear/angular movement implemented.
+Date: 2026-09-29
 
-Current schema is **13**, adding bounded linear travel to persistent driving rules.
-References retain physical offsets from schema 12. Load/save/export validate the
-rule graph and stored geometry; older readers reject 13 instead of dropping travel.
-Schemas 0–12 remain readable under their contracts. See
-[geometric constraints](geometric_constraints.md) for exact fields and boundaries.
+Current schema is **14**, adding bounded angular travel and its captured frame to
+schema-13 linear travel. References retain physical offsets from schema 12.
+Load/save/export validate the rule graph and stored geometry; older readers reject
+14 instead of dropping hinge rules. Schemas 0–13 remain readable under their
+contracts. See [geometric constraints](geometric_constraints.md) and the
+[S1 audit](s1_engineering_audit.md) for exact fields and boundaries.
 The schema 10 account below records the original physical-context migration.
 
 ## Physical meaning and compatibility
@@ -87,7 +88,7 @@ geometry transactions; Editor owns typed commands/history hooks, UI owns input/d
 
 S0 verification covers scale-loss regression, retained-scale UI conversion,
 legacy layout loading, physical context/identity round trips and invalid/duplicate
-context rejection. S1a adds edit-conflict/undo/reopen/export tests. Named views,
+context rejection. S1a adds edit-conflict/undo/reopen/export tests.
 At that checkpoint, measurement selection, persistent gaps/angles, movement limits
 and assemblies were the subsequent slices. The current S1b/S1c and initial S1d
 status is recorded below and in the constraint contract. See [product direction](spatial_engineering_direction.md).

@@ -433,12 +433,14 @@ typedef struct {
         int slot;
         int projection_axis;
         int angle_plane;
-        int chooser; /* 1/2 objects, 3/4 features, 5 saved rules */
+        int chooser; /* 1/2 objects, 3/4 features, 5 rules, 6 units, 7 tools, 8 views */
         bool offsets_open;
         bool details_open;
+        LayoutConstraint observed_rule;
+        bool observed_rule_valid;
         bool advanced_open;
         bool rules_open;
-        int operation; /* distance, join, angle */
+        int operation; /* distance, join, angle, linear travel, hinge */
         bool replace_text;
         char travel_text[3][64]; /* Min, Max, Position; staged until Save */
         bool travel_dragging;

@@ -1,6 +1,6 @@
 # Sculpt Docs Index
 
-Last updated: 2026-09-28
+Last updated: 2026-09-29
 
 Start here for public repository documentation.
 
@@ -10,8 +10,11 @@ Public identity:
 
 ## Spatial Engineering Direction
 
+- [S1 engineering audit](s1_engineering_audit.md): UI workflows, bounded movement,
+  verification levels, remaining CAD limits and the next S2 slice.
+
 - [Persistent constraints](geometric_constraints.md): maintained distance rules,
-  coincident points, planar mates, atomic mutation coverage and next mechanical steps.
+  coincident points, planar mates, linear travel, hinges and atomic mutation coverage.
 
 - [Geometric measurements](geometric_measurements.md): selectable primitive
   origins, axes and faces; distance/angle measurements, exact one-time gap/point

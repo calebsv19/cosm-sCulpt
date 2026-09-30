@@ -1,7 +1,7 @@
 # Persistent Geometric Constraints
 
-Status: S1c delivered; S1d fixed mates, physical reference offsets and viewport feedback delivered; S1e bounded linear travel delivered.
-Date: 2026-09-28
+Status: bounded S1c/S1d fixed rules/offsets and S1e linear/angular movement delivered.
+Date: 2026-09-29
 
 ## User workflow
 
@@ -14,7 +14,8 @@ available beside the controls. No custom keyboard shortcut is needed.
 | Distance + target + Create distance | Maintain signed distance along the selected world axis |
 | Join + Create join | Maintain coincident reference points |
 | Angle + target + Create angle | Join pivots and maintain signed relative angle in the selected world plane |
-| Travel | Save Min/Max/Position, then drag the live slider or click Min/Max/Reset |
+| Travel | Create Min/Max/Position in physical lengths, then use slider or Min/Max/Reset |
+| Hinge | Create Min/Max/Position in degrees about authored pivots in an explicit plane |
 | Pivot offset | Expand local U/V/N fields; Set offset stages a physical offset |
 | Saved constraints | Choose a saved rule and populate the form |
 | Apply changes | Replace the selected rule under the same ID |
@@ -63,7 +64,7 @@ propagates. Out-of-plane configurations are refused, not silently projected.
 This is a fixed mate; it does not define hinge travel. Linear travel is a separate driving rule described below.
 Coincident points and mates can overlap solids: there is no collision check here.
 
-## Linear travel (S1e opening slice)
+## Linear travel (S1e)
 
 Choose A (rail anchor) and B (moving object), choose **Travel** from Tool, then world **X/Y/Z**.
 Set **Min**, **Max**, and **Position**, then **Create travel**. Enter unit-bearing values
@@ -102,6 +103,34 @@ These use the existing Layout engine; no separate geometry store or runtime solv
 is introduced. Shared unit conversion, projection, pane, font and theme APIs are
 reused; application-specific rail policy remains in Layout. No shared API change.
 The existing agent-scene request format does not yet expose a dedicated motion command.
+
+## Angular travel / Hinge (S1e)
+
+Choose **Tool → Hinge**, A (driver), B (moving part), direction references and
+**Plane XY/YZ/ZX**. **Edit pivot offsets…** opens Advanced offsets for an edge hinge.
+Both directions must lie in the plane. Enter degree **Min**, **Max**, **Position**
+and click **Create hinge**. Bare values or a `deg` suffix are accepted; length
+Units do not affect these fields. Ordered limits lie in **(-180,180]** and contain
+both position and the captured reset angle. A suggested 0–110 range is only a default.
+
+Creation captures B's complete orientation and A's direction, joins the authored
+points, then rotates to Position. The fixed world-plane normal defines positive
+relative angle. A translation/in-plane rotation carries B and downstream dependents.
+B's full orientation follows the captured frame: out-of-plane tilt, twist or pivot
+translation cannot silently become extra degrees of freedom. Use Position/slider
+for off-center rotation; an ordinary center rotation that moves the pivot is refused.
+
+The slider and **Min/Max/Reset** are visible before creation and disabled until a
+valid rule exists. Each accepted slider gesture owns one undo step. Apply changes
+updates limits/position; limits must still contain the original reset angle.
+Pending limits or reference offsets disable movement until applied or reset.
+Reset restores saved references/settings and creation angle. Changing a saved
+pivot/reference/plane requires removing and recreating its rule to recapture the frame.
+
+The green viewport arc and Min/Max labels show a reference range, not an occupied
+solid, collision test or motion envelope. `Layout_InitAngularTravel` captures the
+hinge; `Layout_SetTravelPosition` accepts **degrees** for angular travel and meters
+for linear travel, using the same atomic constraint-edit/history boundary.
 
 ## Viewport feedback
 
@@ -180,17 +209,22 @@ multi-command transaction API. Unrelated legacy anchor edits retain their own pa
 
 ## Persistence and compatibility
 
-Layout schema **13** requires `geometricConstraints` and `nextConstraintId`.
+Layout schema **14** requires `geometricConstraints` and `nextConstraintId`.
 Each rule stores ID, kind, A/B references, world vector and target (meters for
-projected distance, degrees for planar mate). Object identity, physical context,
-frame and display-unit contracts remain unchanged. Layout schemas 0–12 remain
+projected distance, degrees for planar mate/hinge). Object identity, physical context,
+frame and display-unit contracts remain unchanged. Layout schemas 0–13 remain
 readable. Schema 11 references without offsets become zero-offset references.
-Schemas 12 and 13 require finite `offsetU_m`, `offsetV_m`, and `offsetN_m` on both
+Schemas 12–14 require finite `offsetU_m`, `offsetV_m`, and `offsetN_m` on both
 operands. Partial/malformed offsets are refused even in an older document.
 Schema 13 adds kind `LINEAR_TRAVEL`, `travelMin_m`, `travelMax_m`, `travelHome_m`,
 three-component `travelOffset_m` and nine-component `travelBasis`. These fields are
 required for travel; finite ranges, orthonormal basis, transverse offset, graph and
 actual geometry are validated. Older readers reject 13 rather than lose motion rules.
+Schema 14 adds kind `ANGULAR_TRAVEL`, `travelMin_deg`, `travelMax_deg`,
+`travelHome_deg`, three-component unit `hingeReference` and nine-component
+`travelBasis`. Its finite coplanar reference, positive orthonormal captured basis,
+limits, reset and current solved geometry are validated. Schema-13 hinge records
+are refused; older readers reject 14 rather than discard hinges.
 The nested `file.schemaVersion` is now read correctly for offset requirements too.
 
 Loading validates the graph and stored geometry without silently solving stale
@@ -201,14 +235,14 @@ The separate object-asset authoring format cannot store scene rules. Rule creati
 in the Object workspace is refused, and saving a constrained layout as an object
 asset fails before touching its destination file. Save it as a scene instead.
 
-The canonical authoring export retains schema 13 in its embedded layout snapshot;
+The canonical authoring export retains schema 14 in its embedded layout snapshot;
 runtime compilation consumes the solved geometry. The renderer is not a constraint
 solver. Exporting invalid geometry fails. A physical-scale export override that
 makes the saved targets inconsistent also fails instead of changing their meaning.
 
 ## Verification and continuation
 
-`make test`: 436 tests across 43 reported suites, including 27 constraint tests.
+`make test`: 442 tests across 43 reported suites, including 33 constraint tests.
 Travel coverage includes attached chains, direct in-range movement, sideways/rotation
 and range refusal, downstream lock/bounds rollback, reset, mixed-unit mouse fields,
 single-slider-gesture undo, non-meter world scale, malformed/legacy-schema import
@@ -231,10 +265,17 @@ make visual-artifact-constraints VISUAL_ARTIFACT_PATH=/tmp/distance.bmp
 make visual-artifact-constraints CONSTRAINT_VISUAL_MODE=constraint-angle VISUAL_ARTIFACT_PATH=/tmp/angle.bmp
 make visual-artifact-constraints CONSTRAINT_VISUAL_MODE=constraint-pivot VISUAL_ARTIFACT_PATH=/tmp/pivot.bmp
 make visual-artifact-constraints CONSTRAINT_VISUAL_MODE=constraint-travel VISUAL_ARTIFACT_PATH=/tmp/travel.bmp
+make visual-artifact-constraints CONSTRAINT_VISUAL_MODE=constraint-hinge VISUAL_ARTIFACT_PATH=/tmp/hinge.bmp
 ```
 
-Next: S1e continues with angular travel around explicit pivots, then sampled poses
-and motion envelopes with validation. Independently named/reusable datums and arbitrary local axis
-directions remain later extensions of the embedded offset reference contract. Keep these distinct
-from the fixed mate delivered here. Semantic organization and assemblies follow
-after this mechanical-layout foundation has been exercised on a measured van scene.
+Hinge coverage adds off-center repeated poses, driver translation/rotation, range,
+lock/twist rejection, reset/history, non-meter scale, malformed capture/schema
+refusal, canonical export and actual SDL mouse controls. S1 view/grid/history-form
+refinements are also covered. Native hinge rendering and catalog reopen succeeded;
+further native coordinate clicks were blocked by the computer-control tool.
+See [S1 audit](s1_engineering_audit.md) for proof levels and remaining CAD scope.
+
+Next: S2 semantic organization and nested assemblies. S3 adds reserved/service
+volumes and validation; S4 adds sampled poses/envelopes using these motion rules.
+Independently named/reusable datums, broader mesh snapping and arbitrary local axis
+directions remain extensions. Measured van dimensions can be entered with S1 now.

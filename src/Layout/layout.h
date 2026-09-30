@@ -256,7 +256,8 @@ typedef enum LayoutConstraintKind {
     LAYOUT_CONSTRAINT_DISTANCE,
     LAYOUT_CONSTRAINT_COINCIDENT,
     LAYOUT_CONSTRAINT_PLANAR_MATE,
-    LAYOUT_CONSTRAINT_LINEAR_TRAVEL
+    LAYOUT_CONSTRAINT_LINEAR_TRAVEL,
+    LAYOUT_CONSTRAINT_ANGULAR_TRAVEL
 } LayoutConstraintKind;
 
 typedef struct LayoutConstraint {
@@ -265,11 +266,12 @@ typedef struct LayoutConstraint {
     LayoutGeometricReference b;
     LayoutConstraintKind kind;
     Vec3 axis; /* world projection axis, or planar mate normal */
-    double target; /* meters for distance/travel; degrees for planar mate */
+    double target; /* meters for distance/linear travel; degrees for mate/hinge */
     /* Linear travel is world-axis translation relative to A, with fixed B orientation. */
     double travel_min, travel_max, travel_home;
     double travel_offset[3]; /* perpendicular separation, meters */
-    double travel_basis[3][3]; /* normalized B U/V/N world directions */
+    double travel_basis[3][3]; /* normalized B U/V/N at capture */
+    double hinge_reference[3]; /* A direction at capture; hinge limits/home are degrees */
 } LayoutConstraint;
 
 typedef struct {
