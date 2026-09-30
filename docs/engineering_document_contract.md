@@ -1,14 +1,15 @@
 # Engineering Document Foundation (S0)
 
-Status: bounded S0/S1 foundations, fixed rules/offsets and linear/angular movement implemented.
+Status: bounded S0/S1 CAD foundation and S2 semantics/rigid assemblies implemented.
 Date: 2026-09-29
 
-Current schema is **14**, adding bounded angular travel and its captured frame to
-schema-13 linear travel. References retain physical offsets from schema 12.
-Load/save/export validate the rule graph and stored geometry; older readers reject
-14 instead of dropping hinge rules. Schemas 0–13 remain readable under their
-contracts. See [geometric constraints](geometric_constraints.md) and the
-[S1 audit](s1_engineering_audit.md) for exact fields and boundaries.
+Current schema is **15**, adding semantic records and rigid nested assembly frames.
+See [S2 semantics and assemblies](semantic_assemblies.md) for fields, migration,
+queries, transactions and export. Schema 14 hinge rules and schema 13 linear travel
+remain supported; references retain schema 12 physical offsets. Schemas 0–14 remain
+readable under their contracts. Older readers reject 15 rather than dropping S2
+data. See [geometric constraints](geometric_constraints.md) and the
+[S1 audit](s1_engineering_audit.md) for the earlier mechanical baseline.
 The schema 10 account below records the original physical-context migration.
 
 ## Physical meaning and compatibility

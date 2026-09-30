@@ -98,7 +98,7 @@ static void note(MeasurePane* p,const char* message) {
     }
 }
 static void object_label(const Object3D* o,char* out,size_t capacity) {
-    if(o)snprintf(out,capacity,"#%u %s",o->objectId,o->kind==OBJECT3D_KIND_RECT_PRISM ? "Prism" : "Plane");
+    if(o)snprintf(out,capacity,"#%u %s",o->objectId,o->info.label[0] ? o->info.label : o->kind==OBJECT3D_KIND_RECT_PRISM ? "Prism" : "Plane");
     else snprintf(out,capacity,"Choose object");
 }
 static const char* feature(const LayoutGeometricReference* ref) {

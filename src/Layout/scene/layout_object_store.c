@@ -76,6 +76,10 @@ void Layout_ObjectStore_Init(LayoutObjectStore* store) {
     store->constraintCount = 0;
     store->nextConstraintId = 1u;
     memset(store->constraints, 0, sizeof(store->constraints));
+    memset(store->assemblies, 0, sizeof(store->assemblies));
+    memset(&store->view_query, 0, sizeof(store->view_query));
+    store->assembly_count=0;
+    store->next_assembly_id=1;
 }
 
 void Layout_ObjectStore_Free(LayoutObjectStore* store) {
@@ -87,6 +91,10 @@ void Layout_ObjectStore_Free(LayoutObjectStore* store) {
     store->constraintCount = 0;
     store->nextConstraintId = 1u;
     memset(store->constraints, 0, sizeof(store->constraints));
+    memset(store->assemblies, 0, sizeof(store->assemblies));
+    memset(&store->view_query, 0, sizeof(store->view_query));
+    store->assembly_count=0;
+    store->next_assembly_id=1;
 }
 
 Object3D* Layout_ObjectStore_Find(LayoutObjectStore* store, uint32_t objectId) {

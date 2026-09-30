@@ -220,11 +220,45 @@ typedef struct {
     bool lockToBounds;
 } RectPrismPrimitiveCreateParams;
 
+#define LAYOUT_MAX_PROPERTIES 8
+#define LAYOUT_MAX_ASSEMBLIES 32
+
+typedef enum {
+    LAYOUT_PROPERTY_TEXT, LAYOUT_PROPERTY_NUMBER, LAYOUT_PROPERTY_BOOL, LAYOUT_PROPERTY_LENGTH
+} LayoutPropertyKind;
+typedef struct {
+    char key[48];
+    LayoutPropertyKind kind;
+    char text[128];
+    double number; /* dimensionless number, boolean 0/1, or canonical meters */
+} LayoutProperty;
+typedef struct {
+    char label[96]; /* display only; empty falls back to the existing primitive label */
+    char entity_type[64]; /* extensible category; empty means PhysicalObject */
+    char parent_id[64]; /* assembly ID; transform hierarchy, never electrical/support connectivity */
+    bool reference;
+    size_t property_count;
+    LayoutProperty properties[LAYOUT_MAX_PROPERTIES];
+} LayoutEntityInfo;
+typedef struct {
+    char id[64];
+    LayoutEntityInfo info;
+    PlaneFrame3 frame; /* world rigid frame; local frames derive from the parent inverse */
+} LayoutAssembly;
+typedef struct {
+    char entity_type[64];
+    int designation; /* 0 all, 1 design, 2 reference */
+    char assembly_id[64]; /* entire descendant subtree */
+    char property_key[48];
+    char property_value[128]; /* exact text or canonical scalar representation */
+} LayoutEntityQuery;
+
 typedef struct {
     uint32_t objectId;
     Object3DKind kind;
     Transform3D transform;
     CoreObject coreMeta;
+    LayoutEntityInfo info;
     PlanePrimitive3D plane;
     RectPrismPrimitive3D rectPrism;
     MeshAssetInstance3D meshInstance;
@@ -281,6 +315,10 @@ typedef struct {
     LayoutConstraint constraints[LAYOUT_MAX_CONSTRAINTS];
     size_t constraintCount;
     uint32_t nextConstraintId;
+    LayoutAssembly assemblies[LAYOUT_MAX_ASSEMBLIES];
+    size_t assembly_count;
+    uint32_t next_assembly_id;
+    LayoutEntityQuery view_query; /* transient viewport filter; never changes authored visibility */
 } LayoutObjectStore;
 
 

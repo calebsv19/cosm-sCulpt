@@ -1,3 +1,4 @@
+#include "Layout/layout_engineering.h"
 #include "UI/ui_panel_measurement.h"
 #include "Core/global_state.h"
 #include "Layout/layout_constraints.h"
@@ -57,7 +58,7 @@ static MeasurementMarker* markers(size_t* count) {
     const UIPanelState* ui = UIPanel_Get();
     for (size_t i = 0; i < store->count; ++i) {
         const Object3D* o = &store->items[i];
-        if (o->isDeleted || !o->coreMeta.flags.visible || !o->coreMeta.flags.selectable) continue;
+        if (!Layout_ObjectShown(store,o) || !o->coreMeta.flags.selectable) continue;
         MeasurementMarker m = {.reference = ui->measurement.refs[ui->measurement.slot]};
         snprintf(m.reference.entity_id, sizeof(m.reference.entity_id), "%s", o->coreMeta.object_id);
         Vec2 pixel;
@@ -204,7 +205,7 @@ static bool reference_visible(const EditorGeometricReference* ref) {
     const LayoutObjectStore* store=&Global_Get()->layout.objectStore;
     for (size_t i=0;i<store->count;++i) {
         const Object3D* o=&store->items[i];
-        if (!o->isDeleted && !strcmp(o->coreMeta.object_id,ref->entity_id)) return o->coreMeta.flags.visible;
+        if (!o->isDeleted && !strcmp(o->coreMeta.object_id,ref->entity_id)) return Layout_ObjectShown(&Global_Get()->layout.objectStore,o);
     }
     return false;
 }
@@ -240,7 +241,7 @@ void UIPanel_RenderConstraintViewport(SDL_Renderer* renderer) {
     if (!renderer || !viewport(&rect)) return;
     GlobalState* state=Global_Get();
     const Object3D* selected=Layout_ObjectStore_FindConst(&state->layout.objectStore,state->editor.selectedObject3DId);
-    if (!selected || selected->isDeleted || !selected->coreMeta.flags.visible) return;
+    if (!selected || selected->isDeleted || !Layout_ObjectShown(&state->layout.objectStore,selected)) return;
     SDL_Rect old_clip;
     bool had_clip=SDL_RenderIsClipEnabled(renderer);
     SDL_RenderGetClipRect(renderer,&old_clip);

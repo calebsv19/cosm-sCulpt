@@ -2,6 +2,28 @@
 
 Last updated: 2026-09-29
 
+## S2 semantic organization and rigid assemblies (2026-09-29)
+
+The new **Parts** tab provides Objects, Assemblies and Filters with explicit
+selectors, inset fields and action buttons. Names/types, Design/Reference role,
+typed properties and assembly parents are saved independently of stable IDs.
+Nested assemblies move/rotate through a compact numerical form; reparent preserves
+world pose. Conflicting locks, bounds, rules or history failure refuse the whole edit.
+
+Schema 15 preserves the semantic records and rigid assembly frames. Existing
+world geometry remains authoritative, with parent-local frames derived from it.
+View filters affect rendering, selection/list and annotations while leaving saved
+geometry, validation and exports intact. Canonical/runtime exports preserve the
+semantic extensions and assembly snapshot. Mesh world rotation composition was
+corrected after a nested-group regression exposed the old Euler-addition defect.
+
+451 host tests / 44 reported suites pass, including 9 Engineering tests and 33
+Constraints tests; producer smoke, shape tool build and Main Edit package self-test
+pass. Native rendered forms were inspected. Human acceptance of Parts remains
+pending. See [S2 workflows, schema and limits](semantic_assemblies.md).
+Next is S3 explicit relationships, reserved/service volumes and structured checks;
+new engineering primitives and sampled envelopes remain later bounded work.
+
 ## S1E bounded hinges and S1 refinement (2026-09-29)
 
 Bounded movement now includes **Travel** and **Hinge**, using the same compact

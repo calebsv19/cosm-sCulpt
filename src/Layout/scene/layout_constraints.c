@@ -1,4 +1,5 @@
 #include "Layout/layout_constraints.h"
+#include "Layout/layout_engineering.h"
 #include "Core/global_state.h"
 #include <float.h>
 #include <math.h>
@@ -280,6 +281,10 @@ static bool solve(Layout* layout, uint32_t edited, char* message, size_t size) {
     }
     return Layout_ValidateConstraints(layout,message,size);
 }
+bool Layout_SolveGeometryCandidate(Layout* candidate) {
+    return candidate && candidate->geometryEditActive &&
+        solve(candidate,0,candidate->geometryMessage,sizeof(candidate->geometryMessage));
+}
 bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutation mutate, void* context,
     LayoutGeometryBeforePublish before_publish, void* history_context) {
     if (!layout || !mutate || layout->geometryEditActive || layout->objectStore.constraintCount > LAYOUT_MAX_CONSTRAINTS) return false;
@@ -293,6 +298,7 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
     if (bytes && !candidate.objectStore.items) return fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Could not allocate geometry transaction.");
     if (bytes) memcpy(candidate.objectStore.items,layout->objectStore.items,bytes);
     bool ok=mutate(&candidate,context);
+    if (!ok && candidate.geometryMessage[0]) snprintf(layout->geometryMessage,sizeof(layout->geometryMessage),"%s",candidate.geometryMessage);
     /* Direct edits of B may translate along its rail; all other degrees of
      * freedom remain constrained. The accepted pose updates the saved target. */
     if (ok && edited) for(size_t i=0;i<candidate.objectStore.constraintCount;++i) {
@@ -314,15 +320,22 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
         }
         c->target=fmax(c->travel_min,fmin(c->travel_max,m.value));
     }
+    if (ok) ok=Layout_ValidateEngineering(&candidate,layout->geometryMessage,sizeof(layout->geometryMessage));
     if (ok) ok=solve(&candidate,edited,layout->geometryMessage,sizeof(layout->geometryMessage));
     if (!ok && !layout->geometryMessage[0]) fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Geometry edit rejected.");
     bool changed=ok && ((bytes && memcmp(candidate.objectStore.items,layout->objectStore.items,bytes)) ||
+        candidate.objectStore.assembly_count!=layout->objectStore.assembly_count ||
+        candidate.objectStore.next_assembly_id!=layout->objectStore.next_assembly_id ||
+        memcmp(candidate.objectStore.assemblies,layout->objectStore.assemblies,sizeof(layout->objectStore.assemblies)) ||
         candidate.objectStore.constraintCount!=layout->objectStore.constraintCount ||
         candidate.objectStore.nextConstraintId!=layout->objectStore.nextConstraintId ||
         memcmp(candidate.objectStore.constraints,layout->objectStore.constraints,sizeof(layout->objectStore.constraints)));
     if (changed && before_publish && !before_publish(layout,history_context)) ok=fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Could not reserve undo history.");
     if (ok && changed) {
         if (bytes) memcpy(layout->objectStore.items,candidate.objectStore.items,bytes);
+        memcpy(layout->objectStore.assemblies,candidate.objectStore.assemblies,sizeof(layout->objectStore.assemblies));
+        layout->objectStore.assembly_count=candidate.objectStore.assembly_count;
+        layout->objectStore.next_assembly_id=candidate.objectStore.next_assembly_id;
         memcpy(layout->objectStore.constraints,candidate.objectStore.constraints,sizeof(layout->objectStore.constraints));
         layout->objectStore.constraintCount=candidate.objectStore.constraintCount;
         layout->objectStore.nextConstraintId=candidate.objectStore.nextConstraintId;

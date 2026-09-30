@@ -1,3 +1,4 @@
+#include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_shell.h"
 #include "UI/ui_panel_measurement.h"
 #include "Core/global_state.h"
@@ -39,7 +40,7 @@ void UIPanel_SetActiveLeftTab(UIPanelState* ui, UIPanelLeftTab tab) {
 void UIPanel_SetActiveRightTab(UIPanelState* ui, UIPanelRightTab tab) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     if (!ui || !UIPanel_IsValidRightTab(tab)) return;
-    if (ui->activeRightTab != tab) UIPanel_MeasurementStopInput();
+    if (ui->activeRightTab != tab) { UIPanel_MeasurementStopInput(); UIPanel_PartsStopInput(); }
     ui->measurement.active = tab == UI_PANEL_RIGHT_TAB_MEASURE;
     ui->activeRightTab = tab;
     if (object_mode) {
@@ -98,6 +99,7 @@ const char* UIPanel_RightTabLabel(UIPanelRightTab tab) {
         case UI_PANEL_RIGHT_TAB_OBJECT: return object_mode ? "Properties" : "Object";
         case UI_PANEL_RIGHT_TAB_EDIT: return "Edit";
         case UI_PANEL_RIGHT_TAB_MEASURE: return "Measure";
+        case UI_PANEL_RIGHT_TAB_PARTS: return "Parts";
         case UI_PANEL_RIGHT_TAB_COUNT:
         default: return "View";
     }

@@ -42,3 +42,7 @@ bool Layout_ConstraintsReadJson(Layout* layout, const cJSON* root, bool required
 /* One accepted drag gesture owns one snapshot; failed/no-op increments own none. */
 void Layout_BeginGeometryGesture(Layout* layout);
 void Layout_EndGeometryGesture(Layout* layout);
+
+/* Internal candidate solver for atomic group commands. Only an active isolated
+ * geometry transaction may use this; publish/history remain with its outer command. */
+bool Layout_SolveGeometryCandidate(Layout* candidate);

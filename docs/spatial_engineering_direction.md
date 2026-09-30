@@ -8,7 +8,9 @@ The compact Measure redesign was confirmed usable by the user before this hinge
 continuation. Named views, physical grid-step editing, form/history refresh and
 visible feedback complete this S1 refinement. See the
 [S1 audit](s1_engineering_audit.md) and [constraint contract](geometric_constraints.md)
-for proof and exclusions. Next is S2 semantic organization, then assemblies.
+for proof and exclusions. S2 semantic organization and nested rigid assemblies
+now ship through Parts; see [S2 workflows and contract](semantic_assemblies.md).
+Next is S3 relationships plus reserved/service volumes and structured checks.
 Broader snapping/reusable datums remain extensions; sampled poses and envelopes
 belong to S4 after S3 reserved volumes and validation. New hinge human acceptance
 remains separate from regression and rendered-UI proof.

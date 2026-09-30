@@ -1,3 +1,4 @@
+#include "Layout/layout_engineering.h"
 #include "Layout/asset/layout_object_asset_mesh_authoring.h"
 
 #include "ObjectAuthoring/object_authoring_eval.h"
@@ -207,9 +208,9 @@ bool LayoutObjectAssetMeshAuthoring_Save(const Layout* layout,
         return false;
     }
 
-    if (layout->objectStore.constraintCount) {
+    if (layout->objectStore.constraintCount || Layout_HasEngineeringData(layout)) {
         LayoutObjectAsset_SetDiagnostics(diagnostics, diagnostics_size,
-            "Object assets cannot store scene constraints; save a scene document or explicitly remove its rules.");
+            "Object assets cannot store scene constraints, semantics or assemblies; save a scene document.");
         return false;
     }
     core_mesh_asset_authoring_document_init(&document);

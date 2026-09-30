@@ -65,6 +65,8 @@ SHAPE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/layout_json.c \
 	$(SRC_DIR)/Layout/scene/layout_reference.c \
 	$(SRC_DIR)/Layout/scene/layout_constraints.c \
+	$(SRC_DIR)/Layout/scene/layout_engineering.c \
+	$(SRC_DIR)/Layout/scene/layout_engineering_json.c \
 	$(SRC_DIR)/Layout/scene/layout_constraints_json.c \
 	$(SRC_DIR)/Layout/primitives/layout_primitives_resize.c \
 	$(SRC_DIR)/Layout/primitives/layout_primitives_rect_prism_resize.c \
@@ -115,6 +117,8 @@ AGENT_SCENE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/layout_json.c \
 	$(SRC_DIR)/Layout/scene/layout_reference.c \
 	$(SRC_DIR)/Layout/scene/layout_constraints.c \
+	$(SRC_DIR)/Layout/scene/layout_engineering.c \
+	$(SRC_DIR)/Layout/scene/layout_engineering_json.c \
 	$(SRC_DIR)/Layout/scene/layout_constraints_json.c \
 	$(SRC_DIR)/Layout/primitives/layout_primitives_resize.c \
 	$(SRC_DIR)/Layout/primitives/layout_primitives_rect_prism_resize.c \

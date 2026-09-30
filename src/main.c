@@ -1,3 +1,4 @@
+#include "Core/line_drawing_engineering_proof.h"
 // src/main.c
 #include "line_drawing/line_drawing_app_main.h"
 #include "Core/SDLApp/sdl_app_framework.h"
@@ -515,13 +516,14 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         return 1;
     }
 
+    const bool parts_proof=proof_mode && !strncmp(proof_mode,"parts-",6);
     const bool hinge_proof=proof_mode && !strncmp(proof_mode,"constraint-hinge",16);
     const bool travel_setup=proof_mode && (!strcmp(proof_mode,"constraint-travel-setup") || !strcmp(proof_mode,"constraint-travel-error"));
     const bool travel_proof = travel_setup || (proof_mode && strcmp(proof_mode,"constraint-travel")==0);
     const bool constraint_distance = proof_mode && strcmp(proof_mode, "constraint-distance") == 0;
     const bool pivot_feedback = proof_mode && strcmp(proof_mode, "constraint-pivot") == 0;
     const bool constraint_angle = pivot_feedback || (proof_mode && strcmp(proof_mode, "constraint-angle") == 0);
-    const bool placement_proof = hinge_proof || travel_proof || constraint_distance || constraint_angle || (proof_mode && strcmp(proof_mode, "placement") == 0);
+    const bool placement_proof = parts_proof || hinge_proof || travel_proof || constraint_distance || constraint_angle || (proof_mode && strcmp(proof_mode, "placement") == 0);
     const bool measurement_proof = placement_proof || (proof_mode && strcmp(proof_mode, "measurement") == 0);
     if (measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
         LineDrawingHostEnterEditor();
@@ -633,9 +635,17 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
                 ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx=0;
                 UIPanel_LayoutMeasurementPane();
             }
+            if(parts_proof && !LineDrawingEngineering_StageProof(proof_mode))return 1;
             Global_FlagLayoutChanged();
             Global_FlagHitboxesDirty();
             handleUpdate(app);
+            if(parts_proof) {
+                if(!LineDrawingPaneHost_GetViewportRect(&state->paneHost,&viewport))return 1;
+                state->grid.scale=170;state->grid.offsetX=-(viewport.x+viewport.width/2)/170;
+                state->grid.offsetY=-(viewport.y+viewport.height*.5f)/170;
+                const char* fixture=getenv("LINE_DRAWING_PROOF_LAYOUT_PATH");
+                if(fixture && fixture[0] && !Layout_SaveToFile(&state->layout,fixture))return 1;
+            }
             if(hinge_proof) {
                 state->grid.scale=210;state->grid.offsetX=.5f-(viewport.x+viewport.width/2)/210;
                 state->grid.offsetY=-(viewport.y+viewport.height*.5f)/210;

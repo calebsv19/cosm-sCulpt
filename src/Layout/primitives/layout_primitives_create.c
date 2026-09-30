@@ -271,6 +271,8 @@ uint32_t Layout_ObjectStore_Create(LayoutObjectStore* store,
         bool unique = true;
         for (size_t i = 0; i < store->count; ++i)
             if (store->items[i].objectId == candidate.objectId || !strcmp(store->items[i].coreMeta.object_id, proposed)) unique = false;
+        for (size_t i=0;i<store->assembly_count;++i)
+            if (!strcmp(store->assemblies[i].id,proposed)) unique=false;
         if (unique) break;
         ++candidate.objectId;
     }

@@ -1,3 +1,4 @@
+#include "Layout/layout_engineering.h"
 #include "Layout/scene/layout_mesh_solid_preview.h"
 #include "Layout/scene/layout_mesh_asset_path_resolver.h"
 
@@ -96,7 +97,7 @@ static uint64_t LayoutMeshSolid_ObjectSignature(const Layout* layout) {
     for (size_t i = 0u; i < layout->objectStore.count; ++i) {
         const Object3D* object = &layout->objectStore.items[i];
         char resolvedPath[LINE_DRAWING_PATH_CAP];
-        if (object->isDeleted || object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) continue;
+        if (!Layout_ObjectShown(&layout->objectStore,object) || object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE) continue;
         hash = LayoutMeshSolid_HashBytes(hash, &object->objectId, sizeof(object->objectId));
         hash = LayoutMeshSolid_HashBytes(hash, &object->transform, sizeof(object->transform));
         hash = LayoutMeshSolid_HashBytes(hash,
@@ -580,7 +581,7 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
             const Object3D* object = &layout->objectStore.items[i];
             LayoutMeshSolidPreviewAssetCache* asset = NULL;
             const LayoutMeshSolidPreviewLod* lod = NULL;
-            if (object->isDeleted || object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE ||
+            if (!Layout_ObjectShown(&layout->objectStore,object) || object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE ||
                 !object->meshInstance.runtimePath[0]) {
                 continue;
             }

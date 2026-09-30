@@ -80,7 +80,10 @@ command/revision-checked agent batch is also future work.
 
 ## Next bounded work
 
-Start **S2 with semantic organization**: stable typed categories, extensible
+S2 follow-up is now implemented: [Parts, semantics and rigid assemblies](semantic_assemblies.md).
+The opening boundary below records the S1 handoff; S3 is next.
+
+Original S2 handoff: start **S2 with semantic organization**: stable typed categories, extensible
 properties, reference/design designation, and a small query/filter UI on the same
 saved entities. Prove save/reopen/export/undo and visible filtering before nested
 transform assemblies. Then add an acyclic parent tree with reparent/move tests

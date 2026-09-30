@@ -1,3 +1,4 @@
+#include "UI/ui_panel_parts.h"
 #include "UI/input_ui_panel.h"
 #include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel.h"
@@ -185,6 +186,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 
     if (UIPanel_RightScrollHandleClick(mouseX, mouseY)) return true;
     if (UIPanel_MeasurementClick(mouseX, mouseY)) return true;
+    if (UIPanel_PartsClick(mouseX, mouseY)) return true;
 
     if (UIPanel_HandleSceneListClick(mouseX, mouseY)) {
         UIPanel_CloseFileBrowser(ui);

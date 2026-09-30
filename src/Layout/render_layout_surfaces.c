@@ -1,3 +1,4 @@
+#include "Layout/layout_engineering.h"
 #include "Layout/render_layout_surfaces.h"
 
 #include "Core/global_state.h"
@@ -298,6 +299,7 @@ void Layout_RenderObjectSurfaces(const Layout* layout, SDL_Renderer* renderer) {
 
     for (size_t i = 0; i < layout->objectStore.count; ++i) {
         const Object3D* object = &layout->objectStore.items[i];
+        if (!Layout_ObjectShown(&layout->objectStore,object)) continue;
         const bool is_selected = (state->editor.selectedObject3DId == object->objectId);
         const bool is_hovered = (state->editor.hoveredObject3DId == object->objectId);
         const Object3DFaceKind selected_face =

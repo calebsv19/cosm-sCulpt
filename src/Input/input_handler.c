@@ -1,3 +1,4 @@
+#include "UI/ui_panel_parts.h"
 // src/Input/input_handler.c
 #include "input_handler.h"
 #include "input_mouse.h"
@@ -10,6 +11,7 @@
 //        Public input handler
 // ======================================
 void Input_Handle(AppContext *ctx, SDL_Event* event) {
+    if (UIPanel_PartsEvent(event)) return;
     UIPanelState* panel=UIPanel_Get();
     if(UIPanel_TravelEvent(event))return;
     if (panel->measurement.active && panel->activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE) {

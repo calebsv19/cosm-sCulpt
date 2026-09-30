@@ -1,3 +1,4 @@
+#include "Layout/layout_engineering.h"
 #include "ObjectAuthoring/object_authoring_eval.h"
 
 #include <stdio.h>
@@ -209,9 +210,9 @@ bool ObjectAuthoring_ApplyEvaluatedDocumentToLayout(
         return false;
     }
 
-    if (layout->objectStore.constraintCount) {
+    if (layout->objectStore.constraintCount || Layout_HasEngineeringData(layout)) {
         ObjectAuthoringEval_SetDiag(diagnostics, OBJECT_AUTHORING_EVAL_INVALID_ARGUMENT, 0u,
-            "Remove scene constraints before replacing geometry through Object Authoring.");
+            "Scene constraints, semantics or assemblies would be lost by whole-store Object Authoring replacement.");
         return false;
     }
     Layout_ObjectStore_Free(&layout->objectStore);

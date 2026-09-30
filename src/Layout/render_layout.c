@@ -1,3 +1,4 @@
+#include "Layout/layout_engineering.h"
 // src/Layout/layout_render.c
 #include "Layout/render_layout.h"
 #include "Layout/render_layout_surfaces.h"
@@ -315,7 +316,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
         const bool isHovered = (editor->hoveredObject3DId == object->objectId);
         const float depthFactor = DepthVisualFactor(ViewPlane_AbsDistance(plane, object->transform.position));
 
-        if (object->isDeleted) continue;
+        if (!Layout_ObjectShown(&layout->objectStore,object)) continue;
 
         if (object->kind == OBJECT3D_KIND_PLANE) {
             Vec3 corners3[4];

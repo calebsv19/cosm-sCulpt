@@ -1,3 +1,4 @@
+#include "Layout/layout_engineering.h"
 #include "hitbox_system.h"
 #include "Editor/editor.h"
 #include "Editor/object_handle_gizmo.h"
@@ -433,7 +434,7 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
     };
     for (size_t i = 0; i < layout->objectStore.count; ++i) {
         const Object3D* object = &layout->objectStore.items[i];
-        if (object->isDeleted) continue;
+        if (!Layout_ObjectShown(&layout->objectStore,object) || !object->coreMeta.flags.selectable) continue;
 
         if (object->kind == OBJECT3D_KIND_PLANE) {
             Vec3 corners[4];

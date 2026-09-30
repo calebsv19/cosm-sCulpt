@@ -1,3 +1,4 @@
+#include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_create_summary.h"
 #include "UI/ui_panel.h"
@@ -723,11 +724,13 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
     }
     UIPanel_LayoutRightPaneButtons(&g_uiPanel, &metrics);
     UIPanel_LayoutMeasurementPane();
+    UIPanel_LayoutParts();
 }
 
 void UIPanel_Init(int screenW, int screenH) {
     g_uiPanel.count = 0;
     UIPanel_InitShellState(&g_uiPanel);
+    g_uiPanel.parts.rotation_axis=2;
     g_uiPanel.sceneList.scrollOffsetPx = 0.0f;
     g_uiPanel.sceneList.hoverIndex = -1;
     g_uiPanel.sceneList.expandedObjectId = 0u;
@@ -1051,6 +1054,7 @@ bool UIPanel_IsObjectTransformDialogActive(void) {
 }
 
 bool UIPanel_IsCapturingKeyboard(void) {
+    if (g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_PARTS && (g_uiPanel.parts.input || g_uiPanel.parts.chooser)) return true;
     if (g_uiPanel.measurement.active && g_uiPanel.measurement.placing) return true;
     return UIPanel_IsSaveDialogActive() ||
            UIPanel_IsRootDialogActive() ||
@@ -1072,6 +1076,9 @@ void UIPanel_ResetTransientUiState(void) {
     ui->sceneList.scrollbarDragging = false;
     ui->objectModelTree.operationScrollbarDragging = false;
     ui->pathPointPlacementArmed = false;
+    UIPanel_PartsStopInput();
+    memset(&ui->parts,0,sizeof(ui->parts));
+    ui->parts.rotation_axis=2;
     memset(&ui->measurement, 0, sizeof(ui->measurement));
     for (int i = 0; i < UI_PANEL_RIGHT_TAB_COUNT; ++i) {
         ui->rightScroll[i].scrollOffsetPx = 0.0f;

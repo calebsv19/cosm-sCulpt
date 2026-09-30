@@ -4,6 +4,8 @@ Last updated: 2026-09-29
 
 Start here for public repository documentation.
 
+- [Parts: semantic organization and assemblies](semantic_assemblies.md) — S2 controls, schema, proof and limits.
+
 Public identity:
 - packaged desktop product: `Sculpt`
 - repository/program key: `line_drawing`

@@ -289,6 +289,24 @@ static Vec3 RotationDeg_ApplyWorldAxisDelta(Vec3 baseRotationDeg, Vec3 axisWorld
     return baseRotationDeg;
 }
 
+/* Mesh instances render from Rz * Ry * Rx. Compose a world rotation onto that
+ * basis before extracting Euler angles; component addition is not composition. */
+static Vec3 MeshRotation_ApplyWorldAxisDelta(Vec3 base, Vec3 axis, float angle) {
+    Transform3D rotation=Layout_Transform3D_Default();rotation.rotationDeg=base;
+    Vec3 u=Layout_Transform3D_ApplyLocalPoint(rotation,(Vec3){1,0,0});
+    Vec3 v=Layout_Transform3D_ApplyLocalPoint(rotation,(Vec3){0,1,0});
+    Vec3 n=Layout_Transform3D_ApplyLocalPoint(rotation,(Vec3){0,0,1});
+    axis=Vec3_Normalize(axis);
+    u=Vec3_RotateAroundAxis(u,axis,DegToRad(angle));
+    v=Vec3_RotateAroundAxis(v,axis,DegToRad(angle));
+    n=Vec3_RotateAroundAxis(n,axis,DegToRad(angle));
+    const float y=asinf(fmaxf(-1,fminf(1,-u.z)));
+    float x=0,z=0;
+    if(fabsf(cosf(y))>1e-5f) {x=atan2f(v.z,n.z);z=atan2f(u.y,u.x);}
+    else z=atan2f(-v.x,v.y);
+    return (Vec3){RadToDeg(x),RadToDeg(y),RadToDeg(z)};
+}
+
 static bool SceneBounds_ObjectFits(const SceneBounds3D* bounds, const Object3D* object) {
     if (!bounds || !object) return false;
     if (!bounds->enabled) return true;
@@ -932,6 +950,8 @@ bool Layout_RotateObject3D(Layout* layout,
     }
 
     next.transform.rotationDeg =
+        object->kind==OBJECT3D_KIND_MESH_ASSET_INSTANCE ?
+        MeshRotation_ApplyWorldAxisDelta(baseline->transform.rotationDeg, axisWorld, angleDeg) :
         RotationDeg_ApplyWorldAxisDelta(baseline->transform.rotationDeg, axisWorld, angleDeg);
 
     if (Object3D_IsBoundsLocked(&next)) {

@@ -27,6 +27,7 @@ typedef enum {
     UI_PANEL_RIGHT_TAB_OBJECT = 2,
     UI_PANEL_RIGHT_TAB_EDIT = 3,
     UI_PANEL_RIGHT_TAB_MEASURE = 4,
+    UI_PANEL_RIGHT_TAB_PARTS = 5,
     UI_PANEL_RIGHT_TAB_COUNT
 } UIPanelRightTab;
 
@@ -447,6 +448,18 @@ typedef struct {
         SDL_Rect travel_track;
         char travel_drag_id[64];
     } measurement;
+
+    struct {
+        int mode; /* objects, assemblies, filters */
+        char id[64];
+        LayoutEntityInfo draft, observed;
+        bool observed_valid, creating, properties_open, movement_open, delete_pending;
+        int chooser, input, property_kind, rotation_axis;
+        bool replace_text;
+        char key[48], value[128], move[3][64], angle[64], message[160];
+        LayoutEntityQuery filter;
+    } parts;
+
 
     struct {
         bool active;

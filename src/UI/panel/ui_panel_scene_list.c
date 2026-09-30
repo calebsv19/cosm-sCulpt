@@ -1,3 +1,4 @@
+#include "Layout/layout_engineering.h"
 #include "Layout/layout_constraints.h"
 #include "UI/ui_panel_scene_list.h"
 
@@ -68,7 +69,7 @@ static size_t UIPanelSceneList_LiveObjectCount(const LayoutObjectStore* store) {
     size_t count = 0u;
     if (!store) return 0u;
     for (size_t i = 0; i < store->count; ++i) {
-        if (!store->items[i].isDeleted && store->items[i].objectId != 0u) ++count;
+        if (Layout_ObjectShown(store,&store->items[i]) && store->items[i].objectId != 0u) ++count;
     }
     return count;
 }
@@ -96,7 +97,7 @@ static const Object3D* UIPanelSceneList_ObjectAtVisibleIndex(const LayoutObjectS
     if (!store || visibleIndex < 0) return NULL;
     for (size_t i = 0; i < store->count; ++i) {
         const Object3D* object = &store->items[i];
-        if (object->isDeleted || object->objectId == 0u) continue;
+        if (!Layout_ObjectShown(store,object) || object->objectId == 0u) continue;
         if (current == visibleIndex) return object;
         ++current;
     }
@@ -720,7 +721,7 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
                          "%s #%u  %s",
                          isExpanded ? "v" : ">",
                          object->objectId,
-                         object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE
+                         object->info.label[0] ? object->info.label : object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE
                              ? "Mesh"
                              : (object->kind == OBJECT3D_KIND_RECT_PRISM ? "Prism" : "Plane"));
                 double px=0,py=0,pz=0,w=0,h=0,d=0;

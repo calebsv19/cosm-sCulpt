@@ -1,3 +1,4 @@
+#include "Layout/layout_engineering.h"
 // src/Render/render_editor.c
 #include "Editor/render_editor.h"
 #include "Core/global_state.h"
@@ -350,7 +351,7 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
     if (!objectFaceSketchLaneActive && editor->selectedObject3DId != 0u) {
         const Object3D* selectedObject =
             Layout_ObjectStore_FindConst(&state->layout.objectStore, editor->selectedObject3DId);
-        if (selectedObject && Layout_ObjectStore_ValidateObject(selectedObject)) {
+        if (selectedObject && Layout_ObjectShown(&state->layout.objectStore,selectedObject) && Layout_ObjectStore_ValidateObject(selectedObject)) {
             ObjectHandleGizmoTarget handleTarget = ObjectHandleGizmoTarget_None();
             const bool topologyEditMode =
                 state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT &&
