@@ -646,6 +646,10 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
                 const char* fixture=getenv("LINE_DRAWING_PROOF_LAYOUT_PATH");
                 if(fixture && fixture[0] && !Layout_SaveToFile(&state->layout,fixture))return 1;
             }
+            if(parts_proof && !strncmp(proof_mode,"parts-motion-",13)) {
+                state->grid.scale=120;state->grid.offsetX=-(viewport.x+viewport.width*.45f)/120;
+                state->grid.offsetY=-(viewport.y+viewport.height*.25f)/120;
+            }
             if(hinge_proof) {
                 state->grid.scale=210;state->grid.offsetX=.5f-(viewport.x+viewport.width/2)/210;
                 state->grid.offsetY=-(viewport.y+viewport.height*.5f)/210;

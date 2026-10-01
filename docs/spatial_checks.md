@@ -67,7 +67,8 @@ No physical-fit validation is inferred from `contained_by` or attachment/support
 links. Structural capacity, electrical safety, triangle collision, motion sweeps,
 Boolean volumes, free-space search and a general constraint solver are outside this
 slice. Service volumes are manually authored boxes, not automatically derived access
-paths. Existing Travel/Hinge controls do not yet produce motion envelopes.
+paths. The S4 opening slice now produces conservative Travel/Hinge envelopes; see
+[motion envelopes](motion_envelopes.md) for scope, freshness and warnings.
 
 ## Persistence and transactions
 
@@ -131,7 +132,8 @@ are disposable fixtures and do not replace the user's saved scene.
 ![Volume controls](assets/s3-volumes.png)
 ![Check results](assets/s3-checks.png)
 
-Next is S4 sampled motion and conservative envelopes, reusing these reserved-space
-and check contracts. Triangle-level mesh checks and richer service-volume derivation
+The S4 opening slice now consumes these reserved-space/check contracts. Next is
+explicit moving-set/assembly scope and obstruction-to-pose inspection; see
+[motion envelopes](motion_envelopes.md). Triangle-level mesh checks and richer service-volume derivation
 remain follow-on work. User acceptance of the new UI remains separate from tests
 and rendered/package proof.

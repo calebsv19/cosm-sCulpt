@@ -1,3 +1,4 @@
+#include "Layout/layout_motion.h"
 #include "Layout/layout_engineering.h"
 // src/Layout/layout_render.c
 #include "Layout/render_layout.h"
@@ -467,7 +468,9 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                     SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
                     thickness = meshPreviewDrawn ? 1 : 2;
                 } else {
-                    if (object->info.volume_role!=LAYOUT_VOLUME_NONE) {
+                    if (Layout_FindMotionEnvelope(&layout->objectStore,object->objectId)) {
+                        SDL_SetRenderDrawColor(renderer,175,125,250,255);
+                    } else if (object->info.volume_role!=LAYOUT_VOLUME_NONE) {
                         SDL_SetRenderDrawColor(renderer, object->info.volume_role==LAYOUT_VOLUME_SERVICE?80:245,
                             object->info.volume_role==LAYOUT_VOLUME_SERVICE?210:105, 175, 255);
                     } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {

@@ -1,4 +1,5 @@
 #include "Layout/layout_spatial.h"
+#include "Layout/layout_motion.h"
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
@@ -85,11 +86,19 @@ static bool member(const LayoutObjectStore* s,const Object3D* o,const char* id) 
 }
 static LayoutSpatialResult check_pair(const Layout* l,const Object3D* a,const Object3D* b,const char* rule,double required,bool clearance) {
     LayoutSpatialResult r={.required_meters=required};snprintf(r.rule_id,64,"%s",rule);snprintf(r.source,64,"%s",a->coreMeta.object_id);snprintf(r.target,64,"%s",b->coreMeta.object_id);
+    const LayoutMotionEnvelope* ea=Layout_FindMotionEnvelope(&l->objectStore,a->objectId);
+    const LayoutMotionEnvelope* eb=Layout_FindMotionEnvelope(&l->objectStore,b->objectId);
+    if ((ea && !Layout_MotionEnvelopeCurrent(l,ea)) || (eb && !Layout_MotionEnvelopeCurrent(l,eb))) {
+        r.severity=LAYOUT_SPATIAL_WARNING;r.approximate=true;
+        snprintf(r.message,sizeof(r.message),"Motion envelope stale; regenerate in Parts / Volumes.");return r;
+    }
     r.measurable=Layout_SpatialDistance(l,a,b,&r.distance_meters,&r.overlap,&r.approximate);
+    bool envelope=ea || eb;r.approximate=r.approximate || envelope;
     bool failed=clearance ? r.distance_meters+1e-6<required : r.overlap;
     r.severity=!r.measurable || r.approximate ? LAYOUT_SPATIAL_WARNING : failed ? LAYOUT_SPATIAL_ERROR : LAYOUT_SPATIAL_PASS;
     snprintf(r.message,sizeof(r.message),"%s",!r.measurable?"Geometry unavailable; check unresolved.":r.approximate ?
-        (failed?"Bounds indicate a possible conflict; inspect mesh geometry.":"Bounds satisfy this check; mesh geometry not tested."):
+        (envelope?(failed?"Conservative motion bounds indicate a possible obstruction.":"Conservative motion bounds satisfy this check."):
+        (failed?"Bounds indicate a possible conflict; inspect mesh geometry.":"Bounds satisfy this check; mesh geometry not tested.")):
         failed?(clearance?"Minimum clearance not met.":"Objects intersect or touch."):"Check passed.");
     return r;
 }
@@ -105,8 +114,19 @@ size_t Layout_CheckSpatial(const Layout* l,LayoutSpatialResult* output,size_t ca
     }
     for(size_t i=0;i<s->count;++i) {
         const Object3D* v=&s->items[i];if(v->isDeleted||!v->info.volume_role)continue;
+        const LayoutMotionEnvelope* envelope=Layout_FindMotionEnvelope(s,v->objectId);
+        if (envelope && !Layout_MotionEnvelopeCurrent(l,envelope)) {
+            LayoutSpatialResult result={.severity=LAYOUT_SPATIAL_WARNING,.approximate=true};
+            snprintf(result.source,64,"%s",v->coreMeta.object_id);snprintf(result.target,64,"%s",v->info.volume_owner);
+            snprintf(result.message,sizeof(result.message),"Motion envelope stale; regenerate in Parts / Volumes.");
+            emit(result,output,capacity,&count);continue;
+        }
+        const LayoutConstraint* movement=NULL;
+        if (envelope) for (size_t k=0;k<s->constraintCount;++k) if (!strcmp(s->constraints[k].id,envelope->rule_id)) movement=&s->constraints[k];
         for(size_t j=0;j<s->count;++j) {
             const Object3D* o=&s->items[j];
+            /* A is the intentional fixed mounting/reference object; B owns its sweep. */
+            if (movement && !strcmp(o->coreMeta.object_id,movement->a.entity_id)) continue;
             if(o->isDeleted||o==v||o->info.volume_role||o->info.reference || (v->info.volume_owner[0] && member(s,o,v->info.volume_owner)))continue;
             LayoutSpatialResult result=check_pair(l,v,o,v->coreMeta.object_id,0,false);
             /* Automatic checks report obstructions/unresolved geometry, not thousands of clear pairs. */

@@ -1,5 +1,24 @@
 # Sculpt Current Truth
 
+
+## S4 opening slice: motion envelopes
+
+The saved Travel/Hinge controls now expose **Create envelope**. Parts → Volumes
+shows the derived range/size, current/stale status, regeneration and movement/check
+navigation. A labeled wire box encloses the moving B primitive over its saved
+range. Hinge padding covers intervening poses; results are conservative warnings,
+not exact collision assertions. Stale envelopes return unresolved warnings.
+
+Schema 18 retains provenance and undo/redo identity, reads older scenes without
+motion records and excludes reserved boxes from physical runtime solids. The first
+slice covers B only; assemblies, downstream followers, simultaneous joints and
+exact swept solids remain outside this contract. See [motion envelopes](motion_envelopes.md).
+
+Full source regression, producer/package checks and disposable native renders
+verify this opening slice; user hands-on acceptance remains separate. The next S4
+boundary is explicit moving-set/assembly scope and obstruction-to-pose inspection.
+The dated S3/S1 accounts below retain their original milestone/next-step history.
+
 Last updated: 2026-09-30
 
 ## S3B/S3C reserved volumes and spatial checks (2026-09-30)

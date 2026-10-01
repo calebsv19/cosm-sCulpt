@@ -1,4 +1,5 @@
 #include "Layout/layout_spatial.h"
+#include "Layout/layout_motion.h"
 #include <ctype.h>
 #include <float.h>
 #include <math.h>
@@ -52,14 +53,19 @@ bool Layout_ValidateSpatialRecords(const Layout* l, char* message, size_t capaci
         }
     }
     if (reason && message && capacity) snprintf(message,capacity,"%s",reason);
-    return !reason;
+    return !reason && Layout_ValidateMotionEnvelopes(l,message,capacity);
 }
 typedef struct {const LayoutVolumeEdit* v;bool remove;} VolumeCommand;
 static bool volume_edit(Layout* l, void* context) {
     VolumeCommand* cmd=context;const LayoutVolumeEdit* v=cmd->v;
     Object3D* o=Layout_ObjectStore_Find(&l->objectStore,v->object_id);
     if (cmd->remove) {
-        if (!o || !o->info.volume_role || !Layout_CanDeleteObject(&l->objectStore,v->object_id)) return fail(l,"Remove volume links and checks before deleting it.");
+        if (!o || !o->info.volume_role) return fail(l,"Remove volume links and checks before deleting it.");
+        for (size_t i=0;i<l->objectStore.motion_envelope_count;++i) if (l->objectStore.motion_envelopes[i].object_id==v->object_id) {
+            memmove(&l->objectStore.motion_envelopes[i],&l->objectStore.motion_envelopes[i+1],(l->objectStore.motion_envelope_count-i-1)*sizeof(LayoutMotionEnvelope));
+            memset(&l->objectStore.motion_envelopes[--l->objectStore.motion_envelope_count],0,sizeof(LayoutMotionEnvelope));break;
+        }
+        if (!Layout_CanDeleteObject(&l->objectStore,v->object_id)) return fail(l,"Remove volume links and checks before deleting it.");
         return Layout_ObjectStore_Delete(&l->objectStore,v->object_id);
     }
     if (!string_valid(v->name,96) || !v->name[0] || !string_valid(v->owner,64) || v->role<LAYOUT_VOLUME_KEEPOUT || v->role>LAYOUT_VOLUME_SERVICE) return fail(l,"Enter a name and reserved-space role.");

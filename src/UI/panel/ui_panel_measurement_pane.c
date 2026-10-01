@@ -1,4 +1,6 @@
 #include "UI/ui_panel_measurement.h"
+#include "Layout/layout_motion.h"
+#include "UI/ui_panel_spatial.h"
 #include "UI/ui_panel_shell.h"
 #include "UI/ui_panel_right_scroll.h"
 #include "UI/ui_panel_summary_surface.h"
@@ -278,6 +280,10 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         cell(&p,MEASURE_TRAVEL_TO_MIN,"Min",0,3,active_travel && !pending,false);
         cell(&p,MEASURE_TRAVEL_TO_MAX,"Max",1,3,active_travel && !pending,false);
         cell(&p,MEASURE_TRAVEL_RESET,"Reset",2,3,active_travel,false);p.y+=p.h;
+        if(active_travel) {
+            const LayoutMotionEnvelope* envelope=Layout_FindRuleEnvelope(&Global_Get()->layout.objectStore,rule->id);
+            row(&p,MEASURE_ENVELOPE,envelope ? Layout_MotionEnvelopeCurrent(&Global_Get()->layout,envelope)?"View envelope":"Update envelope" : "Create envelope",!pending && scene);
+        }
         if(angular)note(&p,"B rotates around the joined A/B pivot.");
         else {row(&p,0,"Position is measured from A along",true);row(&p,0,"the direction above; B does not rotate.",true);}
     } else if(ui->measurement.placing<7 || ui->measurement.placing>9) {
@@ -481,6 +487,16 @@ bool UIPanel_MeasurementClick(int x,int y) {
         UIPanel_MeasurementStopInput();ui->measurement.rules_open=!ui->measurement.rules_open;
     } else if(action==MEASURE_TRAVEL)choose_tool(3);
     else if(action==MEASURE_HINGE)choose_tool(4);
+    else if(action==MEASURE_ENVELOPE) {
+        const LayoutConstraint* c=selected();
+        if(c && Layout_GenerateMotionEnvelope(&Global_Get()->layout,c->id,33,Layout_GeometryHistory,NULL)) {
+            const LayoutMotionEnvelope* envelope=Layout_FindRuleEnvelope(&Global_Get()->layout.objectStore,c->id);
+            Global_Get()->editor.selectedObject3DId=envelope->object_id;
+            UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_PARTS);ui->parts.mode=4;
+            ui->rightScroll[UI_PANEL_RIGHT_TAB_PARTS].scrollOffsetPx=0;UIPanel_SpatialEnterVolumes();
+            Global_FlagHitboxesDirty();
+        } else snprintf(ui->measurement.placement_message,128,"%s",Global_Get()->layout.geometryMessage);
+    }
     else if(action>=MEASURE_TRAVEL_MIN && action<=MEASURE_TRAVEL_SLIDER) {
         if(action==MEASURE_TRAVEL_SLIDER) {
             const LayoutConstraint* c=selected();

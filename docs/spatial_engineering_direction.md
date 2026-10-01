@@ -14,10 +14,12 @@ S3a attachment/support/containment relationships now ship through Links; see the
 [relationship contract](relationships.md). S3B/S3C now provide reserved/service boxes
 and read-only oriented primitive intersection/clearance checks through Parts; see
 [spatial checks](spatial_checks.md). Mesh results remain bounds-based warnings.
-Next is S4 sampled motion and conservative envelopes using these contracts.
-Broader snapping/reusable datums remain extensions; sampled poses and envelopes
-belong to S4 after S3 reserved volumes and validation. New hinge human acceptance
-remains separate from regression and rendered-UI proof.
+The S4 opening slice now generates labeled conservative envelopes for the moving
+B prism/panel of a saved Travel/Hinge rule, with stale detection, regeneration and
+spatial-check warnings. See [motion envelopes](motion_envelopes.md). Next is explicit
+moving-set/assembly scope and obstruction-to-pose inspection. Broader snapping and
+reusable datums remain extensions. User acceptance remains separate from regression
+and rendered-UI proof.
 
 Status: roadmap accepted; opening CAD slices implemented as noted above, later phases proposed
 Date: 2026-09-28

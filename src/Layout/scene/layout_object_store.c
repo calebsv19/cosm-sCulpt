@@ -85,6 +85,7 @@ void Layout_ObjectStore_Init(LayoutObjectStore* store) {
     store->next_relationship_id=1;
     memset(store->spatial_rules,0,sizeof(store->spatial_rules));
     store->spatial_rule_count=0;store->next_spatial_rule_id=1;
+    memset(store->motion_envelopes,0,sizeof(store->motion_envelopes));store->motion_envelope_count=0;
 }
 
 void Layout_ObjectStore_Free(LayoutObjectStore* store) {
@@ -105,6 +106,7 @@ void Layout_ObjectStore_Free(LayoutObjectStore* store) {
     store->next_relationship_id=1;
     memset(store->spatial_rules,0,sizeof(store->spatial_rules));
     store->spatial_rule_count=0;store->next_spatial_rule_id=1;
+    memset(store->motion_envelopes,0,sizeof(store->motion_envelopes));store->motion_envelope_count=0;
 }
 
 Object3D* Layout_ObjectStore_Find(LayoutObjectStore* store, uint32_t objectId) {

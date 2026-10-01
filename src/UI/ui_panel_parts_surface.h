@@ -6,7 +6,7 @@
 #include "UI/font_manager.h"
 #include <stdio.h>
 #include <string.h>
-typedef struct {
+typedef struct PartsPane {
     SDL_Renderer* renderer;TTF_Font* font;UIPanelVisualPalette palette;
     SDL_Rect body,found;int y,h,x,click_y,hit,wanted;
 } PartsPane;

@@ -334,6 +334,13 @@ typedef struct {
     double clearance_meters;
 } LayoutSpatialRule;
 
+#define LAYOUT_MAX_MOTION_ENVELOPES 32
+typedef struct {
+    uint32_t object_id, samples;
+    char rule_id[64], input_digest[17], bounds_digest[17];
+    double padding_meters;
+} LayoutMotionEnvelope;
+
 typedef struct {
     Object3D* items;
     size_t count;
@@ -350,6 +357,8 @@ typedef struct {
     LayoutSpatialRule spatial_rules[LAYOUT_MAX_SPATIAL_RULES];
     size_t spatial_rule_count;
     uint32_t next_spatial_rule_id;
+    LayoutMotionEnvelope motion_envelopes[LAYOUT_MAX_MOTION_ENVELOPES];
+    size_t motion_envelope_count;
     LayoutEntityQuery view_query; /* transient viewport filter; never changes authored visibility */
 } LayoutObjectStore;
 

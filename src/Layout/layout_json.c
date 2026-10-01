@@ -1,6 +1,7 @@
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
+#include "Layout/layout_motion.h"
 #include "Layout/layout_constraints.h"
 #include "Layout/layout_json.h"
 #include "Layout/scene/layout_scene_camera_authoring.h"
@@ -1249,6 +1250,9 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
     if (!Layout_ConstraintsReadJson(&temp, root, schemaVersion >= LAYOUT_JSON_SCHEMA_VERSION_CONSTRAINTS)) {
         Layout_Free(&temp);
         return false;
+    }
+    if (!Layout_MotionReadJson(&temp,cJSON_GetObjectItemCaseSensitive(root,"engineering"),schemaVersion>=LAYOUT_JSON_SCHEMA_VERSION_MOTION_ENVELOPES)) {
+        Layout_Free(&temp);return false;
     }
     temp.objectStore.view_query=layout->objectStore.view_query;
     Layout_Free(layout);

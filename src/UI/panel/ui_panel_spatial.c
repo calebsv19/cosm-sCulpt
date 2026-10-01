@@ -1,4 +1,10 @@
 #include "UI/ui_panel_spatial.h"
+#include "UI/ui_panel_parts_surface.h"
+#include "Layout/layout_motion.h"
+#include "UI/ui_panel_measurement.h"
+#include "UI/ui_panel_shell.h"
+#include "Core/space_mode_adapter.h"
+#include <math.h>
 #include "UI/ui_panel_right_scroll.h"
 #include "Core/global_state.h"
 #include "Editor/editor_numeric_edit.h"
@@ -57,8 +63,8 @@ void UIPanel_SpatialRefresh(void) {
  * metadata, ownership and undo do. Never interpret old results as current. */
 static uint64_t digest(void) {
     const Layout* l=layout();uint64_t hash=UINT64_C(1469598103934665603);
-    const void* blocks[]={&l->metersPerWorldUnit,&l->objectStore.count,l->objectStore.items,&l->objectStore.assembly_count,l->objectStore.assemblies,&l->objectStore.spatial_rule_count,l->objectStore.spatial_rules};
-    const size_t sizes[]={sizeof(l->metersPerWorldUnit),sizeof(l->objectStore.count),l->objectStore.count*sizeof(Object3D),sizeof(l->objectStore.assembly_count),sizeof(l->objectStore.assemblies),sizeof(l->objectStore.spatial_rule_count),sizeof(l->objectStore.spatial_rules)};
+    const void* blocks[]={&l->metersPerWorldUnit,&l->objectStore.count,l->objectStore.items,&l->objectStore.assembly_count,l->objectStore.assemblies,&l->objectStore.spatial_rule_count,l->objectStore.spatial_rules,&l->objectStore.constraintCount,l->objectStore.constraints,&l->objectStore.motion_envelope_count,l->objectStore.motion_envelopes};
+    const size_t sizes[]={sizeof(l->metersPerWorldUnit),sizeof(l->objectStore.count),l->objectStore.count*sizeof(Object3D),sizeof(l->objectStore.assembly_count),sizeof(l->objectStore.assemblies),sizeof(l->objectStore.spatial_rule_count),sizeof(l->objectStore.spatial_rules),sizeof(l->objectStore.constraintCount),sizeof(l->objectStore.constraints),sizeof(l->objectStore.motion_envelope_count),sizeof(l->objectStore.motion_envelopes)};
     for(size_t i=0;i<sizeof(blocks)/sizeof(blocks[0]);++i){const unsigned char* p=blocks[i];for(size_t j=0;j<sizes[i];++j){hash^=p[j];hash*=UINT64_C(1099511628211);}}
     return hash;
 }
@@ -93,6 +99,27 @@ static void volumes(PartsPane* p) {
     UIPanelState* ui=UIPanel_Get();char text[256],label[160];const Object3D* o=volume();
     name(o?o->coreMeta.object_id:"",label);snprintf(text,sizeof(text),"%s",o?label:"Choose saved volume");
     row(p,PARTS_VOLUME_SELECT,text,true);
+    const LayoutMotionEnvelope* envelope=o?Layout_FindMotionEnvelope(&layout()->objectStore,o->objectId):NULL;
+    if(envelope) {
+        note(p,Layout_MotionEnvelopeCurrent(layout(),envelope)?"Motion envelope: current":"Motion envelope: STALE");
+        name(o->info.volume_owner,label);snprintf(text,sizeof(text),"Moving part: %s",label);note(p,text);
+        for(size_t i=0;i<layout()->objectStore.constraintCount;++i) {
+            const LayoutConstraint* c=&layout()->objectStore.constraints[i];if(strcmp(c->id,envelope->rule_id))continue;
+            snprintf(text,sizeof(text),"Range: %.4g to %.4g %s",c->travel_min,c->travel_max,c->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL?"deg":"m");note(p,text);
+        }
+        snprintf(text,sizeof(text),"Size: %.3g x %.3g x %.3g m",o->rectPrism.width*Layout_WorldScale(layout()),o->rectPrism.height*Layout_WorldScale(layout()),o->rectPrism.depth*Layout_WorldScale(layout()));note(p,text);
+        row(p,PARTS_VOLUME_POSITION,ui->spatial.position_open?"Details -":"Details +",true);
+        if(ui->spatial.position_open) {
+            snprintf(text,sizeof(text),"Movement: %s",envelope->rule_id);note(p,text);
+            snprintf(text,sizeof(text),"%u poses; padding %.3g m",envelope->samples,envelope->padding_meters);note(p,text);
+        }
+        row(p,PARTS_ENVELOPE_REGENERATE,"Regenerate envelope",true);
+        cell(p,PARTS_ENVELOPE_MOVEMENT,"Edit movement",NULL,0,2,true,false);
+        cell(p,PARTS_ENVELOPE_CHECK,"Run checks",NULL,1,2,true,false);p->y+=p->h;
+        cell(p,PARTS_VOLUME_NEW,"New volume",NULL,0,2,true,false);cell(p,PARTS_VOLUME_REMOVE,"Delete...",NULL,1,2,true,false);p->y+=p->h;
+        if(ui->spatial.remove_pending){row(p,PARTS_VOLUME_CONFIRM_REMOVE,"Confirm delete envelope",true);row(p,PARTS_SPATIAL_CANCEL,"Cancel",true);}
+        note(p,"B only; bounds can overestimate space.");return;
+    }
     field(p,PARTS_VOLUME_NAME,"Name",ui->spatial.volume.name);
     row(p,PARTS_VOLUME_ROLE,ui->spatial.volume.role==LAYOUT_VOLUME_SERVICE?"Role: Service":"Role: Keep-out",true);
     field(p,PARTS_VOLUME_W,"Width U",ui->spatial.size[0]);field(p,PARTS_VOLUME_H,"Height V",ui->spatial.size[1]);field(p,PARTS_VOLUME_D,"Depth N",ui->spatial.size[2]);
@@ -185,7 +212,22 @@ bool UIPanel_SpatialClick(int action,int chooser) {
         }
         ui->spatial.remove_pending=false;return true;
     }
-    if(action==PARTS_VOLUME_SELECT)ui->parts.chooser=8;
+    if(action==PARTS_ENVELOPE_REGENERATE) {
+        const LayoutMotionEnvelope* envelope=Layout_FindMotionEnvelope(s,ui->spatial.volume.object_id);
+        char id[64];snprintf(id,64,"%s",envelope?envelope->rule_id:"");
+        bool ok=envelope && Layout_GenerateMotionEnvelope(layout(),id,envelope->samples,Layout_GeometryHistory,NULL);
+        if(ok)pick_volume(volume());
+        snprintf(ui->parts.message,160,"%s",ok?"Envelope regenerated. Run checks for current results.":layout()->geometryMessage);
+    } else if(action==PARTS_ENVELOPE_MOVEMENT) {
+        const LayoutMotionEnvelope* envelope=Layout_FindMotionEnvelope(s,ui->spatial.volume.object_id);
+        if(envelope) for(size_t i=0;i<s->constraintCount;++i) if(!strcmp(s->constraints[i].id,envelope->rule_id)) {
+            const LayoutConstraint* c=&s->constraints[i];
+            for(size_t j=0;j<s->count;++j)if(!s->items[j].isDeleted && !strcmp(s->items[j].coreMeta.object_id,c->b.entity_id))Global_Get()->editor.selectedObject3DId=s->items[j].objectId;
+            UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_MEASURE);UIPanel_MeasurementSelectRule((int)i);
+            ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx=0;break;
+        }
+    } else if(action==PARTS_ENVELOPE_CHECK) {ui->parts.mode=5;UIPanel_SpatialRunChecks();ui->rightScroll[UI_PANEL_RIGHT_TAB_PARTS].scrollOffsetPx=0;}
+    else if(action==PARTS_VOLUME_SELECT)ui->parts.chooser=8;
     else if(action==PARTS_VOLUME_ROLE)ui->parts.chooser=9;
     else if(action==PARTS_VOLUME_OWNER)ui->parts.chooser=10;
     else if(action==PARTS_CHECK_SOURCE)ui->parts.chooser=11;
@@ -212,4 +254,25 @@ bool UIPanel_SpatialClick(int action,int chooser) {
     else if(action>=8000 && (size_t)(action-8000)<s->spatial_rule_count)pick_rule(&s->spatial_rules[action-8000]);
     if(ui->parts.chooser)ui->rightScroll[UI_PANEL_RIGHT_TAB_PARTS].scrollOffsetPx=0;
     Global_FlagHitboxesDirty();return true;
+}
+
+/* Read-only annotations follow the same visibility/filter and clipping policy
+ * as existing constraint markers. These are bounds labels, not collision proof. */
+void UIPanel_RenderMotionViewport(SDL_Renderer* renderer) {
+    GlobalState* state=Global_Get();CorePaneRect rect;TTF_Font* font=FontManager_Get(FONT_DEFAULT);
+    if (!renderer || !font || !LineDrawingPaneHost_GetViewportRect(&state->paneHost,&rect)) return;
+    SDL_Rect old;bool clipped=SDL_RenderIsClipEnabled(renderer);SDL_RenderGetClipRect(renderer,&old);
+    SDL_Rect clip={(int)rect.x,(int)rect.y,(int)rect.width,(int)rect.height};SDL_RenderSetClipRect(renderer,&clip);
+    SpaceViewContext view=SpaceAdapter_BuildViewContext(state);
+    for (size_t i=0;i<state->layout.objectStore.motion_envelope_count;++i) {
+        const LayoutMotionEnvelope* envelope=&state->layout.objectStore.motion_envelopes[i];
+        const Object3D* o=Layout_ObjectStore_FindConst(&state->layout.objectStore,envelope->object_id);
+        if (!o || !Layout_ObjectShown(&state->layout.objectStore,o)) continue;
+        Vec2 p=WorldToScreen(SpaceAdapter_ProjectToView(o->transform.position,&view),&state->grid);
+        if (!isfinite(p.x) || !isfinite(p.y) || p.x<rect.x || p.x>=rect.x+rect.width || p.y<rect.y || p.y>=rect.y+rect.height) continue;
+        bool current=Layout_MotionEnvelopeCurrent(&state->layout,envelope);char text[160];
+        snprintf(text,sizeof(text),"%.80s [%s]",o->info.label,current?"conservative bounds":"STALE - regenerate");
+        UIPanelSummary_DrawText(renderer,font,text,(int)p.x+12,(int)p.y+8,current?(SDL_Color){185,150,255,255}:(SDL_Color){255,165,90,255});
+    }
+    SDL_RenderSetClipRect(renderer,clipped?&old:NULL);
 }

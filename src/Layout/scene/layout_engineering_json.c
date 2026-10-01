@@ -1,6 +1,7 @@
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
+#include "Layout/layout_motion.h"
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
@@ -83,7 +84,7 @@ bool Layout_EngineeringWriteJson(const Layout* layout, cJSON* root) {
         if (!cJSON_AddItemToObject(o,"worldFrame",frame)) {cJSON_Delete(frame);return false;}
         if (!cJSON_AddStringToObject(o,"id",a->id)) return false;
     }
-    return Layout_RelationshipsWriteJson(layout,engineering) && Layout_SpatialWriteJson(layout,engineering);
+    return Layout_RelationshipsWriteJson(layout,engineering) && Layout_SpatialWriteJson(layout,engineering) && Layout_MotionWriteJson(layout,engineering);
 }
 bool Layout_EngineeringReadJson(Layout* layout, const cJSON* root, bool required) {
     const cJSON* engineering=cJSON_GetObjectItemCaseSensitive(root,"engineering");
