@@ -1,6 +1,7 @@
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
+#include "Layout/layout_motion.h"
 #include <ctype.h>
 #include <float.h>
 #include <math.h>
@@ -87,7 +88,7 @@ bool Layout_ValidateEngineering(const Layout* layout, char* message, size_t capa
         valid=info_valid(&o->info) && (!o->info.parent_id[0] || Layout_FindAssembly(store,o->info.parent_id));
     }
     if (!valid && message && capacity) snprintf(message,capacity,"Invalid metadata or assembly tree: check IDs, parent cycles, properties and rigid frames.");
-    return valid && Layout_ValidateRelationships(layout,message,capacity) && Layout_ValidateSpatialRecords(layout,message,capacity);
+    return valid && Layout_ValidateMotionScopes(layout,message,capacity) && Layout_ValidateRelationships(layout,message,capacity) && Layout_ValidateSpatialRecords(layout,message,capacity);
 }
 bool Layout_HasEngineeringData(const Layout* layout) {
     if (!layout) return false;

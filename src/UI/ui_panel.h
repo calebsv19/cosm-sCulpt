@@ -7,6 +7,7 @@
 #include "core_units.h"
 #include "Editor/editor_measurement.h"
 #include "Layout/layout_spatial.h"
+#include "Layout/layout_motion.h"
 #define UI_BTN_MEASURE 98
 
 #define MAX_UI_BUTTONS 128
@@ -473,6 +474,10 @@ typedef struct {
         LayoutSpatialResult results[256];
         size_t result_count, total_count;
         int selected_result;
+        bool preview_active;
+        char preview_envelope[64], preview_target[64];
+        uint32_t preview_index;
+        LayoutMotionInspection inspection;
     } spatial;
 
 

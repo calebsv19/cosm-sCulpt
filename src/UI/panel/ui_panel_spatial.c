@@ -2,6 +2,7 @@
 #include "UI/ui_panel_parts_surface.h"
 #include "Layout/layout_motion.h"
 #include "UI/ui_panel_measurement.h"
+#include "UI/ui_panel_motion.h"
 #include "UI/ui_panel_shell.h"
 #include "Core/space_mode_adapter.h"
 #include <math.h>
@@ -42,8 +43,10 @@ static void pick_rule(const LayoutSpatialRule* rule) {
     UIPanelState* ui=UIPanel_Get();ui->spatial.rule=ui->spatial.observed_rule=*rule;ui->spatial.rule_observed=true;ui->spatial.remove_pending=false;
     snprintf(ui->spatial.distance,64,"%.6g m",rule->clearance_meters);ui->parts.message[0]=0;
 }
+static uint64_t digest(void);
 void UIPanel_SpatialRefresh(void) {
     UIPanelState* ui=UIPanel_Get();
+    if(ui->spatial.preview_active && ui->spatial.checked_digest!=digest()) ui->spatial.preview_active=false;
     if(ui->parts.mode==4 && ui->spatial.volume_observed) {
         const Object3D* o=volume();
         if(!o || memcmp(o,&ui->spatial.observed_volume,sizeof(*o))) {
@@ -71,7 +74,7 @@ static uint64_t digest(void) {
 void UIPanel_SpatialRunChecks(void) {
     UIPanelState* ui=UIPanel_Get();ui->spatial.total_count=Layout_CheckSpatial(layout(),ui->spatial.results,256);
     ui->spatial.result_count=ui->spatial.total_count>256?256:ui->spatial.total_count;
-    ui->spatial.checked=true;ui->spatial.checked_digest=digest();ui->spatial.selected_result=-1;ui->parts.message[0]=0;
+    ui->spatial.preview_active=false;ui->spatial.checked=true;ui->spatial.checked_digest=digest();ui->spatial.selected_result=-1;ui->parts.message[0]=0;
 }
 char* UIPanel_SpatialInputBuffer(size_t* capacity) {
     UIPanelState* ui=UIPanel_Get();int action=ui->parts.input;*capacity=64;
@@ -118,7 +121,9 @@ static void volumes(PartsPane* p) {
         cell(p,PARTS_ENVELOPE_CHECK,"Run checks",NULL,1,2,true,false);p->y+=p->h;
         cell(p,PARTS_VOLUME_NEW,"New volume",NULL,0,2,true,false);cell(p,PARTS_VOLUME_REMOVE,"Delete...",NULL,1,2,true,false);p->y+=p->h;
         if(ui->spatial.remove_pending){row(p,PARTS_VOLUME_CONFIRM_REMOVE,"Confirm delete envelope",true);row(p,PARTS_SPATIAL_CANCEL,"Cancel",true);}
-        note(p,"B only; bounds can overestimate space.");return;
+        snprintf(text,sizeof(text),"Scope: %s",envelope->assembly_id[0]?"saved assembly":"B only");note(p,text);
+        if(envelope->member_count){snprintf(text,sizeof(text),"%zu captured moving parts",envelope->member_count);note(p,text);}
+        note(p,"Bounds can overestimate space.");return;
     }
     field(p,PARTS_VOLUME_NAME,"Name",ui->spatial.volume.name);
     row(p,PARTS_VOLUME_ROLE,ui->spatial.volume.role==LAYOUT_VOLUME_SERVICE?"Role: Service":"Role: Keep-out",true);
@@ -160,11 +165,15 @@ static void checks(PartsPane* p) {
     }
     if(ui->spatial.checked_digest!=digest())return;
     if(ui->spatial.selected_result>=0 && (size_t)ui->spatial.selected_result<ui->spatial.result_count) {
-        const LayoutSpatialResult* r=&ui->spatial.results[ui->spatial.selected_result];note(p,r->message);
-        name(r->source,label);snprintf(text,sizeof(text),"A: %s [%s]",label,r->source);note(p,text);name(r->target,label);snprintf(text,sizeof(text),"B: %s [%s]",label,r->target);note(p,text);
-        if(r->measurable){snprintf(text,sizeof(text),"%s gap: %.6g m",r->approximate?"Bounds":"Surface",r->distance_meters);note(p,text);
-            if(r->required_meters>0){snprintf(text,sizeof(text),"Minimum: %.6g m",r->required_meters);note(p,text);}}
-        cell(p,PARTS_CHECK_SELECT_A,"Select A",NULL,0,2,true,false);cell(p,PARTS_CHECK_SELECT_B,"Select B",NULL,1,2,true,false);p->y+=p->h;
+        const LayoutSpatialResult* r=&ui->spatial.results[ui->spatial.selected_result];
+        if(!ui->spatial.preview_active) {
+            note(p,r->message);
+            name(r->source,label);snprintf(text,sizeof(text),"A: %s [%s]",label,r->source);note(p,text);name(r->target,label);snprintf(text,sizeof(text),"B: %s [%s]",label,r->target);note(p,text);
+            if(r->measurable){snprintf(text,sizeof(text),"%s gap: %.6g m",r->approximate?"Bounds":"Surface",r->distance_meters);note(p,text);
+                if(r->required_meters>0){snprintf(text,sizeof(text),"Minimum: %.6g m",r->required_meters);note(p,text);}}
+            cell(p,PARTS_CHECK_SELECT_A,"Select A",NULL,0,2,true,false);cell(p,PARTS_CHECK_SELECT_B,"Select B",NULL,1,2,true,false);p->y+=p->h;
+        }
+        UIPanel_MotionInspectionBuild(p,r);
     }
     for(size_t i=0;i<ui->spatial.result_count;++i){const LayoutSpatialResult* r=&ui->spatial.results[i];char other[160];name(r->source,label);name(r->target,other);snprintf(text,sizeof(text),"%s: %.50s / %.50s",(const char*[]){"Pass","Error","Warning"}[r->severity],label,other);row(p,9000+(int)i,text,true);}
 }
@@ -212,7 +221,10 @@ bool UIPanel_SpatialClick(int action,int chooser) {
         }
         ui->spatial.remove_pending=false;return true;
     }
-    if(action==PARTS_ENVELOPE_REGENERATE) {
+    if(action>=PARTS_MOTION_INSPECT && action<=PARTS_MOTION_CLOSE) {
+        const LayoutSpatialResult* r=ui->spatial.selected_result>=0 && (size_t)ui->spatial.selected_result<ui->spatial.result_count && ui->spatial.checked_digest==digest()?&ui->spatial.results[ui->spatial.selected_result]:NULL;
+        (void)UIPanel_MotionInspectionClick(action,r);
+    } else if(action==PARTS_ENVELOPE_REGENERATE) {
         const LayoutMotionEnvelope* envelope=Layout_FindMotionEnvelope(s,ui->spatial.volume.object_id);
         char id[64];snprintf(id,64,"%s",envelope?envelope->rule_id:"");
         bool ok=envelope && Layout_GenerateMotionEnvelope(layout(),id,envelope->samples,Layout_GeometryHistory,NULL);
@@ -250,7 +262,7 @@ bool UIPanel_SpatialClick(int action,int chooser) {
             Global_Get()->editor.selectedObject3DId=0;
             for(size_t i=0;i<s->count;++i)if(!s->items[i].isDeleted && !strcmp(s->items[i].coreMeta.object_id,id))Global_Get()->editor.selectedObject3DId=s->items[i].objectId;
         }
-    } else if(action>=9000 && (size_t)(action-9000)<ui->spatial.result_count)ui->spatial.selected_result=action-9000;
+    } else if(action>=9000 && (size_t)(action-9000)<ui->spatial.result_count){ui->spatial.preview_active=false;ui->spatial.selected_result=action-9000;}
     else if(action>=8000 && (size_t)(action-8000)<s->spatial_rule_count)pick_rule(&s->spatial_rules[action-8000]);
     if(ui->parts.chooser)ui->rightScroll[UI_PANEL_RIGHT_TAB_PARTS].scrollOffsetPx=0;
     Global_FlagHitboxesDirty();return true;

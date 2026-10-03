@@ -158,6 +158,174 @@ static bool test_mouse_create_regenerate_checks_return_to_movement(void) {
     TEST_ASSERT(parts_click(PARTS_VOLUME_REMOVE) && parts_click(PARTS_VOLUME_CONFIRM_REMOVE) && !live()->objectStore.motion_envelope_count);
     ld_test_shutdown_runtime();return true;
 }
+
+static bool assembly(const char* label, const char* parent, char id[64]) {
+    LayoutAssembly a={.frame={.origin={1,0,0},.axisU={1,0,0},.axisV={0,1,0},.normal={0,0,1}}};
+    snprintf(a.info.label,96,"%s",label);snprintf(a.info.entity_type,64,"Assembly");snprintf(a.info.parent_id,64,"%s",parent);
+    TEST_ASSERT(Layout_EditAssembly(live(),&a,NULL,NULL,NULL));snprintf(id,64,"%s",live()->objectStore.assemblies[live()->objectStore.assembly_count-1].id);return true;
+}
+static bool parent_part(const char* id, const char* group) {
+    const LayoutEntityInfo* old=Layout_EntityInfo(&live()->objectStore,id);TEST_ASSERT(old);
+    LayoutEntityInfo info=*old;snprintf(info.parent_id,64,"%s",group);TEST_ASSERT(Layout_SetEntityInfo(live(),id,&info,NULL,NULL));return true;
+}
+static bool group_rig(bool hinge) {
+    TEST_ASSERT(rig(hinge));char group[64],nested[64];TEST_ASSERT(assembly("Moving group","",group) && assembly("Nested",group,nested));
+    TEST_ASSERT(part("peer",hinge?(Vec3){1,1,0}:(Vec3){1,.5f,0},.15f,.15f,.15f));
+    TEST_ASSERT(parent_part("B",group) && parent_part("peer",nested));
+    LayoutConstraint c=live()->objectStore.constraints[0];snprintf(c.motion_assembly,64,"%s",group);
+    TEST_ASSERT(Layout_ConstraintEdit(live(),&c,NULL,NULL,NULL));Editor_ClearHistory(&Global_Get()->editor);return true;
+}
+static bool test_assembly_travel_envelope_undo_freshness(void) {
+    ld_test_init_runtime();TEST_ASSERT(group_rig(false));TEST_ASSERT(part("cabinet",(Vec3){2,.5f,0},.1f,.1f,.1f));
+    TEST_ASSERT(Layout_GenerateMotionEnvelope(live(),"movement",33,Layout_GeometryHistory,NULL));
+    const LayoutMotionEnvelope* e=&live()->objectStore.motion_envelopes[0];uint32_t id=e->object_id;
+    TEST_ASSERT(e->member_count==2 && !strcmp(e->assembly_id,"assembly_1"));
+    LayoutSpatialResult results[8];TEST_ASSERT(Layout_CheckSpatial(live(),results,8)==1 && !strcmp(results[0].target,"cabinet"));
+    Object3D poses[4];size_t count;char* before=Layout_SaveToString(live());
+    TEST_ASSERT(Layout_SampleMotionSet(live(),"movement",2.5,poses,4,&count) && count==2 && same(before));Layout_FreeString(before);
+    TEST_ASSERT(fabs(poses[1].transform.position.x-2.5)<1e-5 && fabs(poses[1].transform.position.y-.5)<1e-5);
+    TEST_ASSERT(Layout_SetTravelPosition(live(),"movement",2.5,Layout_GeometryHistory,NULL));
+    TEST_ASSERT(fabs(live()->objectStore.items[2].transform.position.x-2.5)<1e-5 && fabs(live()->objectStore.assemblies[1].frame.origin.x-2.5)<1e-5);
+    TEST_ASSERT(Layout_MotionEnvelopeCurrent(live(),&live()->objectStore.motion_envelopes[0]));
+    TEST_ASSERT(Editor_Undo(&Global_Get()->editor,live()) && fabs(live()->objectStore.items[2].transform.position.x-1)<1e-5);
+    TEST_ASSERT(Editor_Redo(&Global_Get()->editor,live()) && Layout_MotionEnvelopeCurrent(live(),&live()->objectStore.motion_envelopes[0]));
+    TEST_ASSERT(Layout_SetObject3DPosition(live(),2,(Vec3){2,0,0},NULL) && fabs(live()->objectStore.items[2].transform.position.x-2)<1e-5);
+    TEST_ASSERT(Layout_MotionEnvelopeCurrent(live(),&live()->objectStore.motion_envelopes[0]));
+    TEST_ASSERT(Layout_SetObject3DPosition(live(),3,(Vec3){2,.7f,0},NULL) && !Layout_MotionEnvelopeCurrent(live(),&live()->objectStore.motion_envelopes[0]));
+    TEST_ASSERT(Layout_GenerateMotionEnvelope(live(),"movement",33,NULL,NULL) && live()->objectStore.motion_envelopes[0].object_id==id);
+    TEST_ASSERT(parent_part("peer","") && !Layout_MotionEnvelopeCurrent(live(),&live()->objectStore.motion_envelopes[0]));
+    TEST_ASSERT(Layout_GenerateMotionEnvelope(live(),"movement",33,NULL,NULL) && live()->objectStore.motion_envelopes[0].member_count==1);
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_scaled_assembly_motion(void) {
+    ld_test_init_runtime();live()->metersPerWorldUnit=.01;live()->scene3d.bounds.enabled=false;
+    TEST_ASSERT(part("A",(Vec3){0},20,20,20) && part("B",(Vec3){100,0,0},40,40,20) && part("peer",(Vec3){100,100,0},20,20,20));
+    char group[64];TEST_ASSERT(assembly("Scaled","",group) && parent_part("B",group) && parent_part("peer",group));
+    LayoutConstraint c={.axis={1,0,0}};snprintf(c.id,64,"movement");snprintf(c.a.entity_id,64,"A");snprintf(c.b.entity_id,64,"B");snprintf(c.motion_assembly,64,"%s",group);
+    TEST_ASSERT(Layout_InitLinearTravel(live(),&c,1,3) && Layout_ConstraintEdit(live(),&c,NULL,NULL,NULL));
+    TEST_ASSERT(Layout_GenerateMotionEnvelope(live(),"movement",33,NULL,NULL));
+    TEST_ASSERT(Layout_SetTravelPosition(live(),"movement",2.5,NULL,NULL) && fabs(live()->objectStore.items[2].transform.position.x-250)<1e-4);
+    const LayoutMotionEnvelope* e=&live()->objectStore.motion_envelopes[0];TEST_ASSERT(Layout_MotionEnvelopeCurrent(live(),e));
+    const Object3D* box=Layout_ObjectStore_FindConst(&live()->objectStore,e->object_id);TEST_ASSERT(fabs(box->rectPrism.width*.01-2.4)<1e-4);
+    Object3D poses[4];size_t count;TEST_ASSERT(Layout_SampleMotionSet(live(),"movement",3,poses,4,&count));for(size_t i=0;i<count;++i)TEST_ASSERT(inside(&poses[i],box));
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_envelope_scope_upgrade_and_downgrade(void) {
+    ld_test_init_runtime();TEST_ASSERT(group_rig(false));TEST_ASSERT(part("cabinet",(Vec3){2,.5f,0},.1f,.1f,.1f));
+    LayoutConstraint c=live()->objectStore.constraints[0];c.motion_assembly[0]=0;
+    TEST_ASSERT(Layout_ConstraintEdit(live(),&c,NULL,NULL,NULL) && Layout_GenerateMotionEnvelope(live(),"movement",33,NULL,NULL));
+    uint32_t id=live()->objectStore.motion_envelopes[0].object_id;TEST_ASSERT(Layout_CheckSpatial(live(),NULL,0)==0);
+    snprintf(c.motion_assembly,64,"assembly_1");TEST_ASSERT(Layout_ConstraintEdit(live(),&c,NULL,NULL,NULL));
+    TEST_ASSERT(!Layout_MotionEnvelopeCurrent(live(),&live()->objectStore.motion_envelopes[0]));
+    char* before=Layout_SaveToString(live());TEST_ASSERT(!Layout_GenerateMotionEnvelope(live(),"movement",33,deny,NULL) && same(before));Layout_FreeString(before);
+    TEST_ASSERT(Layout_GenerateMotionEnvelope(live(),"movement",33,Layout_GeometryHistory,NULL));
+    TEST_ASSERT(live()->objectStore.motion_envelopes[0].object_id==id && live()->objectStore.motion_envelopes[0].member_count==2 && Layout_CheckSpatial(live(),NULL,0)==1);
+    c.motion_assembly[0]=0;TEST_ASSERT(Layout_ConstraintEdit(live(),&c,NULL,NULL,NULL));
+    TEST_ASSERT(Layout_GenerateMotionEnvelope(live(),"movement",33,Layout_GeometryHistory,NULL));
+    TEST_ASSERT(live()->objectStore.motion_envelopes[0].object_id==id && !live()->objectStore.motion_envelopes[0].member_count && Layout_MotionEnvelopeCurrent(live(),&live()->objectStore.motion_envelopes[0]));
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_assembly_hinge_coverage_and_slider_rigidity(void) {
+    ld_test_init_runtime();TEST_ASSERT(group_rig(true));TEST_ASSERT(Layout_GenerateMotionEnvelope(live(),"movement",2,NULL,NULL));
+    Object3D box=*Layout_ObjectStore_FindConst(&live()->objectStore,live()->objectStore.motion_envelopes[0].object_id),poses[4];size_t count;
+    char* before=Layout_SaveToString(live());
+    for (int i=0;i<=140;++i) {TEST_ASSERT(Layout_SampleMotionSet(live(),"movement",-30+i,poses,4,&count));for(size_t j=0;j<count;++j)TEST_ASSERT(inside(&poses[j],&box));}
+    TEST_ASSERT(same(before));Layout_FreeString(before);
+    TEST_ASSERT(Layout_GenerateMotionEnvelope(live(),"movement",33,NULL,NULL));
+    box=*Layout_ObjectStore_FindConst(&live()->objectStore,live()->objectStore.motion_envelopes[0].object_id);
+    for (int i=0;i<=140;++i) {TEST_ASSERT(Layout_SampleMotionSet(live(),"movement",-30+i,poses,4,&count));for(size_t j=0;j<count;++j)TEST_ASSERT(inside(&poses[j],&box));}
+    TEST_ASSERT(Layout_SetTravelPosition(live(),"movement",90,Layout_GeometryHistory,NULL));
+    const Object3D* peer=&live()->objectStore.items[2];TEST_ASSERT(fabs(peer->transform.position.x+1)<1e-5 && fabs(peer->transform.position.y-1)<1e-5);
+    TEST_ASSERT(fabs(live()->objectStore.assemblies[1].frame.axisU.x)<1e-5 && fabs(live()->objectStore.assemblies[1].frame.axisU.y-1)<1e-5);
+    TEST_ASSERT(Layout_MotionEnvelopeCurrent(live(),&live()->objectStore.motion_envelopes[0]));
+    for (int i=0;i<20;++i) TEST_ASSERT(Layout_SetTravelPosition(live(),"movement",i%2?0:90,NULL,NULL));
+    TEST_ASSERT(Layout_MotionEnvelopeCurrent(live(),&live()->objectStore.motion_envelopes[0]));
+    char* json=Layout_SaveToString(live());TEST_ASSERT(Layout_LoadFromString(live(),json) && Layout_MotionEnvelopeCurrent(live(),&live()->objectStore.motion_envelopes[0]));Layout_FreeString(json);
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_assembly_scope_rejections_atomic(void) {
+    ld_test_init_runtime();TEST_ASSERT(group_rig(false));
+    live()->objectStore.items[2].coreMeta.flags.locked=true;char* before=Layout_SaveToString(live());
+    TEST_ASSERT(!Layout_SetTravelPosition(live(),"movement",2,Layout_GeometryHistory,NULL) && same(before));
+    TEST_ASSERT(!Layout_GenerateMotionEnvelope(live(),"movement",33,NULL,NULL) && same(before));Layout_FreeString(before);
+    live()->objectStore.items[2].coreMeta.flags.locked=false;
+    before=Layout_SaveToString(live());TEST_ASSERT(!Layout_SetTravelPosition(live(),"movement",2,deny,NULL) && same(before));
+    LayoutConstraint second={.kind=LAYOUT_CONSTRAINT_DISTANCE,.axis={1,0,0},.target=1};
+    snprintf(second.id,64,"conflict");snprintf(second.a.entity_id,64,"A");snprintf(second.b.entity_id,64,"peer");
+    TEST_ASSERT(!Layout_ConstraintEdit(live(),&second,NULL,NULL,NULL) && same(before));
+    LayoutEntityInfo info=*Layout_EntityInfo(&live()->objectStore,"A");snprintf(info.parent_id,64,"assembly_1");
+    TEST_ASSERT(!Layout_SetEntityInfo(live(),"A",&info,NULL,NULL) && same(before));
+    info=*Layout_EntityInfo(&live()->objectStore,"peer");info.reference=true;
+    TEST_ASSERT(!Layout_SetEntityInfo(live(),"peer",&info,NULL,NULL) && same(before));Layout_FreeString(before);
+    live()->scene3d.bounds.enabled=true;live()->scene3d.bounds.clampOnEdit=true;live()->scene3d.bounds.min=(Vec3){-5,-5,-5};live()->scene3d.bounds.max=(Vec3){1.5f,5,5};
+    live()->objectStore.items[2].rectPrism.lockToBounds=true;before=Layout_SaveToString(live());
+    TEST_ASSERT(!Layout_SetTravelPosition(live(),"movement",2,NULL,NULL) && same(before));Layout_FreeString(before);
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_schema19_scope_negative_and_schema18_compatibility(void) {
+    ld_test_init_runtime();TEST_ASSERT(group_rig(true) && Layout_GenerateMotionEnvelope(live(),"movement",33,NULL,NULL));
+    char* before=Layout_SaveToString(live());TEST_ASSERT(Layout_LoadFromString(live(),before) && same(before));
+    char* authored=LineDrawingCanonicalScene_ExportLayoutToString(live(),"assembly_motion");char* compiled=NULL;char diagnostic[256];
+    TEST_ASSERT(authored && core_scene_compile_authoring_to_runtime(authored,&compiled,diagnostic,sizeof(diagnostic)).code==CORE_OK);
+    cJSON* runtime=cJSON_Parse(compiled);TEST_ASSERT(runtime);
+    cJSON* snapshot=cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(runtime,"extensions"),"line_drawing"),"layout_snapshot");
+    cJSON* exported=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(snapshot,"engineering"),"motionEnvelopes"),0);
+    TEST_ASSERT(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(exported,"members"))==2);
+    TEST_ASSERT(!strcmp(cJSON_GetObjectItemCaseSensitive(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(snapshot,"geometricConstraints"),0),"motionAssembly")->valuestring,"assembly_1"));
+    cJSON_Delete(runtime);free(compiled);free(authored);
+    for (int bad=0;bad<7;++bad) {
+        cJSON* root=cJSON_Parse(before);cJSON* item=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"engineering"),"motionEnvelopes"),0);
+        cJSON* members=cJSON_GetObjectItemCaseSensitive(item,"members");cJSON* member=cJSON_GetArrayItem(members,0);
+        cJSON* rule=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(root,"geometricConstraints"),0);
+        if(bad==0)cJSON_DeleteItemFromObjectCaseSensitive(rule,"motionAssembly");
+        if(bad==1)cJSON_ReplaceItemInObjectCaseSensitive(rule,"motionAssembly",cJSON_CreateString("missing"));
+        if(bad==2)cJSON_DeleteItemFromObjectCaseSensitive(item,"members");
+        if(bad==3)cJSON_AddItemToArray(members,cJSON_Duplicate(member,true));
+        if(bad==4)cJSON_ReplaceItemInArray(cJSON_GetObjectItemCaseSensitive(member,"localBasis"),0,cJSON_CreateNumber(-1));
+        if(bad==5)cJSON_ReplaceItemInArray(cJSON_GetObjectItemCaseSensitive(member,"sizeMeters"),0,cJSON_CreateNumber(-1));
+        if(bad==6)cJSON_ReplaceItemInObjectCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"file"),"schemaVersion",cJSON_CreateNumber(18));
+        char* text=cJSON_PrintUnformatted(root);TEST_ASSERT(!Layout_LoadFromString(live(),text) && same(before));free(text);cJSON_Delete(root);
+    }
+    Layout_FreeString(before);ld_test_shutdown_runtime();ld_test_init_runtime();TEST_ASSERT(rig(false) && Layout_GenerateMotionEnvelope(live(),"movement",33,NULL,NULL));
+    before=Layout_SaveToString(live());cJSON* root=cJSON_Parse(before);Layout_FreeString(before);
+    cJSON_ReplaceItemInObjectCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"file"),"schemaVersion",cJSON_CreateNumber(18));
+    cJSON* item=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(root,"engineering"),"motionEnvelopes"),0);
+    cJSON_DeleteItemFromObjectCaseSensitive(item,"members");cJSON_DeleteItemFromObjectCaseSensitive(item,"assemblyId");
+    cJSON_DeleteItemFromObjectCaseSensitive(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(root,"geometricConstraints"),0),"motionAssembly");
+    char* old=cJSON_PrintUnformatted(root);TEST_ASSERT(Layout_LoadFromString(live(),old) && Layout_MotionEnvelopeCurrent(live(),&live()->objectStore.motion_envelopes[0]));free(old);cJSON_Delete(root);
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_inspection_hit_false_positive_and_read_only(void) {
+    ld_test_init_runtime();TEST_ASSERT(rig(true));TEST_ASSERT(part("hit",(Vec3){1,1,0},.15f,.15f,.3f));TEST_ASSERT(part("miss",(Vec3){1.7f,1.7f,0},.1f,.1f,.3f));
+    TEST_ASSERT(Layout_GenerateMotionEnvelope(live(),"movement",33,NULL,NULL));const LayoutMotionEnvelope* e=&live()->objectStore.motion_envelopes[0];
+    char* before=Layout_SaveToString(live());LayoutMotionInspection result;
+    TEST_ASSERT(Layout_InspectMotionObstruction(live(),e,"hit",0,false,&result) && result.hit && result.tested_samples==33 && !strcmp(result.member_id,"B"));
+    TEST_ASSERT(Layout_InspectMotionObstruction(live(),e,"miss",0,false,&result) && !result.hit && result.gap_meters>0 && result.tested_samples==33);
+    TEST_ASSERT(Layout_InspectMotionObstruction(live(),e,"miss",.5,true,&result) && result.hit);
+    TEST_ASSERT(!Layout_InspectMotionObstruction(live(),e,"B",0,false,&result) && same(before));Layout_FreeString(before);
+    LayoutConstraint c=live()->objectStore.constraints[0];c.travel_max=100;TEST_ASSERT(Layout_ConstraintEdit(live(),&c,NULL,NULL,NULL));
+    TEST_ASSERT(!Layout_InspectMotionObstruction(live(),e,"hit",0,false,&result));
+    ld_test_shutdown_runtime();return true;
+}
+static bool measure_click(int action) {
+    SDL_Rect r;TEST_ASSERT(UIPanel_MeasurementControlRect(action,&r));TEST_ASSERT(UIPanel_MeasurementClick(r.x+r.w/2,r.y+r.h/2));return true;
+}
+static bool test_mouse_scope_and_readonly_preview(void) {
+    ld_test_init_runtime();TEST_ASSERT(group_rig(false));LayoutConstraint c=live()->objectStore.constraints[0];c.motion_assembly[0]=0;TEST_ASSERT(Layout_ConstraintEdit(live(),&c,NULL,NULL,NULL));
+    TEST_ASSERT(part("cabinet",(Vec3){2,.5f,0},.1f,.1f,.1f));Global_SetWindowSize(1800,1900);UIPanel_OnWindowResized(1800,1900);
+    TEST_ASSERT(UIPanel_BeginMeasurement());UIPanel_MeasurementSelectRule(0);UIPanel_LayoutMeasurementPane();
+    TEST_ASSERT(measure_click(MEASURE_MOTION_SCOPE) && UIPanel_Get()->measurement.chooser==9);
+    TEST_ASSERT(measure_click(MEASURE_CHOICE_BASE+1) && !strcmp(live()->objectStore.constraints[0].motion_assembly,"assembly_1"));
+    TEST_ASSERT(measure_click(MEASURE_TRAVEL_TO_MAX) && fabs(live()->objectStore.items[2].transform.position.x-3)<1e-5);
+    TEST_ASSERT(measure_click(MEASURE_ENVELOPE));UIPanel_LayoutParts();TEST_ASSERT(parts_click(PARTS_ENVELOPE_CHECK));UIPanel_LayoutParts();TEST_ASSERT(parts_click(9000));UIPanel_LayoutParts();
+    char* before=Layout_SaveToString(live());size_t undo=Editor_UndoCount(&Global_Get()->editor);
+    TEST_ASSERT(parts_click(PARTS_MOTION_INSPECT) && UIPanel_Get()->spatial.preview_active && UIPanel_Get()->spatial.inspection.hit);
+    UIPanel_LayoutParts();TEST_ASSERT(parts_click(PARTS_MOTION_NEXT) && same(before) && Editor_UndoCount(&Global_Get()->editor)==undo);
+    TEST_ASSERT(parts_click(PARTS_MOTION_CLOSE) && !UIPanel_Get()->spatial.preview_active && same(before));
+    TEST_ASSERT(parts_click(PARTS_MOTION_INSPECT) && UIPanel_Get()->spatial.preview_active);
+    TEST_ASSERT(Layout_SetObject3DPosition(live(),4,(Vec3){2,.7f,0},NULL));UIPanel_LayoutParts();TEST_ASSERT(!UIPanel_Get()->spatial.preview_active);Layout_FreeString(before);
+    ld_test_shutdown_runtime();return true;
+}
 bool motion_run_tests(void) {
     const TestCase tests[]={
         {"travel_atomic_sample_history_obstruction",test_travel_samples_undo_and_static_clear_motion_hit},
@@ -165,6 +333,14 @@ bool motion_run_tests(void) {
         {"stale_regenerate_identity_delete",test_stale_regenerate_identity_and_deletion},
         {"schema18_roundtrip_migration_export",test_schema18_roundtrip_negative_migration_and_export},
         {"scaled_panel_locked_failure",test_scaled_panel_sampling_and_locked_failure},
-        {"mouse_envelope_workflow",test_mouse_create_regenerate_checks_return_to_movement}
+        {"mouse_envelope_workflow",test_mouse_create_regenerate_checks_return_to_movement},
+        {"assembly_travel_undo_freshness",test_assembly_travel_envelope_undo_freshness},
+        {"scaled_assembly_motion",test_scaled_assembly_motion},
+        {"envelope_scope_upgrade_downgrade",test_envelope_scope_upgrade_and_downgrade},
+        {"assembly_hinge_rigid_coverage",test_assembly_hinge_coverage_and_slider_rigidity},
+        {"assembly_scope_atomic_rejections",test_assembly_scope_rejections_atomic},
+        {"schema19_scope_schema18_compat",test_schema19_scope_negative_and_schema18_compatibility},
+        {"inspection_hit_false_positive_readonly",test_inspection_hit_false_positive_and_read_only},
+        {"mouse_scope_readonly_preview",test_mouse_scope_and_readonly_preview}
     };return run_test_cases("Motion",tests,sizeof(tests)/sizeof(tests[0]));
 }

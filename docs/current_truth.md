@@ -1,25 +1,33 @@
 # Sculpt Current Truth
 
 
-## S4 opening slice: motion envelopes
+## S4 continuation: assembly motion and pose inspection (2026-10-02)
 
-The saved Travel/Hinge controls now expose **Create envelope**. Parts → Volumes
-shows the derived range/size, current/stale status, regeneration and movement/check
-navigation. A labeled wire box encloses the moving B primitive over its saved
-range. Hinge padding covers intervening poses; results are conservative warnings,
-not exact collision assertions. Stale envelopes return unresolved warnings.
+Measure now has **Moves: B only / assembly** below the existing movement controls.
+An explicit containing assembly moves rigidly with B, including nested members and
+assembly frames; envelopes sample the whole saved group. Parts → Volumes retains
+regeneration, status, size/range, stable IDs and movement/check navigation.
 
-Schema 18 retains provenance and undo/redo identity, reads older scenes without
-motion records and excludes reserved boxes from physical runtime solids. The first
-slice covers B only; assemblies, downstream followers, simultaneous joints and
-exact swept solids remain outside this contract. See [motion envelopes](motion_envelopes.md).
+Parts → Checks adds **Inspect motion** for current primitive envelope results.
+A read-only orange-wire preview opens at the first sampled failure or closest
+sample, with Previous/Next/Close controls and visible position/member feedback.
+Conservative warnings remain warnings: absence of a sampled hit does not prove
+that movement between samples is clear. Authored-input drift invalidates previews.
 
-Full source regression, producer/package checks and disposable native renders
-verify this opening slice; user hands-on acceptance remains separate. The next S4
-boundary is explicit moving-set/assembly scope and obstruction-to-pose inspection.
-The dated S3/S1 accounts below retain their original milestone/next-step history.
+Schema 19 persists explicit motion scope and relative member snapshots; schema 18
+B-only envelopes migrate with retained freshness. The group supports up to 64
+design panels/prisms. A must be outside it, and other geometric rules mentioning
+members, unsupported kinds, locks and bounds conflicts are refused atomically.
+Generation, scope changes and motion retain undo/redo and identity. Reserved
+boxes/provenance remain in the authoritative runtime snapshot, outside solids.
 
-Last updated: 2026-09-30
+See [motion envelopes and previews](motion_envelopes.md) for controls, migrations,
+proof and exclusions. Source/mouse tests and native fixtures are separate from
+user hands-on acceptance. Next S4 work is tighter conservative coverage and
+between-sample analysis; independent follower/mesh/multiple-joint motion is deferred.
+The dated milestone accounts below retain their original proof/next-step history.
+
+Last updated: 2026-10-02
 
 ## S3B/S3C reserved volumes and spatial checks (2026-09-30)
 

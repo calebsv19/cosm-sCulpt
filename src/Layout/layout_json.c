@@ -1251,7 +1251,7 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
         Layout_Free(&temp);
         return false;
     }
-    if (!Layout_MotionReadJson(&temp,cJSON_GetObjectItemCaseSensitive(root,"engineering"),schemaVersion>=LAYOUT_JSON_SCHEMA_VERSION_MOTION_ENVELOPES)) {
+    if (!Layout_MotionReadJson(&temp,cJSON_GetObjectItemCaseSensitive(root,"engineering"),schemaVersion)) {
         Layout_Free(&temp);return false;
     }
     temp.objectStore.view_query=layout->objectStore.view_query;

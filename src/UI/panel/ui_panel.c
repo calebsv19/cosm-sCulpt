@@ -1,4 +1,5 @@
 #include "UI/ui_panel_spatial.h"
+#include "UI/ui_panel_motion.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_create_summary.h"
@@ -1101,6 +1102,7 @@ void UIPanel_ResetTransientUiState(void) {
 void UIPanel_RenderOverlays(SDL_Renderer* renderer) {
     UIPanel_RenderConstraintViewport(renderer);
     UIPanel_RenderMotionViewport(renderer);
+    UIPanel_RenderMotionPreview(renderer);
     if (g_uiPanel.measurement.active && g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE)
         UIPanel_RenderMeasurementViewport(renderer);
     UIPanel_RenderOverlayDialogs(renderer, &g_uiPanel);

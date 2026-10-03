@@ -132,8 +132,9 @@ are disposable fixtures and do not replace the user's saved scene.
 ![Volume controls](assets/s3-volumes.png)
 ![Check results](assets/s3-checks.png)
 
-The S4 opening slice now consumes these reserved-space/check contracts. Next is
-explicit moving-set/assembly scope and obstruction-to-pose inspection; see
+The S4 opening slice now consumes these reserved-space/check contracts. It now
+samples explicit assembly scope and offers read-only obstruction pose inspection.
+Next is tighter conservative bounds and between-sample analysis; see
 [motion envelopes](motion_envelopes.md). Triangle-level mesh checks and richer service-volume derivation
 remain follow-on work. User acceptance of the new UI remains separate from tests
 and rendered/package proof.

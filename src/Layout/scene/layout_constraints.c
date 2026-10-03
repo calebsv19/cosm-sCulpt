@@ -196,6 +196,7 @@ bool Layout_InitAngularTravel(const Layout* layout,LayoutConstraint* rule,double
 static bool order_rules(const Layout* layout, size_t order[LAYOUT_MAX_CONSTRAINTS], char* message, size_t size) {
     const LayoutObjectStore* store=&layout->objectStore;
     if (store->constraintCount > LAYOUT_MAX_CONSTRAINTS) return fail(message,size,"Too many constraints.");
+    if (!Layout_ValidateMotionScopes(layout,message,size)) return false;
     bool done[LAYOUT_MAX_CONSTRAINTS]={0};
     for (size_t i=0; i<store->constraintCount; ++i) {
         const LayoutConstraint* c=&store->constraints[i];
@@ -265,6 +266,7 @@ static bool solve(Layout* layout, uint32_t edited, char* message, size_t size) {
         if (rule_satisfied(layout,c)) continue;
         Object3D* b=entity(layout,c->b.entity_id);
         if (!b || b->coreMeta.flags.locked) return fail(message,size,"Dependent is locked; constraint cannot be maintained.");
+        Object3D before_b=*b;
         if (b->objectId==edited) return fail(message,size,"Edit conflicts with the object's driving rule. Edit its target or driver instead.");
         if (c->kind==LAYOUT_CONSTRAINT_PLANAR_MATE || c->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL) {
             LayoutMeasurementResult angle=Layout_Measure(layout,&c->a,&c->b,LAYOUT_MEASURE_PLANAR_ANGLE,c->axis);
@@ -297,6 +299,7 @@ static bool solve(Layout* layout, uint32_t edited, char* message, size_t size) {
         bool adjusted=false;
         if (!Layout_SetObject3DPosition(layout,b->objectId,(Vec3){(float)world[0],(float)world[1],(float)world[2]},&adjusted) || adjusted || !rule_satisfied(layout,c))
             return fail(message,size,"Constraint conflicts with bounds, plane locks or numeric precision.");
+        if (!Layout_ApplyMotionScope(layout,c,&before_b)) return false;
     }
     return Layout_ValidateConstraints(layout,message,size);
 }
@@ -340,6 +343,12 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
             ok=fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Travel permits translation along its rail within Min and Max; orientation stays fixed."); break;
         }
         c->target=fmax(c->travel_min,fmin(c->travel_max,m.value));
+    }
+    if (ok && edited && object) for (size_t i=0;i<candidate.objectStore.constraintCount;++i) {
+        const LayoutConstraint* c=&candidate.objectStore.constraints[i];
+        if (c->motion_assembly[0] && !strcmp(c->b.entity_id,object->coreMeta.object_id))
+            ok=Layout_ApplyMotionScope(&candidate,c,object);
+        if (!ok) {snprintf(layout->geometryMessage,sizeof(layout->geometryMessage),"%s",candidate.geometryMessage);break;}
     }
     if (ok) ok=Layout_ValidateEngineering(&candidate,layout->geometryMessage,sizeof(layout->geometryMessage));
     if (ok) ok=solve(&candidate,edited,layout->geometryMessage,sizeof(layout->geometryMessage));

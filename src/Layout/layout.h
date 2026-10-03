@@ -309,6 +309,7 @@ typedef struct LayoutConstraint {
     double travel_offset[3]; /* perpendicular separation, meters */
     double travel_basis[3][3]; /* normalized B U/V/N at capture */
     double hinge_reference[3]; /* A direction at capture; hinge limits/home are degrees */
+    char motion_assembly[64]; /* empty: B only; otherwise rigid design assembly driven by B */
 } LayoutConstraint;
 
 #define LAYOUT_MAX_RELATIONSHIPS 128
@@ -335,10 +336,19 @@ typedef struct {
 } LayoutSpatialRule;
 
 #define LAYOUT_MAX_MOTION_ENVELOPES 32
+#define LAYOUT_MAX_MOTION_MEMBERS 64
+typedef struct {
+    char entity_id[64];
+    Object3DKind kind;
+    double size_meters[3], local_origin[3], local_basis[3][3];
+} LayoutMotionMember;
 typedef struct {
     uint32_t object_id, samples;
     char rule_id[64], input_digest[17], bounds_digest[17];
     double padding_meters;
+    char assembly_id[64];
+    size_t member_count;
+    LayoutMotionMember members[LAYOUT_MAX_MOTION_MEMBERS];
 } LayoutMotionEnvelope;
 
 typedef struct {

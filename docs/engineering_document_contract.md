@@ -3,7 +3,11 @@
 Status: S0/S1 CAD foundation, S2 semantics/assemblies and S3A relationships and S3B/S3C spatial records and the S4 motion-envelope opening slice implemented.
 Date: 2026-09-30
 
-Current schema is **18**, adding derived motion-envelope provenance and freshness.
+Current schema is **19**, adding explicit rigid movement assembly scope and relative
+member snapshots for derived envelopes. Schema 18 single-object envelopes migrate
+as B-only with their geometry and freshness retained; malformed/downgraded scope
+data is rejected atomically. See [motion envelopes](motion_envelopes.md).
+Schema **18** introduced derived motion-envelope provenance and freshness.
 See [motion envelopes](motion_envelopes.md). Schema 17 added explicit reserved/service
 roles, owner IDs and saved intersection/clearance checks. See [spatial checks](spatial_checks.md).
 Schema 16 added explicit attachment/support/containment links.
@@ -12,8 +16,8 @@ endpoint deletion guards and export. Schema 15 semantic records and assembly fra
 remain part of the document.
 See [S2 semantics and assemblies](semantic_assemblies.md) for fields, migration,
 queries, transactions and export. Schema 14 hinge rules and schema 13 linear travel
-remain supported; references retain schema 12 physical offsets. Schemas 0–17 remain
-readable under their contracts. Older readers reject 18 rather than dropping motion provenance. See [geometric constraints](geometric_constraints.md) and the
+remain supported; references retain schema 12 physical offsets. Schemas 0–18 remain
+readable under their contracts. Older readers reject 19 rather than dropping assembly motion or provenance. See [geometric constraints](geometric_constraints.md) and the
 [S1 audit](s1_engineering_audit.md) for the earlier mechanical baseline.
 The schema 10 account below records the original physical-context migration.
 

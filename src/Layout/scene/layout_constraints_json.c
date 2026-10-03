@@ -54,6 +54,7 @@ bool Layout_ConstraintsWriteJson(const Layout* layout, cJSON* root) {
             !cJSON_AddNumberToObject(o,"target",c->target) || !cJSON_AddNumberToObject(o,"axisX",c->axis.x) ||
             !cJSON_AddNumberToObject(o,"axisY",c->axis.y) || !cJSON_AddNumberToObject(o,"axisZ",c->axis.z)) return false;
         if(c->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL || c->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL) {
+            if (!cJSON_AddStringToObject(o,"motionAssembly",c->motion_assembly)) return false;
             bool hinge=c->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL;
             if(!cJSON_AddNumberToObject(o,hinge ? "travelMin_deg" : "travelMin_m",c->travel_min) ||
                !cJSON_AddNumberToObject(o,hinge ? "travelMax_deg" : "travelMax_m",c->travel_max) ||
@@ -88,6 +89,11 @@ bool Layout_ConstraintsReadJson(Layout* layout, const cJSON* root, bool required
             !number(o,"target",&c.target) || !number(o,"axisX",&x) || !number(o,"axisY",&y) || !number(o,"axisZ",&z)) return false;
         c.kind=(LayoutConstraintKind)kind; c.axis=(Vec3){(float)x,(float)y,(float)z};
         if(c.kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL || c.kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL) {
+            const cJSON* scope=cJSON_GetObjectItemCaseSensitive(o,"motionAssembly");
+            if (cJSON_IsNumber(version) && version->valuedouble>=19) {
+                if (!cJSON_IsString(scope) || !scope->valuestring || strlen(scope->valuestring)>=64) return false;
+                snprintf(c.motion_assembly,64,"%s",scope->valuestring);
+            } else if (scope && (!cJSON_IsString(scope) || !scope->valuestring || scope->valuestring[0])) return false;
             bool hinge=c.kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL;
             if(!cJSON_IsNumber(version) || version->valuedouble<(hinge ? 14 : 13) ||
                !number(o,hinge ? "travelMin_deg" : "travelMin_m",&c.travel_min) || !number(o,hinge ? "travelMax_deg" : "travelMax_m",&c.travel_max) ||

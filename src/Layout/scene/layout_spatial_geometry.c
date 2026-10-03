@@ -126,7 +126,7 @@ size_t Layout_CheckSpatial(const Layout* l,LayoutSpatialResult* output,size_t ca
         for(size_t j=0;j<s->count;++j) {
             const Object3D* o=&s->items[j];
             /* A is the intentional fixed mounting/reference object; B owns its sweep. */
-            if (movement && !strcmp(o->coreMeta.object_id,movement->a.entity_id)) continue;
+            if (movement && (!strcmp(o->coreMeta.object_id,movement->a.entity_id) || Layout_MotionScopeContains(s,movement,o))) continue;
             if(o->isDeleted||o==v||o->info.volume_role||o->info.reference || (v->info.volume_owner[0] && member(s,o,v->info.volume_owner)))continue;
             LayoutSpatialResult result=check_pair(l,v,o,v->coreMeta.object_id,0,false);
             /* Automatic checks report obstructions/unresolved geometry, not thousands of clear pairs. */

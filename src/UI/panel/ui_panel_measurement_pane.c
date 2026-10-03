@@ -33,7 +33,7 @@ static bool field_action(int action) {
         (action>=MEASURE_OFFSET_U && action<=MEASURE_OFFSET_N);
 }
 static bool dropdown_action(int action) {
-    return action==MEASURE_TOOL || action==MEASURE_VIEW || action==MEASURE_UNITS || action==MEASURE_OBJECT_A || action==MEASURE_OBJECT_B ||
+    return action==MEASURE_MOTION_SCOPE || action==MEASURE_TOOL || action==MEASURE_VIEW || action==MEASURE_UNITS || action==MEASURE_OBJECT_A || action==MEASURE_OBJECT_B ||
         action==MEASURE_FEATURE_A || action==MEASURE_FEATURE_B || action==MEASURE_RULES;
 }
 static void cell(MeasurePane* p,int action,const char* label,int column,int columns,bool enabled,bool selected) {
@@ -148,6 +148,13 @@ static void choices(MeasurePane* p,int chooser) {
         for (int i=0;i<(plane?5:10);++i) {
             LayoutGeometricReference f=feature_at(ref,i,plane);
             row(p,MEASURE_CHOICE_BASE+i,feature(&f),true);
+        }
+    } else if(chooser==9) {
+        row(p,MEASURE_CHOICE_BASE,"B only",true);
+        const LayoutConstraint* c=selected();const Object3D* b=c?object(c->b.entity_id):NULL;
+        if (b) for (size_t i=0;i<s->assembly_count;++i) if (Layout_IsDescendant(s,b->info.parent_id,s->assemblies[i].id)) {
+            char label[160];snprintf(label,sizeof(label),"Assembly: %s",s->assemblies[i].info.label[0]?s->assemblies[i].info.label:s->assemblies[i].id);
+            row(p,MEASURE_CHOICE_BASE+1+(int)i,label,true);
         }
     } else if(chooser==6) {
         const int actions[]={MEASURE_DISTANCE,MEASURE_JOIN,MEASURE_ANGLE,MEASURE_TRAVEL,MEASURE_HINGE};
@@ -280,6 +287,11 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         cell(&p,MEASURE_TRAVEL_TO_MIN,"Min",0,3,active_travel && !pending,false);
         cell(&p,MEASURE_TRAVEL_TO_MAX,"Max",1,3,active_travel && !pending,false);
         cell(&p,MEASURE_TRAVEL_RESET,"Reset",2,3,active_travel,false);p.y+=p.h;
+        if (active_travel) {
+            const LayoutAssembly* a=Layout_FindAssembly(store,rule->motion_assembly);
+            snprintf(text,sizeof(text),"Moves: %s",a?(a->info.label[0]?a->info.label:a->id):"B only");
+            row(&p,MEASURE_MOTION_SCOPE,text,!pending && scene);choices(&p,9);
+        }
         if(active_travel) {
             const LayoutMotionEnvelope* envelope=Layout_FindRuleEnvelope(&Global_Get()->layout.objectStore,rule->id);
             row(&p,MEASURE_ENVELOPE,envelope ? Layout_MotionEnvelopeCurrent(&Global_Get()->layout,envelope)?"View envelope":"Update envelope" : "Create envelope",!pending && scene);
@@ -487,7 +499,9 @@ bool UIPanel_MeasurementClick(int x,int y) {
         UIPanel_MeasurementStopInput();ui->measurement.rules_open=!ui->measurement.rules_open;
     } else if(action==MEASURE_TRAVEL)choose_tool(3);
     else if(action==MEASURE_HINGE)choose_tool(4);
-    else if(action==MEASURE_ENVELOPE) {
+    else if(action==MEASURE_MOTION_SCOPE) {
+        UIPanel_MeasurementStopInput();ui->measurement.chooser=chooser==9?0:9;
+    } else if(action==MEASURE_ENVELOPE) {
         const LayoutConstraint* c=selected();
         if(c && Layout_GenerateMotionEnvelope(&Global_Get()->layout,c->id,33,Layout_GeometryHistory,NULL)) {
             const LayoutMotionEnvelope* envelope=Layout_FindRuleEnvelope(&Global_Get()->layout.objectStore,c->id);
@@ -526,6 +540,14 @@ bool UIPanel_MeasurementClick(int x,int y) {
         } else if(chooser==5) {
             UIPanel_MeasurementStopInput();UIPanel_MeasurementSelectRule(index);
             ui->measurement.rules_open=false;ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx=0;
+        } else if(chooser==9) {
+            const LayoutConstraint* saved=selected();
+            if (saved && (index==0 || (index>0 && (size_t)(index-1)<Global_Get()->layout.objectStore.assembly_count))) {
+                LayoutConstraint c=*saved;snprintf(c.motion_assembly,64,"%s",index?Global_Get()->layout.objectStore.assemblies[index-1].id:"");
+                bool ok=Layout_ConstraintEdit(&Global_Get()->layout,&c,NULL,Layout_GeometryHistory,NULL);
+                if (ok) UIPanel_MeasurementSelectRule(ui->measurement.constraint_index);
+                snprintf(ui->measurement.placement_message,128,"%s",ok?"Movement scope saved. Update its envelope.":Global_Get()->layout.geometryMessage);
+            }
         } else if(chooser==7) {
             const CoreUnitKind units[]={CORE_UNIT_MILLIMETER,CORE_UNIT_CENTIMETER,CORE_UNIT_METER,CORE_UNIT_INCH,CORE_UNIT_FOOT};
             if(index>=0 && index<5)(void)change_units(units[index]);

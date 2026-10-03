@@ -1,5 +1,13 @@
 # Persistent Geometric Constraints
 
+S4 continuation (2026-10-02): saved Travel/Hinge rules may explicitly select a
+containing rigid assembly through Measure's **Moves** control. The slider/numeric
+position moves its design primitive members and nested frames together, with
+atomic lock/bounds/conflicting-rule refusal. Schema 19 stores `motionAssembly`;
+empty remains B-only. Full-group envelopes and read-only obstruction previews use
+the same movement path. See [scope, controls and limits](motion_envelopes.md).
+
+
 Status: bounded S1c/S1d fixed rules/offsets and S1e linear/angular movement delivered.
 Date: 2026-09-29
 
@@ -235,12 +243,12 @@ The separate object-asset authoring format cannot store scene rules. Rule creati
 in the Object workspace is refused, and saving a constrained layout as an object
 asset fails before touching its destination file. Save it as a scene instead.
 
-The canonical authoring export retains schema 14 in its embedded layout snapshot;
+The canonical authoring export retains the current layout schema (19) in its embedded layout snapshot;
 runtime compilation consumes the solved geometry. The renderer is not a constraint
 solver. Exporting invalid geometry fails. A physical-scale export override that
 makes the saved targets inconsistent also fails instead of changing their meaning.
 
-## Verification and continuation
+## Historical S1 verification and continuation
 
 `make test`: 442 tests across 43 reported suites, including 33 constraint tests.
 Travel coverage includes attached chains, direct in-range movement, sideways/rotation
