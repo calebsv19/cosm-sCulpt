@@ -33,11 +33,11 @@ bool LineDrawingViewport3DBridgeStateFromRuntime(
     if (core_viewport3d_build_basis(&orientation, &basis).code != CORE_OK) return false;
     offset_right = (double)grid->offsetX + viewport_center_x / scale;
     offset_down = (double)grid->offsetY + viewport_center_y / scale;
-    effective_target.x = (double)camera->target.x + basis.right.x * offset_right +
+    effective_target.x = (double)camera->target.x + basis.right.x * offset_right -
                          basis.screen_down.x * offset_down;
-    effective_target.y = (double)camera->target.y + basis.right.y * offset_right +
+    effective_target.y = (double)camera->target.y + basis.right.y * offset_right -
                          basis.screen_down.y * offset_down;
-    effective_target.z = (double)camera->target.z + basis.right.z * offset_right +
+    effective_target.z = (double)camera->target.z + basis.right.z * offset_right -
                          basis.screen_down.z * offset_down;
     return core_viewport3d_state_init(out_state,
                                       effective_target,
@@ -91,13 +91,22 @@ bool LineDrawingViewport3DBridgeApply(
     FreeViewCamera* out_camera, Grid* out_grid) {
     CoreViewport3DState before;
     CoreViewport3DState after;
+    CoreViewport3DCommand adapted_command;
     FreeViewCamera candidate_camera;
     Grid candidate_grid;
-    if (!camera || !grid || !command || !out_camera || !out_grid ||
+    if (!command) return false;
+    adapted_command = *command;
+    /* The existing shared basis vertical points world-up. Translate this app's
+       screen-down command coordinates at the bridge, without changing its ABI. */
+    if (adapted_command.kind == CORE_VIEWPORT3D_COMMAND_PAN)
+        adapted_command.value.pan.screen_dy = -adapted_command.value.pan.screen_dy;
+    if (adapted_command.kind == CORE_VIEWPORT3D_COMMAND_ZOOM)
+        adapted_command.value.zoom.anchor_offset_y = -adapted_command.value.zoom.anchor_offset_y;
+    if (!camera || !grid || !out_camera || !out_grid ||
         !LineDrawingViewport3DBridgeStateFromRuntime(camera, grid,
                                                      viewport_center_x, viewport_center_y,
                                                      min_grid_scale, max_grid_scale, &before) ||
-        core_viewport3d_apply(&before, command, &after).code != CORE_OK) return false;
+        core_viewport3d_apply(&before, &adapted_command, &after).code != CORE_OK) return false;
     candidate_camera = *camera;
     candidate_grid = *grid;
     if (!LineDrawingViewport3DBridgeCommit(&after,

@@ -38,7 +38,7 @@ static bool test_evn3_pan_matches_canonical_camera_basis_delta(void) {
     TEST_ASSERT(LineDrawingViewportNavApply(&before, &command, &after));
     delta = Vec3_Sub(after.target, before.target);
     TEST_ASSERT(evn3_nearly_equal(Vec3_Dot(delta, right), -2.0f));
-    TEST_ASSERT(evn3_nearly_equal(Vec3_Dot(delta, vertical), 1.0f));
+    TEST_ASSERT(evn3_nearly_equal(Vec3_Dot(delta, vertical), -1.0f));
     TEST_ASSERT(evn3_nearly_equal(Vec3_Dot(delta, forward), 0.0f));
     TEST_ASSERT(evn3_nearly_equal(after.yaw_deg, before.yaw_deg));
     TEST_ASSERT(evn3_nearly_equal(after.pitch_deg, before.pitch_deg));

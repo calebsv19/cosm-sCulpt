@@ -20,7 +20,8 @@ Check full range performs bounded adaptive separation/failure analysis between
 samples, keeping unresolved intervals explicit. See [motion envelopes](motion_envelopes.md).
 The illustrative van workflow audit now exercises assemblies, service spaces and
 motion checks; see [the walkthrough](illustrative_van_workflow.md). Its Z-up screen
-projection/picking and readability gaps are the next gate before S5 routing
+projection/picking, viewport-sized gizmos and Measure/overview label readability
+are repaired. Remaining session/Parts/check usability work precedes S5 routing
 corridors/cable paths. Independent
 constrained followers, arbitrary moving sets, meshes and multiple joints remain
 separate contracts. Broader snapping and

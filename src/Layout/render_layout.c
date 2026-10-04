@@ -1,3 +1,4 @@
+#include "Editor/viewport_gizmo.h"
 #include "Layout/layout_motion.h"
 #include "Layout/layout_engineering.h"
 // src/Layout/layout_render.c
@@ -178,7 +179,7 @@ static void Layout_RenderSceneBounds3D(const Layout* layout, SDL_Renderer* rende
     const int activeHandle = (hoveredHandle != SCENE_BOUNDS_HANDLE_NONE)
         ? hoveredHandle
         : selectedHandle;
-    const int radius = SDL_max(4, (int)(grid->gridSize * grid->scale * 0.10f));
+    const int radius = ViewportGizmo_RadiusPixels();
     for (int handle = SCENE_BOUNDS_HANDLE_MIN_X;
          handle <= SCENE_BOUNDS_HANDLE_CENTER;
          ++handle) {
@@ -832,7 +833,7 @@ static void Layout_RenderHandles(const Layout* layout, SDL_Renderer* renderer) {
                                        255);
             }
 
-            int radius = SDL_max(3, (int)(grid->gridSize * grid->scale * 0.08f));
+            int radius = ViewportGizmo_RadiusPixels();
             DrawFilledCircle(renderer, (int)handleScreen.x, (int)handleScreen.y, radius);
         }
     }

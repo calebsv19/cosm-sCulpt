@@ -1,4 +1,5 @@
 #include "test_layout_internal.h"
+#include "Editor/viewport_gizmo.h"
 
 #include "Core/workspace/line_drawing_object_workspace_view.h"
 #include "Editor/object_face_extrude.h"
@@ -439,7 +440,7 @@ static bool test_object_authoring_topology_selection_emits_gizmo_axis_hitboxes(v
     state->editor.selectedObjectAssetFace = OBJECT3D_FACE_NONE;
     state->editor.selectedObject3DResizeHandle = PLANE_RESIZE_HANDLE_NONE;
     state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
-    axis_world_len = fmaxf(state->layout.gridSize * 2.0f, 1.0f);
+    axis_world_len = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
 
     axis = Layout_RectPrismAxisDirection_WorldVector(object, RECT_PRISM_AXIS_DIR_POS_U);
     tip = Vec3_Add(vertex->position, Vec3_Scale(axis, axis_world_len));
@@ -878,7 +879,7 @@ static bool test_object_authoring_topology_modes_suppress_body_handles_before_ta
     state->editor.selectedObject3DPrismHandle = RECT_PRISM_RESIZE_HANDLE_NONE;
     TEST_ASSERT(Layout_Object3D_ComputeRectPrismCorners(object, corners));
 
-    axis_world_len = fmaxf(state->layout.gridSize * 2.0f, 1.0f);
+    axis_world_len = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     corner_screen = WorldToScreen(Vec3_ProjectToView(corners[0],
                                                      state->activePlane,
                                                      &state->freeViewCamera),

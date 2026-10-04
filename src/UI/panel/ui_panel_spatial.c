@@ -275,16 +275,33 @@ void UIPanel_RenderMotionViewport(SDL_Renderer* renderer) {
     if (!renderer || !font || !LineDrawingPaneHost_GetViewportRect(&state->paneHost,&rect)) return;
     SDL_Rect old;bool clipped=SDL_RenderIsClipEnabled(renderer);SDL_RenderGetClipRect(renderer,&old);
     SDL_Rect clip={(int)rect.x,(int)rect.y,(int)rect.width,(int)rect.height};SDL_RenderSetClipRect(renderer,&clip);
-    SpaceViewContext view=SpaceAdapter_BuildViewContext(state);
+    int line_height=TTF_FontHeight(font)+8;
+    int visible=0;
     for (size_t i=0;i<state->layout.objectStore.motion_envelope_count;++i) {
         const LayoutMotionEnvelope* envelope=&state->layout.objectStore.motion_envelopes[i];
         const Object3D* o=Layout_ObjectStore_FindConst(&state->layout.objectStore,envelope->object_id);
+        if (o && Layout_ObjectShown(&state->layout.objectStore,o)) ++visible;
+    }
+    if (!visible) {SDL_RenderSetClipRect(renderer,clipped?&old:NULL);return;}
+    int capacity=(clip.h/3)/line_height;
+    if(capacity<1)capacity=1;
+    int shown=visible<capacity?visible:capacity;
+    int width=clip.w-24;if(width>560)width=560;
+    int y=clip.y+clip.h-12-shown*line_height;
+    int row_index=0;
+    for (size_t i=0;i<state->layout.objectStore.motion_envelope_count && row_index<shown;++i) {
+        const LayoutMotionEnvelope* envelope=&state->layout.objectStore.motion_envelopes[i];
+        const Object3D* o=Layout_ObjectStore_FindConst(&state->layout.objectStore,envelope->object_id);
         if (!o || !Layout_ObjectShown(&state->layout.objectStore,o)) continue;
-        Vec2 p=WorldToScreen(SpaceAdapter_ProjectToView(o->transform.position,&view),&state->grid);
-        if (!isfinite(p.x) || !isfinite(p.y) || p.x<rect.x || p.x>=rect.x+rect.width || p.y<rect.y || p.y>=rect.y+rect.height) continue;
-        bool current=Layout_MotionEnvelopeCurrent(&state->layout,envelope);char text[160];
-        snprintf(text,sizeof(text),"%.80s [%s]",o->info.label,current?"overview bounds":"STALE - regenerate");
-        UIPanelSummary_DrawText(renderer,font,text,(int)p.x+12,(int)p.y+8,current?(SDL_Color){185,150,255,255}:(SDL_Color){255,165,90,255});
+        bool current=Layout_MotionEnvelopeCurrent(&state->layout,envelope);
+        char text[160];
+        snprintf(text,sizeof(text),"Motion %zu: %s | %s",i+1,envelope->rule_id,
+            current?"overview bounds":"STALE - regenerate");
+        SDL_Rect banner={clip.x+12,y+row_index*line_height,width,line_height};
+        SDL_SetRenderDrawColor(renderer,20,24,30,235);SDL_RenderFillRect(renderer,&banner);
+        UIPanelSummary_DrawTextClipped(renderer,font,text,banner.x+6,banner.y+3,
+            banner.w-12,line_height-6,current?(SDL_Color){185,150,255,255}:(SDL_Color){255,165,90,255});
+        ++row_index;
     }
     SDL_RenderSetClipRect(renderer,clipped?&old:NULL);
 }

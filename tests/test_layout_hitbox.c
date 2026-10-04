@@ -1,7 +1,9 @@
+#include "Editor/viewport_gizmo.h"
 #include "test_layout_internal.h"
 #include "Editor/object_handle_gizmo.h"
 #include "Editor/object3d_origin_pick.h"
 #include "Input/input_mouse_drag.h"
+#include "Input/input_mouse_drag_shared.h"
 
 static bool test_hitbox_plane_object_is_selectable(void) {
     ld_test_init_runtime();
@@ -124,12 +126,7 @@ static bool test_mesh_asset_instance_center_gizmo_drag_can_begin(void) {
     Global_RebuildHitboxesIfDirty();
     Vec3 corners[8] = {0};
     TEST_ASSERT(Layout_Object3D_ComputeMeshInstanceCorners(object, corners));
-    float maxRadius = 0.0f;
-    for (int i = 0; i < 8; ++i) {
-        const float radius = Vec3_Length(Vec3_Sub(corners[i], visualCenter));
-        if (radius > maxRadius) maxRadius = radius;
-    }
-    const float axisWorldLen = fmaxf(fmaxf(layout->gridSize * 2.0f, 1.0f), maxRadius * 0.35f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(layout->gridSize, state->grid.scale);
     Vec3 tip = Vec3_Add(visualCenter,
                         Vec3_Scale(GizmoAxisDirection_WorldVector(GIZMO_AXIS_DIR_POS_X),
                                    axisWorldLen));
@@ -233,7 +230,7 @@ static bool test_hitbox_plane_gizmo_axes_emit_for_selected_corner_in_free_view(v
     TEST_ASSERT(Layout_PlaneResizeHandleWorldPoint(object,
                                                    PLANE_RESIZE_HANDLE_CORNER_POS_U_POS_V,
                                                    &handleWorld));
-    const float axisWorldLen = fmaxf(layout->gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(layout->gridSize, state->grid.scale);
 
     {
         Vec3 axisU = Layout_PlaneAxisDirection_WorldVector(object, RECT_PRISM_AXIS_DIR_POS_U);
@@ -292,7 +289,7 @@ static bool test_hitbox_plane_edge_gizmo_allows_only_resize_axis(void) {
     TEST_ASSERT(Layout_PlaneResizeHandleWorldPoint(object,
                                                    PLANE_RESIZE_HANDLE_EDGE_POS_U,
                                                    &handleWorld));
-    const float axisWorldLen = fmaxf(layout->gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(layout->gridSize, state->grid.scale);
 
     {
         Vec3 axisU = Layout_PlaneAxisDirection_WorldVector(object, RECT_PRISM_AXIS_DIR_POS_U);
@@ -463,7 +460,7 @@ static bool test_hitbox_scene_bounds_selected_face_emits_one_axis_gizmo(void) {
     TEST_ASSERT(Layout_SceneBoundsHandleWorldPoint(&layout->scene3d.bounds,
                                                    SCENE_BOUNDS_HANDLE_MAX_X,
                                                    &handleWorld));
-    const float axisWorldLen = fmaxf(layout->gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(layout->gridSize, state->grid.scale);
     Vec3 axisX = Layout_SceneBoundsAxisDirection_WorldVector(RECT_PRISM_AXIS_DIR_POS_U);
     Vec3 tip = Vec3_Add(handleWorld, Vec3_Scale(axisX, axisWorldLen));
     Vec2 tipView = Vec3_ProjectToView(tip, state->activePlane, &state->freeViewCamera);
@@ -549,7 +546,7 @@ static bool test_hitbox_scene_bounds_edge_and_corner_gizmo_axis_masks(void) {
     TEST_ASSERT(Layout_SceneBoundsHandleWorldPoint(&layout->scene3d.bounds,
                                                    SCENE_BOUNDS_HANDLE_EDGE_X_MIN_Y_MAX_Z,
                                                    &edgeWorld));
-    const float axisWorldLen = fmaxf(layout->gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(layout->gridSize, state->grid.scale);
     Vec3 axisY = Layout_SceneBoundsAxisDirection_WorldVector(RECT_PRISM_AXIS_DIR_POS_V);
     Vec3 tip = Vec3_Add(edgeWorld, Vec3_Scale(axisY, axisWorldLen));
     Vec2 tipView = Vec3_ProjectToView(tip, state->activePlane, &state->freeViewCamera);
@@ -634,7 +631,7 @@ static bool test_hitbox_scene_bounds_center_handle_emits_translate_gizmo(void) {
     Global_FlagHitboxesDirty();
     Global_RebuildHitboxesIfDirty();
 
-    const float axisWorldLen = fmaxf(layout->gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(layout->gridSize, state->grid.scale);
     Vec3 axisX = Layout_SceneBoundsAxisDirection_WorldVector(RECT_PRISM_AXIS_DIR_POS_U);
     Vec3 tip = Vec3_Add(centerWorld, Vec3_Scale(axisX, axisWorldLen));
     Vec2 tipView = Vec3_ProjectToView(tip, state->activePlane, &state->freeViewCamera);
@@ -784,7 +781,7 @@ static bool test_hitbox_rect_prism_gizmo_axes_emit_for_selected_handle_in_free_v
     TEST_ASSERT(Layout_RectPrismResizeHandleWorldPoint(object,
                                                        RECT_PRISM_RESIZE_HANDLE_EDGE_1,
                                                        &handleWorld));
-    const float axisWorldLen = fmaxf(layout->gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(layout->gridSize, state->grid.scale);
 
     {
         Vec3 axisU = Layout_RectPrismAxisDirection_WorldVector(object, RECT_PRISM_AXIS_DIR_POS_U);
@@ -849,7 +846,7 @@ static bool test_hitbox_object3d_center_gizmo_axes_emit_for_selected_object_in_f
     Global_FlagHitboxesDirty();
     Global_RebuildHitboxesIfDirty();
 
-    const float axisWorldLen = fmaxf(layout->gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(layout->gridSize, state->grid.scale);
     Vec3 tip = Vec3_Add(object->transform.position,
                         Vec3_Scale(GizmoAxisDirection_WorldVector(GIZMO_AXIS_DIR_POS_X), axisWorldLen));
     Vec2 tipView = Vec3_ProjectToView(tip, state->activePlane, &state->freeViewCamera);
@@ -892,7 +889,7 @@ static bool test_hitbox_object3d_center_gizmo_hidden_when_prism_handle_selected(
     Global_FlagHitboxesDirty();
     Global_RebuildHitboxesIfDirty();
 
-    const float axisWorldLen = fmaxf(layout->gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(layout->gridSize, state->grid.scale);
     Vec3 tip = Vec3_Add(object->transform.position,
                         Vec3_Scale(GizmoAxisDirection_WorldVector(GIZMO_AXIS_DIR_POS_X), axisWorldLen));
     Vec2 tipView = Vec3_ProjectToView(tip, state->activePlane, &state->freeViewCamera);
@@ -1190,7 +1187,7 @@ static bool test_hitbox_gizmo_axis_emits_for_selected_anchor_in_free_view(void) 
 
     Global_RebuildHitboxesIfDirty();
 
-    float axisWorldLen = fmaxf(layout->gridSize * 2.0f, 1.0f);
+    float axisWorldLen = ViewportGizmo_WorldLength(layout->gridSize, state->grid.scale);
     Vec3 tip = Vec3_Add(layout->anchors[anchorIdx].pos, (Vec3){ axisWorldLen, 0.0f, 0.0f });
     Vec2 tipView = Vec3_ProjectToView(tip, state->activePlane, &state->freeViewCamera);
     Vec2 tipScreen = WorldToScreen(tipView, &state->grid);
@@ -1218,7 +1215,7 @@ static bool test_hitbox_gizmo_axis_disabled_when_free_view_off(void) {
 
     Global_RebuildHitboxesIfDirty();
 
-    float axisWorldLen = fmaxf(layout->gridSize * 2.0f, 1.0f);
+    float axisWorldLen = ViewportGizmo_WorldLength(layout->gridSize, state->grid.scale);
     Vec3 tip = Vec3_Add(layout->anchors[anchorIdx].pos, (Vec3){ axisWorldLen, 0.0f, 0.0f });
     Vec2 tipView = Vec3_ProjectToView(tip, state->activePlane, &state->freeViewCamera);
     Vec2 tipScreen = WorldToScreen(tipView, &state->grid);
@@ -1230,8 +1227,105 @@ static bool test_hitbox_gizmo_axis_disabled_when_free_view_off(void) {
     return true;
 }
 
+static bool test_viewport_gizmo_zoom_independent_hit_targets(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    RectPrismPrimitiveCreateParams params;
+    Layout_RectPrismPrimitiveCreateParams_SetDefaults(&params);
+    params.width = params.height = params.depth = .01f;
+    params.lockToBounds = false;
+    uint32_t id;
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(&state->layout, &params, &id, NULL));
+    state->editor.selectedObject3DId = id;
+    state->freeViewCamera = (FreeViewCamera){true,35,20,{0}};
+    TEST_ASSERT(Global_SetSpaceMode(SPACE_MODE_3D, false));
+    Vec3 center;
+    TEST_ASSERT(Layout_Object3D_ComputeVisualCenter(Layout_ObjectStore_FindConst(&state->layout.objectStore,id), &center));
+    float length = -1;
+    for (int i = 0; i < 3; ++i) {
+        state->grid.scale = (float[]){.1f,1,10}[i];
+        float world_length = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
+        SpaceViewContext view = SpaceAdapter_BuildViewContext(state);
+        Vec2 a = WorldToScreen(SpaceAdapter_ProjectToView(center,&view),&state->grid);
+        Vec2 b = WorldToScreen(SpaceAdapter_ProjectToView(Vec3_Add(center,(Vec3){0,0,world_length}),&view),&state->grid);
+        if (i == 0) length = hypotf(b.x-a.x,b.y-a.y);
+        TEST_ASSERT(fabsf(hypotf(b.x-a.x,b.y-a.y)-length) < .01f);
+        TEST_ASSERT(b.y < a.y);
+        Global_FlagHitboxesDirty(); Global_RebuildHitboxesIfDirty();
+        Hitbox hit = HitboxSystem_GetHitAt((int)b.x+3,(int)b.y);
+        TEST_ASSERT(hit.type == HITBOX_OBJECT3D_GIZMO_AXIS && hit.index == (int)id);
+    }
+    TEST_ASSERT(ViewportGizmo_RadiusPixels() <= 8 && ViewportGizmo_PickRadiusPixels() <= 11);
+    ld_test_shutdown_runtime(); return true;
+}
+
+static bool test_viewport_gizmo_rotation_has_zoom_independent_sensitivity(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    RectPrismPrimitiveCreateParams params;
+    Layout_RectPrismPrimitiveCreateParams_SetDefaults(&params);
+    params.lockToBounds = params.lockToConstructionPlane = false;
+    uint32_t id;
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(&state->layout, &params, &id, NULL));
+    Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, id);
+    Object3D baseline = *object;
+    TEST_ASSERT(Global_SetSpaceMode(SPACE_MODE_3D, false));
+    state->freeViewCamera = (FreeViewCamera){true,35,20,{0}};
+    for (int i = 0; i < 3; ++i) {
+        *object = baseline;
+        state->grid.scale = (float[]){.1f,1,10}[i];
+        TEST_ASSERT(BeginObjectRotateDragSession(state, &state->editor, id,
+                                                  GIZMO_AXIS_DIR_POS_Z, 300, 300));
+        draggingObjectRotate = true;
+        float pixels = ViewportGizmo_LengthPixels() * cosf(DegToRad(20));
+        SDL_MouseMotionEvent motion = {.x = 300, .y = 300 - (int)roundf(pixels / 2)};
+        HandleMouseDrag(&motion);
+        TEST_ASSERT(fabsf(object->transform.rotationDeg.z - 90) < .01f);
+        ResetObjectRotateDrag(&state->editor);
+        draggingObjectRotate = false;
+    }
+    ld_test_shutdown_runtime(); return true;
+}
+
+static bool test_object3d_visible_edge_pick_and_visibility(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    PlanePrimitiveCreateParams params;
+    Layout_PlanePrimitiveCreateParams_SetDefaults(&params);
+    params.width = params.height = 10;
+    params.lockToBounds = false;
+    uint32_t id;
+    TEST_ASSERT(Layout_CreatePlanePrimitive(&state->layout,&params,&id,NULL));
+    Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore,id);
+    Vec3 corners[4]; TEST_ASSERT(Layout_Object3D_ComputePlaneCorners(object,corners));
+    SpaceViewContext view = SpaceAdapter_BuildViewContext(state);
+    Vec3 edge = Vec3_Scale(Vec3_Add(corners[0],corners[1]),.5f);
+    Vec2 screen = WorldToScreen(SpaceAdapter_ProjectToView(edge,&view),&state->grid);
+    Hitbox none = {.type=HITBOX_NONE,.index=-1};
+    Global_FlagHitboxesDirty(); Global_RebuildHitboxesIfDirty();
+    Hitbox hit = Editor_ResolveObject3DBodyPick(&state->layout,&state->grid,&view,
+                                               (int)screen.x,(int)screen.y+3,none);
+    TEST_ASSERT(hit.type == HITBOX_OBJECT3D && hit.index == (int)id);
+    for (int i=0;i<2;++i) {
+        object->coreMeta.flags.selectable = i != 0;
+        object->coreMeta.flags.visible = i == 0;
+        Global_FlagHitboxesDirty(); Global_RebuildHitboxesIfDirty();
+        hit = Editor_ResolveObject3DBodyPick(&state->layout,&state->grid,&view,
+                                             (int)screen.x,(int)screen.y,none);
+        TEST_ASSERT(hit.type == HITBOX_NONE);
+        Vec2 center = WorldToScreen(SpaceAdapter_ProjectToView(object->transform.position,&view),&state->grid);
+        uint32_t picked;
+        TEST_ASSERT(!Editor_PickNearestObject3DOrigin(&state->layout,&state->grid,&view,
+                                                      (int)center.x,(int)center.y,&picked,NULL));
+    }
+    ld_test_shutdown_runtime(); return true;
+}
+
 bool test_layout_hitbox_run_tests(void) {
     const TestCase cases[] = {
+        {"ViewportGizmoZoomIndependentHitTargets", test_viewport_gizmo_zoom_independent_hit_targets},
+        {"ViewportGizmoRotationHasZoomIndependentSensitivity", test_viewport_gizmo_rotation_has_zoom_independent_sensitivity},
+        {"Object3DVisibleEdgePickAndVisibility", test_object3d_visible_edge_pick_and_visibility},
         { "HitboxPlaneObjectIsSelectable", test_hitbox_plane_object_is_selectable },
         { "HitboxMeshAssetInstanceIsSelectable", test_hitbox_mesh_asset_instance_is_selectable },
         { "MeshAssetInstanceCenterGizmoDragCanBegin",

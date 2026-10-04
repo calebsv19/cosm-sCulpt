@@ -1,3 +1,4 @@
+#include "Editor/viewport_gizmo.h"
 #include "Layout/layout_engineering.h"
 // src/Render/render_editor.c
 #include "Editor/render_editor.h"
@@ -231,33 +232,6 @@ void Render_Editor_GhostWall(EditorState* editor, AppContext* ctx) {
         (int)((to.y   - grid->offsetY) * gridSize * scale));
 }
 
-static float Object3D_CenterGizmoAxisWorldLen(const Object3D* object, float gridSize) {
-    float axisWorldLen = fmaxf(gridSize * 2.0f, 1.0f);
-    Vec3 corners[8];
-    Vec3 center = {0};
-    int cornerCount = 0;
-    if (!object) return axisWorldLen;
-    if (!Layout_Object3D_ComputeVisualCenter(object, &center)) return axisWorldLen;
-    if (object->kind == OBJECT3D_KIND_PLANE) {
-        if (!Layout_Object3D_ComputePlaneCorners(object, corners)) return axisWorldLen;
-        cornerCount = 4;
-    } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
-        if (!Layout_Object3D_ComputeRectPrismCorners(object, corners)) return axisWorldLen;
-        cornerCount = 8;
-    } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
-        if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) return axisWorldLen;
-        cornerCount = 8;
-    } else {
-        return axisWorldLen;
-    }
-
-    float maxRadius = 0.0f;
-    for (int i = 0; i < cornerCount; ++i) {
-        const float radius = Vec3_Length(Vec3_Sub(corners[i], center));
-        if (radius > maxRadius) maxRadius = radius;
-    }
-    return fmaxf(axisWorldLen, maxRadius * 0.35f);
-}
 
 void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
     if (!editor || !ctx) return;
@@ -270,8 +244,8 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
     if (!SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
 
     const Grid* grid = &state->grid;
-    const float axisWorldLen = fmaxf(grid->gridSize * 2.0f, 1.0f);
-    const int baseRadius = SDL_max(6, (int)(grid->gridSize * grid->scale * 0.13f));
+    const float axisWorldLen = ViewportGizmo_WorldLength(grid->gridSize, grid->scale);
+    const int baseRadius = ViewportGizmo_RadiusPixels();
     const bool objectFaceSketchLaneActive =
         (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT) &&
         (editor->selectedObjectAssetFace != OBJECT3D_FACE_NONE ||
@@ -453,7 +427,7 @@ void Render_Editor_AxisGizmo(EditorState* editor, AppContext* ctx) {
                 Vec2 centerView = SpaceAdapter_ProjectToView(centerWorld, &viewCtx);
                 Vec2 centerScreen = WorldToScreen(centerView, grid);
                 const float centerAxisWorldLen =
-                    Object3D_CenterGizmoAxisWorldLen(selectedObject, grid->gridSize);
+                    ViewportGizmo_WorldLength(grid->gridSize, grid->scale);
 
                 for (int dir = GIZMO_AXIS_DIR_POS_X; dir <= GIZMO_AXIS_DIR_NEG_Z; ++dir) {
                     Vec3 axisDir = GizmoAxisDirection_WorldVector((GizmoAxisDirection)dir);

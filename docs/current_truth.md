@@ -1,5 +1,36 @@
 # Sculpt Current Truth
 
+## Viewport projection, gizmos and readability (2026-10-03)
+
+Side (YZ), Front (ZX) and Free views now project positive world Z upward.
+Inverse construction-plane/face picking, resize mapping and camera pan/zoom use
+matching signs. Orthographic picking supports planes on either side of the view
+origin; physical forward-ray intersection is unchanged. Legacy XY drafting keeps
+its existing screen convention. The shared viewport ABI and physical document
+coordinates are unchanged.
+
+Object, local-handle, point and bounds gizmos use a common app-owned sizing helper:
+axis length is 6.5% of the shorter viewport dimension, clamped to 48–100 logical
+pixels, with 5–8 pixel endpoint radii and three extra pick pixels. Zoom and object
+size no longer enlarge the handles. World orientation axes and drag sensitivity
+use the same helper; rotation response no longer shrinks with zoom. Axes retain normal orientation foreshortening.
+Visible primitive wireframe edges have an eight-pixel selection tolerance, with
+center picking and handle priority retained. Hidden/non-selectable objects are
+excluded. Imported mesh edge selection uses a bounding proxy, not triangles.
+
+Measure reference selectors and their menus use full-width rows with measured
+text wrapping. Pick in view remains beside the A/B heading. Motion-envelope labels
+are separate clipped viewport legend rows showing saved rule ID and current/stale
+bounds status. Large scenes can exceed the bounded legend capacity.
+
+Warning-clean build, 497 tests in 47 reported suites, agent-scene-smoke and
+illustrative-van-smoke pass. Native review selected a visible edge away from the
+center, compared wall gizmos at two zooms, inspected full Measure reference names
+and moved the bed from 900 to 1600 mm upward; undo restored its pose. The saved
+working file was not overwritten. Desktop package/identity verification is separate
+from user acceptance. Remaining UI work: repeated findings, Parts chooser wording,
+preference persistence and startup browser I/O, followed by bounded S5 routing.
+
 ## Explicit viewport tools and legacy drawing (2026-10-03)
 
 The default viewport tool is Select. View exposes Select/Orbit/Pan buttons; Orbit
@@ -19,8 +50,8 @@ Warning-clean build, 491 tests in 47 reported suites and both scene smoke lanes
 pass. Native visible Orbit/Pan and canceled first-endpoint checks leave the van
 Saved with 38 objects and zero anchors/walls. Option priority is regression-tested.
 See [the van navigation guide](illustrative_van_workflow.md#navigation-and-legacy-lines).
-The Z-up screen projection, selector/label readability, repeated findings and
-session preferences remain the next refinement gate before S5.
+The later viewport/readability refinement above resolves projection and Measure
+selector/overview label gaps. Repeated findings and session preferences remain.
 
 
 ## Illustrative van acceptance project (2026-10-03)
@@ -43,12 +74,11 @@ full-range findings. 491 tests / 47 reported suites and both smoke lanes pass.
 User acceptance remains separate. The open Saved project lives under Main Edit
 Application Support/projects/van_workflow, outside the replaceable runtime.
 
-The audit found increasing Z projects downward in side/free views despite the
-correct stored Z-up frame. A coordinated projection/picking/navigation repair
-comes before S5. Clipped selectors, overlapping labels, repeated findings and
-relaunch preference loss also remain. See the walkthrough for the protected-folder
-startup stall and safe app-owned project location. Next: viewport/readability
-refinement, then bounded S5 route editing/corridors/checks.
+The subsequent viewport refinement above resolves increasing-Z-downward projection,
+Measure selector clipping and overview label overlap. Repeated findings and relaunch
+preference loss remain. See the walkthrough for the protected-folder startup stall
+and safe app-owned project location. Next: session/readability refinement, then
+bounded S5 route editing/corridors/checks.
 
 ## S4 interval coverage and full-range inspection (2026-10-03)
 

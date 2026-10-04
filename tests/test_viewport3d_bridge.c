@@ -116,8 +116,35 @@ static bool viewport3d_bridge_resize_preserves_effective_target(void) {
     return true;
 }
 
+static bool viewport3d_bridge_gestures_preserve_screen_geometry(void) {
+    FreeViewCamera camera = {true, 35, 20, {4,-3,2}}, after_camera;
+    Grid grid = {2,-20,-15,8}, after_grid;
+    ViewPlane plane = {VIEW_PLANE_XY, 0};
+    Vec3 point = {9,2,-4};
+    Vec2 before = WorldToScreen(Vec3_ProjectToView(point, plane, &camera), &grid);
+    CoreViewport3DCommand command = {.kind = CORE_VIEWPORT3D_COMMAND_PAN};
+    command.value.pan.screen_dx = 32;
+    command.value.pan.screen_dy = -16;
+    TEST_ASSERT(LineDrawingViewport3DBridgeApply(&camera, &grid, 320, 240, .01, 100,
+                                                  &command, &after_camera, &after_grid));
+    Vec2 after = WorldToScreen(Vec3_ProjectToView(point, plane, &after_camera), &after_grid);
+    TEST_ASSERT(fabsf(after.x - before.x - 32) < .001f);
+    TEST_ASSERT(fabsf(after.y - before.y + 16) < .001f);
+    command.kind = CORE_VIEWPORT3D_COMMAND_ZOOM;
+    command.value.zoom.factor = 2;
+    command.value.zoom.anchor_offset_x = before.x - 320;
+    command.value.zoom.anchor_offset_y = before.y - 240;
+    TEST_ASSERT(LineDrawingViewport3DBridgeApply(&camera, &grid, 320, 240, .01, 100,
+                                                  &command, &after_camera, &after_grid));
+    after = WorldToScreen(Vec3_ProjectToView(point, plane, &after_camera), &after_grid);
+    TEST_ASSERT(fabsf(after.x - before.x) < .001f);
+    TEST_ASSERT(fabsf(after.y - before.y) < .001f);
+    return true;
+}
+
 bool viewport3d_bridge_run_tests(void) {
     const TestCase cases[] = {
+        {"GesturesPreserveScreenGeometry", viewport3d_bridge_gestures_preserve_screen_geometry},
         {"ProjectionRoundtrip", viewport3d_bridge_projection_roundtrip},
         {"PanZoomAndNonmutation", viewport3d_bridge_pan_zoom_and_nonmutation},
         {"OrbitPreservesLineStorage", viewport3d_bridge_orbit_preserves_line_storage},

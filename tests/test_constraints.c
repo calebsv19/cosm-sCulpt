@@ -849,8 +849,29 @@ static bool test_s1_views_grid_and_form_refresh(void) {
     ld_test_shutdown_runtime();return true;
 }
 
+static bool test_measure_reference_selector_uses_full_row(void) {
+    ld_test_init_runtime();
+    Global_SetWindowSize(1200,900);UIPanel_OnWindowResized(1200,900);
+    GlobalState* state=Global_Get();
+    uint32_t id=prism("reference_with_a_long_descriptive_entity_name",(Vec3){0});
+    TEST_ASSERT(id && prism("moving",(Vec3){1,0,0}));
+    state->editor.selectedObject3DId=id;
+    TEST_ASSERT(UIPanel_BeginMeasurement());
+    SDL_Rect selector,pick;
+    TEST_ASSERT(UIPanel_MeasurementControlRect(MEASURE_OBJECT_A,&selector));
+    TEST_ASSERT(UIPanel_MeasurementControlRect(MEASURE_PICK_A,&pick));
+    TEST_ASSERT(selector.w > pick.w * 1.8f && selector.y >= pick.y+pick.h);
+    TEST_ASSERT(click_measure(MEASURE_OBJECT_A));
+    TEST_ASSERT(UIPanel_Get()->measurement.chooser==1);
+    TEST_ASSERT(click_measure(MEASURE_CHOICE_BASE));
+    TEST_ASSERT(!strcmp(UIPanel_Get()->measurement.refs[0].entity_id,
+        "reference_with_a_long_descriptive_entity_name"));
+    ld_test_shutdown_runtime();return true;
+}
+
 bool constraints_run_tests(void) {
     const TestCase cases[]={
+        {"MeasureReferenceSelectorUsesFullRow",test_measure_reference_selector_uses_full_row},
         {"s1_views_grid_form_refresh",test_s1_views_grid_and_form_refresh},
         {"hinge_pivot_chain_history",test_hinge_pivot_chain_and_history},
         {"hinge_conflict_rollback",test_hinge_conflict_rollback},

@@ -1,4 +1,5 @@
 #include "render_handler.h"
+#include "Editor/viewport_gizmo.h"
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
 
@@ -230,7 +231,7 @@ static void Render_FreeViewAxisGizmo(SDL_Renderer* renderer, const GlobalState* 
     Vec3 center = Layout_ComputeCentroid(&state->layout, &hasAnchors);
     if (!hasAnchors) center = viewCtx.camera.target;
 
-    float axisLen = fmaxf(state->grid.gridSize * 4.0f, 2.0f);
+    float axisLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 xEnd = Vec3_Add(center, (Vec3){ axisLen, 0.0f, 0.0f });
     Vec3 yEnd = Vec3_Add(center, (Vec3){ 0.0f, axisLen, 0.0f });
     Vec3 zEnd = Vec3_Add(center, (Vec3){ 0.0f, 0.0f, axisLen });

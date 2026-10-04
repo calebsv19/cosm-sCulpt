@@ -102,7 +102,7 @@ bool LineDrawingViewportNavApply(const LineDrawingViewportNavState* state,
                                         Vec3_Add(Vec3_Scale(right,
                                                            command->screen_dx / pixels_per_unit),
                                                  Vec3_Scale(up,
-                                                           command->screen_dy / pixels_per_unit)));
+                                                           -command->screen_dy / pixels_per_unit)));
             break;
         }
 

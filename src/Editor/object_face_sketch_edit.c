@@ -24,24 +24,16 @@ static bool ObjectFaceSketchEdit_ScreenToFaceUV(const GlobalState* state,
     frame = &state->editor.objectFaceSketchFrame;
     view_ctx = SpaceAdapter_BuildViewContext((GlobalState*)state);
     view_pos = ScreenToWorld(screen_x, screen_y, &state->grid);
-    ray = Ray3_FromPlaneViewPoint(view_pos, view_ctx.plane.axis);
+    ray = Ray3_FromViewPoint(view_pos, view_ctx.plane, &view_ctx.camera);
     plane = Plane3_FromPointNormal(frame->origin, frame->normal);
     if (view_ctx.camera.enabled) {
-        Vec3 right = FreeView_Right(&view_ctx.camera);
-        Vec3 up = FreeView_Up(&view_ctx.camera);
-        Vec3 forward = FreeView_Forward(&view_ctx.camera);
-        ray.origin = Vec3_Add(view_ctx.camera.target,
-                              Vec3_Add(Vec3_Scale(right, view_pos.x),
-                                       Vec3_Scale(up, view_pos.y)));
-        ray.direction = forward;
-
         // Face-focused free-view keeps the camera target on the sketch plane, so
         // screen-space drags should map directly through the target basis even
         // when the ray/plane intersection becomes numerically unstable at t ~= 0.
         if (fabsf(Plane3_SignedDistance(plane, view_ctx.camera.target)) <=
             kObjectFaceSketchPlaneSnapEpsilon) {
             world = Plane3_ProjectPoint(plane, ray.origin);
-        } else if (!Ray3_IntersectPlane(ray, plane, NULL, &world)) {
+        } else if (!Ray3_IntersectViewPlane(ray, plane, &world)) {
             const float signed_distance = Plane3_SignedDistance(plane, ray.origin);
             if (fabsf(signed_distance) > kObjectFaceSketchPlaneSnapEpsilon) {
                 return false;
@@ -49,7 +41,7 @@ static bool ObjectFaceSketchEdit_ScreenToFaceUV(const GlobalState* state,
             world = Plane3_ProjectPoint(plane, ray.origin);
         }
     } else {
-        if (!Ray3_IntersectPlane(ray, plane, NULL, &world)) {
+        if (!Ray3_IntersectViewPlane(ray, plane, &world)) {
             return false;
         }
     }

@@ -25,16 +25,9 @@ static bool ScreenToPlaneFrameWorld(int screen_x,
         ? ScreenToSnappedWorld(screen_x, screen_y, grid)
         : ScreenToWorld(screen_x, screen_y, grid);
 
-    ray = Ray3_FromPlaneViewPoint(view_pos, view_ctx->plane.axis);
+    ray = Ray3_FromViewPoint(view_pos, view_ctx->plane, &view_ctx->camera);
     plane = Plane3_FromPointNormal(frame->origin, frame->normal);
     if (view_ctx->camera.enabled) {
-        Vec3 right = FreeView_Right(&view_ctx->camera);
-        Vec3 up = FreeView_Up(&view_ctx->camera);
-        Vec3 forward = FreeView_Forward(&view_ctx->camera);
-        ray.origin = Vec3_Add(view_ctx->camera.target,
-                              Vec3_Add(Vec3_Scale(right, view_pos.x),
-                                       Vec3_Scale(up, view_pos.y)));
-        ray.direction = forward;
 
         // Face-focused free view targets the sketch plane directly, so clicks at
         // the face center can numerically land at t ~= 0. Keep marquee start
@@ -46,7 +39,7 @@ static bool ScreenToPlaneFrameWorld(int screen_x,
         }
     }
 
-    if (Ray3_IntersectPlane(ray, plane, NULL, out_world)) {
+    if (Ray3_IntersectViewPlane(ray, plane, out_world)) {
         return true;
     }
 

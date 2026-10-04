@@ -1,4 +1,5 @@
 #include "Layout/layout_constraints.h"
+#include "Editor/viewport_gizmo.h"
 #include "Input/input_mouse_drag.h"
 
 #include "Input/input_mouse_drag_shared.h"
@@ -105,34 +106,6 @@ SceneBoundsGizmoDragState sceneBoundsGizmoDrag = {
     .historyCaptured = false
 };
 
-static float Object3D_CenterGizmoAxisWorldLen(const Object3D* object, float gridSize) {
-    float axisWorldLen = fmaxf(gridSize * 2.0f, 1.0f);
-    Vec3 corners[8];
-    Vec3 center = {0};
-    int cornerCount = 0;
-    if (!object) return axisWorldLen;
-    if (!Layout_Object3D_ComputeVisualCenter(object, &center)) return axisWorldLen;
-    if (object->kind == OBJECT3D_KIND_PLANE) {
-        if (!Layout_Object3D_ComputePlaneCorners(object, corners)) return axisWorldLen;
-        cornerCount = 4;
-    } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
-        if (!Layout_Object3D_ComputeRectPrismCorners(object, corners)) return axisWorldLen;
-        cornerCount = 8;
-    } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
-        if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) return axisWorldLen;
-        cornerCount = 8;
-    } else {
-        return axisWorldLen;
-    }
-
-    float maxRadius = 0.0f;
-    for (int i = 0; i < cornerCount; ++i) {
-        const float radius = Vec3_Length(Vec3_Sub(corners[i], center));
-        if (radius > maxRadius) maxRadius = radius;
-    }
-    return fmaxf(axisWorldLen, maxRadius * 0.35f);
-}
-
 void ResetObjectResizeDrag(EditorState* editor) {
     if (objectResizeDrag.active) Layout_EndGeometryGesture(&Global_Get()->layout);
     objectResizeDrag.active = false;
@@ -232,19 +205,10 @@ static bool ScreenToPlaneFrameWorld(int screenX,
         ? ScreenToSnappedWorld(screenX, screenY, grid)
         : ScreenToWorld(screenX, screenY, grid);
 
-    Ray3 ray = Ray3_FromPlaneViewPoint(viewPos, viewCtx->plane.axis);
-    if (viewCtx->camera.enabled) {
-        Vec3 right = FreeView_Right(&viewCtx->camera);
-        Vec3 up = FreeView_Up(&viewCtx->camera);
-        Vec3 forward = FreeView_Forward(&viewCtx->camera);
-        ray.origin = Vec3_Add(viewCtx->camera.target,
-                              Vec3_Add(Vec3_Scale(right, viewPos.x),
-                                       Vec3_Scale(up, viewPos.y)));
-        ray.direction = forward;
-    }
+    Ray3 ray = Ray3_FromViewPoint(viewPos, viewCtx->plane, &viewCtx->camera);
 
     Plane3 plane = Plane3_FromPointNormal(frame->origin, frame->normal);
-    return Ray3_IntersectPlane(ray, plane, NULL, outWorld);
+    return Ray3_IntersectViewPlane(ray, plane, outWorld);
 }
 
 bool BeginGizmoDragSession(GlobalState* state,
@@ -263,7 +227,7 @@ bool BeginGizmoDragSession(GlobalState* state,
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
 
-    const float axisWorldLen = fmaxf(state->grid.gridSize, 1e-4f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(axis);
     Vec3 tipWorld = Vec3_Add(anchor->pos, Vec3_Scale(axisWorldVec, axisWorldLen));
 
@@ -358,7 +322,7 @@ bool BeginObjectHandleGizmoDragSession(GlobalState* state,
     if (!ObjectHandleGizmoTarget_HandleWorldPoint(&target, object, &handleWorld)) return false;
     Vec3 axisWorldVec = ObjectHandleGizmoTarget_AxisWorldVector(&target, object, axisDirection);
     if (Vec3_Length(axisWorldVec) <= 1e-5f) return false;
-    const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 tipWorld = Vec3_Add(handleWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
 
     Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(handleWorld, &viewCtx), &state->grid);
@@ -436,7 +400,7 @@ bool BeginSceneBoundsGizmoDragSession(GlobalState* state,
     Vec3 axisWorldVec = Layout_SceneBoundsAxisDirection_WorldVector(axisDirection);
     if (Vec3_Length(axisWorldVec) <= 1e-5f) return false;
 
-    const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 tipWorld = Vec3_Add(handleWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
     Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(handleWorld, &viewCtx), &state->grid);
     Vec2 tipScreen = WorldToScreen(SpaceAdapter_ProjectToView(tipWorld, &viewCtx), &state->grid);
@@ -482,7 +446,7 @@ bool BeginObjectTranslateDragSession(GlobalState* state,
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
 
-    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, state->grid.gridSize);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 centerWorld = object->transform.position;
     (void)Layout_Object3D_ComputeVisualCenter(object, &centerWorld);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(axis);
@@ -533,7 +497,7 @@ bool BeginObjectRotateDragSession(GlobalState* state,
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
 
-    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, state->grid.gridSize);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 centerWorld = object->transform.position;
     (void)Layout_Object3D_ComputeVisualCenter(object, &centerWorld);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(axis);
@@ -585,7 +549,7 @@ bool BeginObjectScaleDragSession(GlobalState* state,
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return false;
 
-    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, state->grid.gridSize);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 centerWorld = object->transform.position;
     (void)Layout_Object3D_ComputeVisualCenter(object, &centerWorld);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(axis);
@@ -693,7 +657,7 @@ static void UpdateGizmoDragPosition(int mx, int my) {
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
 
-    const float axisWorldLen = fmaxf(state->grid.gridSize, 1e-4f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(editor->gizmoDrag.axis);
     Vec3 tipWorld = Vec3_Add(editor->gizmoDrag.primaryStartWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
 
@@ -712,7 +676,7 @@ static void UpdateGizmoDragPosition(int mx, int my) {
                                                          axisScreenVector);
     editor->gizmoDrag.smooth = (SDL_GetModState() & KMOD_SHIFT) != 0;
     editor->isPreciseDrag = editor->gizmoDrag.smooth;
-    const float step = fmaxf(state->grid.gridSize, 1e-4f);
+    const float step = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     float signedWorldDistance = GizmoDrag_ResolveDistance(signedPixels,
                                                           editor->gizmoDrag.worldUnitsPerPixel,
                                                           step,
@@ -828,7 +792,7 @@ static void UpdateObjectGizmoDragPosition(int mx, int my) {
                                                                 objectGizmoDrag.axisDirection);
     if (Vec3_Length(axisWorldVec) <= 1e-5f) return;
 
-    const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 tipWorld = Vec3_Add(objectGizmoDrag.handleStartWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
     Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(objectGizmoDrag.handleStartWorld, &viewCtx),
                                      &state->grid);
@@ -850,7 +814,7 @@ static void UpdateObjectGizmoDragPosition(int mx, int my) {
     float signedPixels = GizmoDrag_SignedPixelsAlongAxis(objectGizmoDrag.mouseStartScreen,
                                                          mouseNow,
                                                          axisScreenVector);
-    const float step = fmaxf(state->grid.gridSize, 1e-4f);
+    const float step = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     float signedWorldDistance = GizmoDrag_ResolveDistance(signedPixels,
                                                           objectGizmoDrag.worldUnitsPerPixel,
                                                           step,
@@ -891,7 +855,7 @@ static void UpdateSceneBoundsGizmoDragPosition(int mx, int my) {
         Layout_SceneBoundsAxisDirection_WorldVector(sceneBoundsGizmoDrag.axisDirection);
     if (Vec3_Length(axisWorldVec) <= 1e-5f) return;
 
-    const float axisWorldLen = fmaxf(state->grid.gridSize * 2.0f, 1.0f);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 tipWorld = Vec3_Add(sceneBoundsGizmoDrag.handleStartWorld,
                              Vec3_Scale(axisWorldVec, axisWorldLen));
     Vec2 startScreen =
@@ -916,7 +880,7 @@ static void UpdateSceneBoundsGizmoDragPosition(int mx, int my) {
     float signedPixels = GizmoDrag_SignedPixelsAlongAxis(sceneBoundsGizmoDrag.mouseStartScreen,
                                                          mouseNow,
                                                          axisScreenVector);
-    const float step = fmaxf(state->grid.gridSize, 1e-4f);
+    const float step = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     float signedWorldDistance = GizmoDrag_ResolveDistance(signedPixels,
                                                           sceneBoundsGizmoDrag.worldUnitsPerPixel,
                                                           step,
@@ -961,7 +925,7 @@ static void UpdateObjectTranslateDragPosition(int mx, int my) {
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
 
-    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, state->grid.gridSize);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(objectTranslateDrag.axis);
     Vec3 tipWorld = Vec3_Add(objectTranslateDrag.centerStartWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
     Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(objectTranslateDrag.centerStartWorld, &viewCtx),
@@ -983,7 +947,7 @@ static void UpdateObjectTranslateDragPosition(int mx, int my) {
     float signedPixels = GizmoDrag_SignedPixelsAlongAxis(objectTranslateDrag.mouseStartScreen,
                                                          mouseNow,
                                                          axisScreenVector);
-    const float step = fmaxf(state->grid.gridSize, 1e-4f);
+    const float step = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     float signedWorldDistance = GizmoDrag_ResolveDistance(signedPixels,
                                                           objectTranslateDrag.worldUnitsPerPixel,
                                                           step,
@@ -1027,7 +991,7 @@ static void UpdateObjectRotateDragPosition(int mx, int my) {
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
 
-    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, state->grid.gridSize);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(objectRotateDrag.axis);
     Vec3 tipWorld = Vec3_Add(objectRotateDrag.centerStartWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
     Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(objectRotateDrag.centerStartWorld, &viewCtx),
@@ -1158,8 +1122,7 @@ static void UpdateObjectScaleDragPosition(int mx, int my) {
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (state->spaceMode != SPACE_MODE_3D || !SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
 
-    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(&objectScaleDrag.baselineObject,
-                                                               state->grid.gridSize);
+    const float axisWorldLen = ViewportGizmo_WorldLength(state->grid.gridSize, state->grid.scale);
     Vec3 axisWorldVec = GizmoAxisDirection_WorldVector(objectScaleDrag.axis);
     Vec3 tipWorld = Vec3_Add(objectScaleDrag.centerStartWorld, Vec3_Scale(axisWorldVec, axisWorldLen));
     Vec2 startScreen = WorldToScreen(SpaceAdapter_ProjectToView(objectScaleDrag.centerStartWorld, &viewCtx),

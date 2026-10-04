@@ -76,9 +76,8 @@ existing shared viewport bridge. Document schema, entity IDs and unit rules are 
    Z direction, limits **900–1600 mm** and **Moves: Lift bed**. Drag the slider,
    or use Min/Max/Reset. The deck, mattress and two rails move together. Use a
    side or free view to see the height change; Top hides Z movement. One slider
-   gesture is one undo step. The present projection displays increasing Z downward
-   in side/free views, despite the stored Z-up frame; this is an audit gap awaiting
-   a coordinated projection/picking repair. Undo clears the active measurement form; reselect
+   gesture is one undo step. Increasing Z now displays upward in side/front/free
+   views. Undo clears the active measurement form; reselect
    the saved rule. Save after restoring the starting position if Dirty remains.
 3. Choose `water_door_hinge`. The saved **0–90°** motion moves the nested Cabinet
    door assembly, including its handle, around the hinge reference. Reset returns
@@ -149,13 +148,20 @@ physical zoom, explicit drawing/cancel/delete/undo, and unchanged serialized sta
 Point pick targets and the pending marker are pixel-sized. Hidden zero-sized
 controls no longer repaint section backgrounds over live Create controls.
 
-The audit also found these remaining usability gaps:
+The viewport follow-up repaired Z-up projection together with inverse picking,
+resize mapping and camera navigation. Gizmo axes now track viewport size within
+48–100 logical pixels; endpoints and pick targets remain independent of zoom and
+object dimensions. Axis foreshortening remains orientation-dependent. Native review
+confirmed edge selection, wall gizmos at two zooms and upward bed lift with undo.
+The saved working file retains the original digest.
 
-- **Z-up screen convention:** increasing world Z currently projects downward in
-  side/free views. Repair forward projection, inverse picking and navigation
-  together, with tests preserving old 2D behavior and physical document values.
-- **Readability:** narrow selectors clip names, the assembly chooser says
-  "Choose object," overview labels overlap, and automatic/saved warnings repeat.
+The remaining usability gaps are:
+
+- **Remaining readability:** Parts assembly chooser wording and repeated automatic/
+  saved warnings still need refinement. Measure object selectors now use full-width
+  wrapped labels. Motion-envelope labels occupy separate clipped legend rows.
+- **Selection limits:** visible wireframe edges and centers are selectable; blank
+  projected box interiors are not. Imported mesh edge selection is a bounds proxy.
 - **Session continuity:** mm/view choices reset after relaunch; undo clears the
   active measurement form and requires reselecting a saved rule.
 - **Startup browser I/O:** scanning a protected Desktop root can block startup

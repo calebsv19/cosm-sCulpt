@@ -9,7 +9,11 @@ workflows.
 
 The [illustrative van workflow](docs/illustrative_van_workflow.md) combines the
 physical layout, semantic assemblies, relationships and movement checks into a
-saved teaching project. All vehicle dimensions are placeholders.
+saved teaching project. All vehicle dimensions are placeholders. Side/front/free views display +Z upward.
+Selected gizmos keep a bounded viewport-relative screen size across zoom levels.
+Use **View → Select** to pick visible wireframe edges or object centers; **Orbit**
+and **Pan** expose navigation without keyboard shortcuts. Measure reference names
+use full-width controls, and motion bounds labels appear in a viewport legend.
 
 ## Docs
 - docs index: `docs/README.md`

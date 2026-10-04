@@ -20,8 +20,8 @@ Check full range performs bounded adaptive separation/failure analysis between
 samples, keeping unresolved intervals explicit. See [motion envelopes](motion_envelopes.md).
 The illustrative van workflow audit now exercises assemblies, service spaces and
 motion checks; see [the walkthrough](illustrative_van_workflow.md). Explicit Select/Orbit/Pan and Draw line/Stop drawing now resolve basic input
-ambiguity. Its Z-up screen projection/picking and remaining readability gaps are
-the next gate before S5 routing
+ambiguity. Its Z-up screen projection/picking, gizmo sizing and Measure selector readability
+are repaired. Session continuity and remaining Parts/check readability precede S5 routing
 corridors/cable paths. Independent
 constrained followers, arbitrary moving sets, meshes and multiple joints remain
 separate contracts. Broader snapping and
@@ -29,9 +29,9 @@ reusable datums remain extensions. User acceptance remains separate from regress
 and rendered-UI proof.
 
 The [illustrative van audit](illustrative_van_workflow.md) now supplies the stable
-S0–S4 acceptance project. Next: repair the increasing-Z-downward viewport
-convention together with inverse picking/navigation, improve clipped selectors,
-overlapping labels and repeated findings, then
+S0–S4 acceptance project. Z-up projection/picking, viewport-sized gizmos, visible-edge
+selection and Measure/overview label readability now pass. Next: session preferences,
+Parts chooser wording, repeated findings and startup browser I/O, then
 S5 route identity/points/endpoints/length with visible editing and undo, named
 corridors and reserved-space checks. Real vehicle measurements remain pending.
 

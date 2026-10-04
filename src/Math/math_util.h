@@ -247,14 +247,17 @@ static inline Vec3 FreeView_Up(const FreeViewCamera* camera) {
 
 static inline Vec2 Vec3_ProjectToView(Vec3 v, ViewPlane plane, const FreeViewCamera* camera) {
     if (!camera || !camera->enabled) {
-        return Vec3_ProjectToPlane(v, plane.axis);
+        Vec2 projected = Vec3_ProjectToPlane(v, plane.axis);
+        /* Preserve legacy XY drawing; vertical engineering views show +Z up. */
+        if (plane.axis != VIEW_PLANE_XY) projected.y = -projected.y;
+        return projected;
     }
     Vec3 delta = Vec3_Sub(v, camera->target);
     Vec3 right = FreeView_Right(camera);
     Vec3 up = FreeView_Up(camera);
     return (Vec2){
         .x = Vec3_Dot(delta, right),
-        .y = Vec3_Dot(delta, up)
+        .y = -Vec3_Dot(delta, up)
     };
 }
 
@@ -336,6 +339,33 @@ static inline bool Ray3_IntersectPlane(Ray3 ray, Plane3 plane, float* outT, Vec3
     return true;
 }
 
+/* View coordinates have screen-down Y. Plane-local/world coordinates do not. */
+static inline Ray3 Ray3_FromViewPoint(Vec2 viewPos, ViewPlane plane,
+                                     const FreeViewCamera* camera) {
+    if (!camera || !camera->enabled) {
+        if (plane.axis != VIEW_PLANE_XY) viewPos.y = -viewPos.y;
+        return Ray3_FromPlaneViewPoint(viewPos, plane.axis);
+    }
+    return (Ray3){
+        .origin = Vec3_Add(camera->target,
+                          Vec3_Add(Vec3_Scale(FreeView_Right(camera), viewPos.x),
+                                   Vec3_Scale(FreeView_Up(camera), -viewPos.y))),
+        .direction = FreeView_Forward(camera)
+    };
+}
+
+/* Orthographic picking uses a bidirectional view line, including planes behind
+ * the camera target. Physical forward-ray intersection retains its own contract. */
+static inline bool Ray3_IntersectViewPlane(Ray3 ray, Plane3 plane, Vec3* outWorld) {
+    float denom = Vec3_Dot(plane.normal, ray.direction);
+    if (!outWorld || !isfinite(denom) || fabsf(denom) <= 1e-6f) return false;
+    float t = -(Vec3_Dot(plane.normal, ray.origin) + plane.d) / denom;
+    Vec3 point = Vec3_Add(ray.origin, Vec3_Scale(ray.direction, t));
+    if (!isfinite(point.x) || !isfinite(point.y) || !isfinite(point.z)) return false;
+    *outWorld = point;
+    return true;
+}
+
 static inline bool ScreenToPlaneWorld(int screenX,
                                       int screenY,
                                       const Grid* grid,
@@ -347,18 +377,8 @@ static inline bool ScreenToPlaneWorld(int screenX,
     Vec2 viewPos = snapped
         ? ScreenToSnappedWorld(screenX, screenY, grid)
         : ScreenToWorld(screenX, screenY, grid);
-    Ray3 ray = Ray3_FromPlaneViewPoint(viewPos, plane.axis);
-    if (camera && camera->enabled) {
-        Vec3 right = FreeView_Right(camera);
-        Vec3 up = FreeView_Up(camera);
-        Vec3 forward = FreeView_Forward(camera);
-        ray.origin = Vec3_Add(camera->target,
-                              Vec3_Add(Vec3_Scale(right, viewPos.x),
-                                       Vec3_Scale(up, viewPos.y)));
-        ray.direction = forward;
-    }
-    Plane3 worldPlane = Plane3_FromViewPlane(plane);
-    return Ray3_IntersectPlane(ray, worldPlane, NULL, outWorld);
+    return Ray3_IntersectViewPlane(Ray3_FromViewPoint(viewPos, plane, camera),
+                                    Plane3_FromViewPlane(plane), outWorld);
 }
 
 static inline PlaneFrame3 PlaneFrame3_FromPlane(Plane3 plane, Vec3 origin) {

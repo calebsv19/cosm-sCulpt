@@ -1,3 +1,4 @@
+#include "Editor/viewport_gizmo.h"
 #include "Layout/layout_engineering.h"
 #include "hitbox_system.h"
 #include "Editor/editor.h"
@@ -85,8 +86,8 @@ static void Hitbox_AddSelectedAnchorGizmo(const Layout* layout,
     if (anchor->isDeleted) return;
 
     const float gridSize = layout->gridSize;
-    const float axisWorldLen = fmaxf(gridSize * 2.0f, 1.0f);
-    const int handleRadius = SDL_max(6, (int)(gridSize * scale * 0.13f));
+    const float axisWorldLen = ViewportGizmo_WorldLength(gridSize, scale);
+    const int handleRadius = ViewportGizmo_PickRadiusPixels();
 
     const Vec2 anchorView = Vec3_ProjectToView(anchor->pos, plane, camera);
     const Vec2 anchorScreen = {
@@ -120,33 +121,6 @@ static void Hitbox_AddSelectedAnchorGizmo(const Layout* layout,
     }
 }
 
-static float Object3D_CenterGizmoAxisWorldLen(const Object3D* object, float gridSize) {
-    float axisWorldLen = fmaxf(gridSize * 2.0f, 1.0f);
-    Vec3 corners[8];
-    Vec3 center = {0};
-    int cornerCount = 0;
-    if (!object) return axisWorldLen;
-    if (!Layout_Object3D_ComputeVisualCenter(object, &center)) return axisWorldLen;
-    if (object->kind == OBJECT3D_KIND_PLANE) {
-        if (!Layout_Object3D_ComputePlaneCorners(object, corners)) return axisWorldLen;
-        cornerCount = 4;
-    } else if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
-        if (!Layout_Object3D_ComputeRectPrismCorners(object, corners)) return axisWorldLen;
-        cornerCount = 8;
-    } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
-        if (!Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) return axisWorldLen;
-        cornerCount = 8;
-    } else {
-        return axisWorldLen;
-    }
-
-    float maxRadius = 0.0f;
-    for (int i = 0; i < cornerCount; ++i) {
-        const float radius = Vec3_Length(Vec3_Sub(corners[i], center));
-        if (radius > maxRadius) maxRadius = radius;
-    }
-    return fmaxf(axisWorldLen, maxRadius * 0.35f);
-}
 
 static bool Hitbox_MeshPreviewBoundsCorners(const Object3D* object, Vec3 outCorners[8]) {
     LayoutMeshRuntimePreviewStats stats = {0};
@@ -194,8 +168,8 @@ static void Hitbox_AddObject3DCenterGizmoAxes(const Object3D* object,
                                               const FreeViewCamera* camera) {
     if (!object) return;
 
-    const float axisWorldLen = Object3D_CenterGizmoAxisWorldLen(object, gridSize);
-    const int gizmoRadius = SDL_max(6, (int)(gridSize * scale * 0.13f));
+    const float axisWorldLen = ViewportGizmo_WorldLength(gridSize, scale);
+    const int gizmoRadius = ViewportGizmo_PickRadiusPixels();
     Vec3 center = object->transform.position;
     (void)Layout_Object3D_ComputeVisualCenter(object, &center);
     const Vec2 centerView = Vec3_ProjectToView(center, plane, camera);
@@ -241,8 +215,8 @@ static void Hitbox_AddObjectHandleGizmoAxes(const Object3D* object,
         return;
     }
 
-    const float axisWorldLen = fmaxf(gridSize * 2.0f, 1.0f);
-    const int gizmoRadius = SDL_max(6, (int)(gridSize * scale * 0.13f));
+    const float axisWorldLen = ViewportGizmo_WorldLength(gridSize, scale);
+    const int gizmoRadius = ViewportGizmo_PickRadiusPixels();
     const bool allowed[3] = {
         axisMask.allowU,
         axisMask.allowV,
@@ -296,8 +270,8 @@ static void Hitbox_AddObjectFaceSketch(const ObjectFaceSketchHitboxState* sketch
     float min_y = 0.0f;
     float max_x = 0.0f;
     float max_y = 0.0f;
-    const int body_pad = SDL_max(6, (int)(gridSize * scale * 0.08f));
-    const int handle_radius = SDL_max(7, (int)(gridSize * scale * 0.14f));
+    const int body_pad = 6;
+    const int handle_radius = ViewportGizmo_PickRadiusPixels();
 
     if (!sketch || !sketch->visible) return;
     axis_u = Vec3_Normalize(sketch->frame.axisU);
@@ -356,8 +330,8 @@ static void Hitbox_AddObjectTopology(const ObjectAuthoringDocument* topology,
                                      const FreeViewCamera* camera) {
     if (!topology) return;
 
-    const int vertexRadius = SDL_max(10, (int)(gridSize * scale * 0.16f));
-    const int edgeRadius = SDL_max(10, (int)(gridSize * scale * 0.16f));
+    const int vertexRadius = ViewportGizmo_PickRadiusPixels();
+    const int edgeRadius = ViewportGizmo_PickRadiusPixels();
     for (size_t i = 0u; i < topology->edgeCount; ++i) {
         const ObjectAuthoringEdge* edge = &topology->edges[i];
         const ObjectAuthoringVertex* a = NULL;
@@ -472,8 +446,8 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
 
             if (!objectTopologyEditMode) {
                 const float handleDepth = Hitbox_DepthDistance(plane, camera, object->transform.position);
-                const int cornerRadius = SDL_max(5, (int)(gridSize * scale * 0.12f));
-                const int edgeRadius = SDL_max(4, (int)(gridSize * scale * 0.10f));
+                const int cornerRadius = ViewportGizmo_PickRadiusPixels();
+                const int edgeRadius = ViewportGizmo_PickRadiusPixels();
                 for (int c = 0; c < 4; ++c) {
                     Vec2 view = Vec3_ProjectToView(corners[c], plane, camera);
                     const int sx = (int)((view.x - offsetX) * gridSize * scale);
@@ -585,8 +559,8 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
                     {4, 5}, {5, 6}, {6, 7}, {7, 4},
                     {0, 4}, {1, 5}, {2, 6}, {3, 7}
                 };
-                const int cornerRadius = SDL_max(5, (int)(gridSize * scale * 0.12f));
-                const int edgeRadius = SDL_max(4, (int)(gridSize * scale * 0.10f));
+                const int cornerRadius = ViewportGizmo_PickRadiusPixels();
+                const int edgeRadius = ViewportGizmo_PickRadiusPixels();
                 for (int c = 0; c < 8; ++c) {
                     Vec2 view = Vec3_ProjectToView(corners[c], plane, camera);
                     const int sx = (int)((view.x - offsetX) * gridSize * scale);
@@ -625,8 +599,8 @@ static void Hitbox_AddObject3DPrimitives(const Layout* layout,
                 };
 
                 const float handleDepth = Hitbox_DepthDistance(plane, camera, useTopFace ? topCenter : bottomCenter);
-                const int cornerRadius = SDL_max(5, (int)(gridSize * scale * 0.12f));
-                const int edgeRadius = SDL_max(4, (int)(gridSize * scale * 0.10f));
+                const int cornerRadius = ViewportGizmo_PickRadiusPixels();
+                const int edgeRadius = ViewportGizmo_PickRadiusPixels();
                 for (int c = 0; c < 4; ++c) {
                     Vec2 view = Vec3_ProjectToView(faceCorners[c], plane, camera);
                     const int sx = (int)((view.x - offsetX) * gridSize * scale);
@@ -756,7 +730,7 @@ static void Hitbox_AddSceneBounds3DHandles(const Layout* layout,
     if (!bounds->enabled || !Layout_SceneBounds3D_IsValid(bounds)) return;
 
     const float gridSize = layout->gridSize;
-    const int handleRadius = SDL_max(5, (int)(gridSize * scale * 0.11f));
+    const int handleRadius = ViewportGizmo_PickRadiusPixels();
     for (int handle = SCENE_BOUNDS_HANDLE_MIN_X;
          handle <= SCENE_BOUNDS_HANDLE_CENTER;
          ++handle) {
@@ -794,8 +768,8 @@ static void Hitbox_AddSceneBounds3DHandles(const Layout* layout,
         return;
     }
 
-    const float axisWorldLen = fmaxf(gridSize * 2.0f, 1.0f);
-    const int gizmoRadius = SDL_max(6, (int)(gridSize * scale * 0.13f));
+    const float axisWorldLen = ViewportGizmo_WorldLength(gridSize, scale);
+    const int gizmoRadius = ViewportGizmo_PickRadiusPixels();
     const bool allowed[3] = {
         axisMask.allowU,
         axisMask.allowV,
@@ -953,7 +927,7 @@ void HitboxSystem_Rebuild(const Layout* layout,
             Vec2 handlePos = handles[h];
             int hx = (int)((handlePos.x - offsetX) * gridSize * scale);
             int hy = (int)((handlePos.y - offsetY) * gridSize * scale);
-            int hr = SDL_max(4, (int)(gridSize * scale * 0.1f));
+            int hr = ViewportGizmo_PickRadiusPixels();
 
             Hitbox_Add(HITBOX_HANDLE,
                        (int)i,

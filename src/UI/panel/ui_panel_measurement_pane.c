@@ -24,6 +24,8 @@ typedef struct MeasurePane {
     SDL_Rect body;
     int y, h, click_x, click_y, hit, wanted;
     SDL_Rect found;
+    bool wrap;
+    int wrap_lines;
 } MeasurePane;
 static bool contains(SDL_Rect r,int x,int y) {
     return x>=r.x && y>=r.y && x<r.x+r.w && y<r.y+r.h;
@@ -79,7 +81,10 @@ static void cell(MeasurePane* p,int action,const char* label,int column,int colu
     if (enabled && action==MEASURE_OBJECT_A) text=(SDL_Color){100,210,255,255};
     if (enabled && action==MEASURE_OBJECT_B) text=(SDL_Color){255,190,90,255};
     int arrow=dropdown_action(action) ? 18 : 0;
-    if (p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,label,rect.x+7,rect.y+5,rect.w-14-arrow,rect.h-6,text);
+    if (p->font && p->wrap)
+        UIPanelSummary_DrawWrappedText(p->renderer,p->font,label,rect.x+7,rect.y+5,
+            rect.w-14-arrow,TTF_FontHeight(p->font),2,p->wrap_lines,text);
+    else if (p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,label,rect.x+7,rect.y+5,rect.w-14-arrow,rect.h-6,text);
     if(arrow) {
         int cx=rect.x+rect.w-12,cy=rect.y+rect.h/2;
         SDL_SetRenderDrawColor(p->renderer,text.r,text.g,text.b,255);
@@ -87,17 +92,18 @@ static void cell(MeasurePane* p,int action,const char* label,int column,int colu
     }
 }
 static void row(MeasurePane* p,int action,const char* label,bool enabled) {
+    int saved_height=p->h;
+    int lines=field_action(action) ? 1 : UIPanelSummary_CountWrappedLines(p->font,label,
+        p->body.w-38-(dropdown_action(action)?18:0));
+    if(action && lines>3)lines=3;
+    p->wrap_lines=lines;
+    p->wrap=lines>1;
+    if(p->wrap)p->h=lines*(p->font?TTF_FontHeight(p->font)+2:20)+12;
     cell(p,action,label,0,1,enabled,false);p->y+=p->h;
+    p->h=saved_height;p->wrap=false;
 }
 static void note(MeasurePane* p,const char* message) {
-    char text[256];size_t length=strlen(message),start=0;
-    int chars=(p->body.w-34)/(p->font ? TTF_FontHeight(p->font)/2+1 : 9);if(chars<12)chars=12;
-    while(start<length) {
-        size_t n=length-start;if(n>(size_t)chars)n=(size_t)chars;
-        if(start+n<length){size_t split=n;while(split && message[start+split]!=' ')--split;if(split)n=split;}
-        snprintf(text,sizeof(text),"%.*s",(int)n,message+start);row(p,0,text,true);
-        start+=n;while(message[start]==' ')++start;
-    }
+    row(p,0,message,true);
 }
 static void object_label(const Object3D* o,char* out,size_t capacity) {
     if(o)snprintf(out,capacity,"#%u %s",o->objectId,o->info.label[0] ? o->info.label : o->kind==OBJECT3D_KIND_RECT_PRISM ? "Prism" : "Plane");
@@ -137,7 +143,7 @@ static void choices(MeasurePane* p,int chooser) {
         for (size_t i=0;i<s->count;++i) {
             const Object3D* o=&s->items[i];
             if (o->isDeleted || (o->kind!=OBJECT3D_KIND_PLANE && o->kind!=OBJECT3D_KIND_RECT_PRISM)) continue;
-            char label[96];object_label(o,label,sizeof(label));
+            char label[160];object_label(o,label,sizeof(label));
             row(p,MEASURE_CHOICE_BASE+(int)i,label,true); ++found;
         }
         if (!found) row(p,0,"Create a plane or prism first",false);
@@ -195,7 +201,7 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         row(&p,MEASURE_FILE,"Open layout",true);
         return p;
     }
-    char text[256],name[96];
+    char text[256],name[160];
     int op=ui->measurement.operation;
     const char* tools[]={"Distance","Join","Angle","Travel","Hinge"};
     snprintf(text,sizeof(text),"Tool: %s",tools[op]);cell(&p,MEASURE_TOOL,text,0,2,true,false);
@@ -209,10 +215,10 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     bool travel=op==3 || angular,active_travel=travel && rule && rule->kind==(angular ? LAYOUT_CONSTRAINT_ANGULAR_TRAVEL : LAYOUT_CONSTRAINT_LINEAR_TRAVEL);
     for(int i=0;i<2;++i) {
         const LayoutGeometricReference* ref=&ui->measurement.refs[i];
-        row(&p,0,i ? "B  Moving object" : "A  Fixed reference",true);
-        object_label(object(ref->entity_id),name,sizeof(name));
-        cell(&p,i?MEASURE_OBJECT_B:MEASURE_OBJECT_A,name,0,2,true,false);
+        cell(&p,0,i ? "B  Moving object" : "A  Fixed reference",0,2,true,false);
         cell(&p,i?MEASURE_PICK_B:MEASURE_PICK_A,ui->measurement.picking && ui->measurement.slot==i ? "Cancel pick" : "Pick in view",1,2,true,ui->measurement.picking && ui->measurement.slot==i);p.y+=p.h;
+        object_label(object(ref->entity_id),name,sizeof(name));
+        row(&p,i?MEASURE_OBJECT_B:MEASURE_OBJECT_A,name,true);
         choices(&p,i+1);
         if(angle) {
             snprintf(text,sizeof(text),"%c direction: %s",'A'+i,feature(ref));

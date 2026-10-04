@@ -206,7 +206,7 @@ static bool test_screen_to_plane_world_yz(void) {
     TEST_ASSERT(ScreenToPlaneWorld(420, 315, &grid, plane, NULL, false, &world));
     TEST_ASSERT(nearly_equal(world.x, 2.0f));
     TEST_ASSERT(nearly_equal(world.y, view.x));
-    TEST_ASSERT(nearly_equal(world.z, view.y));
+    TEST_ASSERT(nearly_equal(world.z, -view.y));
     return true;
 }
 
@@ -235,7 +235,7 @@ static bool test_vec3_project_to_view_free_camera(void) {
 
     Vec2 v = Vec3_ProjectToView((Vec3){ 0.0f, -2.0f, 3.0f }, plane, &cam);
     TEST_ASSERT(nearly_equal(v.x, 2.0f));
-    TEST_ASSERT(nearly_equal(v.y, 3.0f));
+    TEST_ASSERT(nearly_equal(v.y, -3.0f));
     return true;
 }
 
@@ -377,7 +377,7 @@ static bool test_viewport_navigation_pan_uses_camera_screen_basis(void) {
     TEST_ASSERT(LineDrawingViewportNavApply(&before, &command, &after));
     TEST_ASSERT(nearly_equal(after.target.x, 0.0f));
     TEST_ASSERT(nearly_equal(after.target.y, 2.0f));
-    TEST_ASSERT(nearly_equal(after.target.z, -1.0f));
+    TEST_ASSERT(nearly_equal(after.target.z, 1.0f));
     command.grid_size = 0.0f;
     after = sentinel;
     TEST_ASSERT(!LineDrawingViewportNavApply(&before, &command, &after));
@@ -527,8 +527,42 @@ static bool test_gizmo_apply_axis_distance_world_vector(void) {
     return true;
 }
 
+static bool test_vertical_view_projection_and_inverse(void) {
+    Grid grid = {20, -10, -10, 2};
+    FreeViewCamera camera = {true, 35, 20, {2, 3, 4}};
+    for (int free_view = 0; free_view < 2; ++free_view) {
+        camera.enabled = free_view != 0;
+        for (int axis = VIEW_PLANE_XY; axis <= VIEW_PLANE_XZ; ++axis) {
+            ViewPlane plane = {(ViewPlaneAxis)axis, -2};
+            Vec3 point = {1, 2, 3};
+            if (axis == VIEW_PLANE_XY) point.z = -2;
+            else if (axis == VIEW_PLANE_YZ) point.x = -2;
+            else point.y = -2;
+            Vec2 screen = WorldToScreen(Vec3_ProjectToView(point, plane, &camera), &grid);
+            Vec3 recovered;
+            TEST_ASSERT(ScreenToPlaneWorld((int)roundf(screen.x), (int)roundf(screen.y),
+                                           &grid, plane, &camera, false, &recovered));
+            TEST_ASSERT(Vec3_Length(Vec3_Sub(point, recovered)) < .06f);
+            if (free_view || axis != VIEW_PLANE_XY) {
+                Vec2 above = WorldToScreen(Vec3_ProjectToView(Vec3_Add(point, (Vec3){0,0,1}),
+                                                             plane, &camera), &grid);
+                TEST_ASSERT(above.y < screen.y);
+            }
+        }
+    }
+    /* Orthographic viewing is bidirectional; physical forward rays still reject
+       intersections behind their origin. */
+    Ray3 ray = {{0,0,0},{0,0,1}};
+    Vec3 point;
+    TEST_ASSERT(!Ray3_IntersectPlane(ray, Plane3_FromAxisZ(-2), NULL, &point));
+    TEST_ASSERT(Ray3_IntersectViewPlane(ray, Plane3_FromAxisZ(-2), &point));
+    TEST_ASSERT(nearly_equal(point.z, -2));
+    return true;
+}
+
 bool math_run_tests(void) {
     const TestCase cases[] = {
+        { "VerticalViewProjectionAndInverse", test_vertical_view_projection_and_inverse },
         { "Vec2SnapAlignsToGrid", test_vec2_snap_aligns_to_grid },
         { "ScreenWorldRoundtrip", test_screen_to_world_roundtrip },
         { "GridZoomClampedAllowsSceneScaleFloor", test_grid_zoom_clamped_allows_scene_scale_floor },
