@@ -14,9 +14,16 @@ every automatic/saved result and structured report record.
 Warning-clean build, 501 host tests / 47 reported suites, both scene smoke lanes and
 independent inherited Travel/Hinge rendered fixtures pass. Read-only checking of
 the unchanged working van loads successfully and returns six existing findings.
-Desktop refresh and human acceptance of this checkpoint remain pending approval
-for Resume Editor/current-session inspection. Next: that handoff, startup browser
-I/O repair, then bounded S5 route editing/corridors/checks.
+Desktop refresh and native installed-app verification now pass. Selecting Bed deck
+opens bed_lift directly; Max moves the deck from 900 to 1600 mm with mattress and
+rails, and a slider gesture moves the inherited assembly together. One Undo restores
+the complete gesture while retaining the saved-motion panel; Reset restores 900 mm.
+Normal quit/process-exit/relaunch restores the Saved 38-object working van, mm units
+and Free 3D view. The saved file digest remains unchanged. Zoom, pan, active tab and
+selection are not restored; Fit scene remains needed after relaunch. Undo currently
+clears the object highlight and conservatively retains Dirty after pose restoration.
+Human acceptance remains separate. Next: those continuity refinements and startup
+browser I/O repair, then bounded S5 route editing/corridors/checks.
 
 
 ## Viewport projection, gizmos and readability (2026-10-03)

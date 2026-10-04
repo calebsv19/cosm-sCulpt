@@ -221,7 +221,19 @@ fixtures visibly show inherited motion controls and linear/angular range guides.
 The user's saved working van file remains byte-for-byte unchanged from the previous
 handoff (SHA256 `1e58223a8a3e3248586c8cffce0bc5018c623961275d75fcefc9e299654f40e3`).
 
-Desktop refresh/current-session inspection is pending: automatic approval review
-rejected Resume Editor because of possible unsaved-state loss. This checkpoint does
-not claim installed-app or human acceptance. Complete that handoff after approval,
-then audit startup browser I/O before S5 routes/corridors/endpoints/length editing.
+Desktop handoff was completed after explicit user approval. Native installed-app
+testing selected Bed deck #12 and opened bed_lift directly. Max moved the deck
+from 900 to 1600 mm, the mattress from 990 to 1690 mm and the driver rail from
+860 to 1560 mm. Selecting Mattress #13 discovered the inherited bed_lift; a slider
+gesture moved the complete assembly to about 1248.46 mm. A single Undo restored
+900/990/860 mm and kept the compact saved-motion panel open. Reset also restored
+the 900 mm home pose. No new rule was created and no test pose was saved.
+
+Normal quit was confirmed with a stopped-process audit before relaunch. Resume
+Editor then showed the Saved working van with 38 objects, mm units and Free 3D
+view. The file digest above is unchanged. Zoom/pan, selection and the active tab
+are not persisted: use View / Fit scene, select Bed deck #12, then Measure after
+relaunch. The handoff leaves this ready for testing. Undo currently clears selection
+and retains Dirty even after returning to the saved pose; the motion controls remain
+usable. These are follow-up continuity refinements, not a claim of full human
+acceptance. Audit startup framing/browser I/O before S5 route editing.

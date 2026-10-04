@@ -34,8 +34,10 @@ S0–S4 acceptance project. Z-up projection/picking, viewport-sized gizmos, visi
 selection and Measure/overview label readability now pass. Saved Travel/Hinge discovery,
 Measure undo continuity, units/view/tool preferences, assembly chooser wording and
 read-only repeated-pair grouping now pass host regressions and rendered UI proof.
-Desktop refresh and human acceptance for this new checkpoint remain pending. Next:
-startup browser I/O, then
+Desktop refresh and native bed selection/assembly motion, slider, Undo, Reset and
+normal relaunch now pass. Human acceptance remains separate. Next: preserve the
+selection across Undo, reconcile Dirty with the saved state, and improve startup
+framing/browser I/O, then
 S5 route identity/points/endpoints/length with visible editing and undo, named
 corridors and reserved-space checks. Real vehicle measurements remain pending.
 
