@@ -478,6 +478,9 @@ typedef struct {
         char preview_envelope[64], preview_target[64];
         uint32_t preview_index;
         LayoutMotionInspection inspection;
+        bool range_checked;
+        double preview_position;
+        LayoutMotionRangeResult range_result;
     } spatial;
 
 

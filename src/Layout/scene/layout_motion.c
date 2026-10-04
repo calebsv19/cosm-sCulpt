@@ -281,7 +281,7 @@ bool Layout_InspectMotionObstruction(const Layout* l, const LayoutMotionEnvelope
     const char* target_id, double required, bool clearance, LayoutMotionInspection* out) {
     if (!out || !target_id || !isfinite(required) || required<0 || !Layout_MotionEnvelopeCurrent(l,e)) return false;
     const LayoutConstraint* c=movement(l,e->rule_id);const Object3D* target=entity(l,target_id);
-    if (!c || !target || Layout_MotionScopeContains(&l->objectStore,c,target) || Layout_FindMotionEnvelope(&l->objectStore,target->objectId) ||
+    if (!c || !target || !Layout_MotionTargetStatic(l,c->id,target) ||
         (target->kind!=OBJECT3D_KIND_PLANE && target->kind!=OBJECT3D_KIND_RECT_PRISM)) return false;
     Object3D* poses=calloc(LAYOUT_MAX_MOTION_MEMBERS,sizeof(Object3D));if (!poses) return false;
     LayoutMotionInspection result={.gap_meters=DBL_MAX};

@@ -15,14 +15,17 @@ S3a attachment/support/containment relationships now ship through Links; see the
 and read-only oriented primitive intersection/clearance checks through Parts; see
 [spatial checks](spatial_checks.md). Mesh results remain bounds-based warnings.
 S4 now adds explicit rigid assembly scope to saved Travel/Hinge, whole-group
-conservative envelopes, and read-only sampled obstruction pose previews. See
-[motion envelopes](motion_envelopes.md). Next is tighter conservative coverage and
-between-sample analysis; independent constrained followers, arbitrary moving sets,
-meshes and multiple joints remain separate contracts. Broader snapping and
+conservative overview envelopes, member-interval checks and read-only pose previews.
+Check full range performs bounded adaptive separation/failure analysis between
+samples, keeping unresolved intervals explicit. See [motion envelopes](motion_envelopes.md).
+Next is a bounded van workflow audit using illustrative assemblies, service spaces
+and motion checks, followed by S5 routing corridors/cable paths. Independent
+constrained followers, arbitrary moving sets, meshes and multiple joints remain
+separate contracts. Broader snapping and
 reusable datums remain extensions. User acceptance remains separate from regression
 and rendered-UI proof.
 
-Last updated: 2026-10-02
+Last updated: 2026-10-03
 
 ## Spatial Engineering Priority
 

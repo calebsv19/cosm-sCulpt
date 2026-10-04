@@ -1,6 +1,6 @@
 # Reserved space and spatial checks (S3B/S3C)
 
-Implemented 2026-09-30. Current layout schema **17**. Program VERSION remains 0.4.0.
+Introduced 2026-09-30 in schema **17**; current layout schema is **19**. Program VERSION remains 0.4.0.
 This is the bounded first volume/intersection/clearance slice, built on S1 mechanical
 layout and S2/S3A identities, assemblies and relationships.
 
@@ -57,7 +57,7 @@ computed. Contact within 1 micrometer counts as intersection, and clearance has 
 1 micrometer comparison tolerance. The existing float geometry's precision still
 limits very large-coordinate layouts.
 
-Imported meshes use conservative world bounds. Results are always **Warning**,
+Imported meshes in ordinary static pair checks use conservative world bounds. Results are always **Warning**,
 with `approximate=true`; they never claim triangle-level collision or clearance
 acceptance. Unsupported or unavailable geometry also returns an unresolved warning.
 Automatic reserved-space checks report obstructions/unresolved geometry rather
@@ -68,7 +68,13 @@ links. Structural capacity, electrical safety, triangle collision, motion sweeps
 Boolean volumes, free-space search and a general constraint solver are outside this
 slice. Service volumes are manually authored boxes, not automatically derived access
 paths. The S4 opening slice now produces conservative Travel/Hinge envelopes; see
-[motion envelopes](motion_envelopes.md) for scope, freshness and warnings.
+[motion envelopes](motion_envelopes.md) for scope, freshness and warnings. Motion
+checks now use separate member/interval bounds rather than the saved overview box.
+A separated explicit motion check may pass with approximate=true; its gap is a
+conservative lower bound across the range. Possible overlaps stay warnings.
+Check full range provides separate bounded adaptive separation/failure/unresolved
+inspection for primitives against a static target. Neither a conservative overlap
+nor an unresolved result proves contact or clearance.
 
 ## Persistence and transactions
 
@@ -101,7 +107,7 @@ extension transport; shared library APIs/versions and renderer formats are uncha
 `Layout_SpatialDistance` expose typed operations. `Layout_CheckSpatial` returns the
 full result count even if an output buffer is smaller. `Layout_SpatialReportJson`
 returns a caller-owned `line_drawing_spatial_report_v1` JSON report with IDs,
-severity, measurable/approximate flags, intersection, measured/required meters and
+severity, measurable/approximate flags, geometryMethod, intersection, measured/required meters and
 messages. The UI displays the first 256 results and explicitly reports truncation;
 JSON reports cap at 4096, retaining full `total` and `truncated` fields. Refine the
 scene/rules or use the typed API for a larger result buffer.
@@ -132,9 +138,9 @@ are disposable fixtures and do not replace the user's saved scene.
 ![Volume controls](assets/s3-volumes.png)
 ![Check results](assets/s3-checks.png)
 
-The S4 opening slice now consumes these reserved-space/check contracts. It now
-samples explicit assembly scope and offers read-only obstruction pose inspection.
-Next is tighter conservative bounds and between-sample analysis; see
+S4 consumes these reserved-space/check contracts with explicit assembly scope,
+conservative member intervals and bounded adaptive full-range pose inspection.
+Next is a bounded illustrative van workflow audit, then routing corridors/paths; see
 [motion envelopes](motion_envelopes.md). Triangle-level mesh checks and richer service-volume derivation
 remain follow-on work. User acceptance of the new UI remains separate from tests
 and rendered/package proof.

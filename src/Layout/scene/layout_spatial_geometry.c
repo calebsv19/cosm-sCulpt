@@ -69,28 +69,68 @@ static double segment_distance(D3 p,D3 q,D3 r,D3 t) {
     }
     D3 delta=sub(add(w,mul(u,s)),mul(v,h));return sqrt(fmax(0,dot(delta,delta)));
 }
+static bool box_distance(const Box* x, const Box* y, double* meters, bool* overlap) {
+    *overlap=intersects(x,y);*meters=0;
+    if(*overlap)return true;
+    double best=DBL_MAX;
+    for(int i=0;i<8;++i){best=fmin(best,point_distance(x->corner[i],y));best=fmin(best,point_distance(y->corner[i],x));}
+    static const int edges[12][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
+    for(int i=0;i<12;++i)for(int j=0;j<12;++j)
+        best=fmin(best,segment_distance(x->corner[edges[i][0]],x->corner[edges[i][1]],y->corner[edges[j][0]],y->corner[edges[j][1]]));
+    *meters=best;return isfinite(best);
+}
 bool Layout_SpatialDistance(const Layout* l,const Object3D* a,const Object3D* b,double* meters,bool* overlap,bool* approximate) {
     if(!l||!a||!b||!meters||!overlap||!approximate)return false;
     Box x,y;if(!box(l,a,&x)||!box(l,b,&y))return false;
-    *approximate=x.approximate||y.approximate;*overlap=intersects(&x,&y);*meters=0;
-    if(*overlap)return true;
-    double best=DBL_MAX;
-    for(int i=0;i<8;++i){best=fmin(best,point_distance(x.corner[i],&y));best=fmin(best,point_distance(y.corner[i],&x));}
-    static const int edges[12][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
-    for(int i=0;i<12;++i)for(int j=0;j<12;++j)
-        best=fmin(best,segment_distance(x.corner[edges[i][0]],x.corner[edges[i][1]],y.corner[edges[j][0]],y.corner[edges[j][1]]));
-    *meters=best;return isfinite(best);
+    *approximate=x.approximate||y.approximate;return box_distance(&x,&y,meters,overlap);
+}
+bool Layout_SpatialBoundsDistance(const Layout* l, const double min[3], const double max[3],
+    const Object3D* target, double* meters, bool* overlap) {
+    if (!l || !min || !max || !target || !meters || !overlap) return false;
+    Box x={.axis={{1,0,0},{0,1,0},{0,0,1}}},y;
+    double center[3];
+    for (int k=0;k<3;++k) {
+        if (!isfinite(min[k]) || !isfinite(max[k]) || min[k]>max[k]) return false;
+        center[k]=min[k]*.5+max[k]*.5;x.half[k]=(max[k]-min[k])*.5;
+        if (!isfinite(x.half[k])) return false;
+    }
+    x.center=(D3){center[0],center[1],center[2]};
+    const int ends[8][3]={{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}};
+    for (int i=0;i<8;++i) x.corner[i]=(D3){ends[i][0]?max[0]:min[0],ends[i][1]?max[1]:min[1],ends[i][2]?max[2]:min[2]};
+    return box(l,target,&y) && box_distance(&x,&y,meters,overlap);
 }
 static bool member(const LayoutObjectStore* s,const Object3D* o,const char* id) {
     return !strcmp(o->coreMeta.object_id,id)||Layout_IsDescendant(s,o->info.parent_id,id);
 }
-static LayoutSpatialResult check_pair(const Layout* l,const Object3D* a,const Object3D* b,const char* rule,double required,bool clearance) {
+typedef struct { bool tried, ready; LayoutMotionCoverage coverage; } MotionCache;
+static const LayoutMotionCoverage* coverage_for(const Layout* l, const LayoutMotionEnvelope* envelope, MotionCache* cache) {
+    size_t i=(size_t)(envelope-l->objectStore.motion_envelopes);
+    if (i>=l->objectStore.motion_envelope_count || i>=LAYOUT_MAX_MOTION_ENVELOPES) return NULL;
+    if (!cache[i].tried) {
+        cache[i].tried=true;cache[i].ready=Layout_BuildMotionCoverage(l,envelope,&cache[i].coverage);
+    }
+    return cache[i].ready?&cache[i].coverage:NULL;
+}
+static LayoutSpatialResult check_pair(const Layout* l,const Object3D* a,const Object3D* b,const char* rule,double required,bool clearance,MotionCache* cache) {
     LayoutSpatialResult r={.required_meters=required};snprintf(r.rule_id,64,"%s",rule);snprintf(r.source,64,"%s",a->coreMeta.object_id);snprintf(r.target,64,"%s",b->coreMeta.object_id);
     const LayoutMotionEnvelope* ea=Layout_FindMotionEnvelope(&l->objectStore,a->objectId);
     const LayoutMotionEnvelope* eb=Layout_FindMotionEnvelope(&l->objectStore,b->objectId);
     if ((ea && !Layout_MotionEnvelopeCurrent(l,ea)) || (eb && !Layout_MotionEnvelopeCurrent(l,eb))) {
         r.severity=LAYOUT_SPATIAL_WARNING;r.approximate=true;
         snprintf(r.message,sizeof(r.message),"Motion envelope stale; regenerate in Parts / Volumes.");return r;
+    }
+    if ((ea!=NULL)!=(eb!=NULL)) {
+        const LayoutMotionEnvelope* envelope=ea?ea:eb;const Object3D* target=ea?b:a;
+        const LayoutMotionCoverage* coverage=coverage_for(l,envelope,cache);
+        r.approximate=true;
+        r.measurable=coverage && Layout_MotionCoverageDistance(l,coverage,target,&r.distance_meters,&r.overlap);
+        r.motion_intervals=r.measurable;
+        bool failed=clearance?r.distance_meters+1e-6<required:r.overlap;
+        r.severity=!r.measurable || failed?LAYOUT_SPATIAL_WARNING:LAYOUT_SPATIAL_PASS;
+        snprintf(r.message,sizeof(r.message),"%s",!r.measurable?
+            "Motion interval coverage unavailable; check static target, locks and bounds.":failed?
+            "Conservative member intervals indicate a possible obstruction.":
+            "Conservative member intervals satisfy this check across the saved range.");return r;
     }
     r.measurable=Layout_SpatialDistance(l,a,b,&r.distance_meters,&r.overlap,&r.approximate);
     bool envelope=ea || eb;r.approximate=r.approximate || envelope;
@@ -108,7 +148,7 @@ static void emit(LayoutSpatialResult r,LayoutSpatialResult* output,size_t capaci
 }
 size_t Layout_CheckSpatial(const Layout* l,LayoutSpatialResult* output,size_t capacity) {
     if(!l)return 0;
-    size_t count=0;const LayoutObjectStore* s=&l->objectStore;
+    size_t count=0;const LayoutObjectStore* s=&l->objectStore;MotionCache cache[LAYOUT_MAX_MOTION_ENVELOPES]={0};
     if(!Layout_ValidateEngineering(l,NULL,0)) {
         LayoutSpatialResult r={.severity=LAYOUT_SPATIAL_WARNING};snprintf(r.message,sizeof(r.message),"Invalid engineering records; checks unresolved.");emit(r,output,capacity,&count);return count;
     }
@@ -128,7 +168,7 @@ size_t Layout_CheckSpatial(const Layout* l,LayoutSpatialResult* output,size_t ca
             /* A is the intentional fixed mounting/reference object; B owns its sweep. */
             if (movement && (!strcmp(o->coreMeta.object_id,movement->a.entity_id) || Layout_MotionScopeContains(s,movement,o))) continue;
             if(o->isDeleted||o==v||o->info.volume_role||o->info.reference || (v->info.volume_owner[0] && member(s,o,v->info.volume_owner)))continue;
-            LayoutSpatialResult result=check_pair(l,v,o,v->coreMeta.object_id,0,false);
+            LayoutSpatialResult result=check_pair(l,v,o,v->coreMeta.object_id,0,false,cache);
             /* Automatic checks report obstructions/unresolved geometry, not thousands of clear pairs. */
             if(result.overlap||!result.measurable)emit(result,output,capacity,&count);
         }
@@ -139,7 +179,7 @@ size_t Layout_CheckSpatial(const Layout* l,LayoutSpatialResult* output,size_t ca
             const Object3D* a=&s->items[i];if(a->isDeleted||!member(s,a,rule->source))continue;
             for(size_t j=0;j<s->count;++j) {
                 const Object3D* b=&s->items[j];if(b->isDeleted||a==b||!member(s,b,rule->target))continue;
-                emit(check_pair(l,a,b,rule->id,rule->clearance_meters,rule->kind==LAYOUT_SPATIAL_CLEARANCE),output,capacity,&count);++pairs;
+                emit(check_pair(l,a,b,rule->id,rule->clearance_meters,rule->kind==LAYOUT_SPATIAL_CLEARANCE,cache),output,capacity,&count);++pairs;
             }
         }
         if(!pairs) {
@@ -147,6 +187,7 @@ size_t Layout_CheckSpatial(const Layout* l,LayoutSpatialResult* output,size_t ca
             snprintf(r.message,sizeof(r.message),"No distinct geometry pairs; check unresolved.");emit(r,output,capacity,&count);
         }
     }
+    for (size_t i=0;i<LAYOUT_MAX_MOTION_ENVELOPES;++i) Layout_FreeMotionCoverage(&cache[i].coverage);
     return count;
 }
 
@@ -167,6 +208,8 @@ cJSON* Layout_SpatialReportJson(const Layout* l) {
         cJSON_AddItemToArray(array,item);
         ok=cJSON_AddStringToObject(item,"ruleId",r->rule_id) && cJSON_AddStringToObject(item,"source",r->source) && cJSON_AddStringToObject(item,"target",r->target) &&
             cJSON_AddStringToObject(item,"severity",(const char*[]){"pass","error","warning"}[r->severity]) && cJSON_AddBoolToObject(item,"approximate",r->approximate) &&
+            cJSON_AddStringToObject(item,"geometryMethod",r->motion_intervals?"motion_member_intervals":
+                r->approximate?"bounds":"primitive") &&
             cJSON_AddBoolToObject(item,"measurable",r->measurable) && cJSON_AddBoolToObject(item,"intersects",r->overlap) &&
             cJSON_AddNumberToObject(item,"distanceMeters",r->distance_meters) && cJSON_AddNumberToObject(item,"requiredMeters",r->required_meters) && cJSON_AddStringToObject(item,"message",r->message);
     }

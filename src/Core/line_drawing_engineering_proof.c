@@ -55,13 +55,33 @@ static bool motion_proof(const char* mode) {
         UIPanel_BeginMeasurement();UIPanel_MeasurementSelectRule(0);ui->measurement.picking=false;
         UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_MEASURE);UIPanel_LayoutMeasurementPane();return true;
     }
+    if (strstr(mode,"clear-warning")) {
+        if (!Layout_SetTravelPosition(l,c.id,25,NULL,NULL)) return false;
+        c=l->objectStore.constraints[0];
+        if (!Layout_InitAngularTravel(l,&c,25,30) || !Layout_ConstraintEdit(l,&c,NULL,NULL,NULL)) return false;
+    }
     if (!Layout_GenerateMotionEnvelope(l,c.id,33,NULL,NULL)) return false;
     const LayoutMotionEnvelope* envelope=Layout_FindRuleEnvelope(&l->objectStore,c.id);
+    if (strstr(mode,"range-clear")) {
+        LayoutSpatialRule rule={.kind=LAYOUT_SPATIAL_NO_INTERSECTION};
+        snprintf(rule.source,64,"%s",Layout_ObjectStore_FindConst(&l->objectStore,envelope->object_id)->coreMeta.object_id);
+        snprintf(rule.target,64,"%s",Layout_ObjectStore_FindConst(&l->objectStore,cabinet)->coreMeta.object_id);
+        if (!Layout_EditSpatialRule(l,&rule,NULL,NULL,NULL)) return false;
+    }
+    if (strstr(mode,"range-unresolved")) {
+        if (!Layout_SetObject3DPosition(l,cabinet,(Vec3){1,1,.350005f},NULL)) return false;
+    }
     if (strstr(mode,"stale")) {c.travel_max=90;if (!Layout_ConstraintEdit(l,&c,NULL,NULL,NULL)) return false;}
     UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_PARTS);ui->parts.mode=4;
     state->editor.selectedObject3DId=envelope->object_id;UIPanel_SpatialEnterVolumes();
     if (strstr(mode,"checks") || strstr(mode,"stale") || strstr(mode,"preview")) {ui->parts.mode=5;UIPanel_SpatialRunChecks();ui->spatial.selected_result=0;state->editor.selectedObject3DId=cabinet;}
     if (strstr(mode,"preview") && ui->spatial.result_count) (void)UIPanel_MotionInspectionClick(PARTS_MOTION_INSPECT,&ui->spatial.results[0]);
+    if (strstr(mode,"range-") && ui->spatial.result_count) (void)UIPanel_MotionInspectionClick(PARTS_MOTION_RANGE,&ui->spatial.results[0]);
+    if (strstr(mode,"range-")) {
+        LayoutMotionRangeStatus expected=strstr(mode,"range-clear")?LAYOUT_MOTION_RANGE_CLEAR:
+            strstr(mode,"range-unresolved")?LAYOUT_MOTION_RANGE_UNRESOLVED:LAYOUT_MOTION_RANGE_FAILURE;
+        if (!ui->spatial.range_checked || ui->spatial.range_result.status!=expected) return false;
+    }
     UIPanel_LayoutParts();return true;
 }
 

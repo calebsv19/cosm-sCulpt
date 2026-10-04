@@ -1,7 +1,7 @@
 # Sculpt Current Truth
 
 
-## S4 continuation: assembly motion and pose inspection (2026-10-02)
+## S4 interval coverage and full-range inspection (2026-10-03)
 
 Measure now has **Moves: B only / assembly** below the existing movement controls.
 An explicit containing assembly moves rigidly with B, including nested members and
@@ -11,8 +11,16 @@ regeneration, status, size/range, stable IDs and movement/check navigation.
 Parts → Checks adds **Inspect motion** for current primitive envelope results.
 A read-only orange-wire preview opens at the first sampled failure or closest
 sample, with Previous/Next/Close controls and visible position/member feedback.
-Conservative warnings remain warnings: absence of a sampled hit does not prove
-that movement between samples is clear. Authored-input drift invalidates previews.
+The visible box is now labeled overview bounds. Checks use a transient union of
+member intervals, reducing false obstructions in gaps and door-sweep corners.
+Separated saved checks can pass with an explicitly conservative gap; overlap is
+still only a warning. Reports expose geometryMethod for interval bounds.
+
+**Check full range** adds bounded adaptive interval separation/contact inspection.
+It reports a separated range, contact/clearance failure at a tested pose, or an
+unresolved interval. The preview jumps to refined findings without changing the
+scene. Budget/depth exhaustion never passes. Authored-input drift invalidates
+previews. Downstream followers cannot be frozen as static obstacles.
 
 Schema 19 persists explicit motion scope and relative member snapshots; schema 18
 B-only envelopes migrate with retained freshness. The group supports up to 64
@@ -23,11 +31,13 @@ boxes/provenance remain in the authoritative runtime snapshot, outside solids.
 
 See [motion envelopes and previews](motion_envelopes.md) for controls, migrations,
 proof and exclusions. Source/mouse tests and native fixtures are separate from
-user hands-on acceptance. Next S4 work is tighter conservative coverage and
-between-sample analysis; independent follower/mesh/multiple-joint motion is deferred.
+user hands-on acceptance. 487 tests in 47 reported suites pass, including 22 motion
+tests; native separated/contact/unresolved fixtures were reviewed. Next is a bounded
+van workflow audit using illustrative assemblies, service spaces and movement,
+then S5 routing corridors/paths. Independent follower/mesh/multiple-joint motion is deferred.
 The dated milestone accounts below retain their original proof/next-step history.
 
-Last updated: 2026-10-02
+Last updated: 2026-10-03
 
 ## S3B/S3C reserved volumes and spatial checks (2026-09-30)
 

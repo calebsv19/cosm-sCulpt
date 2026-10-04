@@ -1,7 +1,7 @@
 # Engineering Document Foundation (S0)
 
-Status: S0/S1 CAD foundation, S2 semantics/assemblies and S3A relationships and S3B/S3C spatial records and the S4 motion-envelope opening slice implemented.
-Date: 2026-09-30
+Status: S0/S1 CAD foundation, S2 semantics/assemblies and S3A relationships and S3B/S3C spatial records and S4 scoped envelopes, transient interval checks and bounded range inspection implemented.
+Date: 2026-10-03
 
 Current schema is **19**, adding explicit rigid movement assembly scope and relative
 member snapshots for derived envelopes. Schema 18 single-object envelopes migrate

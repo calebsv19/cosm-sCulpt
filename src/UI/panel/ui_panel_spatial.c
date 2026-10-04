@@ -123,7 +123,7 @@ static void volumes(PartsPane* p) {
         if(ui->spatial.remove_pending){row(p,PARTS_VOLUME_CONFIRM_REMOVE,"Confirm delete envelope",true);row(p,PARTS_SPATIAL_CANCEL,"Cancel",true);}
         snprintf(text,sizeof(text),"Scope: %s",envelope->assembly_id[0]?"saved assembly":"B only");note(p,text);
         if(envelope->member_count){snprintf(text,sizeof(text),"%zu captured moving parts",envelope->member_count);note(p,text);}
-        note(p,"Bounds can overestimate space.");return;
+        note(p,"Overview box; checks use member intervals.");return;
     }
     field(p,PARTS_VOLUME_NAME,"Name",ui->spatial.volume.name);
     row(p,PARTS_VOLUME_ROLE,ui->spatial.volume.role==LAYOUT_VOLUME_SERVICE?"Role: Service":"Role: Keep-out",true);
@@ -169,7 +169,7 @@ static void checks(PartsPane* p) {
         if(!ui->spatial.preview_active) {
             note(p,r->message);
             name(r->source,label);snprintf(text,sizeof(text),"A: %s [%s]",label,r->source);note(p,text);name(r->target,label);snprintf(text,sizeof(text),"B: %s [%s]",label,r->target);note(p,text);
-            if(r->measurable){snprintf(text,sizeof(text),"%s gap: %.6g m",r->approximate?"Bounds":"Surface",r->distance_meters);note(p,text);
+            if(r->measurable){snprintf(text,sizeof(text),"%s gap: %.6g m",r->motion_intervals?"Interval bounds":r->approximate?"Bounds":"Surface",r->distance_meters);note(p,text);
                 if(r->required_meters>0){snprintf(text,sizeof(text),"Minimum: %.6g m",r->required_meters);note(p,text);}}
             cell(p,PARTS_CHECK_SELECT_A,"Select A",NULL,0,2,true,false);cell(p,PARTS_CHECK_SELECT_B,"Select B",NULL,1,2,true,false);p->y+=p->h;
         }
@@ -221,7 +221,7 @@ bool UIPanel_SpatialClick(int action,int chooser) {
         }
         ui->spatial.remove_pending=false;return true;
     }
-    if(action>=PARTS_MOTION_INSPECT && action<=PARTS_MOTION_CLOSE) {
+    if(action>=PARTS_MOTION_INSPECT && action<=PARTS_MOTION_RANGE) {
         const LayoutSpatialResult* r=ui->spatial.selected_result>=0 && (size_t)ui->spatial.selected_result<ui->spatial.result_count && ui->spatial.checked_digest==digest()?&ui->spatial.results[ui->spatial.selected_result]:NULL;
         (void)UIPanel_MotionInspectionClick(action,r);
     } else if(action==PARTS_ENVELOPE_REGENERATE) {
@@ -283,7 +283,7 @@ void UIPanel_RenderMotionViewport(SDL_Renderer* renderer) {
         Vec2 p=WorldToScreen(SpaceAdapter_ProjectToView(o->transform.position,&view),&state->grid);
         if (!isfinite(p.x) || !isfinite(p.y) || p.x<rect.x || p.x>=rect.x+rect.width || p.y<rect.y || p.y>=rect.y+rect.height) continue;
         bool current=Layout_MotionEnvelopeCurrent(&state->layout,envelope);char text[160];
-        snprintf(text,sizeof(text),"%.80s [%s]",o->info.label,current?"conservative bounds":"STALE - regenerate");
+        snprintf(text,sizeof(text),"%.80s [%s]",o->info.label,current?"overview bounds":"STALE - regenerate");
         UIPanelSummary_DrawText(renderer,font,text,(int)p.x+12,(int)p.y+8,current?(SDL_Color){185,150,255,255}:(SDL_Color){255,165,90,255});
     }
     SDL_RenderSetClipRect(renderer,clipped?&old:NULL);

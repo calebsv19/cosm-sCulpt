@@ -21,7 +21,7 @@ typedef enum { LAYOUT_SPATIAL_PASS, LAYOUT_SPATIAL_ERROR, LAYOUT_SPATIAL_WARNING
 typedef struct {
     char rule_id[64], source[64], target[64];
     LayoutSpatialSeverity severity;
-    bool approximate, overlap, measurable;
+    bool approximate, overlap, measurable, motion_intervals;
     double distance_meters, required_meters;
     char message[160];
 } LayoutSpatialResult;
@@ -32,5 +32,9 @@ size_t Layout_CheckSpatial(const Layout* layout, LayoutSpatialResult* results, s
 cJSON* Layout_SpatialReportJson(const Layout* layout);
 /* Oriented primitive boxes/panels; meshes use a conservative world bounds proxy.
  * Contact counts as intersection. No mesh triangles or swept motion are tested. */
+/* Double-precision physical AABB against existing primitive/mesh proxy geometry.
+ * Returned box distance is a conservative lower bound for contained motion. */
+bool Layout_SpatialBoundsDistance(const Layout* layout, const double min_meters[3], const double max_meters[3],
+    const Object3D* target, double* meters, bool* intersects);
 bool Layout_SpatialDistance(const Layout* layout, const Object3D* a, const Object3D* b,
     double* meters, bool* intersects, bool* approximate);

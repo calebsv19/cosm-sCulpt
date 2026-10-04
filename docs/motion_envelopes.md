@@ -1,7 +1,8 @@
 # Motion envelopes and pose inspection — S4
 
 Status: saved Travel/Hinge envelopes cover B alone or an explicit rigid assembly.
-Checks can inspect sampled obstruction poses in a read-only native preview.
+Checks use conservative member intervals and can inspect sampled/refined poses
+in a read-only native preview, with bounded full-range separation analysis.
 Independent joints and exact swept-solid collision remain outside this contract.
 
 ## Mouse workflow
@@ -14,7 +15,8 @@ Independent joints and exact swept-solid collision remain outside this contract.
 3. Click **Create envelope** below the movement slider and Min/Max/Reset controls.
    The editor opens **Parts → Volumes** and selects the generated wire box.
 4. The pane shows **current / STALE**, the moving part, the saved range and the
-   box size. **Details** reveals the movement ID, pose count and padding.
+   box size. The box is labeled **overview bounds**; checks use member intervals.
+   **Details** reveals the movement ID, pose count and padding.
 5. Click **Run checks** to open **Parts → Checks**. Select a named result, then
    **Select A / Select B** to locate the envelope or obstruction.
 6. Use **Edit movement** to return to Measure with the moving B object selected.
@@ -31,7 +33,7 @@ not move the live document, add pose objects, or change the current Position.
 The envelope is a persistent world-aligned prism labeled `Motion: <B name>` and
 semantically typed `MotionEnvelope`. Its normal wire color is purple; existing
 selection/hover colors still apply. Viewport labels explicitly say
-`conservative bounds` or `STALE - regenerate`, and obey visibility/filter/clipping.
+`overview bounds` or `STALE - regenerate`, and obey visibility/filter/clipping.
 
 ## Physical coverage and scope
 
@@ -47,11 +49,31 @@ of a sample; arc length bounds the intervening displacement. Additional padding
 covers physical/numerical tolerance and float geometry storage. A panel receives
 positive box thickness, respecting the existing primitive minimum.
 
-These boxes intentionally overestimate the occupied region, especially for doors.
-Automatic obstruction checks produce **warnings**, `approximate=true`, and a
-possible-obstruction message. Box overlap does not prove a physical collision.
-Explicit no-intersection/clearance rules involving an envelope also report bounds
-results as warnings; a clear bounds gap satisfies the conservative check only.
+The saved overview box intentionally overestimates occupied space. It remains
+useful for visibility, provenance and consumers of the reserved-volume snapshot.
+Checks now build a transient union of **one physical box per member per interval**.
+For 33 poses this means 32 intervals per member. A solved midpoint's corners are
+expanded by half-interval translation in each axis, or by `r * halfAngle` for a
+hinge, plus a numerical guard (`10 µm + 64*FLT_EPSILON*max(1, magnitude+radius+arc)`).
+Each interval box covers the intervening rigid movement, including unsampled poses.
+Member/interval gaps stay distinct rather than being filled by the overview box.
+Coverage is built once per envelope per check run and reused across targets.
+
+A possible overlap remains a **warning**, `approximate=true`; box overlap does not
+prove collision. An explicitly saved check can return **Pass** when these
+conservative intervals are separated or satisfy clearance throughout the range.
+Automatic checks omit clear pairs. `distanceMeters` for this method is a
+conservative **lower bound**, not the exact minimum distance during movement.
+The UI calls it Interval bounds gap; JSON adds
+`geometryMethod="motion_member_intervals"` to distinguish it from primitive or
+other bounds results. No saved schema/version changes are needed for transient
+coverage. Stale/unavailable coverage remains an unresolved warning.
+
+Targets are evaluated at their current static authored geometry. A downstream
+follower driven by B/the moving group is refused as a static target. Two motion
+envelopes retain the older coarse approximate comparison; coupled motion is not
+solved. Mesh targets retain conservative proxy geometry; full-range primitive
+inspection remains unavailable for them.
 
 Automatic envelope checks exempt the complete saved moving group and fixed A
 reference/mounting object, other reserved volumes and Reference geometry. Hidden design parts still
@@ -94,10 +116,36 @@ movement target, scene file and undo count are unchanged. New checks, selecting 
 different result or authored-input drift clear the preview; other tabs hide it.
 Visibility and viewport clipping apply to the cached ghost geometry.
 
-A result with no sampled failure does not certify clearance: contact between
-samples is untested. The original conservative warning remains. Stale envelopes, meshes,
-moving targets in the same scope, or lock/bounds/solver failures cannot be inspected
-through this primitive sampling path and receive an explicit unavailable message.
+A result with no sampled failure alone does not certify clearance. Click
+**Check full range** to run bounded adaptive analysis against this static target:
+
+- **Range separated by conservative intervals**: every interval was separated
+  using conservative geometry/displacement bounds, including the requested clearance.
+- **Contact at tested pose / Clearance fails at**: a tested endpoint or refined
+  midpoint violates the check. The orange preview jumps to that actual tested pose.
+  It does not claim the earliest collision time.
+- **Range unresolved**: some intervals remain ambiguous after a refinement limit.
+  The pane shows one unresolved interval and its midpoint preview. It never becomes
+  a pass simply because samples missed contact.
+
+The analysis uses the stronger of the member interval-box gap and the oriented
+midpoint primitive gap minus its maximum point-displacement allowance. Distance
+to a static set is 1-Lipschitz under this rigid displacement, so a positive lower
+bound applies between samples. The allowance includes a numerical guard. Ambiguous
+intervals bisect deterministically, to depth 12, with 257 tested poses in the UI
+(including endpoints). Search continues past ambiguous intervals while budget
+remains so a later tested violation can still be found. The C API accepts budgets
+1–4097. Unresolved results keep a zero lower bound; a separated result's gap is a
+conservative lower bound over all completed intervals.
+
+The original interval warning remains a separate result after inspection; when
+range analysis separates it, the pane states that the interval warning is retained.
+Previous/Next return to regular saved sample positions from a refined position.
+Close restores result details. Stale envelopes, meshes, coupled/downstream moving
+targets, or sampled lock/bounds/solver failures receive an unavailable message.
+This checks clearance of the prescribed rigid geometry against one static target;
+it does not establish continuous lock/bounds feasibility, manufacturing precision,
+independent-joint motion or physical build acceptance.
 
 ## Freshness and transactions
 
@@ -156,8 +204,13 @@ Public C operations are in `Layout/layout_motion.h`:
 hook, and `Layout_MotionEnvelopeCurrent` reports freshness.
 `Layout_SampleMotionSet` samples the explicit group;
 `Layout_InspectMotionObstruction` returns first failing/closest sample position,
-member ID, gap, hit flag and sample count, without scene writes. Existing
-`agent_scene_tool --check-layout` reports envelope warnings through the structured
+member ID, gap, hit flag and sample count, without scene writes.
+`Layout_BuildMotionCoverage` returns an owned transient union (empty output required;
+release it with `Layout_FreeMotionCoverage`), and `Layout_MotionCoverageDistance`
+queries it against the same unchanged layout. `Layout_CheckMotionRange` returns
+separated/tested-failure/unresolved status, pose count, tested position/member,
+unresolved interval and conservative gap. It leaves output untouched on unavailable
+input. Existing `agent_scene_tool --check-layout` reports interval results through the structured
 spatial report. No live MCP mutation transport is introduced.
 
 ## Evidence and next boundary
@@ -177,12 +230,26 @@ Source-run native fixtures cover Measure, Volumes, potential obstructions and st
 feedback for hinges, plus travel obstruction results. User hands-on acceptance
 remains separate from these tests and captures.
 
+The interval continuation adds dense group coverage for Z/Y hinges, scaled oblique
+panel travel, empty assembly-gap and hinge-corner false-positive reduction, report
+method/pass readback, thin between-sample contact, endpoint contact, clearance,
+budget/depth limits, downstream follower refusal, locked/stale unavailable results
+and mouse full-range/refined-position navigation with unchanged scene/history.
+Native range fixtures assert their expected status before rendering; a known door
+contact exposed premature unresolved handling and is covered by a regression.
+
 ![Assembly movement selector](assets/s4-assembly-motion.png)
 ![Whole-assembly envelope](assets/s4-assembly-envelope.png)
 ![Read-only obstruction preview](assets/s4-motion-preview.png)
 
-Next is tighter conservative coverage, such as per-member or piecewise bounds,
-and explicit analysis between sampled poses. Preserve the distinction between
-conservative warnings and sampled contact. Independent constrained followers,
-arbitrary moving sets, imported meshes and multiple joint solving need separate
-contracts. Routing and compiler topology bridges remain later phases.
+![Tested range contact](assets/s4-range-contact.png)
+![Conservatively separated range](assets/s4-range-separated.png)
+![Unresolved range](assets/s4-range-unresolved.png)
+![Range refinement of a retained interval warning](assets/s4-range-refinement.png)
+
+Next is a bounded van-oriented workflow audit using named bed/door assemblies,
+service spaces and motion checks, with illustrative dimensions explicitly labeled.
+Use that evidence to choose any remaining UI/coverage refinements before S5 routing
+corridors and cable paths. Independent constrained followers, arbitrary moving
+sets, imported meshes and multiple joints need separate contracts. Compiler
+hardware/software topology bridges remain later phases.

@@ -28,28 +28,47 @@ static const LayoutConstraint* rule(const LayoutMotionEnvelope* e) {
 }
 static bool preview(const LayoutMotionEnvelope* e) {
     UIPanelState* ui=UIPanel_Get();const LayoutConstraint* c=rule(e);if (!c || ui->spatial.preview_index>=e->samples) return false;
-    double t=(double)ui->spatial.preview_index/(e->samples-1),position=c->travel_min*(1-t)+c->travel_max*t;
+    double position=ui->spatial.preview_position;
     return Layout_SampleMotionSet(&Global_Get()->layout,c->id,position,preview_poses,LAYOUT_MAX_MOTION_MEMBERS,&preview_count);
 }
 void UIPanel_MotionInspectionBuild(PartsPane* p, const LayoutSpatialResult* r) {
     UIPanelState* ui=UIPanel_Get();const char* target=NULL;const LayoutMotionEnvelope* e=result_envelope(r,&target);
     if (!e || !r->measurable || !Layout_MotionEnvelopeCurrent(&Global_Get()->layout,e)) return;
-    row(p,PARTS_MOTION_INSPECT,"Inspect motion",true);
-    if (!ui->spatial.preview_active || strcmp(ui->spatial.preview_target,target)) return;
+    if (!ui->spatial.preview_active || strcmp(ui->spatial.preview_target,target)) {row(p,PARTS_MOTION_INSPECT,"Inspect motion",true);return;}
     const Object3D* o=Layout_ObjectStore_FindConst(&Global_Get()->layout.objectStore,e->object_id);
     if (!o || strcmp(ui->spatial.preview_envelope,o->coreMeta.object_id)) return;
     const LayoutConstraint* c=rule(e);if (!c) return;char text[160];
     const LayoutEntityInfo* obstacle=Layout_EntityInfo(&Global_Get()->layout.objectStore,target);
     snprintf(text,sizeof(text),"Obstacle: %s",obstacle && obstacle->label[0]?obstacle->label:target);note(p,text);
-    if (ui->spatial.inspection.hit) {
-        snprintf(text,sizeof(text),"First sampled failure: %.4g %s",ui->spatial.inspection.position,c->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL?"deg":"m");note(p,text);
-        const LayoutEntityInfo* member=Layout_EntityInfo(&Global_Get()->layout.objectStore,ui->spatial.inspection.member_id);
-        snprintf(text,sizeof(text),"Part: %s",member && member->label[0]?member->label:ui->spatial.inspection.member_id);note(p,text);
-    } else note(p,"No sampled pose fails. Bounds may overestimate; gaps between samples remain untested.");
-    double t=(double)ui->spatial.preview_index/(e->samples-1);
-    snprintf(text,sizeof(text),"Preview: %.4g %s (%u/%u)",c->travel_min*(1-t)+c->travel_max*t,c->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL?"deg":"m",ui->spatial.preview_index+1,e->samples);note(p,text);
-    cell(p,PARTS_MOTION_PREVIOUS,"Previous",NULL,0,2,ui->spatial.preview_index>0,false);
-    cell(p,PARTS_MOTION_NEXT,"Next",NULL,1,2,ui->spatial.preview_index+1<e->samples,false);p->y+=p->h;
+    const char* member_id=ui->spatial.inspection.member_id;
+    const char* unit=c->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL?"deg":"m";
+    if (ui->spatial.range_checked) {
+        const LayoutMotionRangeResult* result=&ui->spatial.range_result;
+        if (result->status==LAYOUT_MOTION_RANGE_CLEAR) {
+            note(p,"Range separated by conservative intervals.");
+            if (r->severity==LAYOUT_SPATIAL_WARNING) note(p,"Interval warning retained.");
+        } else if (result->status==LAYOUT_MOTION_RANGE_FAILURE) {
+            snprintf(text,sizeof(text),"%s: %.4g %s",r->required_meters>0?"Clearance fails at":"Contact at tested pose",result->position,unit);note(p,text);
+            member_id=result->member_id;
+        } else {
+            note(p,"Range unresolved; refinement limit reached.");
+            snprintf(text,sizeof(text),"Interval: %.4g to %.4g %s",result->interval_min,result->interval_max,unit);note(p,text);
+        }
+        snprintf(text,sizeof(text),"%u poses tested",result->tested_poses);note(p,text);
+    } else if (ui->spatial.inspection.hit) {
+        snprintf(text,sizeof(text),"First sampled failure: %.4g %s",ui->spatial.inspection.position,unit);note(p,text);
+    } else {
+        note(p,"No sampled pose fails.");note(p,"Full range has not been checked.");
+    }
+    if ((!ui->spatial.range_checked && ui->spatial.inspection.hit) ||
+        (ui->spatial.range_checked && ui->spatial.range_result.status==LAYOUT_MOTION_RANGE_FAILURE)) {
+        const LayoutEntityInfo* member=Layout_EntityInfo(&Global_Get()->layout.objectStore,member_id);
+        snprintf(text,sizeof(text),"Part: %s",member && member->label[0]?member->label:member_id);note(p,text);
+    }
+    snprintf(text,sizeof(text),"Preview: %.4g %s",ui->spatial.preview_position,unit);note(p,text);
+    row(p,PARTS_MOTION_RANGE,"Check full range",true);
+    cell(p,PARTS_MOTION_PREVIOUS,"Previous",NULL,0,2,ui->spatial.preview_position>c->travel_min,false);
+    cell(p,PARTS_MOTION_NEXT,"Next",NULL,1,2,ui->spatial.preview_position<c->travel_max,false);p->y+=p->h;
     row(p,PARTS_MOTION_CLOSE,"Close preview",true);note(p,"Orange wire: preview only; saved pose unchanged.");
 }
 bool UIPanel_MotionInspectionClick(int action, const LayoutSpatialResult* r) {
@@ -63,11 +82,23 @@ bool UIPanel_MotionInspectionClick(int action, const LayoutSpatialResult* r) {
             ui->spatial.preview_active=false;snprintf(ui->parts.message,160,"Motion inspection unavailable: check scope, locks, bounds or target geometry.");return false;
         }
         ui->spatial.inspection=result;ui->spatial.preview_index=result.sample_index;
+        ui->spatial.preview_position=result.position;ui->spatial.range_checked=false;
         const Object3D* o=Layout_ObjectStore_FindConst(&l->objectStore,e->object_id);
         snprintf(ui->spatial.preview_envelope,64,"%s",o->coreMeta.object_id);snprintf(ui->spatial.preview_target,64,"%s",target);
-    } else if (action==PARTS_MOTION_PREVIOUS && ui->spatial.preview_index>0) --ui->spatial.preview_index;
-    else if (action==PARTS_MOTION_NEXT && ui->spatial.preview_index+1<e->samples) ++ui->spatial.preview_index;
-    else return false;
+    } else if (action==PARTS_MOTION_RANGE && ui->spatial.preview_active) {
+        LayoutMotionRangeResult result;
+        if (!Layout_CheckMotionRange(l,e,target,r->required_meters,r->required_meters>0,257,&result)) {
+            ui->spatial.range_checked=false;snprintf(ui->parts.message,160,"Full range unavailable: check static target, locks and bounds.");return false;
+        }
+        ui->spatial.range_checked=true;ui->spatial.range_result=result;
+        if (result.status!=LAYOUT_MOTION_RANGE_CLEAR) ui->spatial.preview_position=result.position;
+    } else if ((action==PARTS_MOTION_PREVIOUS || action==PARTS_MOTION_NEXT) && ui->spatial.preview_active) {
+        const LayoutConstraint* c=rule(e);if (!c || c->travel_min==c->travel_max) return false;
+        double t=(ui->spatial.preview_position-c->travel_min)/(c->travel_max-c->travel_min)*(e->samples-1);
+        double index=action==PARTS_MOTION_PREVIOUS?ceil(t-1e-9)-1:floor(t+1e-9)+1;
+        ui->spatial.preview_index=(uint32_t)fmax(0,fmin(e->samples-1,index));
+        t=(double)ui->spatial.preview_index/(e->samples-1);ui->spatial.preview_position=c->travel_min*(1-t)+c->travel_max*t;
+    } else return false;
     ui->spatial.preview_active=preview(e);return ui->spatial.preview_active;
 }
 /* Cached isolated poses are display-only. Hide preview as soon as checked inputs
