@@ -91,6 +91,7 @@ bool UIPanel_MeasurementPickAt(int x, int y) {
             picked.payload >= 0 && (size_t)picked.payload < count) {
             ui->measurement.refs[ui->measurement.slot] = list[picked.payload].reference;
             ui->measurement.constraint_index = -1;
+            ui->measurement.observed_rule_valid = false;
             ui->measurement.use_rule_axis = false;
             snprintf(ui->measurement.pick_message,sizeof(ui->measurement.pick_message),"%c: %s",
                 'A'+ui->measurement.slot, list[picked.payload].reference.entity_id);
@@ -182,7 +183,10 @@ void UIPanel_RenderMeasurementViewport(SDL_Renderer* renderer) {
     free(list);
     int index=ui->measurement.constraint_index;
     if(index>=0 && (size_t)index<Global_Get()->layout.objectStore.constraintCount)
+    {
         travel_rail(renderer,rect,&Global_Get()->layout.objectStore.constraints[index]);
+        hinge_arc(renderer,rect,&Global_Get()->layout.objectStore.constraints[index]);
+    }
     Vec2 points[2];
     bool valid[2];
     for (int i=0; i<2; ++i) valid[i]=project(&ui->measurement.refs[i],&points[i],NULL);

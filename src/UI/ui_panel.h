@@ -8,6 +8,7 @@
 #include "Editor/editor_measurement.h"
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
+#define UI_BTN_SAVED_MOTION 105
 #define UI_BTN_MEASURE 98
 
 #define MAX_UI_BUTTONS 128
@@ -449,6 +450,10 @@ typedef struct {
         bool observed_rule_valid;
         bool advanced_open;
         bool rules_open;
+        bool motion_preview; /* Saved movement opens with playback controls first. */
+        bool motion_edit_open;
+        uint32_t motion_selection;
+        char motion_entity[64];
         int operation; /* distance, join, angle, linear travel, hinge */
         bool replace_text;
         char travel_text[3][64]; /* Min, Max, Position; staged until Save */

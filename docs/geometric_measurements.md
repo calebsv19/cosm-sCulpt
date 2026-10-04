@@ -7,6 +7,19 @@ Date: 2026-09-29
 
 Click the right-hand **Measure** tab. The existing Object-tab Measure button also
 opens it. The pane stays beside the viewport; there is no modal shortcut sheet.
+Select a moving object and open **Measure**, or use **Object → Move saved motion**.
+Its existing Travel/Hinge opens immediately, including movement inherited from a
+parent assembly. In Parts, a selected moving assembly offers the same **Move saved
+motion** entry. A fixed reference is not treated as the moving object.
+
+Saved movement opens a compact panel with its ID, moving object/assembly, range,
+slider and **Min / Max / Reset**. **Edit limits and references** expands authoring
+controls; opening or switching saved motion does not create a constraint or move
+geometry. If several motions apply, **Saved motion** lists them. Selecting another
+moving part while this preview is idle follows its existing motion. Travel shows
+its linear limit guide; Hinge shows its angular limit guide. These guides are not
+collision or swept-volume certificates.
+
 Empty scenes offer Create object and Open layout entry buttons.
 Selections survive switching tabs. Scene/object creation and editing retain their
 existing tabs. Scroll within Measure when the window is short or a section expands.
@@ -35,7 +48,8 @@ Create hinge. See [hinge meaning and limits](geometric_constraints.md).
 **View** offers Top (XY), Side (YZ), Front (ZX) and Free without changing the
 construction plane. **Advanced → Grid step** accepts physical lengths; Apply grid
 preserves viewport scale and creates one undo step. Saved-rule controls refresh
-when undo/redo or direct edits change the selected rule. Leaving Measure returns
+when undo/redo or direct edits change the selected rule. The topbar Undo/Redo
+buttons keep the Measure form open and resolve the rule by stable ID. Leaving Measure returns
 to View rather than leaving an inactive form on screen.
 
 A is blue and B orange in the pane and viewport. Picking uses the chosen feature
@@ -177,3 +191,13 @@ provides a live slider and Min/Max/Reset buttons. **Update travel** applies edit
 limits and position atomically; Reset returns to the creation pose. The slider
 uses the saved limits, not unsaved form text. A rejected move keeps the last
 accepted pose and displays the reason. See the [travel contract](geometric_constraints.md).
+
+## Presentation preferences (2026-10-04)
+
+Normal application shutdown saves display units, named/free view, camera yaw/pitch
+and the Select/Orbit/Pan tool to app-private `data/runtime/editor_preferences.json`.
+Startup restores valid values. Corrupt, oversized or unsupported preference files
+are ignored; a drawing tool is never restored armed. The 2D mode lock still wins.
+Document geometry, physical scale, grid spacing and undo history are unchanged.
+Zoom/pan position is not part of this preference contract. Storage uses shared
+`core_io_write_all_atomic`; the preference schema and restoration policy are app-owned.

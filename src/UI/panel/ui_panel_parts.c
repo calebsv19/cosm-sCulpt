@@ -1,3 +1,4 @@
+#include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_shell.h"
 #include "UI/ui_panel_right_scroll.h"
@@ -40,7 +41,7 @@ static void label(const char* id,char* text,size_t capacity) {
     const LayoutEntityInfo* info=Layout_EntityInfo(&layout()->objectStore,id);
     if (info && info->label[0]) snprintf(text,capacity,"%s",info->label);
     else if (id && id[0]) snprintf(text,capacity,"%s",id);
-    else snprintf(text,capacity,"Choose object");
+    else snprintf(text,capacity,UIPanel_Get()->parts.mode==1?"Choose assembly":"Choose object");
 }
 static const char* link_label(LayoutRelationshipKind kind) {
     static const char* labels[]={"Attached to","Supported by","Contained by"};
@@ -180,6 +181,9 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
             if (ui->parts.creating) note(&p,"Origin uses the selected object center, or world zero.");
             }
             if (ui->parts.mode==1 && !ui->parts.creating) {
+                for(size_t i=0;i<store->constraintCount;++i) if(UIPanel_MotionMatchesEntity(&store->constraints[i],ui->parts.id)) {
+                    row(&p,PARTS_SAVED_MOTION,"Move saved motion",true);break;
+                }
                 const LayoutAssembly* assembly=Layout_FindAssembly(store,ui->parts.id);
                 if(assembly){double origin[3]={0};(void)UIPanel_ConvertWorldToDisplay(assembly->frame.origin.x,&origin[0]);
                     (void)UIPanel_ConvertWorldToDisplay(assembly->frame.origin.y,&origin[1]);(void)UIPanel_ConvertWorldToDisplay(assembly->frame.origin.z,&origin[2]);
@@ -362,6 +366,10 @@ bool UIPanel_PartsClick(int x,int y) {
     UIPanelState* ui=UIPanel_Get();if(ui->activeRightTab!=UI_PANEL_RIGHT_TAB_PARTS || !contains(ui->rightBodyRect,x,y))return false;
     PartsPane p=build(NULL,x,y,0);int action=p.hit,chooser=ui->parts.chooser;
     if(!action)return true;
+    if(action==PARTS_SAVED_MOTION) {
+        (void)UIPanel_BeginEntityMotion(ui->parts.id);
+        UIPanel_OnWindowResized(Global_GetScreenWidth(),Global_GetScreenHeight());return true;
+    }
     if(is_field(action)) {focus(action);return true;}
     UIPanel_PartsStopInput();
     if (ui->parts.mode>=4 && action!=PARTS_VOLUMES && action!=PARTS_CHECKS && !(action>=PARTS_OBJECTS && action<=PARTS_LINKS)) {

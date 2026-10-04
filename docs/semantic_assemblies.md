@@ -141,3 +141,11 @@ S3A relationships and [S3B/S3C reserved volumes/checks](spatial_checks.md) are
 implemented. Next: S4 sampled motion and conservative envelopes. New panel/beam
 creation presets can then make those workflows easier. Sampled movement/envelopes
 remain S4; compiler/telemetry bindings remain later phases.
+
+## Saved assembly movement (2026-10-04)
+
+Parts offers **Move saved motion** for assemblies with a saved Travel/Hinge.
+Selecting a descendant object and opening Measure discovers the same movement.
+The panel identifies the assembly that moves; it does not author a second motion
+for the selected child. The existing solver, bounds, validation and undo remain
+responsible for applying the motion.

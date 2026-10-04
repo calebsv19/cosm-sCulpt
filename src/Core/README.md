@@ -17,6 +17,12 @@ The core layer owns application-wide state and the SDL boilerplate so other syst
 - `viewport_navigation_contract.h` / `viewport_navigation_contract.c` — retained EVN2 oracle and local command vocabulary. Shared `core_viewport3d` now owns free-view pan/orbit/anchor-zoom/frame transitions, while this contract remains focused parity/rollback evidence until CV3D4 hands-on acceptance.
 - `SDLApp/` — SDL wrapper providing the runtime loop with mode-aware wait policy, render-on-dirty heartbeat behavior, and loop diagnostics emission (see `SDLApp/README.md` for details).
 
+- `editor_preferences.h` / `editor_preferences.c` — app-owned presentation preferences.
+  The main lifecycle restores units, named/free view, yaw/pitch and navigation tool,
+  then saves on normal shutdown using shared `core_io` atomic writes. Bounded strict
+  JSON parsing rejects invalid files as a whole. No physical document or history edit
+  is performed; 2D locks remain enforced and line drawing never launches armed.
+
 ## Interactions
 - Input, rendering, layout, and UI code call `Global_Get()` to access shared state instead of passing references around.
 - Window resize events captured in the SDL loop call `Global_SetWindowSize`, which keeps the UI and grid aware of the current renderer size.

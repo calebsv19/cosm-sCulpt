@@ -16,6 +16,7 @@
 static void cycle_object(int step) {
     UIPanelState* ui = UIPanel_Get();
     ui->measurement.constraint_index = -1;
+    ui->measurement.observed_rule_valid = false;
     const LayoutObjectStore* store = &Global_Get()->layout.objectStore;
     EditorGeometricReference* ref = &ui->measurement.refs[ui->measurement.slot];
     if (!store->count) return;
@@ -37,6 +38,7 @@ static void cycle_object(int step) {
 static void cycle_feature(int step) {
     UIPanelState* ui = UIPanel_Get();
     ui->measurement.constraint_index = -1;
+    ui->measurement.observed_rule_valid = false;
     EditorGeometricReference* ref = &ui->measurement.refs[ui->measurement.slot];
     const LayoutObjectStore* store = &Global_Get()->layout.objectStore;
     const Object3D* object = NULL;
@@ -53,10 +55,64 @@ static void cycle_feature(int step) {
         ? OBJECT3D_FACE_PLANE_SURFACE : (Object3DFaceKind)(OBJECT3D_FACE_RECT_PRISM_NEG_N + index - 4);
 }
 
+bool UIPanel_MotionMatchesEntity(const LayoutConstraint* rule, const char* id) {
+    if (!rule || !id || !id[0] || (rule->kind != LAYOUT_CONSTRAINT_LINEAR_TRAVEL &&
+        rule->kind != LAYOUT_CONSTRAINT_ANGULAR_TRAVEL)) return false;
+    const LayoutObjectStore* store = &Global_Get()->layout.objectStore;
+    const LayoutEntityInfo* info = Layout_EntityInfo(store, id);
+    if (!info) return false;
+    if (!strcmp(rule->b.entity_id, id)) return true;
+    return rule->motion_assembly[0] && (!strcmp(rule->motion_assembly, id) ||
+        Layout_IsDescendant(store, info->parent_id, rule->motion_assembly));
+}
+
+bool UIPanel_BeginEntityMotion(const char* entity_id) {
+    const LayoutObjectStore* store = &Global_Get()->layout.objectStore;
+    int found = -1;
+    for (size_t i = 0; i < store->constraintCount; ++i) {
+        if (!UIPanel_MotionMatchesEntity(&store->constraints[i], entity_id)) continue;
+        if (found < 0) found = (int)i;
+        if (!strcmp(store->constraints[i].b.entity_id, entity_id)) { found = (int)i; break; }
+    }
+    if (found < 0) return false;
+    UIPanelState* ui = UIPanel_Get();
+    UIPanel_MeasurementStopInput();
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_MEASURE);
+    UIPanel_MeasurementSelectRule(found);
+    ui->measurement.motion_preview = true;
+    ui->measurement.motion_edit_open = false;
+    ui->measurement.motion_selection = Global_Get()->editor.selectedObject3DId;
+    snprintf(ui->measurement.motion_entity, 64, "%s", entity_id);
+    ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx = 0;
+    return true;
+}
+
+bool UIPanel_BeginSelectedMotion(void) {
+    const Object3D* o = Layout_ObjectStore_FindConst(&Global_Get()->layout.objectStore,
+        Global_Get()->editor.selectedObject3DId);
+    return o && !o->isDeleted && UIPanel_BeginEntityMotion(o->coreMeta.object_id);
+}
+
+void UIPanel_MeasurementRefreshHistory(void) {
+    UIPanelState* ui = UIPanel_Get();
+    UIPanel_MeasurementStopInput();
+    if (!ui->measurement.observed_rule_valid) return;
+    char id[64]; snprintf(id, sizeof(id), "%s", ui->measurement.observed_rule.id);
+    const LayoutObjectStore* store = &Global_Get()->layout.objectStore;
+    for (size_t i = 0; i < store->constraintCount; ++i) if (!strcmp(id, store->constraints[i].id)) {
+        UIPanel_MeasurementSelectRule((int)i);
+        return;
+    }
+    ui->measurement.constraint_index = -1;
+    ui->measurement.motion_preview = false;
+    snprintf(ui->measurement.placement_message, 128, "This constraint no longer exists. Undo can restore it.");
+}
+
 bool UIPanel_BeginMeasurement(void) {
     UIPanelState* ui = UIPanel_Get();
     memset(&ui->measurement, 0, sizeof(ui->measurement));
     ui->measurement.active = true;
+    ui->measurement.motion_selection = Global_Get()->editor.selectedObject3DId;
     UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_MEASURE);
     ui->measurement.constraint_index = -1;
     const Object3D* selected = Layout_ObjectStore_FindConst(&Global_Get()->layout.objectStore,
@@ -68,6 +124,7 @@ bool UIPanel_BeginMeasurement(void) {
     ui->measurement.slot = 1;
     cycle_object(1);
     ui->measurement.slot = 0;
+    (void)UIPanel_BeginSelectedMotion();
     UIPanel_OnWindowResized(Global_GetScreenWidth(),Global_GetScreenHeight());
     return true;
 }

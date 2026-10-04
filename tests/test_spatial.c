@@ -178,8 +178,23 @@ static bool test_owner_assembly_movement_reserved_integrity(void) {
     TEST_ASSERT(Editor_Undo(&Global_Get()->editor,layout()) && fabs(layout()->objectStore.items[1].transform.position.x)<1e-6);
     ld_test_shutdown_runtime();return true;
 }
+static bool test_repeated_pair_ui_preserves_checks(void) {
+    ld_test_init_runtime();Global_SetWindowSize(1200,1000);UIPanel_OnWindowResized(1200,1000);
+    TEST_ASSERT(part("cabinet",(Vec3){0},.2f,.2f,.2f,0));
+    LayoutVolumeEdit v=spec();TEST_ASSERT(Layout_EditVolume(layout(),&v,false,NULL,NULL));
+    const char* volume=layout()->objectStore.items[1].coreMeta.object_id;
+    LayoutSpatialRule saved=rule("cabinet",volume,.1);TEST_ASSERT(Layout_EditSpatialRule(layout(),&saved,NULL,NULL,NULL));
+    UIPanelState* ui=UIPanel_Get();UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_PARTS);ui->parts.mode=5;UIPanel_SpatialRunChecks();UIPanel_LayoutParts();
+    TEST_ASSERT(ui->spatial.result_count==2 && UIPanel_PartsControlRect(9000,NULL) && !UIPanel_PartsControlRect(9001,NULL));
+    char* before=Layout_SaveToString(layout());size_t history=Editor_UndoCount(&Global_Get()->editor);
+    ui->spatial.selected_result=0;UIPanel_LayoutParts();
+    TEST_ASSERT(UIPanel_PartsControlRect(9000,NULL) && UIPanel_PartsControlRect(9001,NULL));
+    TEST_ASSERT(ui->spatial.result_count==2 && strcmp(ui->spatial.results[0].rule_id,ui->spatial.results[1].rule_id));
+    TEST_ASSERT(same(before) && history==Editor_UndoCount(&Global_Get()->editor));free(before);ld_test_shutdown_runtime();return true;
+}
 bool spatial_run_tests(void) {
     const TestCase cases[]={
+        {"repeated_pair_ui_preserves_checks",test_repeated_pair_ui_preserves_checks},
         {"volume_atomic_history_precision",test_volume_atomic_history_precision},
         {"oriented_distance_contact_panels_mesh",test_oriented_distance_contact_panels_mesh},
         {"automatic_owner_filter_reference",test_automatic_service_owner_filter_reference},

@@ -51,6 +51,11 @@ static bool motion_proof(const char* mode) {
     uint32_t cabinet=0;if (!Layout_CreateRectPrismPrimitive(l,&params,&cabinet,NULL)) return false;
     snprintf(Layout_ObjectStore_Find(&l->objectStore,cabinet)->info.label,96,"Storage cabinet");
     UIPanelState* ui=UIPanel_Get();(void)UIPanel_SetDisplayUnit(CORE_UNIT_MILLIMETER);
+    if (strstr(mode,"saved")) {
+        state->editor.selectedObject3DId=group[0] ? l->objectStore.items[2].objectId : ids[1];
+        if (!UIPanel_BeginMeasurement() || !ui->measurement.motion_preview || ui->measurement.constraint_index!=0) return false;
+        UIPanel_LayoutMeasurementPane();return true;
+    }
     if (strstr(mode,"measure")) {
         UIPanel_BeginMeasurement();UIPanel_MeasurementSelectRule(0);ui->measurement.picking=false;
         UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_MEASURE);UIPanel_LayoutMeasurementPane();return true;

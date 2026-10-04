@@ -697,7 +697,15 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     (void)UIPanel_ToggleObjectGizmoRotateMode();
                     break;
                 }
+                case UI_BTN_SAVED_MOTION:
+                    (void)UIPanel_BeginSelectedMotion();
+                    UIPanel_OnWindowResized(state->screenWidth,state->screenHeight);
+                    return true;
                 case UI_BTN_MEASURE:
+                    if (UIPanel_BeginSelectedMotion()) {
+                        UIPanel_OnWindowResized(state->screenWidth,state->screenHeight);
+                        return true;
+                    }
                     if (!ui->measurement.refs[0].entity_id[0]) return UIPanel_BeginMeasurement();
                     UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_MEASURE);
                     UIPanel_OnWindowResized(state->screenWidth,state->screenHeight);

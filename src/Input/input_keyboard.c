@@ -257,16 +257,16 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
                 return;
             } else if (event->key.keysym.sym == SDLK_z) {
                 if (mods & KMOD_SHIFT) {
-                    if (Editor_Redo(&state->editor, &state->layout)) {
+                    if (InputEditorAction_Redo()) {
                         return;
                     }
                 } else {
-                    if (Editor_Undo(&state->editor, &state->layout)) {
+                    if (InputEditorAction_Undo()) {
                         return;
                     }
                 }
             } else if (event->key.keysym.sym == SDLK_y) {
-                if (Editor_Redo(&state->editor, &state->layout)) {
+                if (InputEditorAction_Redo()) {
                     return;
                 }
             }

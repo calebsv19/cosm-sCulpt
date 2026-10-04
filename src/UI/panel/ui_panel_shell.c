@@ -254,8 +254,12 @@ bool UIPanel_HandleTabClick(UIPanelState* ui, int mouseX, int mouseY) {
     }
     for (int i = 0; i < UI_PANEL_RIGHT_TAB_COUNT; ++i) {
         if (UIPanel_PointInRect(mouseX, mouseY, ui->rightTabs[i].bounds)) {
+            if (i==(int)ui->activeRightTab) return true;
             if (i==UI_PANEL_RIGHT_TAB_MEASURE && !ui->measurement.refs[0].entity_id[0]) UIPanel_BeginMeasurement();
-            else UIPanel_SetActiveRightTab(ui, (UIPanelRightTab)i);
+            else {
+                UIPanel_SetActiveRightTab(ui, (UIPanelRightTab)i);
+                if (i==UI_PANEL_RIGHT_TAB_MEASURE) (void)UIPanel_BeginSelectedMotion();
+            }
             return true;
         }
     }

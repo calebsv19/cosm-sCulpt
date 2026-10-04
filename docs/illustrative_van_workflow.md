@@ -157,13 +157,13 @@ The saved working file retains the original digest.
 
 The remaining usability gaps are:
 
-- **Remaining readability:** Parts assembly chooser wording and repeated automatic/
-  saved warnings still need refinement. Measure object selectors now use full-width
+- **Readability follow-up:** the 2026-10-04 refinement below corrects Parts assembly
+  chooser wording and groups repeated automatic/saved warnings. Measure object selectors use full-width
   wrapped labels. Motion-envelope labels occupy separate clipped legend rows.
 - **Selection limits:** visible wireframe edges and centers are selectable; blank
   projected box interiors are not. Imported mesh edge selection is a bounds proxy.
-- **Session continuity:** mm/view choices reset after relaunch; undo clears the
-  active measurement form and requires reselecting a saved rule.
+- **Session continuity follow-up:** the 2026-10-04 refinement below retains the active
+  Measure rule through undo and saves units/view/tool preferences on normal exit.
 - **Startup browser I/O:** scanning a protected Desktop root can block startup
   before a window appears when macOS no longer recognizes a rebuilt app's folder
   permission. This project now lives in the app's own Application Support area;
@@ -199,3 +199,29 @@ Van dimensions and layout requirements can replace placeholders incrementally.
 Preserve IDs and undo history, regenerate changed envelopes, and rerun the same
 walkthrough after each measured revision. Compiler metadata and runtime telemetry
 remain later consumers of the authored model.
+
+## Saved-motion discovery refinement (2026-10-04)
+
+Select Bed deck (or a bed-assembly member), then open Measure or click Object /
+Move saved motion. `bed_lift` should open directly with its saved range and enabled
+slider/Min/Max/Reset. Selecting Cabinet door or an inherited member should open
+`cabinet_door_hinge`; its range is shown in degrees. Parts provides the same entry
+for the corresponding assembly. No new movement needs to be created.
+
+Edit limits and references expands authoring controls explicitly. Undo/Redo keeps
+the rule selected by stable ID and refreshes current values. On normal exit, units,
+named/free view, orientation and navigation tool are saved as presentation preferences.
+The Parts assembly chooser now says Choose assembly, and repeated check pairs expand
+into individual rule results without losing conservative-versus-contact evidence.
+
+Proof for this checkpoint: warning-clean host build, 501 tests across 47 reported
+suites, agent-scene-smoke, illustrative-van-smoke, and independently rendered
+`parts-motion-travel-group-saved` / `parts-motion-hinge-group-saved` fixtures. The
+fixtures visibly show inherited motion controls and linear/angular range guides.
+The user's saved working van file remains byte-for-byte unchanged from the previous
+handoff (SHA256 `1e58223a8a3e3248586c8cffce0bc5018c623961275d75fcefc9e299654f40e3`).
+
+Desktop refresh/current-session inspection is pending: automatic approval review
+rejected Resume Editor because of possible unsaved-state loss. This checkpoint does
+not claim installed-app or human acceptance. Complete that handoff after approval,
+then audit startup browser I/O before S5 routes/corridors/endpoints/length editing.

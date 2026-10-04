@@ -144,3 +144,12 @@ Next is a bounded illustrative van workflow audit, then routing corridors/paths;
 [motion envelopes](motion_envelopes.md). Triangle-level mesh checks and richer service-volume derivation
 remain follow-on work. User acceptance of the new UI remains separate from tests
 and rendered/package proof.
+
+## Repeated pair results in the UI (2026-10-04)
+
+Checks groups repeated object pairs into one expandable row. Selecting that row
+exposes every automatic/saved result with its rule ID and individual detail.
+Pair grouping also recognizes reversed A/B ordering. Counts remain counts of check
+records, not unique objects. The structured validator/report is unchanged: a
+conservative overlap, a static contact and a clearance rule keep their distinct
+meaning and thresholds. Grouping is read-only and does not create history entries.

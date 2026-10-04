@@ -1,3 +1,5 @@
+#include "Input/input_editor_actions.h"
+#include "Input/input_handler.h"
 #include "test_layout_internal.h"
 #include "Layout/layout_motion.h"
 #include "UI/ui_panel_spatial.h"
@@ -467,8 +469,60 @@ static bool test_mouse_refined_pose_without_scene_edit(void) {
     ld_test_shutdown_runtime();return true;
 }
 
+static bool test_selected_saved_motion_and_history(void) {
+    ld_test_init_runtime(); TEST_ASSERT(group_rig(false));
+    GlobalState* state=Global_Get();Global_SetWindowSize(1200,1000);UIPanel_OnWindowResized(1200,1000);
+    UIPanelState* ui=UIPanel_Get();
+    char* before=Layout_SaveToString(live());
+    state->editor.selectedObject3DId=live()->objectStore.items[1].objectId;
+    UIPanel_SetActiveRightTab(ui,UI_PANEL_RIGHT_TAB_OBJECT);UIPanel_OnWindowResized(1200,1000);
+    int buttons_count=0;const UIButton* buttons=UIPanel_GetButtons(ui,&buttons_count);bool found=false;
+    for(int i=0;i<buttons_count;++i) if(buttons[i].id==UI_BTN_SAVED_MOTION && buttons[i].bounds.w>0) {
+        SDL_Event event={.type=SDL_MOUSEBUTTONDOWN};event.button.button=SDL_BUTTON_LEFT;
+        event.button.x=buttons[i].bounds.x+buttons[i].bounds.w/2;event.button.y=buttons[i].bounds.y+buttons[i].bounds.h/2;
+        AppContext context={0};Input_Handle(&context,&event);found=true;break;
+    }
+    TEST_ASSERT(found && ui->measurement.active && ui->measurement.motion_preview && ui->measurement.constraint_index==0);
+    TEST_ASSERT(ui->measurement.operation==3 && !strcmp(ui->measurement.observed_rule.id,"movement"));
+    SDL_Rect slider,field;
+    TEST_ASSERT(UIPanel_MeasurementControlRect(MEASURE_TRAVEL_SLIDER,&slider));
+    TEST_ASSERT(!UIPanel_MeasurementControlRect(MEASURE_TRAVEL_MIN,&field));
+    TEST_ASSERT(same(before) && !Editor_UndoCount(&state->editor));
+    TEST_ASSERT(measure_click(MEASURE_TRAVEL_TO_MAX) && live()->objectStore.constraintCount==1);
+    TEST_ASSERT(fabs(live()->objectStore.items[2].transform.position.x-3)<1e-5);
+    TEST_ASSERT(InputEditorAction_Undo() && ui->measurement.active && ui->measurement.motion_preview);
+    TEST_ASSERT(!strcmp(ui->measurement.observed_rule.id,"movement"));
+    double current;TEST_ASSERT(UIPanel_TravelParse(ui->measurement.travel_text[2],false,&current) && fabs(current-1)<1e-5);
+    TEST_ASSERT(InputEditorAction_Redo() && UIPanel_TravelParse(ui->measurement.travel_text[2],false,&current) && fabs(current-3)<1e-5);
+    TEST_ASSERT(InputEditorAction_Undo());
+    state->editor.selectedObject3DId=live()->objectStore.items[2].objectId;UIPanel_LayoutMeasurementPane();
+    TEST_ASSERT(!strcmp(ui->measurement.motion_entity,"peer") && ui->measurement.constraint_index==0);
+    TEST_ASSERT(UIPanel_BeginEntityMotion("assembly_2") && ui->measurement.constraint_index==0);
+    TEST_ASSERT(!UIPanel_BeginEntityMotion("A") && !UIPanel_BeginEntityMotion("missing"));
+    state->editor.selectedObject3DId=live()->objectStore.items[0].objectId;TEST_ASSERT(UIPanel_BeginMeasurement() && !ui->measurement.motion_preview);
+    state->editor.selectedObject3DId=live()->objectStore.items[2].objectId;UIPanel_LayoutMeasurementPane();
+    TEST_ASSERT(ui->measurement.motion_preview && !strcmp(ui->measurement.motion_entity,"peer"));
+    TEST_ASSERT(same(before));free(before);
+    TEST_ASSERT(measure_click(MEASURE_EDIT_MOTION) && UIPanel_MeasurementControlRect(MEASURE_TRAVEL_MIN,&field));
+    TEST_ASSERT(measure_click(MEASURE_EDIT_MOTION) && !UIPanel_MeasurementControlRect(MEASURE_TRAVEL_MIN,&field));
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_selected_saved_hinge(void) {
+    ld_test_init_runtime(); TEST_ASSERT(group_rig(true));
+    Global_SetWindowSize(1200,1000);UIPanel_OnWindowResized(1200,1000);
+    Global_Get()->editor.selectedObject3DId=live()->objectStore.items[2].objectId;
+    TEST_ASSERT(UIPanel_BeginMeasurement() && UIPanel_Get()->measurement.operation==4);
+    TEST_ASSERT(UIPanel_Get()->measurement.motion_preview && live()->objectStore.constraintCount==1);
+    TEST_ASSERT(measure_click(MEASURE_TRAVEL_TO_MAX) && fabs(live()->objectStore.constraints[0].target-110)<1e-5);
+    TEST_ASSERT(InputEditorAction_Undo() && fabs(live()->objectStore.constraints[0].target)<1e-5);
+    TEST_ASSERT(measure_click(MEASURE_TRAVEL_TO_MAX) && measure_click(MEASURE_TRAVEL_RESET));
+    TEST_ASSERT(fabs(live()->objectStore.constraints[0].target)<1e-5 && live()->objectStore.constraintCount==1);
+    ld_test_shutdown_runtime();return true;
+}
 bool motion_run_tests(void) {
     const TestCase tests[]={
+        {"selected_saved_motion_history",test_selected_saved_motion_and_history},
+        {"selected_saved_hinge",test_selected_saved_hinge},
         {"travel_atomic_sample_history_obstruction",test_travel_samples_undo_and_static_clear_motion_hit},
         {"hinge_dense_intermediate_coverage_offsets",test_hinge_dense_intermediate_coverage_and_offsets},
         {"stale_regenerate_identity_delete",test_stale_regenerate_identity_and_deletion},

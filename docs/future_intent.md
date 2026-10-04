@@ -21,7 +21,8 @@ samples, keeping unresolved intervals explicit. See [motion envelopes](motion_en
 The illustrative van workflow audit now exercises assemblies, service spaces and
 motion checks; see [the walkthrough](illustrative_van_workflow.md). Explicit Select/Orbit/Pan and Draw line/Stop drawing now resolve basic input
 ambiguity. Its Z-up screen projection/picking, gizmo sizing and Measure selector readability
-are repaired. Session continuity and remaining Parts/check readability precede S5 routing
+are repaired. Saved-motion discovery, Measure undo continuity, normal-exit presentation preferences
+and grouped pair findings now cover the remaining bounded UI refinement. Startup browser I/O still precedes S5 routing
 corridors/cable paths. Independent
 constrained followers, arbitrary moving sets, meshes and multiple joints remain
 separate contracts. Broader snapping and
@@ -30,8 +31,11 @@ and rendered-UI proof.
 
 The [illustrative van audit](illustrative_van_workflow.md) now supplies the stable
 S0–S4 acceptance project. Z-up projection/picking, viewport-sized gizmos, visible-edge
-selection and Measure/overview label readability now pass. Next: session preferences,
-Parts chooser wording, repeated findings and startup browser I/O, then
+selection and Measure/overview label readability now pass. Saved Travel/Hinge discovery,
+Measure undo continuity, units/view/tool preferences, assembly chooser wording and
+read-only repeated-pair grouping now pass host regressions and rendered UI proof.
+Desktop refresh and human acceptance for this new checkpoint remain pending. Next:
+startup browser I/O, then
 S5 route identity/points/endpoints/length with visible editing and undo, named
 corridors and reserved-space checks. Real vehicle measurements remain pending.
 

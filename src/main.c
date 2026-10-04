@@ -1,3 +1,5 @@
+#include "Core/editor_preferences.h"
+#include <sys/stat.h>
 #include "Core/line_drawing_engineering_proof.h"
 // src/main.c
 #include "line_drawing/line_drawing_app_main.h"
@@ -396,6 +398,9 @@ static void LineDrawingRuntimeShutdown(AppContext* app) {
     line_drawing3d_shared_theme_save_persisted();
     (void)FontManager_SavePersistedPrefs();
     FontManager_Quit();
+    (void)mkdir("data",0755);
+    (void)mkdir("data/runtime",0755);
+    (void)LineDrawingEditorPreferences_Save("data/runtime/editor_preferences.json");
     Global_Shutdown();
     App_Shutdown(app);
 }
@@ -712,6 +717,7 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
 
     // Initialize global program state (grid, layout, editor, etc.)
     Global_Init(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
+    (void)LineDrawingEditorPreferences_Load("data/runtime/editor_preferences.json");
     (void)UIPanel_RestorePersistedFileSession();
     LineDrawingHostMenu_Init(&g_line_drawing_host_menu);
     LineDrawingHostEnterMenu();

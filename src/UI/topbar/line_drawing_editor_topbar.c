@@ -1,3 +1,4 @@
+#include "UI/ui_panel_measurement.h"
 #include "UI/topbar/line_drawing_editor_topbar.h"
 
 #include "Core/global_state.h"
@@ -731,12 +732,12 @@ bool LineDrawingEditorTopbar_HandleClick(int mouse_x, int mouse_y) {
         return true;
     }
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.undo_chip)) {
-        UIPanel_ResetTransientUiState();
+        UIPanel_MeasurementStopInput();
         (void)InputEditorAction_Undo();
         return true;
     }
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.redo_chip)) {
-        UIPanel_ResetTransientUiState();
+        UIPanel_MeasurementStopInput();
         (void)InputEditorAction_Redo();
         return true;
     }

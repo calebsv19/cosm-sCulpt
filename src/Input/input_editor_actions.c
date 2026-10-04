@@ -1,4 +1,5 @@
-#include "input_editor_actions.h"
+#include "Input/input_editor_actions.h"
+#include "UI/ui_panel_measurement.h"
 
 #include "Core/global_state.h"
 #include "Core/line_drawing_pane_host.h"
@@ -316,6 +317,7 @@ bool InputEditorAction_Undo(void) {
     GlobalState* state = Global_Get();
     if (!state) return false;
     if (!Editor_Undo(&state->editor, &state->layout)) return false;
+    UIPanel_MeasurementRefreshHistory();
     Global_FlagHitboxesDirty();
     return true;
 }
@@ -324,6 +326,7 @@ bool InputEditorAction_Redo(void) {
     GlobalState* state = Global_Get();
     if (!state) return false;
     if (!Editor_Redo(&state->editor, &state->layout)) return false;
+    UIPanel_MeasurementRefreshHistory();
     Global_FlagHitboxesDirty();
     return true;
 }

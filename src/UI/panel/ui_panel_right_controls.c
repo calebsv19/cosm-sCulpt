@@ -1,5 +1,6 @@
 #include "UI/ui_panel_right_controls.h"
 #include "Core/global_state.h"
+#include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel_scene_authoring_inspector.h"
 #include "Layout/scene/layout_scene_camera_authoring.h"
 
@@ -19,6 +20,14 @@ static bool UIPanel_RightControlButtonVisible(int button_id) {
             ? state->layout.sceneAuthoring.selected_kind
             : LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE;
     switch (button_id) {
+        case UI_BTN_SAVED_MOTION: {
+            if (scene_authoring_selected || object_mode || !state) return false;
+            const Object3D* o = Layout_ObjectStore_FindConst(&state->layout.objectStore, state->editor.selectedObject3DId);
+            if (!o || o->isDeleted) return false;
+            for (size_t i = 0; i < state->layout.objectStore.constraintCount; ++i)
+                if (UIPanel_MotionMatchesEntity(&state->layout.objectStore.constraints[i], o->coreMeta.object_id)) return true;
+            return false;
+        }
         case UI_BTN_DRAW_LINE:
         case UI_BTN_STOP_DRAWING:
         case UI_BTN_CREATE_CATEGORY_GEOMETRY:
@@ -171,6 +180,7 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
         case UI_BTN_ADJUST_CONSTRUCTION_PLANE_OFFSET_POS: spec = (UIPanelRightControlRowSpec){ 6, 3, 1 }; break;
         case UI_BTN_EDIT_CONSTRUCTION_PLANE_OFFSET: spec = (UIPanelRightControlRowSpec){ 6, 3, 2 }; break;
 
+        case UI_BTN_SAVED_MOTION: spec = (UIPanelRightControlRowSpec){ 6, 1, 0 }; break;
         case UI_BTN_OBJECT_CLEAR_SELECTION: spec = (UIPanelRightControlRowSpec){ 7, 2, 0 }; break;
         case UI_BTN_OBJECT_DELETE_SELECTED: spec = (UIPanelRightControlRowSpec){ 7, 2, 1 }; break;
         case UI_BTN_SCENE_AUTHORING_EDIT_MODE: spec = (UIPanelRightControlRowSpec){ 7, 3, 0 }; break;

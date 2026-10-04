@@ -1,5 +1,24 @@
 # Sculpt Current Truth
 
+## Saved-motion UI and continuity (2026-10-04)
+
+Selecting a moving object, inherited assembly member or assembly now opens its
+existing Travel/Hinge through Measure or Move saved motion. The compact panel shows
+saved ID, moving scope, range, slider and Min/Max/Reset; authoring controls expand
+explicitly. Travel and Hinge range guides are visible for inherited selection too.
+Undo/Redo retains the Measure rule by ID and refreshes fields. Normal-exit app-private
+preferences restore units, named/free view, orientation and navigation tool. Parts
+labels assembly choices correctly and groups repeated check pairs while preserving
+every automatic/saved result and structured report record.
+
+Warning-clean build, 501 host tests / 47 reported suites, both scene smoke lanes and
+independent inherited Travel/Hinge rendered fixtures pass. Read-only checking of
+the unchanged working van loads successfully and returns six existing findings.
+Desktop refresh and human acceptance of this checkpoint remain pending approval
+for Resume Editor/current-session inspection. Next: that handoff, startup browser
+I/O repair, then bounded S5 route editing/corridors/checks.
+
+
 ## Viewport projection, gizmos and readability (2026-10-03)
 
 Side (YZ), Front (ZX) and Free views now project positive world Z upward.
@@ -28,8 +47,9 @@ illustrative-van-smoke pass. Native review selected a visible edge away from the
 center, compared wall gizmos at two zooms, inspected full Measure reference names
 and moved the bed from 900 to 1600 mm upward; undo restored its pose. The saved
 working file was not overwritten. Desktop package/identity verification is separate
-from user acceptance. Remaining UI work: repeated findings, Parts chooser wording,
-preference persistence and startup browser I/O, followed by bounded S5 routing.
+from user acceptance. The later saved-motion continuity refinement above covers repeated findings,
+Parts chooser wording and preference persistence. Startup browser I/O remains
+before bounded S5 routing.
 
 ## Explicit viewport tools and legacy drawing (2026-10-03)
 
@@ -51,7 +71,8 @@ pass. Native visible Orbit/Pan and canceled first-endpoint checks leave the van
 Saved with 38 objects and zero anchors/walls. Option priority is regression-tested.
 See [the van navigation guide](illustrative_van_workflow.md#navigation-and-legacy-lines).
 The later viewport/readability refinement above resolves projection and Measure
-selector/overview label gaps. Repeated findings and session preferences remain.
+selector/overview label gaps. The newer saved-motion refinement above also covers
+repeated findings and session preferences.
 
 
 ## Illustrative van acceptance project (2026-10-03)
@@ -75,9 +96,10 @@ User acceptance remains separate. The open Saved project lives under Main Edit
 Application Support/projects/van_workflow, outside the replaceable runtime.
 
 The subsequent viewport refinement above resolves increasing-Z-downward projection,
-Measure selector clipping and overview label overlap. Repeated findings and relaunch
-preference loss remain. See the walkthrough for the protected-folder startup stall
-and safe app-owned project location. Next: session/readability refinement, then
+Measure selector clipping and overview label overlap. The newer saved-motion
+refinement covers repeated findings and relaunch preferences. See the walkthrough
+for the protected-folder startup stall and safe app-owned project location. Next:
+desktop handoff and startup browser I/O, then
 bounded S5 route editing/corridors/checks.
 
 ## S4 interval coverage and full-range inspection (2026-10-03)

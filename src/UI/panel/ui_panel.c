@@ -992,6 +992,7 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "ft", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_CYCLE_DISPLAY_UNITS);
     yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Move saved motion", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_SAVED_MOTION);
     AddButton(&g_uiPanel, "Clear Select", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_OBJECT_CLEAR_SELECTION);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Delete Object", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_OBJECT_DELETE_SELECTED);

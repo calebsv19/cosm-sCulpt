@@ -35,7 +35,7 @@ static bool field_action(int action) {
         (action>=MEASURE_OFFSET_U && action<=MEASURE_OFFSET_N);
 }
 static bool dropdown_action(int action) {
-    return action==MEASURE_MOTION_SCOPE || action==MEASURE_TOOL || action==MEASURE_VIEW || action==MEASURE_UNITS || action==MEASURE_OBJECT_A || action==MEASURE_OBJECT_B ||
+    return action==MEASURE_SELECTION_MOTION || action==MEASURE_MOTION_SCOPE || action==MEASURE_TOOL || action==MEASURE_VIEW || action==MEASURE_UNITS || action==MEASURE_OBJECT_A || action==MEASURE_OBJECT_B ||
         action==MEASURE_FEATURE_A || action==MEASURE_FEATURE_B || action==MEASURE_RULES;
 }
 static void cell(MeasurePane* p,int action,const char* label,int column,int columns,bool enabled,bool selected) {
@@ -155,6 +155,12 @@ static void choices(MeasurePane* p,int chooser) {
             LayoutGeometricReference f=feature_at(ref,i,plane);
             row(p,MEASURE_CHOICE_BASE+i,feature(&f),true);
         }
+    } else if (chooser==10) {
+        for (size_t i=0;i<s->constraintCount;++i) if (UIPanel_MotionMatchesEntity(&s->constraints[i],ui->measurement.motion_entity)) {
+            char text[160]; snprintf(text,sizeof(text),"%s | %s",s->constraints[i].id,
+                s->constraints[i].kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL ? "Travel" : "Hinge");
+            row(p,MEASURE_CHOICE_BASE+(int)i,text,true);
+        }
     } else if(chooser==9) {
         row(p,MEASURE_CHOICE_BASE,"B only",true);
         const LayoutConstraint* c=selected();const Object3D* b=c?object(c->b.entity_id):NULL;
@@ -213,7 +219,21 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     const LayoutConstraint* rule=selected();
     bool angular=op==4,angle=op==2 || angular;
     bool travel=op==3 || angular,active_travel=travel && rule && rule->kind==(angular ? LAYOUT_CONSTRAINT_ANGULAR_TRAVEL : LAYOUT_CONSTRAINT_LINEAR_TRAVEL);
-    for(int i=0;i<2;++i) {
+    bool preview=active_travel && ui->measurement.motion_preview;
+    bool editing=!preview || ui->measurement.motion_edit_open;
+    if(preview) {
+        snprintf(text,sizeof(text),"Saved motion: %s",rule->id);
+        row(&p,MEASURE_SELECTION_MOTION,text,true);choices(&p,10);
+        const LayoutAssembly* assembly=Layout_FindAssembly(store,rule->motion_assembly);
+        const Object3D* moving=object(rule->b.entity_id);
+        snprintf(text,sizeof(text),"Moves: %s",assembly ? (assembly->info.label[0]?assembly->info.label:assembly->id) :
+            moving ? (moving->info.label[0]?moving->info.label:rule->b.entity_id) : rule->b.entity_id);
+        note(&p,text);
+        double min=rule->travel_min,max=rule->travel_max;
+        if(!angular){(void)core_units_convert(min,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&min);(void)core_units_convert(max,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&max);}
+        snprintf(text,sizeof(text),"Range: %.6g to %.6g %s",min,max,angular?"deg":UIPanel_GetDisplayUnitSymbol());note(&p,text);
+    }
+    if(editing) for(int i=0;i<2;++i) {
         const LayoutGeometricReference* ref=&ui->measurement.refs[i];
         cell(&p,0,i ? "B  Moving object" : "A  Fixed reference",0,2,true,false);
         cell(&p,i?MEASURE_PICK_B:MEASURE_PICK_A,ui->measurement.picking && ui->measurement.slot==i ? "Cancel pick" : "Pick in view",1,2,true,ui->measurement.picking && ui->measurement.slot==i);p.y+=p.h;
@@ -232,14 +252,14 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         if(rule->kind==LAYOUT_CONSTRAINT_DISTANCE || rule->kind==LAYOUT_CONSTRAINT_LINEAR_TRAVEL)axis=rule->axis;
         else if(rule->kind==LAYOUT_CONSTRAINT_PLANAR_MATE || rule->kind==LAYOUT_CONSTRAINT_ANGULAR_TRAVEL)normal=rule->axis;
     }
-    if(op==0 || (travel && !angular)) {
+    if(editing && (op==0 || (travel && !angular))) {
         row(&p,0,travel ? "Travel direction (world)" : "Measure along (world)",true);
         for(int i=0;i<3;++i) {
             bool chosen=axis.x==axes[i].x && axis.y==axes[i].y && axis.z==axes[i].z;
             cell(&p,MEASURE_AXIS_X+i,(const char*[]){"X","Y","Z"}[i],i,3,!active_travel,chosen);
         }
         p.y+=p.h;
-    } else if(angle) {
+    } else if(editing && angle) {
         row(&p,0,angular ? "Hinge plane" : "Angle plane",true);
         for(int i=0;i<3;++i)cell(&p,MEASURE_PLANE_XY+i,(const char*[]){"XY","YZ","ZX"}[i],i,3,!active_travel,
             normal.x==axes[(i+2)%3].x && normal.y==axes[(i+2)%3].y && normal.z==axes[(i+2)%3].z);
@@ -251,19 +271,19 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     bool valid=measured.status==LAYOUT_MEASUREMENT_OK && different;
     bool scene=Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_SCENE;
     p.y+=5;
-    if(angular)row(&p,MEASURE_PIVOT_EDITOR,"Edit pivot offsets...",true);
+    if(angular && editing)row(&p,MEASURE_PIVOT_EDITOR,"Edit pivot offsets...",true);
     if(ui->measurement.placing==6) {
         note(&p,"Remove constraint? Objects stay in place.");
         cell(&p,MEASURE_SAVE,"Remove",0,2,true,false);cell(&p,MEASURE_CANCEL,"Cancel",1,2,true,false);p.y+=p.h;
     } else if(travel) {
-        for(int i=0;i<3;++i) {
+        if(editing) for(int i=0;i<3;++i) {
             const char* value=ui->measurement.placing==10+i ? ui->measurement.placement_text : ui->measurement.travel_text[i];
             snprintf(text,sizeof(text),"%s: %s%s",(const char*[]){"Min","Max","Position"}[i],value,ui->measurement.placing==10+i?"|":"");
             row(&p,MEASURE_TRAVEL_MIN+i,text,true);
         }
-        row(&p,MEASURE_TRAVEL_SAVE,active_travel ? "Apply changes" : angular ? "Create hinge" : "Create travel",valid && scene);
+        if(editing) row(&p,MEASURE_TRAVEL_SAVE,active_travel ? "Apply changes" : angular ? "Create hinge" : "Create travel",valid && scene);
         if(!valid)note(&p,!different ? "Choose two different objects." : angular ? "Choose axes/faces in the hinge plane." : "Choose valid reference points.");
-        if(ui->measurement.placement_message[0])note(&p,ui->measurement.placement_message);
+        if(ui->measurement.placement_message[0] || preview)note(&p,ui->measurement.placement_message[0]?ui->measurement.placement_message:"Drag the slider or choose Min / Max / Reset.");
         bool pending=false;
         if(active_travel) {
             pending=memcmp(&rule->a,&ui->measurement.refs[0],sizeof(rule->a)) || memcmp(&rule->b,&ui->measurement.refs[1],sizeof(rule->b));
@@ -293,7 +313,7 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         cell(&p,MEASURE_TRAVEL_TO_MIN,"Min",0,3,active_travel && !pending,false);
         cell(&p,MEASURE_TRAVEL_TO_MAX,"Max",1,3,active_travel && !pending,false);
         cell(&p,MEASURE_TRAVEL_RESET,"Reset",2,3,active_travel,false);p.y+=p.h;
-        if (active_travel) {
+        if (active_travel && editing) {
             const LayoutAssembly* a=Layout_FindAssembly(store,rule->motion_assembly);
             snprintf(text,sizeof(text),"Moves: %s",a?(a->info.label[0]?a->info.label:a->id):"B only");
             row(&p,MEASURE_MOTION_SCOPE,text,!pending && scene);choices(&p,9);
@@ -302,8 +322,9 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
             const LayoutMotionEnvelope* envelope=Layout_FindRuleEnvelope(&Global_Get()->layout.objectStore,rule->id);
             row(&p,MEASURE_ENVELOPE,envelope ? Layout_MotionEnvelopeCurrent(&Global_Get()->layout,envelope)?"View envelope":"Update envelope" : "Create envelope",!pending && scene);
         }
-        if(angular)note(&p,"B rotates around the joined A/B pivot.");
-        else {row(&p,0,"Position is measured from A along",true);row(&p,0,"the direction above; B does not rotate.",true);}
+        if(preview)row(&p,MEASURE_EDIT_MOTION,ui->measurement.motion_edit_open ? "- Edit limits and references" : "+ Edit limits and references",true);
+        if(editing && angular)note(&p,"B rotates around the joined A/B pivot.");
+        else if(editing) {row(&p,0,"Position is measured from A along",true);row(&p,0,"the direction above; B does not rotate.",true);}
     } else if(ui->measurement.placing<7 || ui->measurement.placing>9) {
         if(measured.status==LAYOUT_MEASUREMENT_OK) {
             double value=measured.value;if(op!=2)(void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
@@ -381,6 +402,11 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
 void UIPanel_LayoutMeasurementPane(void) {
     UIPanelState* ui=UIPanel_Get();
     if(ui->activeRightTab!=UI_PANEL_RIGHT_TAB_MEASURE)return;
+    if(!ui->measurement.placing && !ui->measurement.picking && !ui->measurement.travel_dragging &&
+        ui->measurement.motion_selection!=Global_Get()->editor.selectedObject3DId) {
+        ui->measurement.motion_selection=Global_Get()->editor.selectedObject3DId;
+        (void)UIPanel_BeginSelectedMotion();
+    }
     if(ui->measurement.observed_rule_valid && ui->measurement.constraint_index>=0) {
         const LayoutObjectStore* store=&Global_Get()->layout.objectStore;int found=-1;
         for(size_t i=0;i<store->constraintCount;++i)if(!strcmp(store->constraints[i].id,ui->measurement.observed_rule.id))found=(int)i;
@@ -432,6 +458,7 @@ static bool change_units(CoreUnitKind next) {
 static void choose_tool(int operation) {
     UIPanelState* ui=UIPanel_Get();UIPanel_MeasurementStopInput();
     if(ui->measurement.operation==operation)return;
+    ui->measurement.motion_preview=false;ui->measurement.motion_edit_open=false;ui->measurement.observed_rule_valid=false;
     ui->measurement.constraint_index=-1;ui->measurement.use_rule_axis=false;
     ui->measurement.operation=operation;ui->measurement.placement_text[0]=0;ui->measurement.placement_message[0]=0;
     if(operation==3)UIPanel_TravelAction(MEASURE_TRAVEL);
@@ -481,7 +508,11 @@ bool UIPanel_MeasurementClick(int x,int y) {
     MeasurePane p=build(NULL,x,y,0);int action=p.hit;
     if(!action)return true;
     int chooser=ui->measurement.chooser;
-    if(action==MEASURE_TOOL || action==MEASURE_UNITS || action==MEASURE_VIEW) {
+    if(action==MEASURE_EDIT_MOTION) {
+        UIPanel_MeasurementStopInput();ui->measurement.motion_edit_open=!ui->measurement.motion_edit_open;
+    } else if(action==MEASURE_SELECTION_MOTION) {
+        UIPanel_MeasurementStopInput();ui->measurement.chooser=chooser==10?0:10;
+    } else if(action==MEASURE_TOOL || action==MEASURE_UNITS || action==MEASURE_VIEW) {
         int next=action==MEASURE_TOOL ? 6 : action==MEASURE_VIEW ? 8 : 7;
         UIPanel_MeasurementStopInput();ui->measurement.chooser=chooser==next ? 0 : next;
     } else if(action>=MEASURE_VIEW_TOP && action<=MEASURE_VIEW_FREE) {
@@ -538,11 +569,14 @@ bool UIPanel_MeasurementClick(int x,int y) {
         if(chooser<=2 && chooser>0) {
             LayoutGeometricReference ref={0};snprintf(ref.entity_id,64,"%s",Global_Get()->layout.objectStore.items[index].coreMeta.object_id);
             if(ui->measurement.operation==4 || ui->measurement.operation==2)ref.kind=LAYOUT_REFERENCE_AXIS_U;
-            ui->measurement.refs[chooser-1]=ref;ui->measurement.constraint_index=-1;
+            ui->measurement.refs[chooser-1]=ref;ui->measurement.constraint_index=-1;ui->measurement.observed_rule_valid=false;
         } else if(chooser<=4 && chooser>=3) {
             int slot=chooser-3;const Object3D* o=object(ui->measurement.refs[slot].entity_id);
             if(o)ui->measurement.refs[slot]=feature_at(ui->measurement.refs[slot],index,o->kind==OBJECT3D_KIND_PLANE);
-            ui->measurement.constraint_index=-1;
+            ui->measurement.constraint_index=-1;ui->measurement.observed_rule_valid=false;
+        } else if(chooser==10) {
+            UIPanel_MeasurementStopInput();UIPanel_MeasurementSelectRule(index);
+            ui->measurement.motion_preview=true;ui->measurement.motion_edit_open=false;
         } else if(chooser==5) {
             UIPanel_MeasurementStopInput();UIPanel_MeasurementSelectRule(index);
             ui->measurement.rules_open=false;ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx=0;
@@ -587,7 +621,7 @@ bool UIPanel_MeasurementClick(int x,int y) {
     }
     else if(action==MEASURE_CANCEL)UIPanel_MeasurementStopInput();
     else if(action==MEASURE_NEW) {
-        UIPanel_MeasurementStopInput();ui->measurement.constraint_index=-1;ui->measurement.use_rule_axis=false;ui->measurement.placement_message[0]=0;
+        UIPanel_MeasurementStopInput();ui->measurement.constraint_index=-1;ui->measurement.use_rule_axis=false;ui->measurement.placement_message[0]=0;ui->measurement.observed_rule_valid=false;ui->measurement.motion_preview=false;
         ui->measurement.rules_open=false;ui->rightScroll[UI_PANEL_RIGHT_TAB_MEASURE].scrollOffsetPx=0;
         if(ui->measurement.operation==3 || ui->measurement.operation==4)UIPanel_TravelAction(ui->measurement.operation==4 ? MEASURE_HINGE : MEASURE_TRAVEL);
     }

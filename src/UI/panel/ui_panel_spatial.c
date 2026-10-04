@@ -139,6 +139,10 @@ static void volumes(PartsPane* p) {
     if(ui->spatial.remove_pending){row(p,PARTS_VOLUME_CONFIRM_REMOVE,"Confirm delete volume",true);row(p,PARTS_SPATIAL_CANCEL,"Cancel",true);}
     note(p,"Colored wire boxes reserve space. Dimensions accept mm, cm, m, in or ft.");
 }
+static bool same_pair(const LayoutSpatialResult* a,const LayoutSpatialResult* b) {
+    return (!strcmp(a->source,b->source) && !strcmp(a->target,b->target)) ||
+        (!strcmp(a->source,b->target) && !strcmp(a->target,b->source));
+}
 static void checks(PartsPane* p) {
     UIPanelState* ui=UIPanel_Get();char text[256],label[160];
     row(p,PARTS_CHECK_RUN,"Run checks",true);
@@ -148,7 +152,7 @@ static void checks(PartsPane* p) {
     else {
         size_t errors=0,warnings=0,passes=0;
         for(size_t i=0;i<ui->spatial.result_count;++i){LayoutSpatialSeverity s=ui->spatial.results[i].severity;if(s==LAYOUT_SPATIAL_ERROR)++errors;else if(s==LAYOUT_SPATIAL_WARNING)++warnings;else ++passes;}
-        snprintf(text,sizeof(text),"%zu errors · %zu warnings",errors,warnings);note(p,text);
+        snprintf(text,sizeof(text),"Checks: %zu errors · %zu warnings",errors,warnings);note(p,text);
         if(passes){snprintf(text,sizeof(text),"%zu checks passed",passes);note(p,text);}
         if(ui->spatial.total_count>256){snprintf(text,sizeof(text),"Showing first 256 of %zu results. Refine the scene/rules for complete UI review.",ui->spatial.total_count);note(p,text);}
     }
@@ -167,6 +171,7 @@ static void checks(PartsPane* p) {
     if(ui->spatial.selected_result>=0 && (size_t)ui->spatial.selected_result<ui->spatial.result_count) {
         const LayoutSpatialResult* r=&ui->spatial.results[ui->spatial.selected_result];
         if(!ui->spatial.preview_active) {
+            snprintf(text,sizeof(text),"Check: %s",r->rule_id[0]?r->rule_id:"automatic");note(p,text);
             note(p,r->message);
             name(r->source,label);snprintf(text,sizeof(text),"A: %s [%s]",label,r->source);note(p,text);name(r->target,label);snprintf(text,sizeof(text),"B: %s [%s]",label,r->target);note(p,text);
             if(r->measurable){snprintf(text,sizeof(text),"%s gap: %.6g m",r->motion_intervals?"Interval bounds":r->approximate?"Bounds":"Surface",r->distance_meters);note(p,text);
@@ -175,7 +180,22 @@ static void checks(PartsPane* p) {
         }
         UIPanel_MotionInspectionBuild(p,r);
     }
-    for(size_t i=0;i<ui->spatial.result_count;++i){const LayoutSpatialResult* r=&ui->spatial.results[i];char other[160];name(r->source,label);name(r->target,other);snprintf(text,sizeof(text),"%s: %.50s / %.50s",(const char*[]){"Pass","Error","Warning"}[r->severity],label,other);row(p,9000+(int)i,text,true);}
+    const LayoutSpatialResult* selected=ui->spatial.selected_result>=0 && (size_t)ui->spatial.selected_result<ui->spatial.result_count ? &ui->spatial.results[ui->spatial.selected_result] : NULL;
+    for(size_t i=0;i<ui->spatial.result_count;++i) {
+        const LayoutSpatialResult* result=&ui->spatial.results[i];bool first=true;size_t count=0;
+        for(size_t j=0;j<ui->spatial.result_count;++j) if(same_pair(result,&ui->spatial.results[j])) {++count;if(j<i)first=false;}
+        bool expanded=selected && same_pair(selected,result);
+        if(!first && !expanded)continue;
+        if(first && count>1 && !expanded) {
+            char other[160];name(result->source,label);name(result->target,other);
+            snprintf(text,sizeof(text),"%zu checks: %.65s / %.65s (open)",count,label,other);
+        } else if(count>1) snprintf(text,sizeof(text),"%s | %s",(const char*[]){"Pass","Error","Warning"}[result->severity],result->rule_id[0]?result->rule_id:"automatic");
+        else {
+            char other[160];name(result->source,label);name(result->target,other);
+            snprintf(text,sizeof(text),"%s: %.65s / %.65s",(const char*[]){"Pass","Error","Warning"}[result->severity],label,other);
+        }
+        row(p,9000+(int)i,text,true);
+    }
 }
 void UIPanel_SpatialBuild(PartsPane* p) {
     if(UIPanel_Get()->parts.chooser>=8)choices(p);
