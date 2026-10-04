@@ -165,6 +165,9 @@ static bool test_browse_click_switches_to_catalog_section(void) {
     memset(&event, 0, sizeof(event));
     event.type = SDL_MOUSEBUTTONDOWN;
     event.button.button = SDL_BUTTON_LEFT;
+    event.button.x = 48;
+    event.button.y = 360;
+    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
     event.button.x = 260;
     event.button.y = 248;
 
@@ -211,8 +214,42 @@ static bool test_last_layout_and_scene_paths_remain_independent(void) {
     return true;
 }
 
+static bool test_folder_access_is_requested_and_retryable(void) {
+    char template[] = "/tmp/ld_menu_access_XXXXXX";
+    char* root = mkdtemp(template);
+    TEST_ASSERT(root != NULL);
+    ld_test_init_runtime();
+    TEST_ASSERT(Global_SetInputRoot(root, false));
+    TEST_ASSERT(rmdir(root) == 0);
+    LineDrawingHostMenuState state;
+    LineDrawingHostMenuCommand command = {0};
+    AppContext ctx = {0};
+    LineDrawingHostMenu_Init(&state);
+    SDL_Event event = {.type = SDL_MOUSEMOTION};
+    event.motion.x = 48; event.motion.y = 260;
+    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(!state.status_is_error && !state.section_loaded[LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS] && !state.catalog.layout_count);
+    event.type = SDL_MOUSEBUTTONDOWN; event.button.button = SDL_BUTTON_LEFT;
+    event.button.x = 48; event.button.y = 260;
+    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(state.status_is_error && strstr(state.status_text, "Cannot read folder"));
+    TEST_ASSERT(ld_test_artifact_make_dir(root));
+    char path[LINE_DRAWING_PATH_CAP];
+    snprintf(path, sizeof(path), "%s/retry.json", root);
+    TEST_ASSERT(Layout_SaveToFile(&Global_Get()->layout, path));
+    SDL_Event motion = {.type = SDL_MOUSEMOTION};
+    motion.motion.x = 400; motion.motion.y = 300;
+    (void)LineDrawingHostMenu_HandleEvent(&state, &ctx, &motion, &command);
+    TEST_ASSERT(state.status_is_error && !state.catalog.layout_count);
+    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(!state.status_is_error && state.section_loaded[LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS] && state.catalog.layout_count == 1);
+    unlink(path); rmdir(root); ld_test_shutdown_runtime();
+    return true;
+}
+
 bool host_menu_run_tests(void) {
     const TestCase cases[] = {
+        {"FolderAccessRequestedRetryable", test_folder_access_is_requested_and_retryable},
         {"FirstSelectablePrefersResume", test_first_selectable_prefers_resume},
         {"MoveSelectionSkipsDisabledItems", test_move_selection_skips_disabled_items},
         {"InvalidSelectionFallsBack", test_invalid_current_selection_falls_back_to_first_enabled},

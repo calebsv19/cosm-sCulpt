@@ -164,11 +164,11 @@ The remaining usability gaps are:
   projected box interiors are not. Imported mesh edge selection is a bounds proxy.
 - **Session continuity follow-up:** the 2026-10-04 refinement below retains the active
   Measure rule through undo and saves units/view/tool preferences on normal exit.
-- **Startup browser I/O:** scanning a protected Desktop root can block startup
-  before a window appears when macOS no longer recognizes a rebuilt app's folder
-  permission. This project now lives in the app's own Application Support area;
-  no macOS permissions were changed. Defer browser I/O until the window is ready
-  and expose failures visibly in a subsequent lifecycle repair.
+- **File access limits:** the pre-S5 repair below defers remembered-file restore
+  until after a host frame and requests directory scans explicitly. Reads remain
+  synchronous; a slow filesystem can still delay an explicit request. OS privacy
+  grants across changing ad-hoc identities are not guaranteed. The working project
+  remains in the app's own Application Support area.
 
 The teaching model does not validate materials, load capacity, manufacturing
 clearances, whole-van occupancy, electrical compatibility or real measurements.
@@ -177,10 +177,10 @@ remain outside the bounded motion contract.
 
 ## Next implementation boundary: S5
 
-Retain this document as a repeatable acceptance project. First repair the Z-up
-viewport/picking convention and refine selector/check-result readability, then
-persist useful view preferences. These are usability gates before expanding the
-workflow. Implement S5 as small UI-first slices:
+Retain this document as a repeatable acceptance project. Projection/picking,
+readability, saved-motion discovery and the named pre-S5 continuity/file-access
+refinements now have proof recorded below. Implement S5 as small UI-first slices;
+see [the detailed routing and measured van plan](s5_routing_plan.md):
 
 1. **Route contract and editing:** stable route IDs, source/destination entity
    references, ordered physical points, numeric coordinates, visible picking,
@@ -237,3 +237,35 @@ relaunch. The handoff leaves this ready for testing. Undo currently clears selec
 and retains Dirty even after returning to the saved pose; the motion controls remain
 usable. These are follow-up continuity refinements, not a claim of full human
 acceptance. Audit startup framing/browser I/O before S5 route editing.
+
+
+## Pre-S5 continuity and file-access closeout (2026-10-04)
+
+Undo and Redo retain Bed deck #12 through stable identity. Max moves its complete
+assembly to 1600 mm; Undo returns the deck/mattress/rail to 900/990/860 mm and shows
+Saved. Redo shows Dirty at 1600 mm with the same object selected. A slider gesture
+to about 1248.46 mm also returns to Saved 900 mm with one Undo and the compact
+Measure panel retained. Opening/relaunching the working file now fits visible
+geometry automatically. Individual zoom/pan, selection and active tab are still
+not restored as a session.
+
+The host menu first shows unread sections as an ellipsis. Click Layouts/Scenes/
+Recents/Browse to discover files; choose the same section again to refresh. Browse
+provides Choose input folder and Choose output folder. Missing/inaccessible roots
+show a visible error with retry guidance. Failed file opens preserve the document
+and Undo history. The macOS picker is now an app-owned Cocoa panel rather than an
+external script that blocks the editor's event/accessibility loop. Native Cancel
+preserved the root; Open selected the existing van_workflow folder successfully.
+No broad privacy settings were changed and no new protected-folder grant is
+claimed. Requested scanning and remembered-file loading are still synchronous.
+
+Warning-clean build, 504 host tests / 47 reported suites, 4 folder-picker contract
+tests and both scene smoke lanes pass. Native movement/history, load framing and
+folder chooser behavior were inspected on Desktop. The user's working van digest
+above is unchanged; no test pose was saved. These results supersede the specific
+Undo/highlight/Dirty/framing quirks recorded in the earlier handoff.
+
+S5A manual route editing is the next coding boundary. A measured-shell/reference
+pass can proceed alongside it when blueprint renders and verified dimensions are
+provided. Remaining CAD/general-motion limitations are not silently closed by this
+UI refinement.

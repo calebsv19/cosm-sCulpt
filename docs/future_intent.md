@@ -22,8 +22,9 @@ The illustrative van workflow audit now exercises assemblies, service spaces and
 motion checks; see [the walkthrough](illustrative_van_workflow.md). Explicit Select/Orbit/Pan and Draw line/Stop drawing now resolve basic input
 ambiguity. Its Z-up screen projection/picking, gizmo sizing and Measure selector readability
 are repaired. Saved-motion discovery, Measure undo continuity, normal-exit presentation preferences
-and grouped pair findings now cover the remaining bounded UI refinement. Startup browser I/O still precedes S5 routing
-corridors/cable paths. Independent
+and grouped pair findings now cover the remaining bounded UI refinement. The pre-S5 continuity/file-access slice now adds object-selection history retention,
+saved-state reconciliation, automatic file-load framing, requested folder discovery
+and an app-owned macOS folder chooser. S5 routing remains proposed. Independent
 constrained followers, arbitrary moving sets, meshes and multiple joints remain
 separate contracts. Broader snapping and
 reusable datums remain extensions. User acceptance remains separate from regression
@@ -35,13 +36,14 @@ selection and Measure/overview label readability now pass. Saved Travel/Hinge di
 Measure undo continuity, units/view/tool preferences, assembly chooser wording and
 read-only repeated-pair grouping now pass host regressions and rendered UI proof.
 Desktop refresh and native bed selection/assembly motion, slider, Undo, Reset and
-normal relaunch now pass. Human acceptance remains separate. Next: preserve the
-selection across Undo, reconcile Dirty with the saved state, and improve startup
-framing/browser I/O, then
-S5 route identity/points/endpoints/length with visible editing and undo, named
-corridors and reserved-space checks. Real vehicle measurements remain pending.
+normal relaunch now pass. Human acceptance remains separate. Object
+selection retention across history and saved-state comparison now pass, as do load
+framing and the native chooser. Next is [S5A route identity/points/endpoints/length](s5_routing_plan.md)
+with visible editing and undo, followed by named corridors and reserved-space
+checks. The same plan includes the blueprint calibration/measured-shell pass.
+Real vehicle measurements remain pending.
 
-Last updated: 2026-10-03
+Last updated: 2026-10-04
 
 ## Spatial Engineering Priority
 

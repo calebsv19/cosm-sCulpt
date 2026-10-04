@@ -1031,7 +1031,7 @@ void UIPanel_Init(int screenW, int screenH) {
 
     UIPanel_OnWindowResized(screenW, screenH);
     UIPanel_LoadFileBrowserMode(&g_uiPanel);
-    UIPanel_RefreshConfigList();
+    /* Directory access belongs to explicit browser entry, not initialization. */
 }
 
 const UIButton* UIPanel_GetButtons(UIPanelState* ui, int* outCount) {

@@ -1058,7 +1058,10 @@ bool UIPanel_LoadStlFromFolderSelection(const char* selected_folder, bool persis
                                                  UI_BTN_LOAD_STL);
 }
 
+static bool g_restoring_file_session = false;
+
 void UIPanel_RefreshConfigList(void) {
+    if (g_restoring_file_session) return;
     UIPanelState* ui = UIPanel_Get();
     const char* input_root = NULL;
     if (!ui) return;
@@ -1169,8 +1172,9 @@ bool UIPanel_RestorePersistedFileSession(void) {
     bool restored = false;
     if (!ui || ui->loadMenu.mode == UI_LOAD_MENU_MODE_NONE) return false;
 
+    g_restoring_file_session = true;
     restored = UIPanel_RestorePersistedEntryForMode(ui->loadMenu.mode);
-    UIPanel_RefreshConfigList();
+    g_restoring_file_session = false;
     UIPanel_SetFileBrowserVisible(ui, true);
     ui->loadMenu.hoverIndex = -1;
     ui->loadMenu.activeIndex = UIPanel_FindActiveLoadMenuIndex(ui);
@@ -1272,16 +1276,14 @@ bool UIPanel_LoadLayoutFromPath(const char* path) {
     GlobalState* state = Global_Get();
     if (!state || !path || path[0] == '\0') return false;
 
-    Editor_ClearHistory(&state->editor);
-
     if (Layout_LoadFromFile(&state->layout, path)) {
+        Editor_ClearHistory(&state->editor);
         SDL_Log("[UI] Loaded layout %s", path);
         Global_OnLayoutLoaded(path);
         UIPanel_RememberLoadedEntry(UI_LOAD_MENU_MODE_JSON, path);
         UIPanel_RefreshConfigList();
         UIPanel_ResetEditorTransientSelection(&state->editor);
         UIPanel_RefreshViewportAfterSceneDocumentLoad(state);
-        Editor_HistoryCapture(&state->editor, &state->layout);
         return true;
     }
 
@@ -1297,7 +1299,6 @@ bool UIPanel_LoadObjectAssetFromPath(const char* path) {
     char diagnostics[256];
     if (!state || !path || path[0] == '\0') return false;
 
-    Editor_ClearHistory(&state->editor);
     ObjectAuthoringDocument_Init(&loaded_authoring);
 
     if (LayoutObjectAssetMeshAuthoring_LoadWithAuthoring(&state->layout,
@@ -1306,6 +1307,7 @@ bool UIPanel_LoadObjectAssetFromPath(const char* path) {
                                                          path,
                                                          diagnostics,
                                                          sizeof(diagnostics))) {
+        Editor_ClearHistory(&state->editor);
         SDL_Log("[UI] Loaded object asset %s", path);
         if (has_authoring) {
             ObjectAuthoringSession_Clear(&state->objectAuthoring);

@@ -465,8 +465,25 @@ void Editor_SelectAnchorsInBox(EditorState* editor, const Layout* layout, Vec2 m
     }
 }
 
+/* Preserve the object identity, never a stale pointer or resize/drag state. */
+static void Editor_RestoreHistorySelection(EditorState* editor, const Layout* layout,
+                                           const char* entity_id) {
+    Editor_ResetSelection(editor);
+    if (!entity_id || !entity_id[0]) return;
+    for (size_t i = 0; i < layout->objectStore.count; ++i) {
+        const Object3D* object = &layout->objectStore.items[i];
+        if (!object->isDeleted && strcmp(object->coreMeta.object_id, entity_id) == 0) {
+            editor->selectedObject3DId = object->objectId;
+            break;
+        }
+    }
+}
+
 bool Editor_Undo(EditorState* editor, Layout* layout) {
     if (!editor || !layout) return false;
+    char entity_id[64] = {0};
+    const Object3D* selected = Layout_ObjectStore_FindConst(&layout->objectStore, editor->selectedObject3DId);
+    if (selected && !selected->isDeleted) snprintf(entity_id, sizeof(entity_id), "%s", selected->coreMeta.object_id);
     char* snapshot = HistoryStack_Pop(&editor->undoStack);
     if (!snapshot) return false;
 
@@ -479,7 +496,8 @@ bool Editor_Undo(EditorState* editor, Layout* layout) {
     Layout_FreeString(snapshot);
 
     if (ok) {
-        Editor_ResetSelection(editor);
+        Editor_RestoreHistorySelection(editor, layout, entity_id);
+        if (Global_Get() && layout == &Global_Get()->layout) Global_ReconcileSavedState();
         Global_FlagHitboxesDirty();
     }
     return ok;
@@ -487,6 +505,9 @@ bool Editor_Undo(EditorState* editor, Layout* layout) {
 
 bool Editor_Redo(EditorState* editor, Layout* layout) {
     if (!editor || !layout) return false;
+    char entity_id[64] = {0};
+    const Object3D* selected = Layout_ObjectStore_FindConst(&layout->objectStore, editor->selectedObject3DId);
+    if (selected && !selected->isDeleted) snprintf(entity_id, sizeof(entity_id), "%s", selected->coreMeta.object_id);
     char* snapshot = HistoryStack_Pop(&editor->redoStack);
     if (!snapshot) return false;
 
@@ -499,7 +520,8 @@ bool Editor_Redo(EditorState* editor, Layout* layout) {
     Layout_FreeString(snapshot);
 
     if (ok) {
-        Editor_ResetSelection(editor);
+        Editor_RestoreHistorySelection(editor, layout, entity_id);
+        if (Global_Get() && layout == &Global_Get()->layout) Global_ReconcileSavedState();
         Global_FlagHitboxesDirty();
     }
     return ok;

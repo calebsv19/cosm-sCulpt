@@ -57,9 +57,9 @@ const char* line_drawing_host_menu_section_label(LineDrawingHostMenuSection sect
 static const char* line_drawing_host_menu_browse_action_label(LineDrawingHostMenuBrowseAction action) {
     switch (action) {
         case LINE_DRAWING_HOST_MENU_BROWSE_ACTION_PICK_INPUT:
-            return "Pick Input Root...";
+            return "Choose input folder...";
         case LINE_DRAWING_HOST_MENU_BROWSE_ACTION_PICK_OUTPUT:
-            return "Pick Output Root...";
+            return "Choose output folder...";
         default:
             return "";
     }
@@ -367,11 +367,12 @@ void line_drawing_host_menu_draw_section_nav(SDL_Renderer* renderer,
                                                                                          0.45f));
         }
 
-        snprintf(count_text,
-                 sizeof(count_text),
-                 "%d",
-                 line_drawing_host_menu_section_count_value(state,
-                                                            (LineDrawingHostMenuSection)i));
+        if (i != LINE_DRAWING_HOST_MENU_SECTION_QUICK_ACTIONS && !state->section_loaded[i]) {
+            snprintf(count_text, sizeof(count_text), "...");
+        } else {
+            snprintf(count_text, sizeof(count_text), "%d",
+                     line_drawing_host_menu_section_count_value(state, (LineDrawingHostMenuSection)i));
+        }
         line_drawing_host_menu_draw_text(renderer,
                                          font,
                                          line_drawing_host_menu_section_label((LineDrawingHostMenuSection)i),

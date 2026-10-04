@@ -16,6 +16,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#if !LINE_DRAWING_FOLDER_PICKER_MACOS
 static void trim_dialog_newline(char* text) {
     size_t length = 0u;
     if (!text) return;
@@ -65,56 +66,63 @@ static LineDrawingFolderPickerResult run_picker(const char* const argv[],
     return out_path[0] ? LINE_DRAWING_FOLDER_PICKER_SELECTED : LINE_DRAWING_FOLDER_PICKER_CANCELLED;
 }
 
-#if LINE_DRAWING_FOLDER_PICKER_MACOS
-static bool escape_applescript_literal(const char* input, char* output, size_t output_size) {
-    size_t out_index = 0u;
-    if (!input || !output || output_size == 0u) return false;
-    output[0] = '\0';
+#endif
 
-    for (size_t index = 0u; input[index] != '\0'; ++index) {
-        const char character = input[index];
-        if ((character == '\\' || character == '"') && out_index + 2u >= output_size) return false;
-        if (character != '\\' && character != '"' && out_index + 1u >= output_size) return false;
-        if (character == '\\' || character == '"') output[out_index++] = '\\';
-        output[out_index++] = character;
-    }
-    output[out_index] = '\0';
-    return true;
+#if LINE_DRAWING_FOLDER_PICKER_MACOS
+#include <objc/message.h>
+#include <objc/runtime.h>
+#include <stdint.h>
+
+/* Keep the modal event loop in the app process. A child script leaves SDL's
+ * Cocoa host unable to answer accessibility or normal window events. */
+static id picker_object(id receiver, const char* selector) {
+    return ((id (*)(id, SEL))objc_msgSend)(receiver, sel_registerName(selector));
+}
+
+static void picker_set_object(id receiver, const char* selector, id value) {
+    ((void (*)(id, SEL, id))objc_msgSend)(receiver, sel_registerName(selector), value);
+}
+
+static void picker_set_bool(id receiver, const char* selector, BOOL value) {
+    ((void (*)(id, SEL, BOOL))objc_msgSend)(receiver, sel_registerName(selector), value);
+}
+
+static id picker_string(const char* text) {
+    return ((id (*)(id, SEL, const char*))objc_msgSend)(
+        (id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), text);
 }
 
 static LineDrawingFolderPickerResult select_macos_folder(const char* prompt,
                                                          const char* initial_directory,
                                                          char* out_path,
                                                          size_t out_path_size) {
-    char escaped_prompt[512];
-    char escaped_directory[2048];
-    char script[3072];
-    const char* argv[4];
-
-    if (!escape_applescript_literal(prompt, escaped_prompt, sizeof(escaped_prompt))) {
-        return LINE_DRAWING_FOLDER_PICKER_FAILED;
-    }
-    if (initial_directory && initial_directory[0]) {
-        if (!escape_applescript_literal(initial_directory, escaped_directory, sizeof(escaped_directory))) {
-            return LINE_DRAWING_FOLDER_PICKER_FAILED;
+    id pool = picker_object(picker_object((id)objc_getClass("NSAutoreleasePool"), "alloc"), "init");
+    id panel = picker_object((id)objc_getClass("NSOpenPanel"), "openPanel");
+    LineDrawingFolderPickerResult result = LINE_DRAWING_FOLDER_PICKER_FAILED;
+    if (panel) {
+        picker_set_object(panel, "setTitle:", picker_string(prompt));
+        picker_set_bool(panel, "setCanChooseDirectories:", YES);
+        picker_set_bool(panel, "setCanChooseFiles:", NO);
+        picker_set_bool(panel, "setAllowsMultipleSelection:", NO);
+        if (initial_directory && initial_directory[0]) {
+            id url = ((id (*)(id, SEL, id))objc_msgSend)(
+                (id)objc_getClass("NSURL"), sel_registerName("fileURLWithPath:"), picker_string(initial_directory));
+            picker_set_object(panel, "setDirectoryURL:", url);
         }
-        snprintf(script,
-                 sizeof(script),
-                 "POSIX path of (choose folder with prompt \"%s\" default location POSIX file \"%s\")",
-                 escaped_prompt,
-                 escaped_directory);
-    } else {
-        snprintf(script,
-                 sizeof(script),
-                 "POSIX path of (choose folder with prompt \"%s\")",
-                 escaped_prompt);
+        intptr_t response = ((intptr_t (*)(id, SEL))objc_msgSend)(panel, sel_registerName("runModal"));
+        result = LINE_DRAWING_FOLDER_PICKER_CANCELLED;
+        if (response == 1) {
+            id url = picker_object(panel, "URL");
+            const char* path = ((const char* (*)(id, SEL))objc_msgSend)(url, sel_registerName("fileSystemRepresentation"));
+            result = LINE_DRAWING_FOLDER_PICKER_FAILED;
+            if (path && path[0] && strlen(path) < out_path_size) {
+                memcpy(out_path, path, strlen(path) + 1u);
+                result = LINE_DRAWING_FOLDER_PICKER_SELECTED;
+            }
+        }
     }
-
-    argv[0] = "/usr/bin/osascript";
-    argv[1] = "-e";
-    argv[2] = script;
-    argv[3] = NULL;
-    return run_picker(argv, out_path, out_path_size);
+    ((void (*)(id, SEL))objc_msgSend)(pool, sel_registerName("drain"));
+    return result;
 }
 #else
 static LineDrawingFolderPickerResult select_linux_folder(const char* prompt,

@@ -59,6 +59,8 @@ static bool test_file_browser_restore_reopens_last_layout_for_json_mode(void) {
     TEST_ASSERT(UIPanel_RestorePersistedFileSession());
     TEST_ASSERT(strcmp(Global_GetInputRoot(), temp_root) == 0);
     TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), alpha_path) == 0);
+    TEST_ASSERT(ui->loadMenu.count == 0); /* Restore opens a document without scanning its folder. */
+    TEST_ASSERT(Editor_UndoCount(&Global_Get()->editor) == 0);
     TEST_ASSERT(ui->loadMenu.activeIndex == ld_test_find_load_menu_index(ui, "alpha.json"));
     ld_test_shutdown_runtime();
 
@@ -623,8 +625,42 @@ static bool test_file_browser_restore_summary_reports_stale_remembered_entry(voi
     return true;
 }
 
+static bool test_failed_file_open_preserves_document_and_history(void) {
+    ld_test_remove_file_browser_runtime_state();
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Global_OnLayoutLoaded(NULL);
+    Editor_HistoryCapture(&state->editor, &state->layout);
+    TEST_ASSERT(Layout_AddAnchor3(&state->layout, (Vec3){1, 2, 3}) >= 0);
+    Global_FlagLayoutChanged();
+    char* before = Layout_SaveToString(&state->layout);
+    char current_path[LINE_DRAWING_PATH_CAP];
+    snprintf(current_path, sizeof(current_path), "%s", Global_GetCurrentConfigPath());
+    state->editor.selectedAnchorIndex = 0;
+    size_t undo_count = Editor_UndoCount(&state->editor);
+    char malformed_template[] = "/tmp/ld_continuity_bad_XXXXXX";
+    int malformed_fd = mkstemp(malformed_template);
+    TEST_ASSERT(malformed_fd >= 0 && write(malformed_fd, "{invalid", 8) == 8);
+    close(malformed_fd);
+    TEST_ASSERT(!UIPanel_LoadLayoutFromPath(malformed_template));
+    unlink(malformed_template);
+    TEST_ASSERT(!UIPanel_LoadLayoutFromPath("/tmp/ld_nonexistent_continuity/layout.json"));
+    TEST_ASSERT(!UIPanel_LoadSceneFromPath("/tmp/ld_nonexistent_continuity/scene_authoring.json"));
+    TEST_ASSERT(!UIPanel_LoadObjectAssetFromPath("/tmp/ld_nonexistent_continuity/object.json"));
+    char* after = Layout_SaveToString(&state->layout);
+    TEST_ASSERT(before && after && !strcmp(before, after));
+    TEST_ASSERT(undo_count && Editor_UndoCount(&state->editor) == undo_count);
+    TEST_ASSERT(state->editor.selectedAnchorIndex == 0 && Global_IsLayoutDirty());
+    TEST_ASSERT(!strcmp(current_path, Global_GetCurrentConfigPath()));
+    TEST_ASSERT(Editor_Undo(&state->editor, &state->layout) && !Global_IsLayoutDirty());
+    Layout_FreeString(before); Layout_FreeString(after);
+    ld_test_shutdown_runtime(); ld_test_remove_file_browser_runtime_state();
+    return true;
+}
+
 bool ui_panel_file_browser_session_run_tests(void) {
     const TestCase cases[] = {
+        {"failed_file_open_preserves_document_and_history", test_failed_file_open_preserves_document_and_history},
         { "file_browser_restore_reopens_last_layout_for_json_mode",
           test_file_browser_restore_reopens_last_layout_for_json_mode },
         { "file_browser_remembers_last_browsed_entry_without_session_restore",

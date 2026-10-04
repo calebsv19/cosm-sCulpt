@@ -4,6 +4,8 @@ Last updated: 2026-10-04
 
 Start here for public repository documentation.
 
+- [S5 routing and measured van plan](s5_routing_plan.md) — current S0–S4 boundary, manual route editing, corridors, checks and blueprint calibration.
+
 - [Illustrative van workflow](illustrative_van_workflow.md) — saved acceptance project, explicit navigation/drawing controls, mouse walkthrough, obstruction exercises and S5 boundary.
 
 - [Motion envelopes and previews](motion_envelopes.md) — S4 assembly scope, member intervals, read-only full-range inspection and limits.

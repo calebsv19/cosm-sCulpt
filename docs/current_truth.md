@@ -1,5 +1,39 @@
 # Sculpt Current Truth
 
+## Pre-S5 continuity and file access (2026-10-04)
+
+Undo/Redo now restores selected objects through stable entity IDs, clearing the
+selection if the entity no longer exists. Restored history documents are compared
+with the last saved snapshot: returning to the saved pose removes Dirty; returning
+to a different pose keeps it. Failed layout/scene/object opens preserve history.
+Successful file loads clear history without adding a no-op Undo entry.
+File loads use the existing visible-geometry Fit calculation without rescaling the
+physical document. Selection, tab and individual zoom/pan state are not persisted.
+
+Folder discovery runs on browser-section entry or explicit folder selection,
+not on hover/window events. Unread section counts show an ellipsis. Read failures
+produce a visible error and retry guidance. Startup renders a host frame before
+restoring the remembered file and skips the surrounding folder scan during restore.
+The remembered file read and requested directory scans are still synchronous;
+this is not a cancellable asynchronous filesystem worker. Early preference/root
+reads also remain. macOS folder selection now uses an app-owned Cocoa panel;
+Linux retains its existing chooser/fallback behavior. System privacy grants remain
+OS-controlled and are not presumed durable across changed ad-hoc app identities.
+
+Verification: warning-clean build; 504 host tests across 47 reported suites;
+4 folder-picker contract tests; agent-scene-smoke and illustrative-van-smoke.
+Desktop tests show auto-framed Saved van_working with 38 objects, Bed deck
+selection, 900 to 1600 mm whole-bed movement, Undo/Redo with selection retained,
+and a slider gesture to about 1248.46 mm followed by one Undo to Saved 900 mm.
+Native chooser Cancel and selection of the existing van-project folder pass.
+No test pose was saved; the working document SHA256 remains
+1e58223a8a3e3248586c8cffce0bc5018c623961275d75fcefc9e299654f40e3.
+
+Next implementation: [S5A manual physical routes](s5_routing_plan.md), then named
+corridors and routing checks. Actual vehicle dimensions and blueprint calibration
+remain pending. This closes the named continuity/file-access slice, not every
+CAD, kinematics, filesystem or spatial-query capability in the original direction.
+
 ## Saved-motion UI and continuity (2026-10-04)
 
 Selecting a moving object, inherited assembly member or assembly now opens its
@@ -20,10 +54,9 @@ rails, and a slider gesture moves the inherited assembly together. One Undo rest
 the complete gesture while retaining the saved-motion panel; Reset restores 900 mm.
 Normal quit/process-exit/relaunch restores the Saved 38-object working van, mm units
 and Free 3D view. The saved file digest remains unchanged. Zoom, pan, active tab and
-selection are not restored; Fit scene remains needed after relaunch. Undo currently
-clears the object highlight and conservatively retains Dirty after pose restoration.
-Human acceptance remains separate. Next: those continuity refinements and startup
-browser I/O repair, then bounded S5 route editing/corridors/checks.
+selection are not restored. The subsequent pre-S5 refinement above supplies automatic
+framing, selection retention through history and saved-state reconciliation.
+Human acceptance remains separate; S5 route editing/corridors/checks are next.
 
 
 ## Viewport projection, gizmos and readability (2026-10-03)

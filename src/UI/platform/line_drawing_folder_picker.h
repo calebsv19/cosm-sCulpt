@@ -9,7 +9,8 @@ typedef enum {
     LINE_DRAWING_FOLDER_PICKER_FAILED
 } LineDrawingFolderPickerResult;
 
-/* Opens the host folder chooser without routing prompt or path text through a shell. */
+/* Call on the UI thread. macOS uses an app-owned Cocoa modal panel; Linux uses
+ * host picker tools without routing prompt or path text through a shell. */
 LineDrawingFolderPickerResult LineDrawing_FolderPicker_Select(const char* prompt,
                                                               const char* initial_directory,
                                                               char* out_path,

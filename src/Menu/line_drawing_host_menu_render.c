@@ -691,7 +691,7 @@ void LineDrawingHostMenu_Render(LineDrawingHostMenuState* state, AppContext* ctx
         snprintf(root_summary,
                  sizeof(root_summary),
                  "Root: %s",
-                 state->catalog.input_root[0] ? state->catalog.input_root : "(unset)");
+                 Global_GetInputRoot() && Global_GetInputRoot()[0] ? Global_GetInputRoot() : "(unset)");
         line_drawing_host_menu_draw_text_clipped(ctx->renderer,
                                                  body_font,
                                                  root_summary,

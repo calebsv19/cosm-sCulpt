@@ -942,6 +942,15 @@ const LineDrawingRecentContexts* Global_GetRecentContexts(void) {
     return &state->recentContexts;
 }
 
+void Global_ReconcileSavedState(void) {
+    if (!global) return;
+    Global_ProcessLayoutChanges(global);
+    char* current = Layout_SaveToString(&global->layout);
+    global->layoutDirtySinceSave = !current || !global->lastSavedSnapshot ||
+        strcmp(current, global->lastSavedSnapshot) != 0;
+    Layout_FreeString(current);
+}
+
 bool Global_IsLayoutDirty(void) {
     GlobalState* state = Global_Get();
     if (!state) return false;

@@ -76,6 +76,7 @@ typedef struct LineDrawingHostMenuState {
     bool filter_editing;
     char status_text[256];
     bool status_is_error;
+    bool section_loaded[LINE_DRAWING_HOST_MENU_SECTION_COUNT];
 } LineDrawingHostMenuState;
 
 void LineDrawingHostMenu_Init(LineDrawingHostMenuState* state);

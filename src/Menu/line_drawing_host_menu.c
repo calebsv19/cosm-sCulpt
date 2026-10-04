@@ -6,15 +6,11 @@
 
 #include <SDL2/SDL.h>
 #include <dirent.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 
-static bool line_drawing_host_menu_path_exists(const char* path) {
-    struct stat st = {0};
-    if (!path || !path[0]) return false;
-    return stat(path, &st) == 0 && S_ISREG(st.st_mode);
-}
 
 static void line_drawing_host_menu_clear_hover(LineDrawingHostMenuState* state);
 
@@ -221,20 +217,44 @@ const LineDrawingCatalogPreviewData* line_drawing_host_menu_preview_for_browser_
 
 static void line_drawing_host_menu_refresh_catalog(LineDrawingHostMenuState* state) {
     if (!state) return;
-    LineDrawingRecentMenuList_Refresh(&state->recent_entries,
-                                      Global_GetRecentContexts(),
-                                      Global_GetLastLayoutPath(),
-                                      Global_GetLastSceneAuthoringPath(),
-                                      Global_GetInputRoot(),
-                                      Global_GetOutputRoot());
-    LineDrawingSceneCatalog_Refresh(&state->catalog,
-                                    Global_GetInputRoot(),
-                                    Global_GetCurrentConfigPath(),
-                                    Global_GetCurrentSceneAuthoringPath());
-    LineDrawingRootBrowser_Refresh(&state->browser,
-                                   state->browser.current_path,
-                                   Global_GetInputRoot(),
-                                   Global_GetOutputRoot());
+    /* Filesystem discovery is requested by section entry, never by hover/render. */
+    if (state->selected_section == LINE_DRAWING_HOST_MENU_SECTION_QUICK_ACTIONS) return;
+    const char* root = Global_GetInputRoot();
+    const char* probe_path = state->selected_section == LINE_DRAWING_HOST_MENU_SECTION_BROWSE &&
+        state->browser.current_path[0] ? state->browser.current_path : root;
+    bool needs_root = state->selected_section != LINE_DRAWING_HOST_MENU_SECTION_RECENTS;
+    DIR* directory = needs_root && probe_path && probe_path[0] ? opendir(probe_path) : NULL;
+    if (needs_root && !directory) {
+        int error = probe_path && probe_path[0] ? errno : ENOENT;
+        LineDrawingSceneCatalog_Init(&state->catalog);
+        char failed_path[LINE_DRAWING_PATH_CAP];
+        snprintf(failed_path, sizeof(failed_path), "%s", state->browser.current_path);
+        LineDrawingRootBrowser_Init(&state->browser);
+        snprintf(state->browser.current_path, sizeof(state->browser.current_path), "%s", failed_path);
+        LineDrawingRecentMenuList_Init(&state->recent_entries);
+        line_drawing_host_menu_apply_filter(state);
+        snprintf(state->status_text, sizeof(state->status_text),
+                 "Cannot read folder: %s. Browse / Choose input folder, then retry the section.", strerror(error));
+        memset(state->section_loaded, 0, sizeof(state->section_loaded));
+        state->status_is_error = true;
+        return;
+    }
+    if (directory) closedir(directory);
+    state->status_is_error = false;
+    snprintf(state->status_text, sizeof(state->status_text), "Folder ready. Select a file to open it; choose the section again to refresh.");
+    if (state->selected_section == LINE_DRAWING_HOST_MENU_SECTION_RECENTS) {
+        LineDrawingRecentMenuList_Refresh(&state->recent_entries, Global_GetRecentContexts(),
+            Global_GetLastLayoutPath(), Global_GetLastSceneAuthoringPath(), root, Global_GetOutputRoot());
+    } else if (state->selected_section == LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS ||
+               state->selected_section == LINE_DRAWING_HOST_MENU_SECTION_SCENES) {
+        LineDrawingSceneCatalog_Refresh(&state->catalog, root,
+            Global_GetCurrentConfigPath(), Global_GetCurrentSceneAuthoringPath());
+        state->section_loaded[LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS] = true;
+        state->section_loaded[LINE_DRAWING_HOST_MENU_SECTION_SCENES] = true;
+    } else {
+        LineDrawingRootBrowser_Refresh(&state->browser, state->browser.current_path, root, Global_GetOutputRoot());
+    }
+    state->section_loaded[state->selected_section] = true;
     {
         LineDrawingHostMenuModel model;
         LineDrawingHostMenu_BuildModel(&model);
@@ -326,14 +346,15 @@ static bool line_drawing_host_menu_handle_root_folder_shortcut(LineDrawingHostMe
                  sizeof(state->browser.current_path),
                  "%s",
                  Global_GetInputRoot() ? Global_GetInputRoot() : "");
+        memset(state->section_loaded, 0, sizeof(state->section_loaded));
         line_drawing_host_menu_refresh_catalog(state);
-        line_drawing_host_menu_set_status(state,
+        if (!state->status_is_error) line_drawing_host_menu_set_status(state,
                                           output_root
                                               ? "Output root updated from native folder picker."
                                               : "Input root updated from native folder picker.",
                                           false);
     } else {
-        line_drawing_host_menu_set_status(state,
+        if (!state->status_is_error) line_drawing_host_menu_set_status(state,
                                           output_root
                                               ? "Output root unchanged."
                                               : "Input root unchanged.",
@@ -409,6 +430,11 @@ static bool line_drawing_host_menu_activate_browser_entry(LineDrawingHostMenuSta
         case LINE_DRAWING_ROOT_BROWSER_ENTRY_NEARBY_INPUT_ROOT:
             if (Global_SetInputRoot(entry->path, true)) {
                 snprintf(state->browser.current_path, sizeof(state->browser.current_path), "%s", entry->path);
+                memset(state->section_loaded, 0, sizeof(state->section_loaded));
+                LineDrawingSceneCatalog_Refresh(&state->catalog, Global_GetInputRoot(),
+                    Global_GetCurrentConfigPath(), Global_GetCurrentSceneAuthoringPath());
+                state->section_loaded[LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS] = true;
+                state->section_loaded[LINE_DRAWING_HOST_MENU_SECTION_SCENES] = true;
                 line_drawing_host_menu_refresh_catalog(state);
                 line_drawing_host_menu_enter_catalog_for_current_root(state, preferred_kind);
                 line_drawing_host_menu_set_status(state,
@@ -587,7 +613,7 @@ void LineDrawingHostMenu_Init(LineDrawingHostMenuState* state) {
     LineDrawingCatalogPreviewCache_Init(&state->preview_cache);
     snprintf(state->status_text,
              sizeof(state->status_text),
-             "Phase 2 menu work: recents, catalog, and root-context controls are active.");
+             "Resume your workspace or choose a browser section. Folder access occurs when requested.");
 }
 
 void LineDrawingHostMenu_BuildModel(LineDrawingHostMenuModel* out_model) {
@@ -597,9 +623,9 @@ void LineDrawingHostMenu_BuildModel(LineDrawingHostMenuModel* out_model) {
     memset(out_model, 0, sizeof(*out_model));
     out_model->item_enabled[LINE_DRAWING_HOST_MENU_ITEM_RESUME_EDITOR] = true;
     out_model->item_enabled[LINE_DRAWING_HOST_MENU_ITEM_LOAD_LAST_LAYOUT] =
-        line_drawing_host_menu_path_exists(current_layout);
+        current_layout && current_layout[0];
     out_model->item_enabled[LINE_DRAWING_HOST_MENU_ITEM_LOAD_LAST_SCENE] =
-        line_drawing_host_menu_path_exists(current_scene);
+        current_scene && current_scene[0];
     out_model->item_enabled[LINE_DRAWING_HOST_MENU_ITEM_QUIT] = true;
 }
 
@@ -649,7 +675,6 @@ bool LineDrawingHostMenu_HandleEvent(LineDrawingHostMenuState* state,
     if (!state || !event || !out_command) return false;
     memset(out_command, 0, sizeof(*out_command));
 
-    line_drawing_host_menu_refresh_catalog(state);
     LineDrawingHostMenu_BuildModel(&model);
     line_drawing_host_menu_layout(&layout,
                                   Global_GetScreenWidth(),
@@ -679,6 +704,7 @@ bool LineDrawingHostMenu_HandleEvent(LineDrawingHostMenuState* state,
                             (LineDrawingHostMenuSection)((state->selected_section +
                                                            LINE_DRAWING_HOST_MENU_SECTION_COUNT - 1) %
                                                           LINE_DRAWING_HOST_MENU_SECTION_COUNT);
+                        line_drawing_host_menu_refresh_catalog(state);
                     } else {
                         selected_ptr =
                             line_drawing_host_menu_selected_content_index_ptr(state,
@@ -701,6 +727,7 @@ bool LineDrawingHostMenu_HandleEvent(LineDrawingHostMenuState* state,
                         state->selected_section =
                             (LineDrawingHostMenuSection)((state->selected_section + 1) %
                                                           LINE_DRAWING_HOST_MENU_SECTION_COUNT);
+                        line_drawing_host_menu_refresh_catalog(state);
                     } else {
                         selected_ptr =
                             line_drawing_host_menu_selected_content_index_ptr(state,
@@ -865,6 +892,7 @@ bool LineDrawingHostMenu_HandleEvent(LineDrawingHostMenuState* state,
             if (nav_index >= 0) {
                 line_drawing_host_menu_stop_scrollbar_drag(state);
                 state->selected_section = (LineDrawingHostMenuSection)nav_index;
+                line_drawing_host_menu_refresh_catalog(state);
                 state->hovered_section_index = nav_index;
                 if (line_drawing_host_menu_section_supports_filter(state->selected_section)) {
                     line_drawing_host_menu_begin_filter_editing(state);

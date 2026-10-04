@@ -87,6 +87,8 @@ static LineDrawingUpdateFrame g_line_drawing_update_frame = {0};
 static uint32_t g_line_drawing_pending_invalidation_bits = 0u;
 static LineDrawingRs1DiagTotals g_line_drawing_rs1_diag_totals = {0};
 static LineDrawingHostMenuState g_line_drawing_host_menu = {0};
+static bool g_startup_frame_presented = false;
+static bool g_startup_session_restored = false;
 
 typedef enum LineDrawingHostMode {
     LINE_DRAWING_HOST_MODE_MENU = 0,
@@ -331,6 +333,10 @@ static void handleInput(AppContext *ctx, SDL_Event* event) {
 
 
 static void handleUpdate(AppContext *ctx) {
+    if (g_startup_frame_presented && !g_startup_session_restored) {
+        g_startup_session_restored = true;
+        (void)UIPanel_RestorePersistedFileSession();
+    }
     if (g_line_drawing_host_mode == LINE_DRAWING_HOST_MODE_MENU) {
         (void)ctx;
         memset(&g_line_drawing_update_frame, 0, sizeof(g_line_drawing_update_frame));
@@ -347,6 +353,7 @@ static void handleUpdate(AppContext *ctx) {
 static void handleRender(AppContext *ctx) {
     if (g_line_drawing_host_mode == LINE_DRAWING_HOST_MODE_MENU) {
         LineDrawingHostMenu_Render(&g_line_drawing_host_menu, ctx);
+        g_startup_frame_presented = true;
         g_line_drawing_pending_invalidation_bits = 0u;
         return;
     }
@@ -718,7 +725,6 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
     // Initialize global program state (grid, layout, editor, etc.)
     Global_Init(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
     (void)LineDrawingEditorPreferences_Load("data/runtime/editor_preferences.json");
-    (void)UIPanel_RestorePersistedFileSession();
     LineDrawingHostMenu_Init(&g_line_drawing_host_menu);
     LineDrawingHostEnterMenu();
 

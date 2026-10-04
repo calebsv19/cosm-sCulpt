@@ -1,6 +1,6 @@
 # Line Drawing Desktop Packaging
 
-Last updated: 2026-08-28
+Last updated: 2026-10-04
 
 ## Standard Targets
 - `make -C line_drawing package-desktop`
@@ -57,6 +57,22 @@ Bundle output:
 
 Desktop copy target:
 - `/Users/<user>/Desktop/sCulpt.app`
+
+## File access and editor startup
+
+The host displays a frame before reopening its remembered document. Restore does
+not scan the surrounding file-browser folder. Host catalog discovery happens when
+you choose Layouts, Scenes, Recents or Browse; unread counts show an ellipsis.
+Hover/render events do not rescan directories. Browse offers Choose input folder
+and Choose output folder. A failed scan shows an error and retry guidance, while a
+failed document open retains the current document and Undo history.
+
+On macOS, folder selection uses an app-owned Cocoa panel and starts input selection
+in the current input root. Cancel leaves roots unchanged. Linux uses existing
+zenity/kdialog selection/fallback. Explicit filesystem reads/scans remain synchronous.
+The app does not grant itself Full Disk Access or modify OS privacy settings;
+folder approval remains under macOS control. This checkpoint verifies choosing the
+existing app-private project folder, not lasting access to every protected folder.
 
 ## Launcher Diagnostics
 Launcher path:

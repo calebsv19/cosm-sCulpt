@@ -21,8 +21,10 @@ samples, keeping unresolved intervals explicit. See [motion envelopes](motion_en
 The illustrative van workflow audit now exercises assemblies, service spaces and
 motion checks; see [the walkthrough](illustrative_van_workflow.md). Its Z-up screen
 projection/picking, viewport-sized gizmos and Measure/overview label readability
-are repaired. Remaining session/Parts/check usability work precedes S5 routing
-corridors/cable paths. Independent
+are repaired. Saved-motion discovery, object/history continuity, saved-state
+reconciliation, automatic framing and explicit folder access now complete the
+named pre-S5 refinement. [S5 routes and the measured van pass](s5_routing_plan.md)
+remain proposed. Independent
 constrained followers, arbitrary moving sets, meshes and multiple joints remain
 separate contracts. Broader snapping and
 reusable datums remain extensions. User acceptance remains separate from regression

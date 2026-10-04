@@ -9,6 +9,7 @@
 #include "Layout/layout_json.h"
 #include "Layout/scene/layout_mesh_preview_sidecar.h"
 #include "Editor/editor.h"
+#include "Core/viewport_zoom.h"
 #include "ObjectAuthoring/object_authoring_mesh_compile.h"
 #include "Tools/scene_import.h"
 #include "Tools/scene_export.h"
@@ -124,6 +125,7 @@ void UIPanel_RefreshViewportAfterSceneDocumentLoad(GlobalState* state) {
             .z = (min.z + max.z) * 0.5f
         };
     }
+    (void)LineDrawingViewportZoom_FitVisibleGeometry(state);
     Global_FlagHitboxesDirty();
     Global_RebuildHitboxesIfDirty();
 }
@@ -797,8 +799,6 @@ bool UIPanel_LoadSceneFromPath(const char* path) {
     }
     authoring_path = package_paths.authoring_path;
 
-    Editor_ClearHistory(&state->editor);
-
     if (!LineDrawingSceneImport_LoadLayoutFromAuthoringFile(&state->layout,
                                                             authoring_path,
                                                             diagnostics,
@@ -815,6 +815,7 @@ bool UIPanel_LoadSceneFromPath(const char* path) {
         return false;
     }
 
+    Editor_ClearHistory(&state->editor);
     layout_hint[0] = '\0';
     if (!UIPanel_DeriveLayoutHintFromScenePath(authoring_path, layout_hint, sizeof(layout_hint))) {
         snprintf(layout_hint, sizeof(layout_hint), "%s", authoring_path);
@@ -826,7 +827,6 @@ bool UIPanel_LoadSceneFromPath(const char* path) {
     UIPanel_RefreshConfigList();
     UIPanel_ResetEditorTransientSelection(&state->editor);
     UIPanel_RefreshViewportAfterSceneDocumentLoad(state);
-    Editor_HistoryCapture(&state->editor, &state->layout);
     return true;
 }
 
@@ -1275,9 +1275,13 @@ void UIPanel_BeginObjectAssetRootDialog(void) {
 }
 
 bool UIPanel_OpenInputRootFolderDialog(void) {
-    char path[256];
+    char path[LINE_DRAWING_PATH_CAP];
     UIPanelState* ui = UIPanel_Get();
-    if (!UIPanel_SelectFolderWithPrompt("Choose Sculpt Session Input Root", path, sizeof(path))) {
+    const char* root = Global_GetInputRoot();
+    bool selected = root && root[0]
+        ? UIPanel_SelectFolderWithPromptAndDefault("Choose Sculpt Session Input Root", root, path, sizeof(path))
+        : UIPanel_SelectFolderWithPrompt("Choose Sculpt Session Input Root", path, sizeof(path));
+    if (!selected) {
         SDL_Log("[UI] Session input root selection canceled.");
         return false;
     }
@@ -1293,7 +1297,7 @@ bool UIPanel_OpenInputRootFolderDialog(void) {
 }
 
 bool UIPanel_OpenOutputRootFolderDialog(void) {
-    char path[256];
+    char path[LINE_DRAWING_PATH_CAP];
     if (!UIPanel_SelectFolderWithPrompt("Choose Sculpt Output Root", path, sizeof(path))) {
         SDL_Log("[UI] Output root selection canceled.");
         return false;

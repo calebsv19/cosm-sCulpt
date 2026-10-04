@@ -121,6 +121,8 @@ const char* Global_GetLastSceneAuthoringPath(void);
 const char* Global_GetLastObjectAssetPath(void);
 const LineDrawingRecentContexts* Global_GetRecentContexts(void);
 bool Global_IsLayoutDirty(void);
+/* Reconcile a restored history document with the last successfully saved snapshot. */
+void Global_ReconcileSavedState(void);
 const char* Global_GetInputRoot(void);
 const char* Global_GetOutputRoot(void);
 const char* Global_GetLayoutRoot(void);

@@ -471,7 +471,7 @@ static bool test_mouse_refined_pose_without_scene_edit(void) {
 
 static bool test_selected_saved_motion_and_history(void) {
     ld_test_init_runtime(); TEST_ASSERT(group_rig(false));
-    GlobalState* state=Global_Get();Global_SetWindowSize(1200,1000);UIPanel_OnWindowResized(1200,1000);
+    GlobalState* state=Global_Get();Global_OnLayoutLoaded(NULL);Global_SetWindowSize(1200,1000);UIPanel_OnWindowResized(1200,1000);
     UIPanelState* ui=UIPanel_Get();
     char* before=Layout_SaveToString(live());
     state->editor.selectedObject3DId=live()->objectStore.items[1].objectId;
@@ -489,12 +489,17 @@ static bool test_selected_saved_motion_and_history(void) {
     TEST_ASSERT(!UIPanel_MeasurementControlRect(MEASURE_TRAVEL_MIN,&field));
     TEST_ASSERT(same(before) && !Editor_UndoCount(&state->editor));
     TEST_ASSERT(measure_click(MEASURE_TRAVEL_TO_MAX) && live()->objectStore.constraintCount==1);
-    TEST_ASSERT(fabs(live()->objectStore.items[2].transform.position.x-3)<1e-5);
+    TEST_ASSERT(fabs(live()->objectStore.items[2].transform.position.x-3)<1e-5 && Global_IsLayoutDirty());
     TEST_ASSERT(InputEditorAction_Undo() && ui->measurement.active && ui->measurement.motion_preview);
     TEST_ASSERT(!strcmp(ui->measurement.observed_rule.id,"movement"));
+    TEST_ASSERT(state->editor.selectedObject3DId == live()->objectStore.items[1].objectId && !Global_IsLayoutDirty());
     double current;TEST_ASSERT(UIPanel_TravelParse(ui->measurement.travel_text[2],false,&current) && fabs(current-1)<1e-5);
     TEST_ASSERT(InputEditorAction_Redo() && UIPanel_TravelParse(ui->measurement.travel_text[2],false,&current) && fabs(current-3)<1e-5);
-    TEST_ASSERT(InputEditorAction_Undo());
+    TEST_ASSERT(state->editor.selectedObject3DId == live()->objectStore.items[1].objectId && Global_IsLayoutDirty());
+    Global_OnLayoutSaved(NULL);
+    TEST_ASSERT(InputEditorAction_Undo() && Global_IsLayoutDirty());
+    TEST_ASSERT(InputEditorAction_Redo() && !Global_IsLayoutDirty());
+    TEST_ASSERT(InputEditorAction_Undo() && Global_IsLayoutDirty());
     state->editor.selectedObject3DId=live()->objectStore.items[2].objectId;UIPanel_LayoutMeasurementPane();
     TEST_ASSERT(!strcmp(ui->measurement.motion_entity,"peer") && ui->measurement.constraint_index==0);
     TEST_ASSERT(UIPanel_BeginEntityMotion("assembly_2") && ui->measurement.constraint_index==0);
@@ -507,6 +512,19 @@ static bool test_selected_saved_motion_and_history(void) {
     TEST_ASSERT(measure_click(MEASURE_EDIT_MOTION) && !UIPanel_MeasurementControlRect(MEASURE_TRAVEL_MIN,&field));
     ld_test_shutdown_runtime();return true;
 }
+static bool test_history_selection_clears_when_entity_is_absent(void) {
+    ld_test_init_runtime();
+    TEST_ASSERT(rig(false));
+    Editor_HistoryCapture(&Global_Get()->editor, live());
+    uint32_t id = part("new_selection", (Vec3){5, 0, 0}, .2f, .2f, .2f);
+    TEST_ASSERT(id);
+    Global_Get()->editor.selectedObject3DId = id;
+    TEST_ASSERT(Editor_Undo(&Global_Get()->editor, live()));
+    TEST_ASSERT(Global_Get()->editor.selectedObject3DId == 0);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_selected_saved_hinge(void) {
     ld_test_init_runtime(); TEST_ASSERT(group_rig(true));
     Global_SetWindowSize(1200,1000);UIPanel_OnWindowResized(1200,1000);
@@ -522,6 +540,7 @@ static bool test_selected_saved_hinge(void) {
 bool motion_run_tests(void) {
     const TestCase tests[]={
         {"selected_saved_motion_history",test_selected_saved_motion_and_history},
+        {"history_selection_absent",test_history_selection_clears_when_entity_is_absent},
         {"selected_saved_hinge",test_selected_saved_hinge},
         {"travel_atomic_sample_history_obstruction",test_travel_samples_undo_and_static_clear_motion_hit},
         {"hinge_dense_intermediate_coverage_offsets",test_hinge_dense_intermediate_coverage_and_offsets},
