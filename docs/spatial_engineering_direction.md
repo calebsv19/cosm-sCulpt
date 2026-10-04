@@ -18,8 +18,10 @@ S4 now adds explicit rigid assembly scope to saved Travel/Hinge, whole-group
 conservative overview envelopes, member-interval checks and read-only pose previews.
 Check full range performs bounded adaptive separation/failure analysis between
 samples, keeping unresolved intervals explicit. See [motion envelopes](motion_envelopes.md).
-Next is a bounded van workflow audit using illustrative assemblies, service spaces
-and motion checks, followed by S5 routing corridors/cable paths. Independent
+The illustrative van workflow audit now exercises assemblies, service spaces and
+motion checks; see [the walkthrough](illustrative_van_workflow.md). Its Z-up screen
+projection/picking and readability gaps are the next gate before S5 routing
+corridors/cable paths. Independent
 constrained followers, arbitrary moving sets, meshes and multiple joints remain
 separate contracts. Broader snapping and
 reusable datums remain extensions. User acceptance remains separate from regression

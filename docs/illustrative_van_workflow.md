@@ -15,8 +15,11 @@ The tracked starting point is
 [illustrative_van.layout.json](../config/examples/illustrative_van.layout.json).
 Keep it pristine; save a separate working copy outside the checkout. This audit
 created `van_starting_example.layout.json` and editable `van_working.layout.json`
-in `<workspace>/_private_workspace_artifacts/van_workflow/`. The generator refuses
-an existing destination; it never refreshes or replaces a user's working file.
+in `~/Library/Application Support/LineDrawing-Main-Edit/projects/van_workflow/`.
+This project directory is outside the replaceable package/runtime payload. The
+original Desktop workspace copies are preserved, but the open editor uses this
+Application Support working copy. The generator refuses an existing destination;
+it never refreshes or replaces a user's working file.
 
 ```sh
 make agent_scene_tool
@@ -40,12 +43,15 @@ illustrative`; generated envelopes retain their source-rule provenance.
 
 1. Open the working layout using **File → Load Layout**. Select **Measure → Units
    → mm**. Select a named view, then **View → Fit scene**. Fit changes the camera
-   and zoom only; it uses visible geometry and does not add an undo entry.
+   and zoom only; it uses visible geometry and does not add an undo entry. Display
+   units and view selection currently reset on relaunch; select mm again if needed.
 2. In **Measure → Saved constraints**, choose `bed_lift`. It selects Travel,
    Z direction, limits **900–1600 mm** and **Moves: Lift bed**. Drag the slider,
    or use Min/Max/Reset. The deck, mattress and two rails move together. Use a
    side or free view to see the height change; Top hides Z movement. One slider
-   gesture is one undo step. Undo clears the active measurement form; reselect
+   gesture is one undo step. The present projection displays increasing Z downward
+   in side/free views, despite the stored Z-up frame; this is an audit gap awaiting
+   a coordinated projection/picking repair. Undo clears the active measurement form; reselect
    the saved rule. Save after restoring the starting position if Dirty remains.
 3. Choose `water_door_hinge`. The saved **0–90°** motion moves the nested Cabinet
    door assembly, including its handle, around the hinge reference. Reset returns
@@ -99,13 +105,31 @@ checks deterministic regeneration against the tracked starting file, read-only
 checking, conflicting operation refusal and preservation of an existing edited
 file. Viewport mouse regression checks scene fit, physical zoom, visibility,
 free-camera centering and unchanged document/history. The host suite passes.
-Desktop interaction and packaging readback are recorded separately at closeout;
-passing tests alone do not establish user acceptance.
+The installed Main Edit was exercised with mouse controls: Fit in top/free views,
+mm display, bed slider and undo, saved assembly scope, support links, water filtering
+(10 of 38 shown) and Show all, spatial findings/full-range read-only bed preview,
+and door Max at 90 degrees followed by undo/save. The restored working copy is
+Saved. The host suite passes 488 tests in 47 reported suites; example and existing
+producer smoke checks pass. These checks do not establish user acceptance.
 
 The initial real workflow exposed an overly restrictive legacy zoom cap: with a
 100 mm grid, the van could remain tiny. **Fit scene** and a physical zoom ceiling
 now make meter-based geometry navigable. Scene fit is explicit, not automatic.
-Narrow selectors still clip long names; automatic/saved warnings need grouping.
+The audit also found these usability gaps:
+
+- **Z-up screen convention:** increasing world Z currently projects downward in
+  side/free views. Repair forward projection, inverse picking and navigation
+  together, with tests preserving old 2D behavior and physical document values.
+- **Readability:** narrow selectors clip names, the assembly chooser says
+  "Choose object," overview labels overlap, and automatic/saved warnings repeat.
+- **Session continuity:** mm/view choices reset after relaunch; undo clears the
+  active measurement form and requires reselecting a saved rule.
+- **Startup browser I/O:** scanning a protected Desktop root can block startup
+  before a window appears when macOS no longer recognizes a rebuilt app's folder
+  permission. This project now lives in the app's own Application Support area;
+  no macOS permissions were changed. Defer browser I/O until the window is ready
+  and expose failures visibly in a subsequent lifecycle repair.
+
 The teaching model does not validate materials, load capacity, manufacturing
 clearances, whole-van occupancy, electrical compatibility or real measurements.
 Independent moving followers, imported moving meshes and simultaneous joints
@@ -113,8 +137,10 @@ remain outside the bounded motion contract.
 
 ## Next implementation boundary: S5
 
-First retain this document as a repeatable acceptance project and refine the
-selector/check-result readability. Then implement S5 as small UI-first slices:
+Retain this document as a repeatable acceptance project. First repair the Z-up
+viewport/picking convention and refine selector/check-result readability, then
+persist useful view preferences. These are usability gates before expanding the
+workflow. Implement S5 as small UI-first slices:
 
 1. **Route contract and editing:** stable route IDs, source/destination entity
    references, ordered physical points, numeric coordinates, visible picking,

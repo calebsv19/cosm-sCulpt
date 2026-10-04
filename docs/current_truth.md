@@ -15,8 +15,18 @@ request fields and schema 19 are unchanged.
 navigation with small engineering grid steps. It changes no geometry or history.
 Native regeneration/persistence/exercise checks and mouse navigation regression
 pass. See [van walkthrough and audit](illustrative_van_workflow.md) for expected
-findings, repairs and limitations. Desktop interaction remains a separate gate.
-Next is readability refinement, then bounded S5 route editing/corridors/checks.
+findings, repairs and limitations. Installed mouse interaction verified Fit, mm
+display, bed/door assembly motion with undo/save, links/filtering and read-only
+full-range findings. 488 tests / 47 reported suites and both smoke lanes pass.
+User acceptance remains separate. The open Saved project lives under Main Edit
+Application Support/projects/van_workflow, outside the replaceable runtime.
+
+The audit found increasing Z projects downward in side/free views despite the
+correct stored Z-up frame. A coordinated projection/picking/navigation repair
+comes before S5. Clipped selectors, overlapping labels, repeated findings and
+relaunch preference loss also remain. See the walkthrough for the protected-folder
+startup stall and safe app-owned project location. Next: viewport/readability
+refinement, then bounded S5 route editing/corridors/checks.
 
 ## S4 interval coverage and full-range inspection (2026-10-03)
 
