@@ -18,3 +18,6 @@ bool LineDrawingViewportZoom_Apply(GlobalState* state,
                                    float zoomFactor,
                                    float anchorScreenX,
                                    float anchorScreenY);
+
+/* Camera/grid only; fits visible geometry and graph anchors with padding. */
+bool LineDrawingViewportZoom_FitVisibleGeometry(GlobalState* state);

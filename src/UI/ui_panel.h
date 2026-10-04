@@ -80,6 +80,7 @@ typedef struct {
 #define UI_BTN_OUTPUT_ROOT_FOLDER 8
 #define UI_BTN_FILE_BROWSER_USE_ACTIVE 9
 
+#define UI_BTN_FIT_SCENE 99
 #define UI_BTN_RESET_ORIGIN 10
 #define UI_BTN_ZOOM_IN 11
 #define UI_BTN_ZOOM_OUT 12

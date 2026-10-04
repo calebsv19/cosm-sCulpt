@@ -1,6 +1,23 @@
 # Sculpt Current Truth
 
 
+## Illustrative van acceptance project (2026-10-03)
+
+A deterministic native example now composes 38 objects, eight assemblies, seven
+links, four geometric rules, three saved spatial checks and two motion envelopes.
+The model is explicitly illustrative, using meters/right-handed Z-up with a
+separate user working copy. It exercises bed assembly lift, nested door hinge,
+maintained height/angle, reference geometry, walkway/service space and deliberate
+obstruction checks. Generation refuses existing destinations; generic agent
+request fields and schema 19 are unchanged.
+
+**View → Fit scene** now frames visible geometry, and physical zoom permits useful
+navigation with small engineering grid steps. It changes no geometry or history.
+Native regeneration/persistence/exercise checks and mouse navigation regression
+pass. See [van walkthrough and audit](illustrative_van_workflow.md) for expected
+findings, repairs and limitations. Desktop interaction remains a separate gate.
+Next is readability refinement, then bounded S5 route editing/corridors/checks.
+
 ## S4 interval coverage and full-range inspection (2026-10-03)
 
 Measure now has **Moves: B only / assembly** below the existing movement controls.

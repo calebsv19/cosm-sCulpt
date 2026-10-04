@@ -26,6 +26,9 @@ scene-pipeline-smoke:
 agent-scene-smoke: agent_scene_tool
 	@bash ./tests/test_agent_scene_tool.sh
 
+illustrative-van-smoke: agent_scene_tool
+	@python3 ./tests/test_illustrative_van.py $(AGENT_SCENE_TOOL_BIN)
+
 agent-scene-failure-smoke: agent_scene_tool
 	@bash ./tests/test_agent_scene_tool.sh failures
 

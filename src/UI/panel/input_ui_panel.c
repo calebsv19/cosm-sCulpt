@@ -324,6 +324,10 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
 
 
 		// ───RIGHT PANEL ACTIONS  ─────────────────────
+                case UI_BTN_FIT_SCENE:
+                    UIPanel_CloseFileBrowser(ui);
+                    (void)LineDrawingViewportZoom_FitVisibleGeometry(state);
+                    break;
                 case UI_BTN_RESET_ORIGIN: { // Reset Origin
                     UIPanel_CloseFileBrowser(ui);
                     int sel = editor->selectedAnchorIndex;

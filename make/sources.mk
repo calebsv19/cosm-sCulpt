@@ -110,6 +110,7 @@ SHAPE_PACK_TOOL_SRCS := \
 
 AGENT_SCENE_TOOL_SRCS := \
 	$(TOOLS_DIR)/agent_scene_tool.c \
+	$(TOOLS_DIR)/illustrative_van.c \
 	$(TOOLS_DIR)/agent_scene_material_flow.c \
 	$(TOOLS_DIR)/canonical_scene_export.c \
 	$(TOOLS_DIR)/canonical_scene_export_authoring.c \

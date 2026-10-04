@@ -124,6 +124,7 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
         case UI_BTN_CREATE_CATEGORY_LIGHTING: spec = (UIPanelRightControlRowSpec){ 1, 3, 2 }; break;
         case UI_BTN_CREATE_CATEGORY_MATERIALS: spec = (UIPanelRightControlRowSpec){ 2, 2, 0 }; break;
         case UI_BTN_CREATE_CATEGORY_CONSTRUCTION: spec = (UIPanelRightControlRowSpec){ 2, 2, 1 }; break;
+        case UI_BTN_FIT_SCENE: spec = (UIPanelRightControlRowSpec){ 3, 1, 0 }; break;
         case UI_BTN_RESET_ORIGIN: spec = (UIPanelRightControlRowSpec){ 1, 3, 0 }; break;
         case UI_BTN_ZOOM_IN: spec = (UIPanelRightControlRowSpec){ 1, 3, 1 }; break;
         case UI_BTN_ZOOM_OUT: spec = (UIPanelRightControlRowSpec){ 1, 3, 2 }; break;

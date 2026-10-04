@@ -7,6 +7,10 @@ selection/dragging, JSON persistence, a menu-first host shell, a tabbed editor
 shell, scene export, reusable object authoring, and imported/runtime mesh asset
 workflows.
 
+The [illustrative van workflow](docs/illustrative_van_workflow.md) combines the
+physical layout, semantic assemblies, relationships and movement checks into a
+saved teaching project. All vehicle dimensions are placeholders.
+
 ## Docs
 - docs index: `docs/README.md`
 - current state: `docs/current_truth.md`

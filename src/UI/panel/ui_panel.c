@@ -853,6 +853,8 @@ void UIPanel_Init(int screenW, int screenH) {
 
     int xR = screenW - rightBtnW - padding;
     int yR = topOffset;
+    AddButton(&g_uiPanel, "Fit scene", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_FIT_SCENE);
+    yR += btnH + spacing;
     AddButton(&g_uiPanel, "O", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_RESET_ORIGIN);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "+", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_ZOOM_IN);

@@ -25,6 +25,11 @@ separate contracts. Broader snapping and
 reusable datums remain extensions. User acceptance remains separate from regression
 and rendered-UI proof.
 
+The [illustrative van audit](illustrative_van_workflow.md) now supplies the stable
+S0–S4 acceptance project. Next: improve clipped selectors/repeated findings, then
+S5 route identity/points/endpoints/length with visible editing and undo, named
+corridors and reserved-space checks. Real vehicle measurements remain pending.
+
 Last updated: 2026-10-03
 
 ## Spatial Engineering Priority

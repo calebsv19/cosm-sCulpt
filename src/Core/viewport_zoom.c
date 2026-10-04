@@ -1,6 +1,7 @@
 #include "Core/viewport_zoom.h"
 
 #include "Core/global_state.h"
+#include "Layout/layout_engineering.h"
 #include "Core/line_drawing_pane_host.h"
 #include "Core/viewport3d_bridge.h"
 #include "Core/viewport_navigation_contract.h"
@@ -30,6 +31,82 @@ static bool LineDrawingViewportZoom_GetCenterViewport(const GlobalState* state,
                                    (float)state->screenWidth,
                                    (float)state->screenHeight};
     return out_viewport->width > 1.0f && out_viewport->height > 1.0f;
+}
+
+/* Keep engineering zoom meaningful when grid cells are fractions of a meter.
+ * The legacy cap remains a floor; physical display density is independent of cells. */
+static float LineDrawingViewportZoom_MaxScale(const GlobalState* state) {
+    double size = state->grid.gridSize, meters = Layout_WorldScale(&state->layout);
+    if (!isfinite(size) || size <= 0 || !isfinite(meters) || meters <= 0) return GRID_DEFAULT_MAX_SCALE;
+    return (float)fmin(FLT_MAX, fmax(GRID_DEFAULT_MAX_SCALE, 10000 * meters / size));
+}
+
+bool LineDrawingViewportZoom_FitVisibleGeometry(GlobalState* state) {
+    CorePaneRect viewport;
+    if (!state || !LineDrawingViewportZoom_GetCenterViewport(state, &viewport) ||
+        !isfinite(state->grid.gridSize) || state->grid.gridSize <= 0)
+        return false;
+    bool found = false;
+    Vec3 min = {0}, max = {0};
+    for (size_t i = 0; i < state->layout.objectStore.count; ++i) {
+        const Object3D* o = &state->layout.objectStore.items[i];
+        Vec3 low, high;
+        if (!Layout_ObjectShown(&state->layout.objectStore, o) ||
+            !Layout_Object3D_ComputeWorldAABB(o, &low, &high))
+            continue;
+        if (!found) {
+            min = low;
+            max = high;
+            found = true;
+        } else {
+            min = (Vec3){fminf(min.x, low.x), fminf(min.y, low.y), fminf(min.z, low.z)};
+            max = (Vec3){fmaxf(max.x, high.x), fmaxf(max.y, high.y), fmaxf(max.z, high.z)};
+        }
+    }
+    for (size_t i = 0; i < state->layout.anchorCount; ++i) {
+        const Anchor* a = &state->layout.anchors[i];
+        if (a->isDeleted)
+            continue;
+        if (!found) {
+            min = max = a->pos;
+            found = true;
+        } else {
+            min = (Vec3){fminf(min.x, a->pos.x), fminf(min.y, a->pos.y), fminf(min.z, a->pos.z)};
+            max = (Vec3){fmaxf(max.x, a->pos.x), fmaxf(max.y, a->pos.y), fmaxf(max.z, a->pos.z)};
+        }
+    }
+    if (!found)
+        return false;
+    SpaceViewContext view = SpaceAdapter_BuildViewContext(state);
+    if (SpaceAdapter_IsFreeViewEnabled(&view))
+        view.camera.target =
+            (Vec3){min.x * .5f + max.x * .5f, min.y * .5f + max.y * .5f, min.z * .5f + max.z * .5f};
+    double x0 = DBL_MAX, y0 = DBL_MAX, x1 = -DBL_MAX, y1 = -DBL_MAX;
+    for (int i = 0; i < 8; ++i) {
+        Vec2 p = SpaceAdapter_ProjectToView(
+            (Vec3){i & 1 ? max.x : min.x, i & 2 ? max.y : min.y, i & 4 ? max.z : min.z}, &view);
+        if (!isfinite(p.x) || !isfinite(p.y))
+            return false;
+        x0 = fmin(x0, p.x);
+        x1 = fmax(x1, p.x);
+        y0 = fmin(y0, p.y);
+        y1 = fmax(y1, p.y);
+    }
+    double pixels = .84 * fmin(viewport.width / fmax(x1 - x0, .001), viewport.height / fmax(y1 - y0, .001));
+    double scale = fmin(LineDrawingViewportZoom_MaxScale(state), fmax(.01, pixels / state->grid.gridSize));
+    pixels = scale * state->grid.gridSize;
+    double dx = (x0 + x1) * .5 - (viewport.x + viewport.width * .5) / pixels;
+    double dy = (y0 + y1) * .5 - (viewport.y + viewport.height * .5) / pixels;
+    if (!isfinite(scale) || !isfinite(dx) || !isfinite(dy) || fabs(dx) > FLT_MAX || fabs(dy) > FLT_MAX)
+        return false;
+    state->grid.scale = (float)scale;
+    state->grid.offsetX = (float)dx;
+    state->grid.offsetY = (float)dy;
+    if (SpaceAdapter_IsFreeViewEnabled(&view))
+        state->freeViewCamera.target = view.camera.target;
+    Global_FlagGridChanged();
+    Global_FlagHitboxesDirty();
+    return true;
 }
 
 float LineDrawingViewportZoom_MinScaleForSceneBounds(const SceneBounds3D* bounds,
@@ -133,7 +210,7 @@ bool LineDrawingViewportZoom_Apply(GlobalState* state,
                                               center_x,
                                               center_y,
                                               (double)minScale,
-                                              (double)GRID_DEFAULT_MAX_SCALE,
+                                              (double)LineDrawingViewportZoom_MaxScale(state),
                                               &shared_command,
                                               &next_camera,
                                               &next_grid)) return false;
@@ -157,7 +234,7 @@ bool LineDrawingViewportZoom_Apply(GlobalState* state,
         .anchor_screen_y = anchorScreenY,
         .grid_size = state->grid.gridSize,
         .min_zoom_scale = minScale,
-        .max_zoom_scale = GRID_DEFAULT_MAX_SCALE
+        .max_zoom_scale = LineDrawingViewportZoom_MaxScale(state)
     };
     if (!LineDrawingViewportNavApply(&before, &command, &after)) return false;
     if (after.zoom_scale == before.zoom_scale &&
