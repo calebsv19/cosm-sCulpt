@@ -3,6 +3,7 @@
 #include "input_keyboard.h"
 #include "input_editor_actions.h"
 #include "Core/global_state.h"
+#include "Input/input_viewport_navigation.h"
 #include "Core/line_drawing_pane_host.h"
 #include "Core/viewport_zoom.h"
 #include "Editor/editor.h"
@@ -176,6 +177,14 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
         bool primaryModifier = (mods & (KMOD_CTRL | KMOD_GUI)) != 0;
 
         if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
+            if (state && (state->editor.viewportTool != VIEWPORT_TOOL_SELECT ||
+                          state->editor.mode == TOOL_PLACING_WALL)) {
+                state->editor.viewportTool = VIEWPORT_TOOL_SELECT;
+                state->editor.mode = TOOL_IDLE;
+                InputViewportNavigation_ResetGesture();
+                Global_FlagHitboxesDirty();
+                return;
+            }
             if (Input_CancelObjectFaceAuthoring(state)) {
                 return;
             }
@@ -540,6 +549,7 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
                     return;
                 }
             }
+            if (InputEditorAction_DeleteLegacySelection()) return;
             bool hasWall = state->editor.selectedWallIndex >= 0;
             bool hasAnchor = state->editor.selectedAnchorIndex >= 0;
             bool hasObject = state->editor.selectedObject3DId != 0u;

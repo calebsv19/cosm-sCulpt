@@ -14,6 +14,9 @@ float LineDrawingViewportZoom_MinScaleForSceneBounds(const SceneBounds3D* bounds
                                                      float viewportHeight,
                                                      float gridSize);
 
+/* Shared by zoom, camera gestures, framing and resize; grid scale is physical. */
+float LineDrawingViewportZoom_MaxScale(const GlobalState* state);
+
 bool LineDrawingViewportZoom_Apply(GlobalState* state,
                                    float zoomFactor,
                                    float anchorScreenX,

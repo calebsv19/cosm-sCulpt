@@ -4,6 +4,7 @@
 #include "Core/line_drawing_pane_host.h"
 #include "Core/space_mode_adapter.h"
 #include "Core/viewport3d_bridge.h"
+#include "Core/viewport_zoom.h"
 #include "Core/viewport_navigation_contract.h"
 #include "Editor/editor.h"
 #include "Layout/layout.h"
@@ -130,7 +131,7 @@ static bool InputEditorAction_ResolveFreeViewFitScale(GlobalState* state,
         const float span_y = max_y - min_y;
         const float usable_w = viewport.width * 0.84f;
         const float usable_h = viewport.height * 0.84f;
-        float fit_scale = GRID_DEFAULT_MAX_SCALE;
+        float fit_scale = LineDrawingViewportZoom_MaxScale(state);
         if (span_x > 0.0001f) {
             fit_scale = fminf(fit_scale, usable_w / (state->grid.gridSize * span_x));
         }
@@ -139,7 +140,8 @@ static bool InputEditorAction_ResolveFreeViewFitScale(GlobalState* state,
         }
         if (!isfinite(fit_scale) || fit_scale <= 0.0f) return false;
         if (fit_scale < 0.01f) fit_scale = 0.01f;
-        if (fit_scale > GRID_DEFAULT_MAX_SCALE) fit_scale = GRID_DEFAULT_MAX_SCALE;
+        if (fit_scale > LineDrawingViewportZoom_MaxScale(state))
+            fit_scale = LineDrawingViewportZoom_MaxScale(state);
         *out_scale = fit_scale;
     }
     return true;
@@ -183,7 +185,7 @@ static bool InputEditorAction_FrameFreeViewCamera(GlobalState* state) {
             (double)viewport.x + (double)viewport.width * 0.5,
             (double)viewport.y + (double)viewport.height * 0.5,
             0.01,
-            (double)GRID_DEFAULT_MAX_SCALE,
+            (double)LineDrawingViewportZoom_MaxScale(state),
             &command,
             &next_camera,
             &next_grid)) return false;
@@ -322,6 +324,38 @@ bool InputEditorAction_Redo(void) {
     GlobalState* state = Global_Get();
     if (!state) return false;
     if (!Editor_Redo(&state->editor, &state->layout)) return false;
+    Global_FlagHitboxesDirty();
+    return true;
+}
+
+/* Legacy points/lines share the visible Delete selected action and undo history. */
+bool InputEditorAction_DeleteLegacySelection(void) {
+    GlobalState* state = Global_Get();
+    if (!state) return false;
+    EditorState* editor = &state->editor;
+    Layout* layout = &state->layout;
+    int wall = editor->selectedWallIndex;
+    bool has_wall = wall >= 0 && (size_t)wall < layout->wallCount &&
+                    !layout->walls[wall].isDeleted;
+    bool has_anchor = false;
+    for (size_t i = 0; i < layout->anchorCount; ++i) {
+        if (!layout->anchors[i].isDeleted && Editor_IsAnchorSelected(editor, (int)i)) {
+            has_anchor = true;
+            break;
+        }
+    }
+    if (!has_wall && !has_anchor) return false;
+    Editor_HistoryCapture(editor, layout);
+    if (has_wall) Layout_RemoveWall(layout, wall);
+    for (size_t i = 0; i < layout->anchorCount; ++i) {
+        if (!layout->anchors[i].isDeleted && Editor_IsAnchorSelected(editor, (int)i))
+            Layout_RemoveAnchor(layout, (int)i);
+    }
+    editor->selectedWallIndex = -1;
+    Editor_ClearAnchorSelection(editor);
+    editor->selectedHandleAnchor = -1;
+    editor->selectedHandleComponent = -1;
+    editor->mode = TOOL_IDLE;
     Global_FlagHitboxesDirty();
     return true;
 }

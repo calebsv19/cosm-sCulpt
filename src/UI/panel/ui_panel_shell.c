@@ -40,7 +40,19 @@ void UIPanel_SetActiveLeftTab(UIPanelState* ui, UIPanelLeftTab tab) {
 void UIPanel_SetActiveRightTab(UIPanelState* ui, UIPanelRightTab tab) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     if (!ui || !UIPanel_IsValidRightTab(tab)) return;
-    if (ui->activeRightTab != tab) { UIPanel_MeasurementStopInput(); UIPanel_PartsStopInput(); }
+    if (ui->activeRightTab != tab) {
+        UIPanel_MeasurementStopInput();
+        UIPanel_PartsStopInput();
+        GlobalState* state = Global_Get();
+        if (state && state->editor.viewportTool == VIEWPORT_TOOL_LINE) {
+            state->editor.viewportTool = VIEWPORT_TOOL_SELECT;
+            state->editor.mode = TOOL_IDLE;
+        }
+        if (state && tab != UI_PANEL_RIGHT_TAB_VIEW &&
+            (state->editor.viewportTool == VIEWPORT_TOOL_ORBIT ||
+             state->editor.viewportTool == VIEWPORT_TOOL_PAN))
+            state->editor.viewportTool = VIEWPORT_TOOL_SELECT;
+    }
     ui->measurement.active = tab == UI_PANEL_RIGHT_TAB_MEASURE;
     ui->activeRightTab = tab;
     if (object_mode) {

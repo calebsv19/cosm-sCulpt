@@ -895,7 +895,7 @@ void HitboxSystem_Rebuild(const Layout* layout,
                    wallDepth);
 
         // ── Anchor points hitboxes (large circular area) ──
-        int r = (int)(gridSize * scale * 0.15f);
+        const int r = 10; /* Pixel-sized pick target, independent of physical units. */
 
         int anchorIDs[2] = { a, b };
         for (int j = 0; j < 2; ++j) {
@@ -923,7 +923,7 @@ void HitboxSystem_Rebuild(const Layout* layout,
             if (anchor->isDeleted) continue;
 
             Vec2 pt = Vec3_ProjectToView(anchor->pos, plane, camera);
-            int r = (int)(gridSize * scale * 0.15f);
+            const int r = 10; /* Pixel-sized pick target, independent of physical units. */
             int cx = (int)((pt.x - offsetX) * gridSize * scale);
             int cy = (int)((pt.y - offsetY) * gridSize * scale);
 

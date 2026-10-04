@@ -11,6 +11,8 @@
 
 #include "Core/global_state.h"
 #include "Core/viewport_zoom.h"
+#include "Input/input_editor_actions.h"
+#include "Input/input_viewport_navigation.h"
 
 #include "Layout/layout_origin.h"
 #include "Layout/Grid/grid.h"
@@ -224,6 +226,16 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 ui->loadMenu.lastModeButtonClickTicks = 0u;
             }
 
+            /* Choosing another creation tool releases an unfinished line preview. */
+            if ((btn->group == UI_PANEL_GROUP_RIGHT_PRIMITIVES ||
+                 btn->group == UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES ||
+                 btn->group == UI_PANEL_GROUP_RIGHT_OPERATIONS) &&
+                btn->id != UI_BTN_DRAW_LINE && btn->id != UI_BTN_STOP_DRAWING) {
+                editor->viewportTool = VIEWPORT_TOOL_SELECT;
+                editor->mode = TOOL_IDLE;
+                InputViewportNavigation_ResetGesture();
+            }
+
             switch (btn->id) {
 		    // ─── LEFT PANEL ACTIONS ─────────────────────
                 case UI_BTN_SAVE_JSON: {
@@ -289,7 +301,8 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 }
                 case UI_BTN_SCENE_DELETE_SELECTED: {
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_SceneListDeleteSelectedObject();
+                    if (!InputEditorAction_DeleteLegacySelection())
+                        (void)UIPanel_SceneListDeleteSelectedObject();
                     break;
                 }
 
@@ -350,6 +363,25 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                     }
                     break;
                 }
+                case UI_BTN_VIEW_SELECT:
+                case UI_BTN_VIEW_ORBIT:
+                case UI_BTN_VIEW_PAN:
+                case UI_BTN_DRAW_LINE:
+                case UI_BTN_STOP_DRAWING:
+                    editor->mode = TOOL_IDLE;
+                    editor->primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_NONE;
+                    ui->pathPointPlacementArmed = false;
+                    InputViewportNavigation_ResetGesture();
+                    editor->viewportTool = btn->id == UI_BTN_VIEW_ORBIT ? VIEWPORT_TOOL_ORBIT :
+                                           btn->id == UI_BTN_VIEW_PAN ? VIEWPORT_TOOL_PAN :
+                                           btn->id == UI_BTN_DRAW_LINE ? VIEWPORT_TOOL_LINE :
+                                           VIEWPORT_TOOL_SELECT;
+                    if (editor->viewportTool == VIEWPORT_TOOL_ORBIT) {
+                        (void)Global_SetSpaceMode(SPACE_MODE_3D, false);
+                        state->freeViewCamera.enabled = true;
+                    }
+                    Global_FlagHitboxesDirty();
+                    break;
                 case UI_BTN_ZOOM_OUT: { // Zoom Out
                     UIPanel_CloseFileBrowser(ui);
                     float centerX = (float)state->screenWidth * 0.5f;
@@ -656,7 +688,8 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 }
                 case UI_BTN_OBJECT_DELETE_SELECTED: {
                     UIPanel_CloseFileBrowser(ui);
-                    (void)UIPanel_SceneListDeleteSelectedObject();
+                    if (!InputEditorAction_DeleteLegacySelection())
+                        (void)UIPanel_SceneListDeleteSelectedObject();
                     break;
                 }
                 case UI_BTN_TOGGLE_OBJECT_GIZMO_MODE: { // Toggle object gizmo move/rotate mode

@@ -1,3 +1,4 @@
+#include "Core/viewport_zoom.h"
 #include "Layout/layout_constraints.h"
 // src/Core/global_state.c
 #include "Core/global_state.h"
@@ -660,7 +661,7 @@ void Global_SetWindowSize(int w, int h) {
                 (double)new_viewport.x + (double)new_viewport.width * 0.5,
                 (double)new_viewport.y + (double)new_viewport.height * 0.5,
                 0.01,
-                (double)GRID_DEFAULT_MAX_SCALE,
+                (double)LineDrawingViewportZoom_MaxScale(global),
                 &resized_camera,
                 &resized_grid)) {
             global->freeViewCamera = resized_camera;

@@ -13,6 +13,14 @@ typedef enum {
     DELETE_MODE_AUTO_PRUNE // Also delete orphan anchors when wall is removed
 } DeleteMode;
 
+/* Transient viewport intent. Opening a document always starts in Select. */
+typedef enum {
+    VIEWPORT_TOOL_SELECT = 0,
+    VIEWPORT_TOOL_ORBIT,
+    VIEWPORT_TOOL_PAN,
+    VIEWPORT_TOOL_LINE
+} ViewportTool;
+
 typedef enum {
     TOOL_IDLE,
     TOOL_PLACING_WALL
@@ -73,6 +81,7 @@ typedef struct {
 
 typedef struct {
     ToolMode mode;
+    ViewportTool viewportTool;
     Vec3 anchor;        // Starting point for wall placement
     bool shiftHeld;     // Whether shift-lock is enabled
 

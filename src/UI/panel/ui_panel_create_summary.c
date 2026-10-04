@@ -403,6 +403,9 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
              "Tool  %s",
              (active_preview == PRIMITIVE_PLACEMENT_PREVIEW_PLANE) ? "Plane staging" :
              (active_preview == PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM) ? "Prism staging" :
+             state->editor.viewportTool == VIEWPORT_TOOL_LINE ?
+                 (state->editor.mode == TOOL_PLACING_WALL ? "Click endpoint; Stop to cancel" :
+                                                          "Draw line: click start point") :
              "Ready to stage");
     snprintf(summary_stage,
              sizeof(summary_stage),

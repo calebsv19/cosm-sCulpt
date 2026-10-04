@@ -39,6 +39,33 @@ geometric constraints, three saved spatial checks and two motion envelopes.
 Reference objects and authored assembly members carry `dimensions_status =
 illustrative`; generated envelopes retain their source-rule provenance.
 
+## Navigation and legacy lines
+
+The viewport starts in **Select**. Ordinary selection and secondary clicks do not
+create points or lines. Existing line/anchor documents remain supported.
+
+- **View → Orbit**: drag with the left mouse button to rotate in 3D. It enters
+  Free view. **Option + left drag** also orbits, including when starting over
+  a point, handle or object; engineering zoom uses the same physical ceiling as Fit.
+- **View → Pan**: left drag moves the view. Right/middle drag pans while selecting.
+  Scroll zooms and **Fit scene** frames visible geometry without changing history.
+- **View → Select**: return to object/point selection and editing.
+- **Create → Geometry → Draw line**: click two endpoints on the construction plane.
+  The first endpoint is a small preview, not a saved anchor. The second creates
+  one line with endpoints as a single undo step. **Stop drawing**, right click,
+  Escape or leaving Create cancels unfinished placement. Choosing a different
+  geometry creation tool also cancels it. Draw line stays active after completion
+  until stopped; it does not force a connection to the next line.
+- Select an existing point or line, then use the left **Delete selected** button
+  (or Delete). Deleting a point also removes its incident lines. Deleting just a
+  line follows the existing Safe/Auto prune policy. **Undo** restores the deletion.
+
+Camera intent is captured before geometry picking and retained until release.
+Orbit/Pan, cancellation and an unfinished endpoint do not change saved geometry.
+Dialogs and active authoring/geometry drags retain their existing input ownership.
+The toolbar uses existing pane/theme controls, and camera updates reuse the
+existing shared viewport bridge. Document schema, entity IDs and unit rules are unchanged.
+
 ## Mouse-driven walkthrough
 
 1. Open the working layout using **File → Load Layout**. Select **Measure → Units
@@ -109,13 +136,20 @@ The installed Main Edit was exercised with mouse controls: Fit in top/free views
 mm display, bed slider and undo, saved assembly scope, support links, water filtering
 (10 of 38 shown) and Show all, spatial findings/full-range read-only bed preview,
 and door Max at 90 degrees followed by undo/save. The restored working copy is
-Saved. The host suite passes 488 tests in 47 reported suites; example and existing
+Saved. The host suite passes 491 tests in 47 reported suites; example and existing
 producer smoke checks pass. These checks do not establish user acceptance.
 
 The initial real workflow exposed an overly restrictive legacy zoom cap: with a
 100 mm grid, the van could remain tiny. **Fit scene** and a physical zoom ceiling
 now make meter-based geometry navigable. Scene fit is explicit, not automatic.
-The audit also found these usability gaps:
+The follow-up native input audit verified visible Orbit/Pan drags, first-endpoint
+cancellation and right-click without adding anchors, walls or undo entries.
+Regression tests additionally cover Option-drag over a selected point and at
+physical zoom, explicit drawing/cancel/delete/undo, and unchanged serialized state.
+Point pick targets and the pending marker are pixel-sized. Hidden zero-sized
+controls no longer repaint section backgrounds over live Create controls.
+
+The audit also found these remaining usability gaps:
 
 - **Z-up screen convention:** increasing world Z currently projects downward in
   side/free views. Repair forward projection, inverse picking and navigation

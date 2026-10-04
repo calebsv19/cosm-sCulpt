@@ -202,6 +202,16 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
 
     {
         GlobalState* state = Global_Get();
+        if (state && state->editor.viewportTool == VIEWPORT_TOOL_LINE &&
+            state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_SCENE) {
+            SpaceViewContext view = SpaceAdapter_BuildViewContext(state);
+            Vec3 point = {0};
+            if (SpaceAdapter_ScreenToWorld(btn->x, btn->y, &state->grid, &view, true, &point)) {
+                Editor_ClickAt(&state->editor, point);
+                Global_FlagHitboxesDirty();
+            }
+            return;
+        }
         if (pane_lane == POINTER_PANE_CENTER &&
             state &&
             state->editor.primitivePlacementPreview != PRIMITIVE_PLACEMENT_PREVIEW_NONE) {
@@ -375,12 +385,6 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
                                                                       btn->y,
                                                                       true);
     Hitbox hit = pick.finalHit;
-    const SpaceViewContext orbit_view_ctx = SpaceAdapter_BuildViewContext(state);
-    const bool reserve_alt_orbit =
-        SpaceAdapter_IsFreeViewEnabled(&orbit_view_ctx) &&
-        (SDL_GetModState() & KMOD_ALT) != 0 &&
-        (hit.type == HITBOX_NONE || hit.type == HITBOX_OBJECT3D);
-
     bool clickedHandle = (hit.type == HITBOX_HANDLE);
     bool clickedGizmo = (hit.type == HITBOX_GIZMO_AXIS);
     bool clickedObjectGizmo = (hit.type == HITBOX_OBJECT3D_GIZMO_AXIS);
@@ -395,13 +399,6 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
                             hit.type == HITBOX_OBJECT_TOPOLOGY_EDGE);
     bool doubleClick = (!shiftSelect && btn->clicks >= 2);
     const bool object_mode = InputMouse_ObjectModeEnabled();
-
-    if (reserve_alt_orbit) {
-        draggingPan = false;
-        Global_FlagHitboxesDirty();
-        UpdateHover(btn->x, btn->y);
-        return;
-    }
 
     // Priority: anchor selection overrides wall
     if (hit.type == HITBOX_OBJECT_FACE_SKETCH_HANDLE ||
@@ -744,7 +741,7 @@ static void HandleLeftMouseDown(SDL_MouseButtonEvent* btn) {
 }
 
 
-// 		Right click: place wall (snap to grid)
+// 		Right click: cancel explicit line drawing; navigation owns pan gestures
 // ============================================================
 static void HandleRightMouseDown(SDL_MouseButtonEvent* btn) {
     if (UIPanel_IsCapturingKeyboard()) {
@@ -763,12 +760,12 @@ static void HandleRightMouseDown(SDL_MouseButtonEvent* btn) {
         UpdateHover(btn->x, btn->y);
         return;
     }
-    Grid* grid = &state->grid;
-    EditorState* editor = &state->editor;
-    SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
-    Vec3 world3 = {0};
-    if (!SpaceAdapter_ScreenToWorld(btn->x, btn->y, grid, &viewCtx, true, &world3)) return;
-    Editor_ClickAt(editor, world3);
+    /* A secondary click cancels line placement; it never creates geometry. */
+    if (state && state->editor.viewportTool == VIEWPORT_TOOL_LINE) {
+        state->editor.mode = TOOL_IDLE;
+        state->editor.viewportTool = VIEWPORT_TOOL_SELECT;
+        Global_FlagHitboxesDirty();
+    }
 }
 
 // 		Public interface

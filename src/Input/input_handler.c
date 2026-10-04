@@ -2,6 +2,7 @@
 // src/Input/input_handler.c
 #include "input_handler.h"
 #include "input_mouse.h"
+#include "Input/input_viewport_navigation.h"
 #include "input_keyboard.h"   // ← NEW
 #include "Core/global_state.h"
 #include "UI/ui_panel.h"
@@ -11,6 +12,12 @@
 //        Public input handler
 // ======================================
 void Input_Handle(AppContext *ctx, SDL_Event* event) {
+    if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST)
+        InputViewportNavigation_ResetGesture();
+    if ((event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) &&
+        InputViewportNavigation_HandleMouseButton(&event->button)) return;
+    if (event->type == SDL_MOUSEMOTION &&
+        InputViewportNavigation_HandleMouseMotion(&event->motion)) return;
     if (UIPanel_PartsEvent(event)) return;
     UIPanelState* panel=UIPanel_Get();
     if(UIPanel_TravelEvent(event))return;

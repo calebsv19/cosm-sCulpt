@@ -35,7 +35,8 @@ static bool LineDrawingViewportZoom_GetCenterViewport(const GlobalState* state,
 
 /* Keep engineering zoom meaningful when grid cells are fractions of a meter.
  * The legacy cap remains a floor; physical display density is independent of cells. */
-static float LineDrawingViewportZoom_MaxScale(const GlobalState* state) {
+float LineDrawingViewportZoom_MaxScale(const GlobalState* state) {
+    if (!state) return GRID_DEFAULT_MAX_SCALE;
     double size = state->grid.gridSize, meters = Layout_WorldScale(&state->layout);
     if (!isfinite(size) || size <= 0 || !isfinite(meters) || meters <= 0) return GRID_DEFAULT_MAX_SCALE;
     return (float)fmin(FLT_MAX, fmax(GRID_DEFAULT_MAX_SCALE, 10000 * meters / size));

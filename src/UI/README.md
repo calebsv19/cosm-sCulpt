@@ -45,8 +45,8 @@ The UI layer provides the editor-local button panel, quick file/scene pickers, a
 - Rendering runs `LineDrawingEditorTopbar_Render` for the top-pane menu/status bar, then the unified `Render_UIPanel(...)` shell pass, `UIPanel_RenderOverlays` for the clipped JSON/scene picker plus save/root modals, and the active-only Workspace Authoring overlay. The current shell keeps the existing actions but scopes them by tab:
   - left `Scene`: scene/selection summary card, expandable authored-object browser, scene-local clear/delete actions, and scene-bounds controls
   - left `File`: file/session summary, save/load/export/root-path controls, and a persistent JSON/scene browser
-  - right `View`: live view/editing summary plus origin/zoom/mode controls
-  - right `Create`: live construction summary plus primitive creation and construction-plane controls
+  - right `View`: live view/editing summary plus explicit Select/Orbit/Pan, origin/zoom/mode controls
+  - right `Create`: live construction summary plus explicit Draw line/Stop drawing, primitive creation and construction-plane controls
   - right `Object`: selected-object inspector plus plane/prism dimensions, gizmo mode, and transform controls
   - right `Edit`: object-mode Body / Face / Edge / Vertex selection-mode control and live topology target summary
 - In object workspace the same shell is intentionally re-labeled around CAD
@@ -180,3 +180,8 @@ The UI layer provides the editor-local button panel, quick file/scene pickers, a
       of replacing overflow with `...`
   Pane mode overlays the program; Font/Theme mode fills the viewport and previews runtime font/theme changes.
 - UI actions call back into the layout, grid, editor, object-authoring session, and tooling modules, keeping UI-specific logic out of the core systems while `Global_OnLayoutSaved/Loaded` and `Global_OnSceneLoaded` keep the dirty flag and source metadata in sync. In object workspace, primitive creation mirrors live layout bodies into the attached `ObjectAuthoringSession`, selects the created asset body, and clears scene-style resize handles so the evaluated topology overlay can emit vertex/edge hitboxes immediately. The link-handles button mirrors the `L` keyboard shortcut, the pin button mirrors `P`, `Fit B->Obj` routes through `Layout_FitSceneBounds3DToObject(...)`, scene import routes through `Tools/scene_import.c`, scene export routes through `Tools/scene_export.c`, and the overlay/marquee visuals ensure the user can see multi-selection and drag state even when the mouse is off-screen. Canonical scene export normalizes stored full-3D plane primitives into plane-locked scene contracts so older or object-workspace-authored platform planes can compile into scene bundles without changing the saved layout.
+
+Viewport tool buttons highlight the current transient input tool. The left Delete selected
+action includes legacy points/lines with undo. Zero-sized hidden controls do not
+repaint section chrome over visible Create buttons. See the van workflow for
+the navigation/drawing/cancellation contract.

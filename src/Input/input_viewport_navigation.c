@@ -4,13 +4,15 @@
 #include "Core/line_drawing_pane_host.h"
 #include "Core/space_mode_adapter.h"
 #include "Core/viewport3d_bridge.h"
+#include "Core/viewport_zoom.h"
 #include "Core/viewport_navigation_contract.h"
 #include "Input/input_mouse_drag_shared.h"
 #include "Input/input_mouse_internal.h"
 #include "UI/ui_panel.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
 
-static bool s_middle_pan_active = false;
+static Uint8 s_gesture_button = 0;
+static bool s_orbit_active = false;
 
 static bool input_viewport_navigation_drag_conflict_active(void) {
     return draggingAnchor || draggingHandle || draggingSelectionBox || draggingGizmo ||
@@ -69,7 +71,7 @@ static bool input_viewport_navigation_apply_free_view_command(
             (double)viewport.x + (double)viewport.width * 0.5,
             (double)viewport.y + (double)viewport.height * 0.5,
             0.01,
-            (double)GRID_DEFAULT_MAX_SCALE,
+            (double)LineDrawingViewportZoom_MaxScale(state),
             &shared_command,
             &next_camera,
             &next_grid)) return false;
@@ -79,72 +81,74 @@ static bool input_viewport_navigation_apply_free_view_command(
     return true;
 }
 
+/* Capture camera intent at press time, before hit-testing geometry or handles.
+ * A gesture belongs to its starting viewport until release, even outside it. */
 bool InputViewportNavigation_HandleMouseButton(const SDL_MouseButtonEvent* button) {
     GlobalState* state = Global_Get();
-    if (!button || button->button != SDL_BUTTON_MIDDLE) return false;
+    if (!button) return false;
     if (button->type == SDL_MOUSEBUTTONUP) {
-        const bool consumed = s_middle_pan_active;
-        s_middle_pan_active = false;
-        return consumed;
+        if (s_gesture_button != button->button) return false;
+        InputViewportNavigation_ResetGesture();
+        return true;
     }
     if (button->type != SDL_MOUSEBUTTONDOWN ||
         input_viewport_navigation_modal_active(state) ||
         input_viewport_navigation_drag_conflict_active() ||
-        ResolvePointerPaneLane(button->x, button->y) != POINTER_PANE_CENTER) {
+        ResolvePointerPaneLane(button->x, button->y) != POINTER_PANE_CENTER)
         return false;
+    const bool option = (SDL_GetModState() & KMOD_ALT) != 0;
+    const ViewportTool tool = state->editor.viewportTool;
+    const bool orbit = button->button == SDL_BUTTON_LEFT &&
+                       (option || tool == VIEWPORT_TOOL_ORBIT);
+    const bool pan = button->button == SDL_BUTTON_MIDDLE ||
+                     (button->button == SDL_BUTTON_RIGHT && tool != VIEWPORT_TOOL_LINE &&
+                      !InputMouse_IsObjectFaceAuthoringModal(&state->editor) &&
+                      !state->editor.objectFaceSketchHasRectangle &&
+                      !state->editor.objectFaceExtrudeHasPreview) ||
+                     (button->button == SDL_BUTTON_LEFT && tool == VIEWPORT_TOOL_PAN);
+    if (!orbit && !pan) return false;
+    if (orbit) {
+        if (state->spaceMode != SPACE_MODE_3D) return false;
+        /* Option-drag works from a named view too; preserve framing and geometry. */
+        state->freeViewCamera.enabled = true;
     }
-    s_middle_pan_active = true;
+    s_gesture_button = button->button;
+    s_orbit_active = orbit;
     return true;
 }
 
 bool InputViewportNavigation_HandleMouseMotion(const SDL_MouseMotionEvent* motion) {
     GlobalState* state = Global_Get();
-    SpaceViewContext view_ctx = {0};
-    SDL_Keymod mods = KMOD_NONE;
-    if (!motion || !state) return false;
-    if (input_viewport_navigation_modal_active(state) ||
-        input_viewport_navigation_drag_conflict_active() ||
-        ResolvePointerPaneLane(motion->x, motion->y) != POINTER_PANE_CENTER) {
+    if (!motion || !state || !s_gesture_button) return false;
+    if ((motion->state & SDL_BUTTON(s_gesture_button)) == 0) {
+        InputViewportNavigation_ResetGesture();
         return false;
     }
-    view_ctx = SpaceAdapter_BuildViewContext(state);
-    if (s_middle_pan_active) {
-        if ((motion->state & SDL_BUTTON_MMASK) == 0) {
-            s_middle_pan_active = false;
-            return false;
-        }
-        if (SpaceAdapter_IsFreeViewEnabled(&view_ctx)) {
-            const LineDrawingViewportNavCommand command = {
-                .kind = LINE_DRAWING_VIEWPORT_NAV_COMMAND_PAN,
-                .screen_dx = (float)motion->xrel,
-                .screen_dy = (float)motion->yrel,
-                .grid_size = state->grid.gridSize
-            };
-            return input_viewport_navigation_apply_free_view_command(state, &command);
-        }
-        Grid_pan(&state->grid, -(float)motion->xrel, -(float)motion->yrel);
-        Global_FlagGridChanged();
+    if (input_viewport_navigation_modal_active(state)) {
+        InputViewportNavigation_ResetGesture();
         return true;
     }
-
-    mods = SDL_GetModState();
-    if (!SpaceAdapter_IsFreeViewEnabled(&view_ctx) ||
-        (mods & KMOD_ALT) == 0 ||
-        (motion->state & SDL_BUTTON_LMASK) == 0) {
-        return false;
-    }
-    {
+    SpaceViewContext view = SpaceAdapter_BuildViewContext(state);
+    if (SpaceAdapter_IsFreeViewEnabled(&view)) {
         const LineDrawingViewportNavCommand command = {
-            .kind = LINE_DRAWING_VIEWPORT_NAV_COMMAND_ORBIT,
+            .kind = s_orbit_active ? LINE_DRAWING_VIEWPORT_NAV_COMMAND_ORBIT :
+                                    LINE_DRAWING_VIEWPORT_NAV_COMMAND_PAN,
             .screen_dx = (float)motion->xrel,
             .screen_dy = (float)motion->yrel,
+            .grid_size = state->grid.gridSize,
             .orbit_yaw_per_pixel = 0.35f,
             .orbit_pitch_per_pixel = -0.35f
         };
-        return input_viewport_navigation_apply_free_view_command(state, &command);
+        (void)input_viewport_navigation_apply_free_view_command(state, &command);
+    } else {
+        Grid_pan(&state->grid, -(float)motion->xrel, -(float)motion->yrel);
+        Global_FlagGridChanged();
     }
+    /* A failed camera update must never fall through to a geometry drag. */
+    return true;
 }
 
 void InputViewportNavigation_ResetGesture(void) {
-    s_middle_pan_active = false;
+    s_gesture_button = 0;
+    s_orbit_active = false;
 }

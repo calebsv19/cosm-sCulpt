@@ -19,8 +19,9 @@ conservative overview envelopes, member-interval checks and read-only pose previ
 Check full range performs bounded adaptive separation/failure analysis between
 samples, keeping unresolved intervals explicit. See [motion envelopes](motion_envelopes.md).
 The illustrative van workflow audit now exercises assemblies, service spaces and
-motion checks; see [the walkthrough](illustrative_van_workflow.md). Its Z-up screen
-projection/picking and readability gaps are the next gate before S5 routing
+motion checks; see [the walkthrough](illustrative_van_workflow.md). Explicit Select/Orbit/Pan and Draw line/Stop drawing now resolve basic input
+ambiguity. Its Z-up screen projection/picking and remaining readability gaps are
+the next gate before S5 routing
 corridors/cable paths. Independent
 constrained followers, arbitrary moving sets, meshes and multiple joints remain
 separate contracts. Broader snapping and

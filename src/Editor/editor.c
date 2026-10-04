@@ -116,6 +116,7 @@ void Editor_ResetGizmoDrag(EditorState* editor) {
 
 void Editor_Init(EditorState* editor) {
     editor->mode = TOOL_IDLE;
+    editor->viewportTool = VIEWPORT_TOOL_SELECT;
     editor->shiftHeld = false;
     editor->anchor = (Vec3){0, 0, 0};
     editor->selectionBoxActive = false;
@@ -549,6 +550,7 @@ void Editor_ResetDocumentState(EditorState* editor) {
     editor->selectionBoxEnd = (Vec2){0.0f, 0.0f};
     editor->dragSnapshotCount = 0;
     editor->mode = TOOL_IDLE;
+    editor->viewportTool = VIEWPORT_TOOL_SELECT;
 }
 
 void Editor_ClearAnchorSelection(EditorState* editor) {

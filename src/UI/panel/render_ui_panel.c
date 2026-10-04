@@ -85,6 +85,7 @@ static const char* UIPanel_RenderPlaneCoordinateLabel(ViewPlaneAxis axis) {
 }
 
 static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
+    if (btn->bounds.w <= 0 || btn->bounds.h <= 0) return;
     static const Uint32 kButtonPressedTtlMs = 220u;
     UIPanelVisualPalette palette = {0};
     SDL_Color button_fill = {70, 70, 70, 200};
@@ -145,6 +146,11 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     const bool scene_authoring_edit_active = state &&
         btn->id == UI_BTN_SCENE_AUTHORING_EDIT_MODE &&
         state->editor.sceneAuthoringEditMode != SCENE_AUTHORING_EDIT_MODE_NONE;
+    const bool viewport_tool_active = state &&
+        ((btn->id == UI_BTN_VIEW_SELECT && state->editor.viewportTool == VIEWPORT_TOOL_SELECT) ||
+         (btn->id == UI_BTN_VIEW_ORBIT && state->editor.viewportTool == VIEWPORT_TOOL_ORBIT) ||
+         (btn->id == UI_BTN_VIEW_PAN && state->editor.viewportTool == VIEWPORT_TOOL_PAN) ||
+         (btn->id == UI_BTN_DRAW_LINE && state->editor.viewportTool == VIEWPORT_TOOL_LINE));
     const bool preview_mode_active = state &&
         ((btn->id == UI_BTN_PREVIEW_BOUNDS &&
           state->previewMode == LINE_DRAWING_PREVIEW_MODE_BOUNDS) ||
@@ -189,7 +195,7 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
         button_border = UIPanelVisual_AdjustColor(button_border, -24, 0);
         textColor = palette.text_muted;
     } else if (pressed_live || edit_mode_active || scene_authoring_edit_active ||
-               preview_mode_active || create_category_active || point_placement_active) {
+               viewport_tool_active || preview_mode_active || create_category_active || point_placement_active) {
         button_fill = UIPanelVisual_BlendColor(button_fill, palette.button_fill_active, 120);
         button_border = UIPanelVisual_AdjustColor(palette.accent, 10, 0);
         textColor = palette.text_primary;
@@ -882,6 +888,17 @@ void Render_UIPanelSide(const UIPanelState* ui, SDL_Renderer* renderer, UIPanelS
             ++last;
         }
 
+        /* Hidden zero-sized controls may share a group with an earlier section.
+         * Do not repaint that section over its already-rendered live buttons. */
+        bool has_visible_button = false;
+        for (int j = first; j <= last; ++j) {
+            if (ui->buttons[j].bounds.w > 0 && ui->buttons[j].bounds.h > 0)
+                has_visible_button = true;
+        }
+        if (!has_visible_button) {
+            i = last + 1;
+            continue;
+        }
         DrawGroupSection(renderer, ui, side, group, first, last);
         for (int j = first; j <= last; ++j) {
             DrawButton(renderer, &ui->buttons[j]);

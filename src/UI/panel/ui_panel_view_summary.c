@@ -248,42 +248,15 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
 
     if (workspace_rect.w <= 0 || workspace_rect.h <= 0) return;
 
-    snprintf(work_camera,
-             sizeof(work_camera),
-             object_mode
-                 ? "Buttons  O reset, + zoom in, - zoom out"
-                 : "Viewport  origin reset and zoom controls stay in the bottom lane");
-    snprintf(work_mode,
-             sizeof(work_mode),
-             object_mode ? "Mode  %s / %s / %s" : "Editing mode  %s with %s space active",
-             UIPanelViewSummary_DeleteModeLabel(state->editor.deleteMode),
-             Global_GetSpaceModeLabel(state->spaceMode),
-             Global_GetPreviewModeLabel(Global_GetPreviewMode()));
-    snprintf(work_plane,
-             sizeof(work_plane),
-             "Construction plane  %s at %s=%.2f",
-             UIPanel_ViewPlaneAxisLabel(plane.axis),
-             UIPanel_ViewPlaneCoordinateLabel(plane.axis),
-             plane.offset);
-    snprintf(work_delete,
-             sizeof(work_delete),
-             object_mode ? "Grid  %.2fx / %.2f step" : "Grid  scale %.2fx with step %.2f",
-             state->grid.scale,
-             state->grid.gridSize);
-    if (object_mode) {
-        work_selection[0] = '\0';
-        work_future[0] = '\0';
-    } else {
-        snprintf(work_selection,
-                 sizeof(work_selection),
-                 "Selection context  %s",
-                 (state->editor.selectedObject3DId != 0u) ? "object-local editing is available" :
-                 (state->editor.selectedAnchorIndex >= 0 || state->editor.selectedWallIndex >= 0) ? "2D edit focus is active" :
-                 "nothing selected");
-        snprintf(work_future,
-                 sizeof(work_future),
-                 "Display toggles, framing, and camera helpers will live here");
-    }
+    snprintf(work_camera, sizeof(work_camera), "Mouse tool: %s",
+             state->editor.viewportTool == VIEWPORT_TOOL_ORBIT ? "Orbit - drag to rotate" :
+             state->editor.viewportTool == VIEWPORT_TOOL_PAN ? "Pan - drag to move view" :
+             "Select - click objects or points");
+    snprintf(work_mode, sizeof(work_mode), "Option + drag: orbit in 3D");
+    snprintf(work_plane, sizeof(work_plane), "Right / middle drag: pan");
+    snprintf(work_delete, sizeof(work_delete), "Scroll: zoom; Fit scene: frame geometry");
+    snprintf(work_selection, sizeof(work_selection), "Create > Draw line: click two endpoints");
+    snprintf(work_future, sizeof(work_future), "Stop drawing / Esc: cancel; Delete selected: remove");
 
     work_lines[0] = work_camera;
     work_lines[1] = work_mode;

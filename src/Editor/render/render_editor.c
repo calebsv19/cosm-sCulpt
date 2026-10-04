@@ -187,7 +187,7 @@ void Render_Editor_Anchor(EditorState* editor, AppContext* ctx) {
 
     int cx = (int)((from.x - grid->offsetX) * gridSize * scale);
     int cy = (int)((from.y - grid->offsetY) * gridSize * scale);
-    int radius = (int)(gridSize * scale * 0.15f);
+    const int radius = 6; /* Tool marker size is independent of physical zoom. */
 
     SDL_SetRenderDrawColor(ctx->renderer, 255, 255, 100, 255);  // yellow
     int r2 = radius * radius;

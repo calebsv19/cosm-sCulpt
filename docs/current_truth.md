@@ -1,5 +1,27 @@
 # Sculpt Current Truth
 
+## Explicit viewport tools and legacy drawing (2026-10-03)
+
+The default viewport tool is Select. View exposes Select/Orbit/Pan buttons; Orbit
+and Option-drag enter Free view in 3D, capture input before geometry picking and
+work above the old zoom ceiling. Right/middle drag pans instead of implicitly
+placing lines. Create → Geometry exposes Draw line and Stop drawing. A first
+endpoint is transient; completion creates one undo step. Stop, right click, Escape,
+tab changes and choosing another geometry tool cancel the pending line.
+
+The left Delete selected button now handles legacy selected points/lines as well
+as the existing scene-object path. Point deletion removes incident lines with
+one undo capture. Point picking and the pending marker use fixed pixel sizes.
+Hidden controls no longer repaint group chrome over live Create controls.
+The shared viewport bridge, pane UI and theme remain reused; schema 19 is unchanged.
+
+Warning-clean build, 491 tests in 47 reported suites and both scene smoke lanes
+pass. Native visible Orbit/Pan and canceled first-endpoint checks leave the van
+Saved with 38 objects and zero anchors/walls. Option priority is regression-tested.
+See [the van navigation guide](illustrative_van_workflow.md#navigation-and-legacy-lines).
+The Z-up screen projection, selector/label readability, repeated findings and
+session preferences remain the next refinement gate before S5.
+
 
 ## Illustrative van acceptance project (2026-10-03)
 
@@ -17,7 +39,7 @@ Native regeneration/persistence/exercise checks and mouse navigation regression
 pass. See [van walkthrough and audit](illustrative_van_workflow.md) for expected
 findings, repairs and limitations. Installed mouse interaction verified Fit, mm
 display, bed/door assembly motion with undo/save, links/filtering and read-only
-full-range findings. 488 tests / 47 reported suites and both smoke lanes pass.
+full-range findings. 491 tests / 47 reported suites and both smoke lanes pass.
 User acceptance remains separate. The open Saved project lives under Main Edit
 Application Support/projects/van_workflow, outside the replaceable runtime.
 

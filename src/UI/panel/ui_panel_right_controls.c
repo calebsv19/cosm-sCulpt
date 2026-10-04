@@ -19,6 +19,8 @@ static bool UIPanel_RightControlButtonVisible(int button_id) {
             ? state->layout.sceneAuthoring.selected_kind
             : LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE;
     switch (button_id) {
+        case UI_BTN_DRAW_LINE:
+        case UI_BTN_STOP_DRAWING:
         case UI_BTN_CREATE_CATEGORY_GEOMETRY:
         case UI_BTN_CREATE_CATEGORY_PATHS:
         case UI_BTN_CREATE_CATEGORY_LIGHTING:
@@ -124,6 +126,11 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
         case UI_BTN_CREATE_CATEGORY_LIGHTING: spec = (UIPanelRightControlRowSpec){ 1, 3, 2 }; break;
         case UI_BTN_CREATE_CATEGORY_MATERIALS: spec = (UIPanelRightControlRowSpec){ 2, 2, 0 }; break;
         case UI_BTN_CREATE_CATEGORY_CONSTRUCTION: spec = (UIPanelRightControlRowSpec){ 2, 2, 1 }; break;
+        case UI_BTN_VIEW_SELECT: spec = (UIPanelRightControlRowSpec){ 0, 3, 0 }; break;
+        case UI_BTN_VIEW_ORBIT: spec = (UIPanelRightControlRowSpec){ 0, 3, 1 }; break;
+        case UI_BTN_VIEW_PAN: spec = (UIPanelRightControlRowSpec){ 0, 3, 2 }; break;
+        case UI_BTN_DRAW_LINE: spec = (UIPanelRightControlRowSpec){ 6, 2, 0 }; break;
+        case UI_BTN_STOP_DRAWING: spec = (UIPanelRightControlRowSpec){ 6, 2, 1 }; break;
         case UI_BTN_FIT_SCENE: spec = (UIPanelRightControlRowSpec){ 3, 1, 0 }; break;
         case UI_BTN_RESET_ORIGIN: spec = (UIPanelRightControlRowSpec){ 1, 3, 0 }; break;
         case UI_BTN_ZOOM_IN: spec = (UIPanelRightControlRowSpec){ 1, 3, 1 }; break;

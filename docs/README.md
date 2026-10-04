@@ -4,7 +4,7 @@ Last updated: 2026-10-03
 
 Start here for public repository documentation.
 
-- [Illustrative van workflow](illustrative_van_workflow.md) — saved acceptance project, mouse walkthrough, obstruction exercises and S5 boundary.
+- [Illustrative van workflow](illustrative_van_workflow.md) — saved acceptance project, explicit navigation/drawing controls, mouse walkthrough, obstruction exercises and S5 boundary.
 
 - [Motion envelopes and previews](motion_envelopes.md) — S4 assembly scope, member intervals, read-only full-range inspection and limits.
 

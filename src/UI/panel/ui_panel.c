@@ -224,7 +224,7 @@ static int UIPanel_MaxWidthForLabels(const char* const* labels, size_t count) {
 void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
     static const char* k_left_button_labels[] = {
         "Clear Select",
-        "Delete Obj",
+        "Delete selected",
         "Save Authoring",
         "Scene Save As",
         "Load Layout",
@@ -861,6 +861,9 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "-", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_ZOOM_OUT);
     yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Select", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_VIEW_SELECT);
+    AddButton(&g_uiPanel, "Orbit", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_VIEW_ORBIT);
+    AddButton(&g_uiPanel, "Pan", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_VIEW_PAN);
     AddButton(&g_uiPanel, "Bounds", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_PREVIEW_BOUNDS);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Wire", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_PREVIEW_WIREFRAME);
@@ -891,6 +894,8 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "+Prism", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_CREATE_RECT_PRISM);
     yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Draw line", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_DRAW_LINE);
+    AddButton(&g_uiPanel, "Stop drawing", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_STOP_DRAWING);
     AddButton(&g_uiPanel, "Place Mesh", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRIMITIVES, UI_BTN_PLACE_MESH_INSTANCE);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "+Light", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OPERATIONS, UI_BTN_CREATE_LIGHT);
@@ -1012,7 +1017,7 @@ void UIPanel_Init(int screenW, int screenH) {
     AddButton(&g_uiPanel, "Vertex", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_EDIT_SELECT, UI_BTN_OBJECT_EDIT_VERTEX_MODE);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Clear Select", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_SELECTION, UI_BTN_SCENE_CLEAR_SELECTION);
-    AddButton(&g_uiPanel, "Delete Obj", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_SELECTION, UI_BTN_SCENE_DELETE_SELECTED);
+    AddButton(&g_uiPanel, "Delete selected", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_SELECTION, UI_BTN_SCENE_DELETE_SELECTED);
     AddButton(&g_uiPanel, "Bounds: Off", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_BOUNDS, UI_BTN_TOGGLE_SCENE_BOUNDS);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Clamp: Off", xL, topOffset, leftBtnW, btnH, UI_PANEL_LEFT, UI_PANEL_GROUP_LEFT_SCENE_BOUNDS, UI_BTN_TOGGLE_SCENE_BOUNDS_CLAMP);

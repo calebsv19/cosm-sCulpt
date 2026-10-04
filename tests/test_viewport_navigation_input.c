@@ -2,6 +2,10 @@
 
 #include "Core/line_drawing_pane_host.h"
 #include "Input/input_mouse.h"
+#include "Input/input_handler.h"
+#include "Input/input_keyboard.h"
+#include "Input/input_editor_actions.h"
+#include "Input/input_mouse_drag.h"
 #include "Input/input_viewport_navigation.h"
 #include "Core/viewport_zoom.h"
 #include "UI/input_ui_panel.h"
@@ -199,8 +203,245 @@ static bool test_fit_scene_button_physical_zoom_read_only(void) {
     return true;
 }
 
+static bool click_tool(int id, UIPanelRightTab tab) {
+    UIPanel_SetActiveRightTab(UIPanel_Get(), tab);
+    UIPanel_OnWindowResized(Global_Get()->screenWidth, Global_Get()->screenHeight);
+    for (int i = 0; i < UIPanel_Get()->count; ++i) {
+        const UIButton* b = &UIPanel_Get()->buttons[i];
+        if (b->id == id && b->bounds.w > 0 && b->bounds.h > 0)
+            return UIPanel_HandleClick(b->bounds.x + b->bounds.w / 2,
+                                      b->bounds.y + b->bounds.h / 2);
+    }
+    return false;
+}
+
+static void viewport_click(int x, int y, Uint8 button) {
+    SDL_Event e = {.type = SDL_MOUSEBUTTONDOWN};
+    e.button.button = button;
+    e.button.x = x;
+    e.button.y = y;
+    e.button.clicks = 1;
+    Input_Handle(NULL, &e);
+    e.type = SDL_MOUSEBUTTONUP;
+    Input_Handle(NULL, &e);
+}
+
+static bool test_line_creation_is_explicit_cancelable_and_deletable(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Editor_ClearHistory(&state->editor);
+    Global_SetWindowSize(1600, 1000);
+    UIPanel_OnWindowResized(1600, 1000);
+    CorePaneRect r;
+    TEST_ASSERT(LineDrawingPaneHost_GetViewportRect(&state->paneHost, &r));
+    int x = (int)(r.x + r.width * .35f), y = (int)(r.y + r.height * .4f);
+    char* before = Layout_SaveToString(&state->layout);
+    viewport_click(x, y, SDL_BUTTON_RIGHT);
+    viewport_click(x, y, SDL_BUTTON_LEFT);
+    TEST_ASSERT(state->editor.mode == TOOL_IDLE && state->layout.anchorCount == 0 &&
+                state->layout.wallCount == 0 && Editor_UndoCount(&state->editor) == 0);
+    TEST_ASSERT(click_tool(UI_BTN_DRAW_LINE, UI_PANEL_RIGHT_TAB_CREATE));
+    viewport_click(x, y, SDL_BUTTON_LEFT);
+    TEST_ASSERT(state->editor.mode == TOOL_PLACING_WALL);
+    TEST_ASSERT(state->layout.anchorCount == 0 && Editor_UndoCount(&state->editor) == 0);
+    TEST_ASSERT(click_tool(UI_BTN_STOP_DRAWING, UI_PANEL_RIGHT_TAB_CREATE));
+    TEST_ASSERT(state->editor.mode == TOOL_IDLE && state->editor.viewportTool == VIEWPORT_TOOL_SELECT);
+    TEST_ASSERT(click_tool(UI_BTN_DRAW_LINE, UI_PANEL_RIGHT_TAB_CREATE));
+    viewport_click(x, y, SDL_BUTTON_LEFT);
+    viewport_click(x, y, SDL_BUTTON_RIGHT);
+    TEST_ASSERT(state->editor.mode == TOOL_IDLE && state->editor.viewportTool == VIEWPORT_TOOL_SELECT);
+    TEST_ASSERT(click_tool(UI_BTN_DRAW_LINE, UI_PANEL_RIGHT_TAB_CREATE));
+    viewport_click(x, y, SDL_BUTTON_LEFT);
+    SDL_Event escape = {.type = SDL_KEYDOWN};
+    escape.key.keysym.sym = SDLK_ESCAPE;
+    AppContext ctx = {0};
+    Input_Handle(&ctx, &escape);
+    TEST_ASSERT(!ctx.quit && state->editor.mode == TOOL_IDLE && state->editor.viewportTool == VIEWPORT_TOOL_SELECT);
+    TEST_ASSERT(click_tool(UI_BTN_DRAW_LINE, UI_PANEL_RIGHT_TAB_CREATE));
+    viewport_click(x, y, SDL_BUTTON_LEFT);
+    UIPanel_SetActiveRightTab(UIPanel_Get(), UI_PANEL_RIGHT_TAB_MEASURE);
+    TEST_ASSERT(state->editor.mode == TOOL_IDLE && state->editor.viewportTool == VIEWPORT_TOOL_SELECT);
+    TEST_ASSERT(click_tool(UI_BTN_DRAW_LINE, UI_PANEL_RIGHT_TAB_CREATE));
+    viewport_click(x, y, SDL_BUTTON_LEFT);
+    TEST_ASSERT(click_tool(UI_BTN_CREATE_CATEGORY_PATHS, UI_PANEL_RIGHT_TAB_CREATE));
+    TEST_ASSERT(state->editor.mode == TOOL_IDLE && state->editor.viewportTool == VIEWPORT_TOOL_SELECT);
+    TEST_ASSERT(click_tool(UI_BTN_CREATE_CATEGORY_GEOMETRY, UI_PANEL_RIGHT_TAB_CREATE));
+    char* canceled = Layout_SaveToString(&state->layout);
+    TEST_ASSERT(!strcmp(before, canceled));
+    Layout_FreeString(before);
+    Layout_FreeString(canceled);
+    TEST_ASSERT(click_tool(UI_BTN_DRAW_LINE, UI_PANEL_RIGHT_TAB_CREATE));
+    viewport_click(x, y, SDL_BUTTON_LEFT);
+    viewport_click(x + 160, y + 120, SDL_BUTTON_LEFT);
+    TEST_ASSERT(state->layout.wallCount == 1 && state->layout.anchorCount == 2 &&
+                Editor_UndoCount(&state->editor) == 1);
+    TEST_ASSERT(click_tool(UI_BTN_STOP_DRAWING, UI_PANEL_RIGHT_TAB_CREATE));
+    Editor_SelectAnchor(&state->editor, 0, false);
+    TEST_ASSERT(click_tool(UI_BTN_SCENE_DELETE_SELECTED, UI_PANEL_RIGHT_TAB_VIEW));
+    TEST_ASSERT(state->layout.anchors[0].isDeleted && state->layout.walls[0].isDeleted);
+    TEST_ASSERT(Editor_UndoCount(&state->editor) == 2);
+    TEST_ASSERT(InputEditorAction_Undo());
+    TEST_ASSERT(!state->layout.anchors[0].isDeleted && !state->layout.walls[0].isDeleted);
+    state->editor.selectedWallIndex = 0;
+    TEST_ASSERT(click_tool(UI_BTN_SCENE_DELETE_SELECTED, UI_PANEL_RIGHT_TAB_VIEW));
+    TEST_ASSERT(state->layout.walls[0].isDeleted && !state->layout.anchors[0].isDeleted);
+    InputViewportNavigation_ResetGesture();
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_option_over_handles_at_physical_zoom_and_explicit_camera_tools(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Editor_ClearHistory(&state->editor);
+    Global_SetWindowSize(1600, 1000);
+    UIPanel_OnWindowResized(1600, 1000);
+    CorePaneRect r;
+    TEST_ASSERT(LineDrawingPaneHost_GetViewportRect(&state->paneHost, &r));
+    const int x = (int)(r.x + r.width / 2), y = (int)(r.y + r.height / 2);
+    state->grid.gridSize = .1f;
+    state->grid.scale = 1800;
+    state->freeViewCamera.enabled = false;
+    state->editor.primitivePlacementPreview = PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM;
+    UIPanel_SetActiveRightTab(UIPanel_Get(), UI_PANEL_RIGHT_TAB_MEASURE);
+    UIPanel_Get()->measurement.picking = 1;
+    char* before = Layout_SaveToString(&state->layout);
+    float yaw = state->freeViewCamera.yawDeg;
+    SDL_Keymod mods = SDL_GetModState();
+    SDL_SetModState(KMOD_ALT);
+    SDL_Event e = {.type = SDL_MOUSEBUTTONDOWN};
+    e.button.button = SDL_BUTTON_LEFT;
+    e.button.x = x;
+    e.button.y = y;
+    Input_Handle(NULL, &e);
+    TEST_ASSERT(state->freeViewCamera.enabled);
+    e.type = SDL_MOUSEMOTION;
+    e.motion.x = x + 36;
+    e.motion.y = y + 14;
+    e.motion.xrel = 36;
+    e.motion.yrel = 14;
+    e.motion.state = SDL_BUTTON_LMASK;
+    Input_Handle(NULL, &e);
+    TEST_ASSERT(!ld_test_nearly_equal(yaw, state->freeViewCamera.yawDeg) &&
+                state->grid.scale == 1800 && state->layout.objectStore.count == 0 &&
+                state->editor.primitivePlacementPreview == PRIMITIVE_PLACEMENT_PREVIEW_RECT_PRISM);
+    e.type = SDL_MOUSEBUTTONUP;
+    e.button.button = SDL_BUTTON_LEFT;
+    e.button.x = x + 36;
+    e.button.y = y + 14;
+    Input_Handle(NULL, &e);
+    SDL_SetModState(KMOD_NONE);
+    TEST_ASSERT(click_tool(UI_BTN_VIEW_ORBIT, UI_PANEL_RIGHT_TAB_VIEW));
+    yaw = state->freeViewCamera.yawDeg;
+    e.type = SDL_MOUSEBUTTONDOWN;
+    e.button.button = SDL_BUTTON_LEFT;
+    e.button.x = x;
+    e.button.y = y;
+    Input_Handle(NULL, &e);
+    e.type = SDL_MOUSEMOTION;
+    e.motion.state = SDL_BUTTON_LMASK;
+    e.motion.x = (int)(r.x + r.width + 15); /* Captured gesture crosses pane boundary. */
+    e.motion.y = y;
+    e.motion.xrel = 12;
+    e.motion.yrel = 0;
+    Input_Handle(NULL, &e);
+    TEST_ASSERT(!ld_test_nearly_equal(yaw, state->freeViewCamera.yawDeg));
+    e.type = SDL_MOUSEBUTTONUP;
+    e.button.button = SDL_BUTTON_LEFT;
+    Input_Handle(NULL, &e);
+    TEST_ASSERT(click_tool(UI_BTN_VIEW_PAN, UI_PANEL_RIGHT_TAB_VIEW));
+    Vec3 target = state->freeViewCamera.target;
+    e.type = SDL_MOUSEBUTTONDOWN;
+    e.button.button = SDL_BUTTON_LEFT;
+    e.button.x = x;
+    e.button.y = y;
+    Input_Handle(NULL, &e);
+    e.type = SDL_MOUSEMOTION;
+    e.motion.state = SDL_BUTTON_LMASK;
+    e.motion.x = x + 18;
+    e.motion.y = y - 12;
+    e.motion.xrel = 18;
+    e.motion.yrel = -12;
+    Input_Handle(NULL, &e);
+    TEST_ASSERT(!ld_test_vec3_nearly_equal(target, state->freeViewCamera.target) && state->grid.scale == 1800);
+    e.type = SDL_MOUSEBUTTONUP;
+    e.button.button = SDL_BUTTON_LEFT;
+    Input_Handle(NULL, &e);
+    char* after = Layout_SaveToString(&state->layout);
+    TEST_ASSERT(!strcmp(before, after) && Editor_UndoCount(&state->editor) == 0);
+    Layout_FreeString(before);
+    Layout_FreeString(after);
+    TEST_ASSERT(click_tool(UI_BTN_VIEW_SELECT, UI_PANEL_RIGHT_TAB_VIEW));
+    yaw = state->freeViewCamera.yawDeg;
+    SDL_SetModState(KMOD_ALT);
+    e.type = SDL_MOUSEMOTION;
+    e.motion.state = SDL_BUTTON_LMASK;
+    Input_Handle(NULL, &e);
+    TEST_ASSERT(state->freeViewCamera.yawDeg == yaw); /* No gesture start, no orbit. */
+    SDL_SetModState(mods);
+    InputViewportNavigation_ResetGesture();
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_option_drag_over_selected_point_does_not_edit_it(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Global_SetWindowSize(1600, 1000);
+    UIPanel_OnWindowResized(1600, 1000);
+    state->freeViewCamera.enabled = true;
+    state->grid.gridSize = state->layout.gridSize;
+    state->layout.scene3d.bounds.enabled = false;
+    state->editor.sceneBoundsHandlesVisible = false;
+    int index = Layout_AddAnchor3(&state->layout, (Vec3){0, 0, 0});
+    state->layout.anchors[index].isPersistent = true;
+    Editor_SelectAnchor(&state->editor, index, false);
+    Editor_ClearHistory(&state->editor);
+    TEST_ASSERT(LineDrawingViewportZoom_FitVisibleGeometry(state));
+    Global_FlagHitboxesDirty();
+    Global_RebuildHitboxesIfDirty();
+    SpaceViewContext view = SpaceAdapter_BuildViewContext(state);
+    Vec2 point = WorldToScreen(SpaceAdapter_ProjectToView((Vec3){0, 0, 0}, &view), &state->grid);
+    Hitbox hit = HitboxSystem_GetHitAt((int)point.x, (int)point.y);
+    TEST_ASSERT(hit.type == HITBOX_POINT || hit.type == HITBOX_GIZMO_AXIS);
+    TEST_ASSERT(HitboxSystem_GetHitAtOfType((int)point.x + 30, (int)point.y,
+                                         HITBOX_POINT).type == HITBOX_NONE);
+    char* before = Layout_SaveToString(&state->layout);
+    SDL_Keymod mods = SDL_GetModState();
+    SDL_SetModState(KMOD_ALT);
+    float yaw = state->freeViewCamera.yawDeg;
+    SDL_Event e = {.type = SDL_MOUSEBUTTONDOWN};
+    e.button.button = SDL_BUTTON_LEFT;
+    e.button.x = (int)point.x;
+    e.button.y = (int)point.y;
+    Input_Handle(NULL, &e);
+    e.type = SDL_MOUSEMOTION;
+    e.motion.x = (int)point.x + 30;
+    e.motion.y = (int)point.y + 10;
+    e.motion.xrel = 30;
+    e.motion.yrel = 10;
+    e.motion.state = SDL_BUTTON_LMASK;
+    Input_Handle(NULL, &e);
+    TEST_ASSERT(state->freeViewCamera.yawDeg != yaw);
+    TEST_ASSERT(state->editor.selectedAnchorIndex == index && !state->editor.isDraggingAnchor);
+    e.type = SDL_MOUSEBUTTONUP;
+    e.button.button = SDL_BUTTON_LEFT;
+    Input_Handle(NULL, &e);
+    char* after = Layout_SaveToString(&state->layout);
+    TEST_ASSERT(!strcmp(before, after) && !Editor_UndoCount(&state->editor));
+    Layout_FreeString(before);
+    Layout_FreeString(after);
+    SDL_SetModState(mods);
+    InputViewportNavigation_ResetGesture();
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 bool viewport_navigation_input_run_tests(void) {
     const TestCase cases[] = {
+        { "OptionOverSelectedPointIsCameraOnly", test_option_drag_over_selected_point_does_not_edit_it },
+        { "ExplicitLineCancelDeleteUndo", test_line_creation_is_explicit_cancelable_and_deletable },
+        { "OptionAndVisibleCameraToolsAtPhysicalZoom", test_option_over_handles_at_physical_zoom_and_explicit_camera_tools },
         { "FitSceneButtonPhysicalZoomReadOnly",test_fit_scene_button_physical_zoom_read_only },
         { "AltLmbOrbitRequiresButtonAndPreservesTarget",
           test_alt_lmb_orbit_requires_button_and_preserves_target },
