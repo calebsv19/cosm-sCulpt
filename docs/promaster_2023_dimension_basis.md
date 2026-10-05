@@ -1,5 +1,9 @@
 # ProMaster 3500 extended High Roof: first dimensional basis
 
+**Furniture correction:** [narrow layout v2](van_layout_narrow_v2.md) supersedes
+the v1 near-square bed. OEM nominal source dimensions below are unchanged.
+
+
 Researched 2026-10-04. Working configuration: **likely model year 2023, 3500 cargo
 van, 159-inch wheelbase, extended body, regular High Roof (H2)**. The user has
 confirmed High Roof; model year remains provisional. Extended body does not add

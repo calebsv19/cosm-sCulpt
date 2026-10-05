@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820">
+<rect width="1280" height="820" fill="#101a25"/>
+<style>text{fill:#e7edf5;font-family:Arial,sans-serif;font-size:16px}.small{font-size:13px}.muted{fill:#a8b9cb}</style>
+<text x="48" y="42" font-size="25">ProMaster narrow layout v2 — top view</text>
+<text x="48" y="70" class="muted">Layout assumptions, not a measured vehicle. Front left / rear right. Driver above / passenger below.</text>
+<rect x="110.0" y="150.0" width="1024.25" height="480.0" fill="#182b39" stroke="#a8b9cb" stroke-width="2"/>
+<line x1="164.25000000000009" y1="110" x2="164.25000000000009" y2="630.0" stroke="#718498" stroke-dasharray="5 6"/>
+<text x="316.6500000000001" y="110" text-anchor="middle">Entry / electrical</text>
+<text x="316.6500000000001" y="134" class="small" text-anchor="middle">1219.2 mm</text>
+<line x1="469.05000000000007" y1="110" x2="469.05000000000007" y2="630.0" stroke="#718498" stroke-dasharray="5 6"/>
+<text x="579.9166666666667" y="110" text-anchor="middle">Kitchen / lounge</text>
+<text x="579.9166666666667" y="134" class="small" text-anchor="middle">886.9 mm</text>
+<line x1="690.7833333333334" y1="110" x2="690.7833333333334" y2="630.0" stroke="#718498" stroke-dasharray="5 6"/>
+<text x="801.6500000000001" y="110" text-anchor="middle">Tall storage</text>
+<text x="801.6500000000001" y="134" class="small" text-anchor="middle">886.9 mm</text>
+<line x1="912.5166666666668" y1="110" x2="912.5166666666668" y2="630.0" stroke="#718498" stroke-dasharray="5 6"/>
+<text x="1023.3833333333334" y="110" text-anchor="middle">Work / narrow bed</text>
+<text x="1023.3833333333334" y="134" class="small" text-anchor="middle">886.9 mm</text>
+<rect x="916.7500000000001" y="165.0" width="205.0" height="450.0" fill="#70529a" fill-opacity=".22" stroke="#dcdae4" stroke-dasharray="8 6"/>
+<text x="1019.2500000000001" y="395.0" text-anchor="middle" class="small">Bed 1800 × 820 mm</text>
+<rect x="916.7500000000001" y="163.74999999999997" width="205.0" height="120.0" fill="#6a718f" fill-opacity=".85" stroke="#dcdae4"/>
+<text x="1019.2500000000001" y="228.75" text-anchor="middle" class="small">Desk</text>
+<rect x="916.7500000000001" y="496.25" width="205.0" height="120.0" fill="#6a718f" fill-opacity=".85" stroke="#dcdae4"/>
+<text x="1019.2500000000001" y="561.25" text-anchor="middle" class="small">Desk</text>
+<rect x="175.0166666666667" y="163.74999999999997" width="505.0" height="125.0" fill="#577651" fill-opacity=".85" stroke="#dcdae4"/>
+<text x="427.51666666666677" y="231.25" text-anchor="middle" class="small">Battery / lounge</text>
+<rect x="484.9166666666668" y="491.25" width="190.0" height="125.0" fill="#93693e" fill-opacity=".85" stroke="#dcdae4"/>
+<text x="579.9166666666667" y="558.75" text-anchor="middle" class="small">Kitchen</text>
+<rect x="704.1500000000001" y="163.74999999999997" width="195.0" height="125.0" fill="#88604d" fill-opacity=".85" stroke="#dcdae4"/>
+<text x="801.6500000000001" y="231.25" text-anchor="middle" class="small">Wardrobe</text>
+<rect x="704.1500000000001" y="491.25" width="195.0" height="125.0" fill="#88604d" fill-opacity=".85" stroke="#dcdae4"/>
+<text x="801.6500000000001" y="558.75" text-anchor="middle" class="small">Pantry</text>
+<rect x="164.2500000000001" y="315.0" width="748.2666666666667" height="150.0" fill="#197878" fill-opacity=".3" stroke="#dcdae4"/>
+<text x="538.3833333333334" y="395.0" text-anchor="middle" class="small">Aisle</text>
+<rect x="164.2500000000001" y="500.0" width="304.8" height="120.0" fill="#197878" fill-opacity=".3" stroke="#dcdae4"/>
+<text x="316.6500000000001" y="565.0" text-anchor="middle" class="small">Entry</text>
+<text x="110" y="668">Maximum floor extents: 4097 × 1920 mm nominal; planning sections total 3880 mm (provisional).</text>
+<text x="110" y="698">Bed: transverse sleeping length; narrow 820 mm front-to-back width. Maximum permitted width: 914.4 mm.</text>
+<text x="110" y="728">Dashed bed footprint sits above the paired desks; deck-center Z travel remains 950–1650 mm.</text>
+<text x="110" y="758" class="muted">Measure wall/rib clearance at bed heights before confirming the 1800 mm sleeping length or hardware fit.</text>
+</svg>

@@ -2,6 +2,7 @@
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
+#include "Layout/layout_routes.h"
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
@@ -35,7 +36,7 @@ cJSON* Layout_EntityInfoToJson(const LayoutEntityInfo* info) {
     }
     return o;
 }
-static bool read_info(const cJSON* o, LayoutEntityInfo* info) {
+bool Layout_EntityInfoFromJson(const cJSON* o, LayoutEntityInfo* info) {
     if (!cJSON_IsObject(o) || !string(o,"name",info->label,sizeof(info->label)) ||
         !string(o,"type",info->entity_type,sizeof(info->entity_type)) || !string(o,"parent",info->parent_id,sizeof(info->parent_id))) return false;
     const cJSON* role=cJSON_GetObjectItemCaseSensitive(o,"volumeRole"),*owner=cJSON_GetObjectItemCaseSensitive(o,"volumeOwner");
@@ -84,7 +85,7 @@ bool Layout_EngineeringWriteJson(const Layout* layout, cJSON* root) {
         if (!cJSON_AddItemToObject(o,"worldFrame",frame)) {cJSON_Delete(frame);return false;}
         if (!cJSON_AddStringToObject(o,"id",a->id)) return false;
     }
-    return Layout_RelationshipsWriteJson(layout,engineering) && Layout_SpatialWriteJson(layout,engineering) && Layout_MotionWriteJson(layout,engineering);
+    return Layout_RelationshipsWriteJson(layout,engineering) && Layout_SpatialWriteJson(layout,engineering) && Layout_MotionWriteJson(layout,engineering) && Layout_RoutesWriteJson(layout,engineering);
 }
 bool Layout_EngineeringReadJson(Layout* layout, const cJSON* root, bool required) {
     const cJSON* engineering=cJSON_GetObjectItemCaseSensitive(root,"engineering");
@@ -104,13 +105,13 @@ bool Layout_EngineeringReadJson(Layout* layout, const cJSON* root, bool required
             if (!strcmp(id,old->valuestring)) return false;
         }
         LayoutEntityInfo* info=(LayoutEntityInfo*)Layout_EntityInfo(&layout->objectStore,id);
-        if (!info || !read_info(item,info)) return false;
+        if (!info || !Layout_EntityInfoFromJson(item,info)) return false;
     }
     layout->objectStore.assembly_count=(size_t)cJSON_GetArraySize(assemblies);
     for (size_t i=0;i<layout->objectStore.assembly_count;++i) {
         const cJSON* item=cJSON_GetArrayItem(assemblies,(int)i);LayoutAssembly* a=&layout->objectStore.assemblies[i];
         const cJSON* frame=cJSON_GetObjectItemCaseSensitive(item,"worldFrame");
-        if (!string(item,"id",a->id,sizeof(a->id)) || !read_info(item,&a->info) || !cJSON_IsArray(frame) || cJSON_GetArraySize(frame)!=12) return false;
+        if (!string(item,"id",a->id,sizeof(a->id)) || !Layout_EntityInfoFromJson(item,&a->info) || !cJSON_IsArray(frame) || cJSON_GetArraySize(frame)!=12) return false;
         float values[12];
         for (int k=0;k<12;++k) {
             const cJSON* v=cJSON_GetArrayItem(frame,k);

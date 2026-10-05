@@ -69,6 +69,8 @@ SHAPE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_engineering_json.c \
 	$(SRC_DIR)/Layout/scene/layout_relationships.c \
 	$(SRC_DIR)/Layout/scene/layout_spatial.c \
+	$(SRC_DIR)/Layout/scene/layout_routes.c \
+	$(SRC_DIR)/Layout/scene/layout_routes_json.c \
 	$(SRC_DIR)/Layout/scene/layout_motion.c \
 	$(SRC_DIR)/Layout/scene/layout_motion_scope.c \
 	$(SRC_DIR)/Layout/scene/layout_motion_bounds.c \
@@ -129,6 +131,8 @@ AGENT_SCENE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_engineering_json.c \
 	$(SRC_DIR)/Layout/scene/layout_relationships.c \
 	$(SRC_DIR)/Layout/scene/layout_spatial.c \
+	$(SRC_DIR)/Layout/scene/layout_routes.c \
+	$(SRC_DIR)/Layout/scene/layout_routes_json.c \
 	$(SRC_DIR)/Layout/scene/layout_motion.c \
 	$(SRC_DIR)/Layout/scene/layout_motion_scope.c \
 	$(SRC_DIR)/Layout/scene/layout_motion_bounds.c \

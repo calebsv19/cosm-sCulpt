@@ -27,3 +27,5 @@ bool Layout_EngineeringReadJson(Layout* layout, const cJSON* root, bool required
 
 /* Caller owns the returned JSON object. */
 cJSON* Layout_EntityInfoToJson(const LayoutEntityInfo* info);
+bool Layout_EntityInfoFromJson(const cJSON* json, LayoutEntityInfo* info);
+bool Layout_EntityInfoValid(const LayoutEntityInfo* info);

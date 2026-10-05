@@ -1,3 +1,4 @@
+#include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_create_summary.h"
 #include "UI/ui_panel_edit_summary.h"
@@ -971,6 +972,7 @@ void Render_UIPanel(const UIPanelState* ui, SDL_Renderer* renderer) {
         Render_UIPanelRightTabSummary(ui, renderer);
         UIPanel_RenderMeasurement(renderer);
         UIPanel_RenderParts(renderer);
+        UIPanel_RenderRoutes(renderer);
         UIPanel_RightScrollRender(ui, renderer);
         (void)SDL_RenderSetClipRect(renderer, had_clip ? &previous_clip : NULL);
     }

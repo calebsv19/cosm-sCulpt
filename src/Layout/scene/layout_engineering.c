@@ -2,6 +2,7 @@
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
+#include "Layout/layout_routes.h"
 #include <ctype.h>
 #include <float.h>
 #include <math.h>
@@ -49,7 +50,8 @@ bool Layout_IsDescendant(const LayoutObjectStore* store, const char* parent, con
     }
     return false;
 }
-static bool info_valid(const LayoutEntityInfo* info) {
+bool Layout_EntityInfoValid(const LayoutEntityInfo* info) {
+    if (!info) return false;
     if (!bounded(info->label,sizeof(info->label)) || !bounded(info->entity_type,sizeof(info->entity_type)) ||
         !bounded(info->parent_id,sizeof(info->parent_id)) || info->property_count>LAYOUT_MAX_PROPERTIES) return false;
     for (size_t i=0;i<info->property_count;++i) {
@@ -75,7 +77,7 @@ bool Layout_ValidateEngineering(const Layout* layout, char* message, size_t capa
     bool valid=store->assembly_count<=LAYOUT_MAX_ASSEMBLIES;
     for (size_t i=0;valid && i<store->assembly_count;++i) {
         const LayoutAssembly* a=&store->assemblies[i];
-        valid=key_valid(a->id,sizeof(a->id)) && info_valid(&a->info) && frame_valid(a->frame) &&
+        valid=key_valid(a->id,sizeof(a->id)) && Layout_EntityInfoValid(&a->info) && frame_valid(a->frame) &&
             !strcmp(Layout_EntityType(&a->info),"Assembly") &&
             (!a->info.parent_id[0] || Layout_FindAssembly(store,a->info.parent_id)) &&
             !Layout_IsDescendant(store,a->info.parent_id,a->id);
@@ -85,14 +87,14 @@ bool Layout_ValidateEngineering(const Layout* layout, char* message, size_t capa
     for (size_t i=0;valid && i<store->count;++i) {
         const Object3D* o=&store->items[i];
         if (o->isDeleted) continue;
-        valid=info_valid(&o->info) && (!o->info.parent_id[0] || Layout_FindAssembly(store,o->info.parent_id));
+        valid=Layout_EntityInfoValid(&o->info) && (!o->info.parent_id[0] || Layout_FindAssembly(store,o->info.parent_id));
     }
     if (!valid && message && capacity) snprintf(message,capacity,"Invalid metadata or assembly tree: check IDs, parent cycles, properties and rigid frames.");
-    return valid && Layout_ValidateMotionScopes(layout,message,capacity) && Layout_ValidateRelationships(layout,message,capacity) && Layout_ValidateSpatialRecords(layout,message,capacity);
+    return valid && Layout_ValidateMotionScopes(layout,message,capacity) && Layout_ValidateRelationships(layout,message,capacity) && Layout_ValidateSpatialRecords(layout,message,capacity) && Layout_ValidateRoutes(layout,message,capacity);
 }
 bool Layout_HasEngineeringData(const Layout* layout) {
     if (!layout) return false;
-    if (layout->objectStore.assembly_count || layout->objectStore.relationship_count || layout->objectStore.spatial_rule_count) return true;
+    if (layout->objectStore.assembly_count || layout->objectStore.relationship_count || layout->objectStore.spatial_rule_count || layout->objectStore.route_count) return true;
     for (size_t i=0;i<layout->objectStore.count;++i) {
         const Object3D* o=&layout->objectStore.items[i];
         if (!o->isDeleted && (o->info.label[0] || o->info.entity_type[0] || o->info.parent_id[0] || o->info.reference || o->info.property_count || o->info.volume_role || o->info.volume_owner[0])) return true;
@@ -103,7 +105,7 @@ typedef struct { const char* id; const LayoutEntityInfo* info; } InfoEdit;
 static bool set_info(Layout* layout, void* context) {
     InfoEdit* edit=context;
     LayoutEntityInfo* info=(LayoutEntityInfo*)Layout_EntityInfo(&layout->objectStore,edit->id);
-    if (!info || !info_valid(edit->info)) return false;
+    if (!info || !Layout_EntityInfoValid(edit->info)) return false;
     *info=*edit->info;
     return true;
 }
@@ -247,7 +249,7 @@ bool Layout_EntityLocalFrame(const Layout* layout, const char* id, PlaneFrame3* 
 }
 bool Layout_QueryMatches(const LayoutObjectStore* store, const char* id, const LayoutEntityQuery* query) {
     const LayoutEntityInfo* info=Layout_EntityInfo(store,id);
-    if (!info || !info_valid(info) || !query || !bounded(query->entity_type,sizeof(query->entity_type)) ||
+    if (!info || !Layout_EntityInfoValid(info) || !query || !bounded(query->entity_type,sizeof(query->entity_type)) ||
         !bounded(query->assembly_id,sizeof(query->assembly_id)) || !bounded(query->property_key,sizeof(query->property_key)) ||
         !bounded(query->property_value,sizeof(query->property_value)) || query->designation<0 || query->designation>2) return false;
     if (query->entity_type[0] && strcmp(query->entity_type,Layout_EntityType(info))) return false;

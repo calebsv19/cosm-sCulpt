@@ -1,0 +1,88 @@
+{
+  "schema": "line_drawing_route_edit_v1",
+  "operation": "upsert",
+  "route": {
+    "id": "",
+    "name": "CAN concept - upper halo (unverified)",
+    "type": "Cable",
+    "parent": "",
+    "reference": false,
+    "volumeRole": 0,
+    "volumeOwner": "",
+    "properties": [
+      {
+        "key": "protocol",
+        "kind": 0,
+        "value": "CAN"
+      },
+      {
+        "key": "bus",
+        "kind": 0,
+        "value": "can0"
+      },
+      {
+        "key": "route_intent",
+        "kind": 0,
+        "value": "upper_low_voltage_halo"
+      },
+      {
+        "key": "dimensions_status",
+        "kind": 0,
+        "value": "concept_not_measured"
+      }
+    ],
+    "source": {
+      "entity_id": "can_hub",
+      "local_offset_m": [
+        0,
+        0,
+        0
+      ]
+    },
+    "destination": {
+      "entity_id": "water_controller",
+      "local_offset_m": [
+        0,
+        0,
+        0
+      ]
+    },
+    "points_m": [
+      [
+        -0.4399999976158142,
+        1.25,
+        0.38999998569488525
+      ],
+      [
+        -0.865,
+        1.25,
+        0.38999998569488525
+      ],
+      [
+        -0.865,
+        1.25,
+        1.88
+      ],
+      [
+        -0.865,
+        -1.94,
+        1.88
+      ],
+      [
+        0.865,
+        -1.94,
+        1.88
+      ],
+      [
+        0.865,
+        0.3188333213329315,
+        1.88
+      ],
+      [
+        0.4300000071525574,
+        0.3188333213329315,
+        0.6800000071525574
+      ]
+    ]
+  }
+}

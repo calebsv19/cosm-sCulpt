@@ -18,6 +18,13 @@ def build(out, request=REQUEST, success=True):
     assert (result.returncode == 0) == success, result.stderr
 
 
+def migrated_fixture(path):
+    expected = json.loads(path.read_text())
+    expected['file']['schemaVersion'] = 20
+    expected['engineering'].update(routes=[], nextRouteId=1)
+    return expected
+
+
 with tempfile.TemporaryDirectory(prefix='ld-concept-smoke-') as tmp:
     root = Path(tmp)
     a, b = root / 'first', root / 'second'
@@ -37,7 +44,7 @@ with tempfile.TemporaryDirectory(prefix='ld-concept-smoke-') as tmp:
     assert validation['nativeReloadAndTravelPassed']
     assert [round(p['deckCenter_m'], 4) for p in validation['motionPoseChecks']] == [1.65, .95]
     assert [round(p['mattressCenter_m'], 4) for p in validation['motionPoseChecks']] == [1.74, 1.04]
-    assert (a / 'van_layout_concept_v1.layout.json').read_bytes() == (ROOT / 'config/examples/van_layout_concept_v1.layout.json').read_bytes()
+    assert layout == migrated_fixture(ROOT / 'config/examples/van_layout_concept_v1.layout.json')
     assert len(validation['results']) == 12
     assert all(r['severity'] == 'pass' for r in validation['results']), validation
     document = a / 'van_layout_concept_v1.layout.json'
@@ -75,7 +82,32 @@ with tempfile.TemporaryDirectory(prefix='ld-concept-smoke-') as tmp:
     report = json.loads((n1 / 'validation.json').read_text())
     assert report['dimensionsStatus'] == 'published_nominal_with_provisional_geometry'
     assert report['nativeReloadAndTravelPassed'] and len(report['results']) == 12
-    assert (n1 / (nominal_id + '.layout.json')).read_bytes() == (ROOT / 'config/examples' / (nominal_id + '.layout.json')).read_bytes()
+    assert nominal == migrated_fixture(ROOT / 'config/examples' / (nominal_id + '.layout.json'))
+    corrected_request = ROOT / 'config/concepts/van_layout_promaster_2023_narrow_v2.json'
+    corrected_id = 'van_layout_promaster_2023_narrow_v2'
+    c1, c2 = root / 'narrow_first', root / 'narrow_second'
+    build(c1, corrected_request); build(c2, corrected_request)
+    native_file = corrected_id + '.layout.json'
+    assert (c1 / native_file).read_bytes() == (c2 / native_file).read_bytes()
+    assert (c1 / native_file).read_bytes() == (ROOT / 'config/examples' / native_file).read_bytes()
+    corrected = json.loads((c1 / native_file).read_text())
+    parts = {o['persistentId']:o for o in corrected['objects3d']}
+    deck = parts['bed_deck']['rectPrism']
+    assert abs(deck['height'] - .82) < 1e-6 and deck['height'] <= .9144
+    assert abs(deck['width'] - 1.8) < 1e-6 and deck['frame']['normal'] == dict(x=0,y=0,z=1)
+    assert parts['bed_deck']['transform']['position']['y'] < parts['storage_driver']['transform']['position']['y']
+    assert parts['storage_passenger']['transform']['position']['y'] < parts['kitchen_base']['transform']['position']['y']
+    intent = json.loads(corrected_request.read_text())
+    zones = intent['layout_zones']
+    assert abs(zones[0]['length_m'] - 1.2192) < 1e-9
+    assert abs(sum(z['length_m'] for z in zones) - 3.88) < 1e-9
+    for zone in zones[1:]: assert .85 < zone['length_m'] <= .9144
+    for part_id in ['bed_deck','bed_mattress','desk_driver','desk_passenger','drawers_driver','drawers_passenger','chair_space_driver','chair_space_passenger']:
+        part = parts[part_id]['rectPrism']
+        assert part['frame']['origin']['y'] - part['height']/2 >= zones[3]['rear_y_m'] - 1e-6
+        assert part['frame']['origin']['y'] + part['height']/2 <= zones[3]['front_y_m'] + 1e-6
+    check = json.loads((c1 / 'validation.json').read_text())
+    assert check['nativeReloadAndTravelPassed'] and all(r['severity']=='pass' for r in check['results']), check
     request['scene_id'] = '../outside'
     invalid.write_text(json.dumps(request))
     build(root / 'invalid_identity', invalid, success=False)

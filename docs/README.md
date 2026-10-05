@@ -5,6 +5,9 @@ Last updated: 2026-10-04
 Start here for public repository documentation.
 
 - [Likely 2023 ProMaster dimensional basis](promaster_2023_dimension_basis.md) — factory sources, measurement datums, separately labeled upfit references and an editable nominal scene.
+- [Narrow van layout v2](van_layout_narrow_v2.md) — corrected bed width and 4-foot / approximately 3-foot sections.
+- [Vehicle measurement checklist](van_measurement_checklist.md) — datums, priorities and blank measured values.
+- [S5A physical routes](physical_routes.md) — Routes tab, native/agent contracts, undo and endpoint freshness.
 
 - [S5 routing and measured van plan](s5_routing_plan.md) — current S0–S4 boundary, manual route editing, corridors, checks and blueprint calibration.
 

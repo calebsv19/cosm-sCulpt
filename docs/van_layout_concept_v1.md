@@ -1,5 +1,9 @@
 # Van layout concept v1
 
+**Superseded furniture layout:** use [narrow v2](van_layout_narrow_v2.md) for the
+user-corrected bed width and section flow. This v1 remains a historical snapshot.
+
+
 Date: 2026-10-04. Status: editable concept; no measured vehicle geometry adopted.
 This is a new project alongside the illustrative teaching van, not a replacement
 for `van_working.layout.json`. The three supplied AI images establish arrangement

@@ -1,0 +1,1227 @@
+{
+  "schema": "line_drawing_van_layout_concept_v1",
+  "scene_id": "van_layout_promaster_2023_narrow_v2",
+  "status": "published_nominal_with_provisional_geometry",
+  "frame": {
+    "origin": "cargo_floor_center",
+    "x_positive": "passenger",
+    "y_positive": "front",
+    "z_positive": "up",
+    "unit": "m"
+  },
+  "shell_m": {
+    "width": 1.92,
+    "length": 4.097,
+    "height": 1.959
+  },
+  "electrical_basis": "provisional_24V_from_prior_user_direction_capacity_undecided",
+  "assemblies": [
+    {
+      "id": "van",
+      "name": "Van layout - likely 2023 nominal basis",
+      "parent": ""
+    },
+    {
+      "id": "oem",
+      "name": "OEM nominal extents - box proxies",
+      "parent": "van"
+    },
+    {
+      "id": "bed",
+      "name": "Rear lift bed",
+      "parent": "van"
+    },
+    {
+      "id": "desks",
+      "name": "Rear paired desks",
+      "parent": "van"
+    },
+    {
+      "id": "kitchen",
+      "name": "Passenger kitchen / water",
+      "parent": "van"
+    },
+    {
+      "id": "storage",
+      "name": "Mid-van tall storage",
+      "parent": "van"
+    },
+    {
+      "id": "electrical",
+      "name": "Driver battery bench / electrical",
+      "parent": "van"
+    },
+    {
+      "id": "upper",
+      "name": "Upper cabinets and wiring intent",
+      "parent": "van"
+    },
+    {
+      "id": "reserved",
+      "name": "Access / motion reservations",
+      "parent": "van"
+    },
+    {
+      "id": "fixed_lift",
+      "name": "Fixed bed lift guides - mounting undecided",
+      "parent": "van"
+    }
+  ],
+  "parts": [
+    {
+      "id": "oem_floor",
+      "name": "Floor max extents - 1920 x 4097 mm nominal",
+      "parent": "oem",
+      "type": "Panel",
+      "center_m": [
+        0,
+        0,
+        -0.02
+      ],
+      "size_m": [
+        1.92,
+        4.097,
+        0.04
+      ],
+      "reference": true,
+      "properties": {
+        "dimensions_status": "mixed_nominal_and_proxy",
+        "source": "promaster_2023_dimension_basis",
+        "basis": "W500;L202-1",
+        "geometry_note": "Rectangular outline and 40 mm drawing thickness are proxies; Z=0 nominal bare cargo floor"
+      }
+    },
+    {
+      "id": "oem_driver_wall",
+      "name": "Driver wall - maximum extents proxy",
+      "parent": "oem",
+      "type": "Surface",
+      "center_m": [
+        -0.97,
+        0,
+        0.9795
+      ],
+      "size_m": [
+        0.02,
+        4.097,
+        1.959
+      ],
+      "reference": true,
+      "properties": {
+        "dimensions_status": "mixed_nominal_and_proxy",
+        "source": "promaster_2023_dimension_basis",
+        "basis": "W500;L202-1;H505",
+        "geometry_note": "Upright wall, thickness and width above floor unmeasured"
+      }
+    },
+    {
+      "id": "oem_passenger_wall",
+      "name": "Passenger wall - extents proxy",
+      "parent": "oem",
+      "type": "Surface",
+      "center_m": [
+        0.97,
+        -0.625,
+        0.9795
+      ],
+      "size_m": [
+        0.02,
+        2.847,
+        1.959
+      ],
+      "reference": true,
+      "properties": {
+        "dimensions_status": "mixed_nominal_and_proxy",
+        "source": "promaster_2023_dimension_basis",
+        "basis": "W500;L202-1;H505;L508",
+        "geometry_note": "Side opening placed at front end by assumption; width above floor unmeasured"
+      }
+    },
+    {
+      "id": "oem_door_header",
+      "name": "Side opening header - nominal size / provisional position",
+      "parent": "oem",
+      "type": "StructuralMember",
+      "center_m": [
+        0.97,
+        1.4235,
+        1.857
+      ],
+      "size_m": [
+        0.02,
+        1.25,
+        0.204
+      ],
+      "reference": true,
+      "properties": {
+        "dimensions_status": "mixed_nominal_and_proxy",
+        "source": "promaster_2023_dimension_basis",
+        "basis": "L508;H508",
+        "geometry_note": "1250 x 1755 mm opening; location and threshold Z assumed, header contour/thickness proxy"
+      }
+    },
+    {
+      "id": "oem_front_boundary",
+      "name": "Front floor limit - full-height position unverified",
+      "parent": "oem",
+      "type": "Surface",
+      "center_m": [
+        0,
+        2.0585,
+        0.9795
+      ],
+      "size_m": [
+        1.92,
+        0.02,
+        1.959
+      ],
+      "reference": true,
+      "properties": {
+        "dimensions_status": "mixed_nominal_and_proxy",
+        "source": "promaster_2023_dimension_basis",
+        "basis": "L202-1",
+        "geometry_note": "Floor limit only; seatback/beltline intrusion not represented by this wall"
+      }
+    },
+    {
+      "id": "oem_rear_boundary",
+      "name": "Rear opening - 1610 x 1790 mm nominal",
+      "parent": "oem",
+      "type": "Surface",
+      "center_m": [
+        0,
+        -2.0485,
+        0.895
+      ],
+      "size_m": [
+        1.61,
+        0.002,
+        1.79
+      ],
+      "reference": true,
+      "visible": false,
+      "properties": {
+        "dimensions_status": "mixed_nominal_and_proxy",
+        "source": "promaster_2023_dimension_basis",
+        "basis": "W207;H202",
+        "geometry_note": "Hidden opening-size marker; floor/threshold datum alignment assumed"
+      }
+    },
+    {
+      "id": "wheel_well_driver",
+      "name": "Driver wheel well - mixed-source box proxy",
+      "parent": "oem",
+      "type": "PhysicalObject",
+      "center_m": [
+        -0.8355,
+        -0.9563,
+        0.2159
+      ],
+      "size_m": [
+        0.249,
+        0.889,
+        0.4318
+      ],
+      "reference": true,
+      "properties": {
+        "dimensions_status": "mixed_nominal_and_proxy",
+        "source": "promaster_2023_dimension_basis",
+        "basis": "W201;W500;upfit_extended",
+        "geometry_note": "Inboard X=+/-711 mm; depth=(1920-1422)/2. Length/height/rear offset from upfitter, datum alignment assumed"
+      }
+    },
+    {
+      "id": "wheel_well_passenger",
+      "name": "Passenger wheel well - mixed-source box proxy",
+      "parent": "oem",
+      "type": "PhysicalObject",
+      "center_m": [
+        0.8355,
+        -0.9563,
+        0.2159
+      ],
+      "size_m": [
+        0.249,
+        0.889,
+        0.4318
+      ],
+      "reference": true,
+      "properties": {
+        "dimensions_status": "mixed_nominal_and_proxy",
+        "source": "promaster_2023_dimension_basis",
+        "basis": "W201;W500;upfit_extended",
+        "geometry_note": "Inboard X=+/-711 mm; depth=(1920-1422)/2. Length/height/rear offset from upfitter, datum alignment assumed"
+      }
+    },
+    {
+      "id": "bed_guide",
+      "name": "Bed lift datum",
+      "parent": "fixed_lift",
+      "type": "MountPoint",
+      "center_m": [
+        0,
+        -1.5885,
+        0
+      ],
+      "size_m": [
+        0.02,
+        0.02,
+        0.02
+      ],
+      "reference": true,
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "bed_deck",
+      "name": "Narrow transverse bed - 1800 x 820 mm (length unverified)",
+      "parent": "bed",
+      "type": "Panel",
+      "center_m": [
+        0,
+        -1.5885,
+        0.95
+      ],
+      "size_m": [
+        1.8,
+        0.82,
+        0.06
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed",
+        "width_max_m": "0.9144",
+        "width_axis": "Y",
+        "sleep_length_axis": "X"
+      }
+    },
+    {
+      "id": "bed_mattress",
+      "name": "Narrow mattress placeholder - 1760 x 780 mm",
+      "parent": "bed",
+      "type": "PhysicalObject",
+      "center_m": [
+        0,
+        -1.5885,
+        1.04
+      ],
+      "size_m": [
+        1.76,
+        0.78,
+        0.12
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "bed_rail_driver",
+      "name": "Driver moving bed rail",
+      "parent": "bed",
+      "type": "Rail",
+      "center_m": [
+        -0.875,
+        -1.5885,
+        0.91
+      ],
+      "size_m": [
+        0.04,
+        0.82,
+        0.08
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "fixed_guide_driver_rear",
+      "name": "Driver fixed lift guide rear",
+      "parent": "fixed_lift",
+      "type": "Rail",
+      "center_m": [
+        -0.913,
+        -1.9485,
+        1.2
+      ],
+      "size_m": [
+        0.02,
+        0.025,
+        1.45
+      ],
+      "reference": false,
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "fixed_guide_driver_front",
+      "name": "Driver fixed lift guide front",
+      "parent": "fixed_lift",
+      "type": "Rail",
+      "center_m": [
+        -0.913,
+        -1.2285,
+        1.2
+      ],
+      "size_m": [
+        0.02,
+        0.025,
+        1.45
+      ],
+      "reference": false,
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "bed_rail_passenger",
+      "name": "Passenger moving bed rail",
+      "parent": "bed",
+      "type": "Rail",
+      "center_m": [
+        0.875,
+        -1.5885,
+        0.91
+      ],
+      "size_m": [
+        0.04,
+        0.82,
+        0.08
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "fixed_guide_passenger_rear",
+      "name": "Passenger fixed lift guide rear",
+      "parent": "fixed_lift",
+      "type": "Rail",
+      "center_m": [
+        0.913,
+        -1.9485,
+        1.2
+      ],
+      "size_m": [
+        0.02,
+        0.025,
+        1.45
+      ],
+      "reference": false,
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "fixed_guide_passenger_front",
+      "name": "Passenger fixed lift guide front",
+      "parent": "fixed_lift",
+      "type": "Rail",
+      "center_m": [
+        0.913,
+        -1.2285,
+        1.2
+      ],
+      "size_m": [
+        0.02,
+        0.025,
+        1.45
+      ],
+      "reference": false,
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "desk_driver",
+      "name": "Driver rear worktop",
+      "parent": "desks",
+      "type": "Panel",
+      "center_m": [
+        -0.665,
+        -1.5885,
+        0.73
+      ],
+      "size_m": [
+        0.48,
+        0.82,
+        0.04
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "drawers_driver",
+      "name": "Driver rear drawer block",
+      "parent": "desks",
+      "type": "PhysicalObject",
+      "center_m": [
+        -0.665,
+        -1.7785,
+        0.345
+      ],
+      "size_m": [
+        0.43,
+        0.34,
+        0.69
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "chair_space_driver",
+      "name": "Driver chair use space - bed raised",
+      "parent": "reserved",
+      "type": "ServiceVolume",
+      "center_m": [
+        -0.27,
+        -1.5885,
+        0.57
+      ],
+      "size_m": [
+        0.43,
+        0.57,
+        1.05
+      ],
+      "volume_role": 0,
+      "properties": {
+        "condition": "bed_raised_only",
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      },
+      "reference": true
+    },
+    {
+      "id": "desk_passenger",
+      "name": "Passenger rear worktop",
+      "parent": "desks",
+      "type": "Panel",
+      "center_m": [
+        0.665,
+        -1.5885,
+        0.73
+      ],
+      "size_m": [
+        0.48,
+        0.82,
+        0.04
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "drawers_passenger",
+      "name": "Passenger rear drawer block",
+      "parent": "desks",
+      "type": "PhysicalObject",
+      "center_m": [
+        0.665,
+        -1.7785,
+        0.345
+      ],
+      "size_m": [
+        0.43,
+        0.34,
+        0.69
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      }
+    },
+    {
+      "id": "chair_space_passenger",
+      "name": "Passenger chair use space - bed raised",
+      "parent": "reserved",
+      "type": "ServiceVolume",
+      "center_m": [
+        0.27,
+        -1.5885,
+        0.57
+      ],
+      "size_m": [
+        0.43,
+        0.57,
+        1.05
+      ],
+      "volume_role": 0,
+      "properties": {
+        "condition": "bed_raised_only",
+        "layout_revision": "narrow_v2",
+        "zone": "work_bed"
+      },
+      "reference": true
+    },
+    {
+      "id": "driver_bench",
+      "name": "Driver lounge / battery bench enclosure",
+      "parent": "electrical",
+      "type": "PhysicalObject",
+      "center_m": [
+        -0.655,
+        0.7784333333333332,
+        0.25
+      ],
+      "size_m": [
+        0.5,
+        2.02,
+        0.5
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "entry"
+      }
+    },
+    {
+      "id": "driver_cushion",
+      "name": "Driver lounge cushion",
+      "parent": "electrical",
+      "type": "PhysicalObject",
+      "center_m": [
+        -0.655,
+        0.7784333333333332,
+        0.55
+      ],
+      "size_m": [
+        0.5,
+        2.02,
+        0.1
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "entry"
+      }
+    },
+    {
+      "id": "battery",
+      "name": "Battery bay placeholder - capacity undecided",
+      "parent": "electrical",
+      "type": "Battery",
+      "center_m": [
+        -0.655,
+        1.55,
+        0.235
+      ],
+      "size_m": [
+        0.38,
+        0.5,
+        0.38
+      ],
+      "properties": {
+        "power_domain": "provisional_24V",
+        "capacity_status": "undecided"
+      }
+    },
+    {
+      "id": "inverter",
+      "name": "Inverter packaging placeholder",
+      "parent": "electrical",
+      "type": "Device",
+      "center_m": [
+        -0.655,
+        0.85,
+        0.23
+      ],
+      "size_m": [
+        0.32,
+        0.3,
+        0.28
+      ]
+    },
+    {
+      "id": "fuse_box",
+      "name": "Distribution / fuse placeholder",
+      "parent": "electrical",
+      "type": "Fuse",
+      "center_m": [
+        -0.44,
+        1.55,
+        0.39
+      ],
+      "size_m": [
+        0.06,
+        0.22,
+        0.15
+      ]
+    },
+    {
+      "id": "can_hub",
+      "name": "CAN hub placeholder",
+      "parent": "electrical",
+      "type": "Controller",
+      "center_m": [
+        -0.44,
+        1.25,
+        0.39
+      ],
+      "size_m": [
+        0.06,
+        0.1,
+        0.08
+      ],
+      "properties": {
+        "network": "can0"
+      }
+    },
+    {
+      "id": "electrical_access",
+      "name": "Bench inboard service strip - provisional",
+      "parent": "reserved",
+      "type": "ServiceVolume",
+      "center_m": [
+        -0.24,
+        0.7784333333333332,
+        0.3
+      ],
+      "size_m": [
+        0.25,
+        2.02,
+        0.6
+      ],
+      "volume_role": 2,
+      "owner": "driver_bench",
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "entry"
+      }
+    },
+    {
+      "id": "kitchen_base",
+      "name": "Passenger kitchen enclosure",
+      "parent": "kitchen",
+      "type": "PhysicalObject",
+      "center_m": [
+        0.655,
+        0.16883333333333317,
+        0.43
+      ],
+      "size_m": [
+        0.5,
+        0.76,
+        0.86
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "kitchen_lounge"
+      }
+    },
+    {
+      "id": "kitchen_worktop",
+      "name": "Passenger sink / prep worktop",
+      "parent": "kitchen",
+      "type": "Panel",
+      "center_m": [
+        0.65,
+        0.16883333333333317,
+        0.89
+      ],
+      "size_m": [
+        0.55,
+        0.8,
+        0.04
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "kitchen_lounge"
+      }
+    },
+    {
+      "id": "sink",
+      "name": "Sink packaging placeholder",
+      "parent": "kitchen",
+      "type": "PhysicalObject",
+      "center_m": [
+        0.65,
+        0.2988333333333332,
+        0.79
+      ],
+      "size_m": [
+        0.36,
+        0.3,
+        0.2
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "kitchen_lounge"
+      }
+    },
+    {
+      "id": "cooktop_option",
+      "name": "Optional cooktop footprint - undecided",
+      "parent": "kitchen",
+      "type": "PhysicalObject",
+      "center_m": [
+        0.65,
+        -0.041166666666666796,
+        0.92
+      ],
+      "size_m": [
+        0.35,
+        0.23,
+        0.02
+      ],
+      "reference": true,
+      "properties": {
+        "decision": "optional_not_committed",
+        "layout_revision": "narrow_v2",
+        "zone": "kitchen_lounge"
+      }
+    },
+    {
+      "id": "water_tank",
+      "name": "Under-kitchen tank packaging placeholder",
+      "parent": "kitchen",
+      "type": "Tank",
+      "center_m": [
+        0.66,
+        0.2188333333333332,
+        0.25
+      ],
+      "size_m": [
+        0.32,
+        0.4,
+        0.38
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "kitchen_lounge"
+      }
+    },
+    {
+      "id": "water_pump",
+      "name": "Under-kitchen water pump placeholder",
+      "parent": "kitchen",
+      "type": "Actuator",
+      "center_m": [
+        0.66,
+        -0.09116666666666684,
+        0.2
+      ],
+      "size_m": [
+        0.14,
+        0.12,
+        0.16
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "kitchen_lounge"
+      }
+    },
+    {
+      "id": "water_controller",
+      "name": "Water controller placeholder",
+      "parent": "kitchen",
+      "type": "Controller",
+      "center_m": [
+        0.43,
+        0.3188333333333332,
+        0.68
+      ],
+      "size_m": [
+        0.04,
+        0.08,
+        0.06
+      ],
+      "properties": {
+        "network": "can0",
+        "power_domain": "provisional_24V_to_5V",
+        "layout_revision": "narrow_v2",
+        "zone": "kitchen_lounge"
+      }
+    },
+    {
+      "id": "storage_driver",
+      "name": "Driver Wardrobe - full height",
+      "parent": "storage",
+      "type": "PhysicalObject",
+      "center_m": [
+        -0.655,
+        -0.7181000000000002,
+        0.865
+      ],
+      "size_m": [
+        0.5,
+        0.78,
+        1.73
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "storage"
+      }
+    },
+    {
+      "id": "storage_passenger",
+      "name": "Passenger Pantry / tools - full height",
+      "parent": "storage",
+      "type": "PhysicalObject",
+      "center_m": [
+        0.655,
+        -0.7181000000000002,
+        0.865
+      ],
+      "size_m": [
+        0.5,
+        0.78,
+        1.73
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "storage"
+      }
+    },
+    {
+      "id": "upper_cabinet_driver",
+      "name": "Driver overhead cabinet - stops before bed",
+      "parent": "upper",
+      "type": "PhysicalObject",
+      "center_m": [
+        -0.79,
+        -0.21078333333333343,
+        1.745
+      ],
+      "size_m": [
+        0.25,
+        1.9015666666666668,
+        0.33
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "kitchen_lounge"
+      }
+    },
+    {
+      "id": "upper_halo_driver",
+      "name": "Driver roof wiring corridor INTENT",
+      "parent": "upper",
+      "type": "RoutingRegion",
+      "center_m": [
+        -0.865,
+        0,
+        1.88
+      ],
+      "size_m": [
+        0.08,
+        3.96,
+        0.08
+      ],
+      "reference": true,
+      "properties": {
+        "route_class": "upper_low_voltage_halo",
+        "status": "intent_not_cable",
+        "network": "can0"
+      }
+    },
+    {
+      "id": "upper_cabinet_passenger",
+      "name": "Passenger overhead cabinet - stops before bed",
+      "parent": "upper",
+      "type": "PhysicalObject",
+      "center_m": [
+        0.79,
+        -0.27463333333333356,
+        1.745
+      ],
+      "size_m": [
+        0.25,
+        1.7238666666666669,
+        0.33
+      ],
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "kitchen_lounge"
+      }
+    },
+    {
+      "id": "upper_halo_passenger",
+      "name": "Passenger roof wiring corridor INTENT",
+      "parent": "upper",
+      "type": "RoutingRegion",
+      "center_m": [
+        0.865,
+        0,
+        1.88
+      ],
+      "size_m": [
+        0.08,
+        3.96,
+        0.08
+      ],
+      "reference": true,
+      "properties": {
+        "route_class": "upper_low_voltage_halo",
+        "status": "intent_not_cable",
+        "network": "can0"
+      }
+    },
+    {
+      "id": "upper_halo_rear",
+      "name": "Rear roof cross-link corridor INTENT",
+      "parent": "upper",
+      "type": "RoutingRegion",
+      "center_m": [
+        0,
+        -1.94,
+        1.88
+      ],
+      "size_m": [
+        1.73,
+        0.08,
+        0.08
+      ],
+      "reference": true,
+      "properties": {
+        "route_class": "upper_low_voltage_halo",
+        "status": "intent_not_cable"
+      }
+    },
+    {
+      "id": "driver_power_riser",
+      "name": "Driver electrical riser INTENT",
+      "parent": "upper",
+      "type": "RoutingRegion",
+      "center_m": [
+        -0.88,
+        1.5,
+        1.06
+      ],
+      "size_m": [
+        0.06,
+        0.12,
+        1.56
+      ],
+      "reference": true,
+      "properties": {
+        "route_class": "driver_power_riser",
+        "status": "intent_not_cable"
+      }
+    },
+    {
+      "id": "walkway",
+      "name": "Main aisle - front / mid van",
+      "parent": "reserved",
+      "type": "KeepoutVolume",
+      "center_m": [
+        0,
+        0.3349666666666665,
+        0.85
+      ],
+      "size_m": [
+        0.6,
+        2.9930666666666665,
+        1.7
+      ],
+      "volume_role": 1,
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "kitchen_lounge"
+      }
+    },
+    {
+      "id": "sliding_door_access",
+      "name": "Passenger entry keep-clear - opening provisional",
+      "parent": "reserved",
+      "type": "KeepoutVolume",
+      "center_m": [
+        0.68,
+        1.2218999999999998,
+        0.85
+      ],
+      "size_m": [
+        0.48,
+        1.2192,
+        1.7
+      ],
+      "volume_role": 1,
+      "properties": {
+        "layout_revision": "narrow_v2",
+        "zone": "entry"
+      }
+    },
+    {
+      "id": "rear_door_access",
+      "name": "Rear threshold keep-clear - provisional",
+      "parent": "reserved",
+      "type": "KeepoutVolume",
+      "center_m": [
+        0,
+        -1.975,
+        0.4
+      ],
+      "size_m": [
+        0.8,
+        0.08,
+        0.8
+      ],
+      "volume_role": 1
+    },
+    {
+      "id": "upper_door_header_cabinet",
+      "name": "Passenger shallow upper storage above entry",
+      "parent": "upper",
+      "type": "PhysicalObject",
+      "center_m": [
+        0.85,
+        1.48,
+        1.82
+      ],
+      "size_m": [
+        0.13,
+        1.08,
+        0.16
+      ]
+    },
+    {
+      "id": "oem_beltline_front_limit",
+      "name": "Beltline front limit - 3889 mm length reference",
+      "parent": "oem",
+      "type": "Surface",
+      "center_m": [
+        0,
+        1.8405,
+        0.85
+      ],
+      "size_m": [
+        1.92,
+        0.002,
+        0.05
+      ],
+      "reference": true,
+      "visible": false,
+      "properties": {
+        "dimensions_status": "mixed_nominal_and_proxy",
+        "source": "promaster_2023_dimension_basis",
+        "basis": "L204-1",
+        "geometry_note": "Only longitudinal length sourced; shared rear datum, width and display height assumed"
+      }
+    },
+    {
+      "id": "oem_side_opening_size",
+      "name": "Side opening - 1250 x 1755 mm nominal",
+      "parent": "oem",
+      "type": "Surface",
+      "center_m": [
+        0.96,
+        1.4235,
+        0.8775
+      ],
+      "size_m": [
+        0.002,
+        1.25,
+        1.755
+      ],
+      "reference": true,
+      "visible": false,
+      "properties": {
+        "dimensions_status": "mixed_nominal_and_proxy",
+        "source": "promaster_2023_dimension_basis",
+        "basis": "L508;H508",
+        "geometry_note": "Hidden size reference; longitudinal placement and threshold Z assumed"
+      }
+    }
+  ],
+  "bed_travel_m": {
+    "min": 0.95,
+    "max": 1.65,
+    "home": 0.95
+  },
+  "relationships": [
+    {
+      "source": "battery",
+      "target": "electrical",
+      "type": "contained_by"
+    },
+    {
+      "source": "inverter",
+      "target": "electrical",
+      "type": "contained_by"
+    },
+    {
+      "source": "water_tank",
+      "target": "kitchen",
+      "type": "contained_by"
+    },
+    {
+      "source": "water_pump",
+      "target": "kitchen",
+      "type": "contained_by"
+    }
+  ],
+  "bed_check_targets": [
+    "desk_driver",
+    "desk_passenger",
+    "drawers_driver",
+    "drawers_passenger",
+    "storage_driver",
+    "storage_passenger",
+    "upper_cabinet_driver",
+    "upper_cabinet_passenger",
+    "upper_halo_driver",
+    "upper_halo_passenger",
+    "upper_halo_rear",
+    "upper_door_header_cabinet"
+  ],
+  "dimension_basis": "config/concepts/promaster_2023_dimension_basis.json",
+  "shell_representation": "Maximum extents box proxy, not measured steel contour or a guaranteed usable volume",
+  "layout_revision": "user_correction_2026_10_04_narrow_transverse_bed",
+  "layout_intent": {
+    "bed_orientation": "transverse_length_X_width_Y",
+    "bed_width_max_m": 0.9144,
+    "bed_deck_width_m": 0.82,
+    "bed_length_m": 1.8,
+    "bed_length_status": "provisional_unmeasured_clear_width_at_height",
+    "planning_span_m": 3.88,
+    "planning_span_status": "provisional_beltline_fit_assumption_not_measured",
+    "entry_section_m": 1.2192,
+    "following_sections_m": [
+      0.886933333333333,
+      0.886933333333333,
+      0.886933333333333
+    ],
+    "note": "4 ft entry, remaining sections just under 3 ft; published maximum floor extents unchanged. Beds in AI elevation renders are not authoritative."
+  },
+  "layout_zones": [
+    {
+      "id": "entry",
+      "label": "Entry / electrical - 4 ft",
+      "front_y_m": 1.8315,
+      "rear_y_m": 0.6122999999999998,
+      "length_m": 1.2192
+    },
+    {
+      "id": "kitchen_lounge",
+      "label": "Kitchen / lounge - approx 3 ft",
+      "front_y_m": 0.6122999999999998,
+      "rear_y_m": -0.2746333333333335,
+      "length_m": 0.8869333333333334
+    },
+    {
+      "id": "storage",
+      "label": "Tall storage - approx 3 ft",
+      "front_y_m": -0.2746333333333335,
+      "rear_y_m": -1.1615666666666669,
+      "length_m": 0.8869333333333334
+    },
+    {
+      "id": "work_bed",
+      "label": "Work / narrow bed - approx 3 ft",
+      "front_y_m": -1.1615666666666669,
+      "rear_y_m": -2.0485,
+      "length_m": 0.8869333333333334
+    }
+  ]
+}

@@ -1,6 +1,8 @@
 # S5 Routing and Measured Van Plan
 
-Updated: 2026-10-04. S5 is planned, not implemented at this checkpoint.
+Updated: 2026-10-04. S5A manual polylines are implemented; S5B corridors and S5C checks remain next.
+See [physical routes](physical_routes.md) for the delivered UI/native/CLI contract
+and [narrow van v2](van_layout_narrow_v2.md) for the corrected furniture layout.
 
 ## Current boundary
 
@@ -18,16 +20,17 @@ imports and exports remain the foundation.
 | S4 motion | Saved object/assembly motion discovery, compact movement controls, conservative envelopes, interval checks and read-only range inspection | Unresolved intervals stay explicit; simultaneous joints and arbitrary moving meshes remain separate work |
 | Pre-S5 continuity | Object selection retained across Undo/Redo, saved-state reconciliation, auto framing on file load, requested folder discovery and visible access failures | Selection/tab/zoom are not a restored session; explicit scans and remembered-file restore are still synchronous |
 
-The van remains a 38-object illustrative acceptance project. Its reference shell
-is 1850 x 3650 x 1900 mm, not a measured vehicle. Saved entity IDs and existing
-motion/check exercises should survive each later dimensional correction.
+The original 38-object van remains an illustrative acceptance fixture. The separate
+likely-2023 nominal shell now has a corrected narrow-bed furniture revision. Both
+remain provisional: published maximum extents do not establish usable steel or
+finished-wall geometry. Stable IDs and existing motion/check exercises survive
+these dimensional corrections.
 
 ## S5A: manual physical routes with a usable editor
 
-The next implementation should deliver one complete route workflow, including
+The delivered first slice provides one complete route workflow, including
 visible controls, persistence, undo, headless inspection and validation. Do not
-expand Measure with another large authoring form. A compact Routes pane is the
-proposed entry; verify its fit in the existing pane shell before committing to it.
+expand Measure with another large authoring form. The compact Routes tab wraps with the other tabs to retain readable labels.
 
 An initial route needs a stable ID, name, semantic kind (Cable/Pipe), source and
 destination entity references, ordered physical points and optional metadata.
@@ -38,7 +41,7 @@ endpoint must invalidate/check the route rather than silently imply the entire
 cable is safely rerouted. Rename/reparent must preserve references; deletion must
 refuse or explicitly detach referenced endpoints.
 
-Proposed mouse workflow:
+Original acceptance direction (delivered scope and limitations are in the contract):
 
 1. New route; choose source and destination from labeled entity selectors or Pick.
 2. Add points with explicit viewport picking or unit-aware XYZ fields.

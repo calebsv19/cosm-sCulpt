@@ -8,6 +8,7 @@
 #include "Editor/editor_measurement.h"
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
+#include "Layout/layout_routes.h"
 #define UI_BTN_SAVED_MOTION 105
 #define UI_BTN_MEASURE 98
 
@@ -31,6 +32,7 @@ typedef enum {
     UI_PANEL_RIGHT_TAB_EDIT = 3,
     UI_PANEL_RIGHT_TAB_MEASURE = 4,
     UI_PANEL_RIGHT_TAB_PARTS = 5,
+    UI_PANEL_RIGHT_TAB_ROUTES = 6,
     UI_PANEL_RIGHT_TAB_COUNT
 } UIPanelRightTab;
 
@@ -474,6 +476,14 @@ typedef struct {
         LayoutRelationship link, observed_link;
         bool link_observed, link_remove_pending;
     } parts;
+    struct {
+        char id[64];
+        LayoutPhysicalRoute draft, observed;
+        bool observed_valid, creating, endpoints_open, remove_pending, picking, replace_text;
+        int input, chooser;
+        size_t point;
+        char coordinates[3][64], message[160];
+    } routes;
     struct {
         LayoutVolumeEdit volume;
         Object3D observed_volume;

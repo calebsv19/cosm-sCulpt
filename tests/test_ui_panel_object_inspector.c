@@ -491,6 +491,11 @@ static bool test_scene_authoring_light_selection_uses_authoring_inspector_contro
         TEST_ASSERT(ld_test_click_button_center(size_button));
         snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer), "0.5");
         TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
+        /* Wrapped tabs reduce the visible body; scroll to lower controls. */
+        TEST_ASSERT(UIPanel_RightScrollHandleWheel(
+            ui->rightBodyRect.x + ui->rightBodyRect.w / 2,
+            ui->rightBodyRect.y + ui->rightBodyRect.h / 2,
+            -2.0f));
         TEST_ASSERT(ld_test_click_button_center(cone_button));
         snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer), "30, 60");
         TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));

@@ -1,0 +1,5119 @@
+{
+	"file":	{
+		"schemaVersion":	20,
+		"generator":	"LineDrawing",
+		"gridSize":	0.05000000074505806
+	},
+	"engineering":	{
+		"nextAssemblyId":	1,
+		"entities":	[{
+				"name":	"Floor max extents - 1920 x 4097 mm nominal",
+				"type":	"Panel",
+				"parent":	"oem",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"mixed_nominal_and_proxy"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"oem"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"promaster_2023_dimension_basis"
+					}, {
+						"key":	"basis",
+						"kind":	0,
+						"value":	"W500;L202-1"
+					}, {
+						"key":	"geometry_note",
+						"kind":	0,
+						"value":	"Rectangular outline and 40 mm drawing thickness are proxies; Z=0 nominal bare cargo floor"
+					}],
+				"id":	"oem_floor"
+			}, {
+				"name":	"Driver wall - maximum extents proxy",
+				"type":	"Surface",
+				"parent":	"oem",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"mixed_nominal_and_proxy"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"oem"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"promaster_2023_dimension_basis"
+					}, {
+						"key":	"basis",
+						"kind":	0,
+						"value":	"W500;L202-1;H505"
+					}, {
+						"key":	"geometry_note",
+						"kind":	0,
+						"value":	"Upright wall, thickness and width above floor unmeasured"
+					}],
+				"id":	"oem_driver_wall"
+			}, {
+				"name":	"Passenger wall - extents proxy",
+				"type":	"Surface",
+				"parent":	"oem",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"mixed_nominal_and_proxy"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"oem"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"promaster_2023_dimension_basis"
+					}, {
+						"key":	"basis",
+						"kind":	0,
+						"value":	"W500;L202-1;H505;L508"
+					}, {
+						"key":	"geometry_note",
+						"kind":	0,
+						"value":	"Side opening placed at front end by assumption; width above floor unmeasured"
+					}],
+				"id":	"oem_passenger_wall"
+			}, {
+				"name":	"Side opening header - nominal size / provisional position",
+				"type":	"StructuralMember",
+				"parent":	"oem",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"mixed_nominal_and_proxy"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"oem"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"promaster_2023_dimension_basis"
+					}, {
+						"key":	"basis",
+						"kind":	0,
+						"value":	"L508;H508"
+					}, {
+						"key":	"geometry_note",
+						"kind":	0,
+						"value":	"1250 x 1755 mm opening; location and threshold Z assumed, header contour/thickness proxy"
+					}],
+				"id":	"oem_door_header"
+			}, {
+				"name":	"Front floor limit - full-height position unverified",
+				"type":	"Surface",
+				"parent":	"oem",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"mixed_nominal_and_proxy"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"oem"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"promaster_2023_dimension_basis"
+					}, {
+						"key":	"basis",
+						"kind":	0,
+						"value":	"L202-1"
+					}, {
+						"key":	"geometry_note",
+						"kind":	0,
+						"value":	"Floor limit only; seatback/beltline intrusion not represented by this wall"
+					}],
+				"id":	"oem_front_boundary"
+			}, {
+				"name":	"Rear opening - 1610 x 1790 mm nominal",
+				"type":	"Surface",
+				"parent":	"oem",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"mixed_nominal_and_proxy"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"oem"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"promaster_2023_dimension_basis"
+					}, {
+						"key":	"basis",
+						"kind":	0,
+						"value":	"W207;H202"
+					}, {
+						"key":	"geometry_note",
+						"kind":	0,
+						"value":	"Hidden opening-size marker; floor/threshold datum alignment assumed"
+					}],
+				"id":	"oem_rear_boundary"
+			}, {
+				"name":	"Driver wheel well - mixed-source box proxy",
+				"type":	"PhysicalObject",
+				"parent":	"oem",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"mixed_nominal_and_proxy"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"oem"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"promaster_2023_dimension_basis"
+					}, {
+						"key":	"basis",
+						"kind":	0,
+						"value":	"W201;W500;upfit_extended"
+					}, {
+						"key":	"geometry_note",
+						"kind":	0,
+						"value":	"Inboard X=+/-711 mm; depth=(1920-1422)/2. Length/height/rear offset from upfitter, datum alignment assumed"
+					}],
+				"id":	"wheel_well_driver"
+			}, {
+				"name":	"Passenger wheel well - mixed-source box proxy",
+				"type":	"PhysicalObject",
+				"parent":	"oem",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"mixed_nominal_and_proxy"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"oem"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"promaster_2023_dimension_basis"
+					}, {
+						"key":	"basis",
+						"kind":	0,
+						"value":	"W201;W500;upfit_extended"
+					}, {
+						"key":	"geometry_note",
+						"kind":	0,
+						"value":	"Inboard X=+/-711 mm; depth=(1920-1422)/2. Length/height/rear offset from upfitter, datum alignment assumed"
+					}],
+				"id":	"wheel_well_passenger"
+			}, {
+				"name":	"Bed lift datum",
+				"type":	"MountPoint",
+				"parent":	"fixed_lift",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"fixed_lift"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"bed_guide"
+			}, {
+				"name":	"Narrow transverse bed - 1800 x 820 mm (length unverified)",
+				"type":	"Panel",
+				"parent":	"bed",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"bed"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}, {
+						"key":	"width_max_m",
+						"kind":	0,
+						"value":	"0.9144"
+					}, {
+						"key":	"width_axis",
+						"kind":	0,
+						"value":	"Y"
+					}, {
+						"key":	"sleep_length_axis",
+						"kind":	0,
+						"value":	"X"
+					}],
+				"id":	"bed_deck"
+			}, {
+				"name":	"Narrow mattress placeholder - 1760 x 780 mm",
+				"type":	"PhysicalObject",
+				"parent":	"bed",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"bed"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"bed_mattress"
+			}, {
+				"name":	"Driver moving bed rail",
+				"type":	"Rail",
+				"parent":	"bed",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"bed"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"bed_rail_driver"
+			}, {
+				"name":	"Driver fixed lift guide rear",
+				"type":	"Rail",
+				"parent":	"fixed_lift",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"fixed_lift"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"fixed_guide_driver_rear"
+			}, {
+				"name":	"Driver fixed lift guide front",
+				"type":	"Rail",
+				"parent":	"fixed_lift",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"fixed_lift"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"fixed_guide_driver_front"
+			}, {
+				"name":	"Passenger moving bed rail",
+				"type":	"Rail",
+				"parent":	"bed",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"bed"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"bed_rail_passenger"
+			}, {
+				"name":	"Passenger fixed lift guide rear",
+				"type":	"Rail",
+				"parent":	"fixed_lift",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"fixed_lift"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"fixed_guide_passenger_rear"
+			}, {
+				"name":	"Passenger fixed lift guide front",
+				"type":	"Rail",
+				"parent":	"fixed_lift",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"fixed_lift"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"fixed_guide_passenger_front"
+			}, {
+				"name":	"Driver rear worktop",
+				"type":	"Panel",
+				"parent":	"desks",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"desks"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"desk_driver"
+			}, {
+				"name":	"Driver rear drawer block",
+				"type":	"PhysicalObject",
+				"parent":	"desks",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"desks"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"drawers_driver"
+			}, {
+				"name":	"Driver chair use space - bed raised",
+				"type":	"ServiceVolume",
+				"parent":	"reserved",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"reserved"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"condition",
+						"kind":	0,
+						"value":	"bed_raised_only"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"chair_space_driver"
+			}, {
+				"name":	"Passenger rear worktop",
+				"type":	"Panel",
+				"parent":	"desks",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"desks"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"desk_passenger"
+			}, {
+				"name":	"Passenger rear drawer block",
+				"type":	"PhysicalObject",
+				"parent":	"desks",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"desks"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"drawers_passenger"
+			}, {
+				"name":	"Passenger chair use space - bed raised",
+				"type":	"ServiceVolume",
+				"parent":	"reserved",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"reserved"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"condition",
+						"kind":	0,
+						"value":	"bed_raised_only"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"work_bed"
+					}],
+				"id":	"chair_space_passenger"
+			}, {
+				"name":	"Driver lounge / battery bench enclosure",
+				"type":	"PhysicalObject",
+				"parent":	"electrical",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"electrical"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"entry"
+					}],
+				"id":	"driver_bench"
+			}, {
+				"name":	"Driver lounge cushion",
+				"type":	"PhysicalObject",
+				"parent":	"electrical",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"electrical"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"entry"
+					}],
+				"id":	"driver_cushion"
+			}, {
+				"name":	"Battery bay placeholder - capacity undecided",
+				"type":	"Battery",
+				"parent":	"electrical",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"electrical"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"power_domain",
+						"kind":	0,
+						"value":	"provisional_24V"
+					}, {
+						"key":	"capacity_status",
+						"kind":	0,
+						"value":	"undecided"
+					}],
+				"id":	"battery"
+			}, {
+				"name":	"Inverter packaging placeholder",
+				"type":	"Device",
+				"parent":	"electrical",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"electrical"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"id":	"inverter"
+			}, {
+				"name":	"Distribution / fuse placeholder",
+				"type":	"Fuse",
+				"parent":	"electrical",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"electrical"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"id":	"fuse_box"
+			}, {
+				"name":	"CAN hub placeholder",
+				"type":	"Controller",
+				"parent":	"electrical",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"electrical"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"network",
+						"kind":	0,
+						"value":	"can0"
+					}],
+				"id":	"can_hub"
+			}, {
+				"name":	"Bench inboard service strip - provisional",
+				"type":	"ServiceVolume",
+				"parent":	"reserved",
+				"reference":	false,
+				"volumeRole":	2,
+				"volumeOwner":	"driver_bench",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"reserved"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"entry"
+					}],
+				"id":	"electrical_access"
+			}, {
+				"name":	"Passenger kitchen enclosure",
+				"type":	"PhysicalObject",
+				"parent":	"kitchen",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"kitchen"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"kitchen_lounge"
+					}],
+				"id":	"kitchen_base"
+			}, {
+				"name":	"Passenger sink / prep worktop",
+				"type":	"Panel",
+				"parent":	"kitchen",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"kitchen"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"kitchen_lounge"
+					}],
+				"id":	"kitchen_worktop"
+			}, {
+				"name":	"Sink packaging placeholder",
+				"type":	"PhysicalObject",
+				"parent":	"kitchen",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"kitchen"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"kitchen_lounge"
+					}],
+				"id":	"sink"
+			}, {
+				"name":	"Optional cooktop footprint - undecided",
+				"type":	"PhysicalObject",
+				"parent":	"kitchen",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"kitchen"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"decision",
+						"kind":	0,
+						"value":	"optional_not_committed"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"kitchen_lounge"
+					}],
+				"id":	"cooktop_option"
+			}, {
+				"name":	"Under-kitchen tank packaging placeholder",
+				"type":	"Tank",
+				"parent":	"kitchen",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"kitchen"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"kitchen_lounge"
+					}],
+				"id":	"water_tank"
+			}, {
+				"name":	"Under-kitchen water pump placeholder",
+				"type":	"Actuator",
+				"parent":	"kitchen",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"kitchen"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"kitchen_lounge"
+					}],
+				"id":	"water_pump"
+			}, {
+				"name":	"Water controller placeholder",
+				"type":	"Controller",
+				"parent":	"kitchen",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"kitchen"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"network",
+						"kind":	0,
+						"value":	"can0"
+					}, {
+						"key":	"power_domain",
+						"kind":	0,
+						"value":	"provisional_24V_to_5V"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"kitchen_lounge"
+					}],
+				"id":	"water_controller"
+			}, {
+				"name":	"Driver Wardrobe - full height",
+				"type":	"PhysicalObject",
+				"parent":	"storage",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"storage"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"storage"
+					}],
+				"id":	"storage_driver"
+			}, {
+				"name":	"Passenger Pantry / tools - full height",
+				"type":	"PhysicalObject",
+				"parent":	"storage",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"storage"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"storage"
+					}],
+				"id":	"storage_passenger"
+			}, {
+				"name":	"Driver overhead cabinet - stops before bed",
+				"type":	"PhysicalObject",
+				"parent":	"upper",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"upper"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"kitchen_lounge"
+					}],
+				"id":	"upper_cabinet_driver"
+			}, {
+				"name":	"Driver roof wiring corridor INTENT",
+				"type":	"RoutingRegion",
+				"parent":	"upper",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"upper"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"route_class",
+						"kind":	0,
+						"value":	"upper_low_voltage_halo"
+					}, {
+						"key":	"status",
+						"kind":	0,
+						"value":	"intent_not_cable"
+					}, {
+						"key":	"network",
+						"kind":	0,
+						"value":	"can0"
+					}],
+				"id":	"upper_halo_driver"
+			}, {
+				"name":	"Passenger overhead cabinet - stops before bed",
+				"type":	"PhysicalObject",
+				"parent":	"upper",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"upper"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"kitchen_lounge"
+					}],
+				"id":	"upper_cabinet_passenger"
+			}, {
+				"name":	"Passenger roof wiring corridor INTENT",
+				"type":	"RoutingRegion",
+				"parent":	"upper",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"upper"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"route_class",
+						"kind":	0,
+						"value":	"upper_low_voltage_halo"
+					}, {
+						"key":	"status",
+						"kind":	0,
+						"value":	"intent_not_cable"
+					}, {
+						"key":	"network",
+						"kind":	0,
+						"value":	"can0"
+					}],
+				"id":	"upper_halo_passenger"
+			}, {
+				"name":	"Rear roof cross-link corridor INTENT",
+				"type":	"RoutingRegion",
+				"parent":	"upper",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"upper"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"route_class",
+						"kind":	0,
+						"value":	"upper_low_voltage_halo"
+					}, {
+						"key":	"status",
+						"kind":	0,
+						"value":	"intent_not_cable"
+					}],
+				"id":	"upper_halo_rear"
+			}, {
+				"name":	"Driver electrical riser INTENT",
+				"type":	"RoutingRegion",
+				"parent":	"upper",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"upper"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"route_class",
+						"kind":	0,
+						"value":	"driver_power_riser"
+					}, {
+						"key":	"status",
+						"kind":	0,
+						"value":	"intent_not_cable"
+					}],
+				"id":	"driver_power_riser"
+			}, {
+				"name":	"Main aisle - front / mid van",
+				"type":	"KeepoutVolume",
+				"parent":	"reserved",
+				"reference":	false,
+				"volumeRole":	1,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"reserved"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"kitchen_lounge"
+					}],
+				"id":	"walkway"
+			}, {
+				"name":	"Passenger entry keep-clear - opening provisional",
+				"type":	"KeepoutVolume",
+				"parent":	"reserved",
+				"reference":	false,
+				"volumeRole":	1,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"reserved"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}, {
+						"key":	"layout_revision",
+						"kind":	0,
+						"value":	"narrow_v2"
+					}, {
+						"key":	"zone",
+						"kind":	0,
+						"value":	"entry"
+					}],
+				"id":	"sliding_door_access"
+			}, {
+				"name":	"Rear threshold keep-clear - provisional",
+				"type":	"KeepoutVolume",
+				"parent":	"reserved",
+				"reference":	false,
+				"volumeRole":	1,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"reserved"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"id":	"rear_door_access"
+			}, {
+				"name":	"Passenger shallow upper storage above entry",
+				"type":	"PhysicalObject",
+				"parent":	"upper",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"upper"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"id":	"upper_door_header_cabinet"
+			}, {
+				"name":	"Beltline front limit - 3889 mm length reference",
+				"type":	"Surface",
+				"parent":	"oem",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"mixed_nominal_and_proxy"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"oem"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"promaster_2023_dimension_basis"
+					}, {
+						"key":	"basis",
+						"kind":	0,
+						"value":	"L204-1"
+					}, {
+						"key":	"geometry_note",
+						"kind":	0,
+						"value":	"Only longitudinal length sourced; shared rear datum, width and display height assumed"
+					}],
+				"id":	"oem_beltline_front_limit"
+			}, {
+				"name":	"Side opening - 1250 x 1755 mm nominal",
+				"type":	"Surface",
+				"parent":	"oem",
+				"reference":	true,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"mixed_nominal_and_proxy"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"oem"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"promaster_2023_dimension_basis"
+					}, {
+						"key":	"basis",
+						"kind":	0,
+						"value":	"L508;H508"
+					}, {
+						"key":	"geometry_note",
+						"kind":	0,
+						"value":	"Hidden size reference; longitudinal placement and threshold Z assumed"
+					}],
+				"id":	"oem_side_opening_size"
+			}, {
+				"name":	"Motion: Narrow transverse bed - 1800 x 820 mm (length unverified)",
+				"type":	"MotionEnvelope",
+				"parent":	"",
+				"reference":	false,
+				"volumeRole":	1,
+				"volumeOwner":	"bed",
+				"properties":	[],
+				"id":	"obj3d_52"
+			}],
+		"assemblies":	[{
+				"name":	"Van layout - likely 2023 nominal basis",
+				"type":	"Assembly",
+				"parent":	"",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"van"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"worldFrame":	[0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+				"id":	"van"
+			}, {
+				"name":	"OEM nominal extents - box proxies",
+				"type":	"Assembly",
+				"parent":	"van",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"van"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"worldFrame":	[0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+				"id":	"oem"
+			}, {
+				"name":	"Rear lift bed",
+				"type":	"Assembly",
+				"parent":	"van",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"van"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"worldFrame":	[0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+				"id":	"bed"
+			}, {
+				"name":	"Rear paired desks",
+				"type":	"Assembly",
+				"parent":	"van",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"van"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"worldFrame":	[0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+				"id":	"desks"
+			}, {
+				"name":	"Passenger kitchen / water",
+				"type":	"Assembly",
+				"parent":	"van",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"van"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"worldFrame":	[0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+				"id":	"kitchen"
+			}, {
+				"name":	"Mid-van tall storage",
+				"type":	"Assembly",
+				"parent":	"van",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"van"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"worldFrame":	[0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+				"id":	"storage"
+			}, {
+				"name":	"Driver battery bench / electrical",
+				"type":	"Assembly",
+				"parent":	"van",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"van"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"worldFrame":	[0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+				"id":	"electrical"
+			}, {
+				"name":	"Upper cabinets and wiring intent",
+				"type":	"Assembly",
+				"parent":	"van",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"van"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"worldFrame":	[0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+				"id":	"upper"
+			}, {
+				"name":	"Access / motion reservations",
+				"type":	"Assembly",
+				"parent":	"van",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"van"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"worldFrame":	[0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+				"id":	"reserved"
+			}, {
+				"name":	"Fixed bed lift guides - mounting undecided",
+				"type":	"Assembly",
+				"parent":	"van",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}, {
+						"key":	"subsystem",
+						"kind":	0,
+						"value":	"van"
+					}, {
+						"key":	"source",
+						"kind":	0,
+						"value":	"user_ai_concept_reinterpreted"
+					}],
+				"worldFrame":	[0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+				"id":	"fixed_lift"
+			}],
+		"relationships":	[{
+				"id":	"relationship_1",
+				"source":	"battery",
+				"target":	"electrical",
+				"type":	"contained_by"
+			}, {
+				"id":	"relationship_2",
+				"source":	"inverter",
+				"target":	"electrical",
+				"type":	"contained_by"
+			}, {
+				"id":	"relationship_3",
+				"source":	"water_tank",
+				"target":	"kitchen",
+				"type":	"contained_by"
+			}, {
+				"id":	"relationship_4",
+				"source":	"water_pump",
+				"target":	"kitchen",
+				"type":	"contained_by"
+			}],
+		"nextRelationshipId":	5,
+		"spatialChecks":	[{
+				"id":	"spatial_1",
+				"source":	"obj3d_52",
+				"target":	"desk_driver",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}, {
+				"id":	"spatial_2",
+				"source":	"obj3d_52",
+				"target":	"desk_passenger",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}, {
+				"id":	"spatial_3",
+				"source":	"obj3d_52",
+				"target":	"drawers_driver",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}, {
+				"id":	"spatial_4",
+				"source":	"obj3d_52",
+				"target":	"drawers_passenger",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}, {
+				"id":	"spatial_5",
+				"source":	"obj3d_52",
+				"target":	"storage_driver",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}, {
+				"id":	"spatial_6",
+				"source":	"obj3d_52",
+				"target":	"storage_passenger",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}, {
+				"id":	"spatial_7",
+				"source":	"obj3d_52",
+				"target":	"upper_cabinet_driver",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}, {
+				"id":	"spatial_8",
+				"source":	"obj3d_52",
+				"target":	"upper_cabinet_passenger",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}, {
+				"id":	"spatial_9",
+				"source":	"obj3d_52",
+				"target":	"upper_halo_driver",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}, {
+				"id":	"spatial_10",
+				"source":	"obj3d_52",
+				"target":	"upper_halo_passenger",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}, {
+				"id":	"spatial_11",
+				"source":	"obj3d_52",
+				"target":	"upper_halo_rear",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}, {
+				"id":	"spatial_12",
+				"source":	"obj3d_52",
+				"target":	"upper_door_header_cabinet",
+				"type":	"must_not_intersect",
+				"clearanceMeters":	0
+			}],
+		"nextSpatialCheckId":	13,
+		"motionEnvelopes":	[{
+				"objectId":	52,
+				"ruleId":	"bed_lift",
+				"samples":	33,
+				"paddingMeters":	1.2398102735170915e-05,
+				"inputDigest":	"97100a48f1df3d50",
+				"boundsDigest":	"805d20580e880d12",
+				"assemblyId":	"bed",
+				"members":	[{
+						"entityId":	"bed_deck",
+						"kind":	2,
+						"sizeMeters":	[1.7999999523162842, 0.81999999284744263, 0.0599999986588955],
+						"localOriginMeters":	[0, 0, 0],
+						"localBasis":	[1, 0, 0, 0, 1, 0, 0, 0, 1]
+					}, {
+						"entityId":	"bed_mattress",
+						"kind":	2,
+						"sizeMeters":	[1.7599999904632568, 0.77999997138977051, 0.119999997317791],
+						"localOriginMeters":	[0, 0, 0.0899999737739563],
+						"localBasis":	[1, 0, 0, 0, 1, 0, 0, 0, 1]
+					}, {
+						"entityId":	"bed_rail_driver",
+						"kind":	2,
+						"sizeMeters":	[0.039999999105930328, 0.81999999284744263, 0.079999998211860657],
+						"localOriginMeters":	[-0.875, 0, -0.039999961853027344],
+						"localBasis":	[1, 0, 0, 0, 1, 0, 0, 0, 1]
+					}, {
+						"entityId":	"bed_rail_passenger",
+						"kind":	2,
+						"sizeMeters":	[0.039999999105930328, 0.81999999284744263, 0.079999998211860657],
+						"localOriginMeters":	[0.875, 0, -0.039999961853027344],
+						"localBasis":	[1, 0, 0, 0, 1, 0, 0, 0, 1]
+					}]
+			}],
+		"routes":	[{
+				"name":	"CAN concept - upper halo (unverified)",
+				"type":	"Cable",
+				"parent":	"",
+				"reference":	false,
+				"volumeRole":	0,
+				"volumeOwner":	"",
+				"properties":	[{
+						"key":	"protocol",
+						"kind":	0,
+						"value":	"CAN"
+					}, {
+						"key":	"bus",
+						"kind":	0,
+						"value":	"can0"
+					}, {
+						"key":	"route_intent",
+						"kind":	0,
+						"value":	"upper_low_voltage_halo"
+					}, {
+						"key":	"dimensions_status",
+						"kind":	0,
+						"value":	"concept_not_measured"
+					}],
+				"points_m":	[[-0.43999999761581421, 1.25, 0.38999998569488525], [-0.865, 1.25, 0.38999998569488525], [-0.865, 1.25, 1.88], [-0.865, -1.94, 1.88], [0.865, -1.94, 1.88], [0.865, 0.31883332133293152, 1.88], [0.43000000715255737, 0.31883332133293152, 0.68000000715255737]],
+				"id":	"route_1",
+				"source":	{
+					"entity_id":	"can_hub",
+					"local_offset_m":	[0, 0, 0]
+				},
+				"destination":	{
+					"entity_id":	"water_controller",
+					"local_offset_m":	[0, 0, 0]
+				}
+			}],
+		"nextRouteId":	2
+	},
+	"geometricConstraints":	[{
+			"a":	{
+				"entityId":	"bed_guide",
+				"feature":	0,
+				"face":	0,
+				"offsetU_m":	0,
+				"offsetV_m":	0,
+				"offsetN_m":	0
+			},
+			"b":	{
+				"entityId":	"bed_deck",
+				"feature":	0,
+				"face":	0,
+				"offsetU_m":	0,
+				"offsetV_m":	0,
+				"offsetN_m":	0
+			},
+			"id":	"bed_lift",
+			"kind":	3,
+			"target":	0.95,
+			"axisX":	0,
+			"axisY":	0,
+			"axisZ":	1,
+			"motionAssembly":	"bed",
+			"travelMin_m":	0.95,
+			"travelMax_m":	1.65,
+			"travelHome_m":	0.95,
+			"travelOffset_m":	[0, 0, 0],
+			"travelBasis":	[1, 0, 0, 0, 1, 0, 0, 0, 1]
+		}],
+	"nextConstraintId":	1,
+	"physicalContext":	{
+		"coordinateSystem":	"right_handed_z_up_meters",
+		"metersPerWorldUnit":	1
+	},
+	"scene3d":	{
+		"bounds":	{
+			"enabled":	false,
+			"clampOnEdit":	false,
+			"min":	{
+				"x":	-1.0499999523162842,
+				"y":	-2.1500000953674316,
+				"z":	-0.10000000149011612
+			},
+			"max":	{
+				"x":	1.0499999523162842,
+				"y":	2.1500000953674316,
+				"z":	2.0499999523162842
+			}
+		},
+		"constructionPlane":	{
+			"mode":	"axis_aligned",
+			"axis":	"xy",
+			"offset":	0,
+			"customFrame":	{
+				"origin":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"axisU":	{
+					"x":	0,
+					"y":	-1,
+					"z":	0
+				},
+				"axisV":	{
+					"x":	1,
+					"y":	0,
+					"z":	0
+				},
+				"normal":	{
+					"x":	0,
+					"y":	0,
+					"z":	1
+				}
+			}
+		}
+	},
+	"sceneAuthoring":	{
+		"cameras":	[{
+				"cameraId":	"camera_main",
+				"label":	"Main Camera",
+				"pathId":	"path_camera_main",
+				"position":	{
+					"x":	-8,
+					"y":	-8,
+					"z":	6
+				},
+				"lookAtTarget":	{
+					"x":	0,
+					"y":	0,
+					"z":	1
+				},
+				"fixedForward":	{
+					"x":	0,
+					"y":	0.94385832548141479,
+					"z":	-0.330350399017334
+				},
+				"orientationMode":	"path_facing",
+				"rollDegrees":	0,
+				"verticalFovDegrees":	50,
+				"nearClip":	0.10000000149011612,
+				"farClip":	250
+			}],
+		"lights":	[{
+				"lightId":	"light_key",
+				"label":	"Key Light",
+				"kind":	"directional",
+				"position":	{
+					"x":	0,
+					"y":	-6,
+					"z":	8
+				},
+				"direction":	{
+					"x":	0.20000000298023224,
+					"y":	0.40000000596046448,
+					"z":	-1
+				},
+				"aimTarget":	{
+					"x":	0.73029673099517822,
+					"y":	-4.5394067764282227,
+					"z":	4.3485164642333984
+				},
+				"pathId":	"path_light_key",
+				"enabled":	true,
+				"positionMode":	"independent",
+				"color":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				},
+				"intensity":	1,
+				"radius":	0.25,
+				"areaWidth":	2,
+				"areaHeight":	2,
+				"innerConeDegrees":	25,
+				"outerConeDegrees":	40,
+				"falloff":	"inverse_square"
+			}],
+		"paths":	[{
+				"pathId":	"path_camera_main",
+				"label":	"Main Camera Path",
+				"role":	"camera",
+				"curveType":	"bezier",
+				"boundLightId":	"",
+				"boundCameraId":	"camera_main",
+				"closed":	false,
+				"playbackMode":	"once",
+				"durationSeconds":	5,
+				"normalizedDistance":	0,
+				"playing":	false,
+				"controlPoints":	[{
+						"x":	-8,
+						"y":	-8,
+						"z":	6
+					}, {
+						"x":	-3,
+						"y":	-11,
+						"z":	9
+					}, {
+						"x":	3,
+						"y":	-11,
+						"z":	9
+					}, {
+						"x":	8,
+						"y":	-8,
+						"z":	6
+					}],
+				"tangentModes":	["smooth", "smooth"]
+			}, {
+				"pathId":	"path_light_key",
+				"label":	"Key Light Path",
+				"role":	"light",
+				"curveType":	"bezier",
+				"boundLightId":	"light_key",
+				"boundCameraId":	"",
+				"closed":	false,
+				"playbackMode":	"once",
+				"durationSeconds":	5,
+				"normalizedDistance":	0,
+				"playing":	false,
+				"controlPoints":	[{
+						"x":	-4,
+						"y":	-6,
+						"z":	7
+					}, {
+						"x":	-1.5,
+						"y":	-8,
+						"z":	10
+					}, {
+						"x":	1.5,
+						"y":	-8,
+						"z":	10
+					}, {
+						"x":	4,
+						"y":	-6,
+						"z":	7
+					}],
+				"tangentModes":	["smooth", "smooth"]
+			}],
+		"materials":	[{
+				"materialId":	"mat_default",
+				"label":	"Default Matte",
+				"rgba":	[0.72000002861022949, 0.72000002861022949, 0.68000000715255737, 1]
+			}],
+		"selection":	{
+			"kind":	"none",
+			"index":	0
+		}
+	},
+	"objects3d":	[{
+			"id":	1,
+			"persistentId":	"oem_floor",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0,
+					"y":	0,
+					"z":	-0.019999999552965164
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	1.9199999570846558,
+				"height":	4.0970001220703125,
+				"depth":	0.039999999105930328,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0,
+						"y":	0,
+						"z":	-0.019999999552965164
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	2,
+			"persistentId":	"oem_driver_wall",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.97000002861022949,
+					"y":	0,
+					"z":	0.97949999570846558
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.019999999552965164,
+				"height":	4.0970001220703125,
+				"depth":	1.9589999914169312,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.97000002861022949,
+						"y":	0,
+						"z":	0.97949999570846558
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	3,
+			"persistentId":	"oem_passenger_wall",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.97000002861022949,
+					"y":	-0.625,
+					"z":	0.97949999570846558
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.019999999552965164,
+				"height":	2.8469998836517334,
+				"depth":	1.9589999914169312,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.97000002861022949,
+						"y":	-0.625,
+						"z":	0.97949999570846558
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	4,
+			"persistentId":	"oem_door_header",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.97000002861022949,
+					"y":	1.4234999418258667,
+					"z":	1.85699999332428
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.019999999552965164,
+				"height":	1.25,
+				"depth":	0.20399999618530273,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.97000002861022949,
+						"y":	1.4234999418258667,
+						"z":	1.85699999332428
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	5,
+			"persistentId":	"oem_front_boundary",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0,
+					"y":	2.0585000514984131,
+					"z":	0.97949999570846558
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	1.9199999570846558,
+				"height":	0.019999999552965164,
+				"depth":	1.9589999914169312,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0,
+						"y":	2.0585000514984131,
+						"z":	0.97949999570846558
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	6,
+			"persistentId":	"oem_rear_boundary",
+			"flags":	{
+				"visible":	false,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0,
+					"y":	-2.0485000610351562,
+					"z":	0.89499998092651367
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	1.6100000143051147,
+				"height":	0.0020000000949949026,
+				"depth":	1.7899999618530273,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0,
+						"y":	-2.0485000610351562,
+						"z":	0.89499998092651367
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	7,
+			"persistentId":	"wheel_well_driver",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.83550000190734863,
+					"y":	-0.95630002021789551,
+					"z":	0.2159000039100647
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.24899999797344208,
+				"height":	0.88899999856948853,
+				"depth":	0.43180000782012939,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.83550000190734863,
+						"y":	-0.95630002021789551,
+						"z":	0.2159000039100647
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	8,
+			"persistentId":	"wheel_well_passenger",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.83550000190734863,
+					"y":	-0.95630002021789551,
+					"z":	0.2159000039100647
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.24899999797344208,
+				"height":	0.88899999856948853,
+				"depth":	0.43180000782012939,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.83550000190734863,
+						"y":	-0.95630002021789551,
+						"z":	0.2159000039100647
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	9,
+			"persistentId":	"bed_guide",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0,
+					"y":	-1.5885000228881836,
+					"z":	0
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.019999999552965164,
+				"height":	0.019999999552965164,
+				"depth":	0.019999999552965164,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0,
+						"y":	-1.5885000228881836,
+						"z":	0
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	10,
+			"persistentId":	"bed_deck",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0,
+					"y":	-1.5885000228881836,
+					"z":	0.949999988079071
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	1.7999999523162842,
+				"height":	0.81999999284744263,
+				"depth":	0.0599999986588955,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0,
+						"y":	-1.5885000228881836,
+						"z":	0.949999988079071
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	11,
+			"persistentId":	"bed_mattress",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0,
+					"y":	-1.5885000228881836,
+					"z":	1.0399999618530273
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	1.7599999904632568,
+				"height":	0.77999997138977051,
+				"depth":	0.119999997317791,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0,
+						"y":	-1.5885000228881836,
+						"z":	1.0399999618530273
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	12,
+			"persistentId":	"bed_rail_driver",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.875,
+					"y":	-1.5885000228881836,
+					"z":	0.9100000262260437
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.039999999105930328,
+				"height":	0.81999999284744263,
+				"depth":	0.079999998211860657,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.875,
+						"y":	-1.5885000228881836,
+						"z":	0.9100000262260437
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	13,
+			"persistentId":	"fixed_guide_driver_rear",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.912999987602234,
+					"y":	-1.9485000371932983,
+					"z":	1.2000000476837158
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.019999999552965164,
+				"height":	0.02500000037252903,
+				"depth":	1.4500000476837158,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.912999987602234,
+						"y":	-1.9485000371932983,
+						"z":	1.2000000476837158
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	14,
+			"persistentId":	"fixed_guide_driver_front",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.912999987602234,
+					"y":	-1.2285000085830688,
+					"z":	1.2000000476837158
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.019999999552965164,
+				"height":	0.02500000037252903,
+				"depth":	1.4500000476837158,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.912999987602234,
+						"y":	-1.2285000085830688,
+						"z":	1.2000000476837158
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	15,
+			"persistentId":	"bed_rail_passenger",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.875,
+					"y":	-1.5885000228881836,
+					"z":	0.9100000262260437
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.039999999105930328,
+				"height":	0.81999999284744263,
+				"depth":	0.079999998211860657,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.875,
+						"y":	-1.5885000228881836,
+						"z":	0.9100000262260437
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	16,
+			"persistentId":	"fixed_guide_passenger_rear",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.912999987602234,
+					"y":	-1.9485000371932983,
+					"z":	1.2000000476837158
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.019999999552965164,
+				"height":	0.02500000037252903,
+				"depth":	1.4500000476837158,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.912999987602234,
+						"y":	-1.9485000371932983,
+						"z":	1.2000000476837158
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	17,
+			"persistentId":	"fixed_guide_passenger_front",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.912999987602234,
+					"y":	-1.2285000085830688,
+					"z":	1.2000000476837158
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.019999999552965164,
+				"height":	0.02500000037252903,
+				"depth":	1.4500000476837158,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.912999987602234,
+						"y":	-1.2285000085830688,
+						"z":	1.2000000476837158
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	18,
+			"persistentId":	"desk_driver",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.665000021457672,
+					"y":	-1.5885000228881836,
+					"z":	0.73000001907348633
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.479999989271164,
+				"height":	0.81999999284744263,
+				"depth":	0.039999999105930328,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.665000021457672,
+						"y":	-1.5885000228881836,
+						"z":	0.73000001907348633
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	19,
+			"persistentId":	"drawers_driver",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.665000021457672,
+					"y":	-1.778499960899353,
+					"z":	0.3449999988079071
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.43000000715255737,
+				"height":	0.34000000357627869,
+				"depth":	0.68999999761581421,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.665000021457672,
+						"y":	-1.778499960899353,
+						"z":	0.3449999988079071
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	20,
+			"persistentId":	"chair_space_driver",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.270000010728836,
+					"y":	-1.5885000228881836,
+					"z":	0.56999999284744263
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.43000000715255737,
+				"height":	0.56999999284744263,
+				"depth":	1.0499999523162842,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.270000010728836,
+						"y":	-1.5885000228881836,
+						"z":	0.56999999284744263
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	21,
+			"persistentId":	"desk_passenger",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.665000021457672,
+					"y":	-1.5885000228881836,
+					"z":	0.73000001907348633
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.479999989271164,
+				"height":	0.81999999284744263,
+				"depth":	0.039999999105930328,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.665000021457672,
+						"y":	-1.5885000228881836,
+						"z":	0.73000001907348633
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	22,
+			"persistentId":	"drawers_passenger",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.665000021457672,
+					"y":	-1.778499960899353,
+					"z":	0.3449999988079071
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.43000000715255737,
+				"height":	0.34000000357627869,
+				"depth":	0.68999999761581421,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.665000021457672,
+						"y":	-1.778499960899353,
+						"z":	0.3449999988079071
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	23,
+			"persistentId":	"chair_space_passenger",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.270000010728836,
+					"y":	-1.5885000228881836,
+					"z":	0.56999999284744263
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.43000000715255737,
+				"height":	0.56999999284744263,
+				"depth":	1.0499999523162842,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.270000010728836,
+						"y":	-1.5885000228881836,
+						"z":	0.56999999284744263
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	24,
+			"persistentId":	"driver_bench",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.65499997138977051,
+					"y":	0.778433322906494,
+					"z":	0.25
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.5,
+				"height":	2.0199999809265137,
+				"depth":	0.5,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.65499997138977051,
+						"y":	0.778433322906494,
+						"z":	0.25
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	25,
+			"persistentId":	"driver_cushion",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.65499997138977051,
+					"y":	0.778433322906494,
+					"z":	0.550000011920929
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.5,
+				"height":	2.0199999809265137,
+				"depth":	0.10000000149011612,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.65499997138977051,
+						"y":	0.778433322906494,
+						"z":	0.550000011920929
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	26,
+			"persistentId":	"battery",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.65499997138977051,
+					"y":	1.5499999523162842,
+					"z":	0.23499999940395355
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.37999999523162842,
+				"height":	0.5,
+				"depth":	0.37999999523162842,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.65499997138977051,
+						"y":	1.5499999523162842,
+						"z":	0.23499999940395355
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	27,
+			"persistentId":	"inverter",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.65499997138977051,
+					"y":	0.850000023841858,
+					"z":	0.23000000417232513
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.31999999284744263,
+				"height":	0.300000011920929,
+				"depth":	0.2800000011920929,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.65499997138977051,
+						"y":	0.850000023841858,
+						"z":	0.23000000417232513
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	28,
+			"persistentId":	"fuse_box",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.43999999761581421,
+					"y":	1.5499999523162842,
+					"z":	0.38999998569488525
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.0599999986588955,
+				"height":	0.2199999988079071,
+				"depth":	0.15000000596046448,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.43999999761581421,
+						"y":	1.5499999523162842,
+						"z":	0.38999998569488525
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	29,
+			"persistentId":	"can_hub",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.43999999761581421,
+					"y":	1.25,
+					"z":	0.38999998569488525
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.0599999986588955,
+				"height":	0.10000000149011612,
+				"depth":	0.079999998211860657,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.43999999761581421,
+						"y":	1.25,
+						"z":	0.38999998569488525
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	30,
+			"persistentId":	"electrical_access",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.239999994635582,
+					"y":	0.778433322906494,
+					"z":	0.300000011920929
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.25,
+				"height":	2.0199999809265137,
+				"depth":	0.600000023841858,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.239999994635582,
+						"y":	0.778433322906494,
+						"z":	0.300000011920929
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	31,
+			"persistentId":	"kitchen_base",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.65499997138977051,
+					"y":	0.16883333027362823,
+					"z":	0.43000000715255737
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.5,
+				"height":	0.759999990463257,
+				"depth":	0.86000001430511475,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.65499997138977051,
+						"y":	0.16883333027362823,
+						"z":	0.43000000715255737
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	32,
+			"persistentId":	"kitchen_worktop",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.649999976158142,
+					"y":	0.16883333027362823,
+					"z":	0.88999998569488525
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.550000011920929,
+				"height":	0.800000011920929,
+				"depth":	0.039999999105930328,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.649999976158142,
+						"y":	0.16883333027362823,
+						"z":	0.88999998569488525
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	33,
+			"persistentId":	"sink",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.649999976158142,
+					"y":	0.29883334040641785,
+					"z":	0.790000021457672
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.36000001430511475,
+				"height":	0.300000011920929,
+				"depth":	0.20000000298023224,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.649999976158142,
+						"y":	0.29883334040641785,
+						"z":	0.790000021457672
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	34,
+			"persistentId":	"cooktop_option",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.649999976158142,
+					"y":	-0.041166666895151138,
+					"z":	0.92000001668930054
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.34999999403953552,
+				"height":	0.23000000417232513,
+				"depth":	0.019999999552965164,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.649999976158142,
+						"y":	-0.041166666895151138,
+						"z":	0.92000001668930054
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	35,
+			"persistentId":	"water_tank",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.6600000262260437,
+					"y":	0.218833327293396,
+					"z":	0.25
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.31999999284744263,
+				"height":	0.40000000596046448,
+				"depth":	0.37999999523162842,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.6600000262260437,
+						"y":	0.218833327293396,
+						"z":	0.25
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	36,
+			"persistentId":	"water_pump",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.6600000262260437,
+					"y":	-0.0911666676402092,
+					"z":	0.20000000298023224
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.14000000059604645,
+				"height":	0.119999997317791,
+				"depth":	0.15999999642372131,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.6600000262260437,
+						"y":	-0.0911666676402092,
+						"z":	0.20000000298023224
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	37,
+			"persistentId":	"water_controller",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.43000000715255737,
+					"y":	0.31883332133293152,
+					"z":	0.68000000715255737
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.039999999105930328,
+				"height":	0.079999998211860657,
+				"depth":	0.0599999986588955,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.43000000715255737,
+						"y":	0.31883332133293152,
+						"z":	0.68000000715255737
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	38,
+			"persistentId":	"storage_driver",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.65499997138977051,
+					"y":	-0.71810001134872437,
+					"z":	0.865000009536743
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.5,
+				"height":	0.77999997138977051,
+				"depth":	1.7300000190734863,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.65499997138977051,
+						"y":	-0.71810001134872437,
+						"z":	0.865000009536743
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	39,
+			"persistentId":	"storage_passenger",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.65499997138977051,
+					"y":	-0.71810001134872437,
+					"z":	0.865000009536743
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.5,
+				"height":	0.77999997138977051,
+				"depth":	1.7300000190734863,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.65499997138977051,
+						"y":	-0.71810001134872437,
+						"z":	0.865000009536743
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	40,
+			"persistentId":	"upper_cabinet_driver",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.790000021457672,
+					"y":	-0.21078333258628845,
+					"z":	1.7450000047683716
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.25,
+				"height":	1.9015666246414185,
+				"depth":	0.33000001311302185,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.790000021457672,
+						"y":	-0.21078333258628845,
+						"z":	1.7450000047683716
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	41,
+			"persistentId":	"upper_halo_driver",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.865000009536743,
+					"y":	0,
+					"z":	1.8799999952316284
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.079999998211860657,
+				"height":	3.9600000381469727,
+				"depth":	0.079999998211860657,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.865000009536743,
+						"y":	0,
+						"z":	1.8799999952316284
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	42,
+			"persistentId":	"upper_cabinet_passenger",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.790000021457672,
+					"y":	-0.27463334798812866,
+					"z":	1.7450000047683716
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.25,
+				"height":	1.7238667011260986,
+				"depth":	0.33000001311302185,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.790000021457672,
+						"y":	-0.27463334798812866,
+						"z":	1.7450000047683716
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	43,
+			"persistentId":	"upper_halo_passenger",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.865000009536743,
+					"y":	0,
+					"z":	1.8799999952316284
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.079999998211860657,
+				"height":	3.9600000381469727,
+				"depth":	0.079999998211860657,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.865000009536743,
+						"y":	0,
+						"z":	1.8799999952316284
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	44,
+			"persistentId":	"upper_halo_rear",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0,
+					"y":	-1.940000057220459,
+					"z":	1.8799999952316284
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	1.7300000190734863,
+				"height":	0.079999998211860657,
+				"depth":	0.079999998211860657,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0,
+						"y":	-1.940000057220459,
+						"z":	1.8799999952316284
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	45,
+			"persistentId":	"driver_power_riser",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	-0.87999999523162842,
+					"y":	1.5,
+					"z":	1.059999942779541
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.0599999986588955,
+				"height":	0.119999997317791,
+				"depth":	1.559999942779541,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	-0.87999999523162842,
+						"y":	1.5,
+						"z":	1.059999942779541
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	46,
+			"persistentId":	"walkway",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0,
+					"y":	0.33496665954589844,
+					"z":	0.850000023841858
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.600000023841858,
+				"height":	2.9930665493011475,
+				"depth":	1.7000000476837158,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0,
+						"y":	0.33496665954589844,
+						"z":	0.850000023841858
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	47,
+			"persistentId":	"sliding_door_access",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.68000000715255737,
+					"y":	1.22189998626709,
+					"z":	0.850000023841858
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.479999989271164,
+				"height":	1.2192000150680542,
+				"depth":	1.7000000476837158,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.68000000715255737,
+						"y":	1.22189998626709,
+						"z":	0.850000023841858
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	48,
+			"persistentId":	"rear_door_access",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0,
+					"y":	-1.9750000238418579,
+					"z":	0.40000000596046448
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.800000011920929,
+				"height":	0.079999998211860657,
+				"depth":	0.800000011920929,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0,
+						"y":	-1.9750000238418579,
+						"z":	0.40000000596046448
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	49,
+			"persistentId":	"upper_door_header_cabinet",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.850000023841858,
+					"y":	1.4800000190734863,
+					"z":	1.8200000524520874
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.12999999523162842,
+				"height":	1.0800000429153442,
+				"depth":	0.15999999642372131,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.850000023841858,
+						"y":	1.4800000190734863,
+						"z":	1.8200000524520874
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	50,
+			"persistentId":	"oem_beltline_front_limit",
+			"flags":	{
+				"visible":	false,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0,
+					"y":	1.8404999971389771,
+					"z":	0.850000023841858
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	1.9199999570846558,
+				"height":	0.0020000000949949026,
+				"depth":	0.05000000074505806,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0,
+						"y":	1.8404999971389771,
+						"z":	0.850000023841858
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	51,
+			"persistentId":	"oem_side_opening_size",
+			"flags":	{
+				"visible":	false,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0.959999978542328,
+					"y":	1.4234999418258667,
+					"z":	0.87749999761581421
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	0.0020000000949949026,
+				"height":	1.25,
+				"depth":	1.7549999952316284,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0.959999978542328,
+						"y":	1.4234999418258667,
+						"z":	0.87749999761581421
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}, {
+			"id":	52,
+			"persistentId":	"obj3d_52",
+			"flags":	{
+				"visible":	true,
+				"locked":	false,
+				"selectable":	true
+			},
+			"kind":	"rect_prism",
+			"objectType":	"rect_prism_primitive",
+			"dimensionalMode":	"full_3d",
+			"lockedPlane":	"xy",
+			"transform":	{
+				"position":	{
+					"x":	0,
+					"y":	-1.5885000228881836,
+					"z":	1.3350000381469727
+				},
+				"rotationDeg":	{
+					"x":	0,
+					"y":	0,
+					"z":	0
+				},
+				"scale":	{
+					"x":	1,
+					"y":	1,
+					"z":	1
+				}
+			},
+			"rectPrism":	{
+				"width":	1.8000247478485107,
+				"height":	0.82002472877502441,
+				"depth":	0.930024743080139,
+				"lockToConstructionPlane":	false,
+				"lockToBounds":	false,
+				"frame":	{
+					"origin":	{
+						"x":	0,
+						"y":	-1.5885000228881836,
+						"z":	1.3350000381469727
+					},
+					"axisU":	{
+						"x":	1,
+						"y":	0,
+						"z":	0
+					},
+					"axisV":	{
+						"x":	0,
+						"y":	1,
+						"z":	0
+					},
+					"normal":	{
+						"x":	0,
+						"y":	0,
+						"z":	1
+					}
+				}
+			}
+		}],
+	"anchors":	[],
+	"walls":	[]
+}

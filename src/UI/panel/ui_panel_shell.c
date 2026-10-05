@@ -1,3 +1,4 @@
+#include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_shell.h"
 #include "UI/ui_panel_measurement.h"
@@ -43,6 +44,7 @@ void UIPanel_SetActiveRightTab(UIPanelState* ui, UIPanelRightTab tab) {
     if (ui->activeRightTab != tab) {
         UIPanel_MeasurementStopInput();
         UIPanel_PartsStopInput();
+        UIPanel_RoutesStopInput();
         GlobalState* state = Global_Get();
         if (state && state->editor.viewportTool == VIEWPORT_TOOL_LINE) {
             state->editor.viewportTool = VIEWPORT_TOOL_SELECT;
@@ -112,6 +114,7 @@ const char* UIPanel_RightTabLabel(UIPanelRightTab tab) {
         case UI_PANEL_RIGHT_TAB_EDIT: return "Edit";
         case UI_PANEL_RIGHT_TAB_MEASURE: return "Measure";
         case UI_PANEL_RIGHT_TAB_PARTS: return "Parts";
+        case UI_PANEL_RIGHT_TAB_ROUTES: return "Routes";
         case UI_PANEL_RIGHT_TAB_COUNT:
         default: return "View";
     }
@@ -176,38 +179,31 @@ static void UIPanel_UpdateSideTabs(UIPanelTabButton* tabs,
     int contentX = paneRect.x + padding;
     int contentY = paneRect.y + padding;
     int contentW = paneRect.w - (padding * 2);
-    int tabW = 0;
-    int gapTotal = 0;
-
     if (contentW < 0) contentW = 0;
-    if (tabCount > 1) gapTotal = spacing * (tabCount - 1);
-    if (tabCount > 0) {
-        tabW = (contentW - gapTotal) / tabCount;
-    }
-    if (tabW < 24) tabW = 24;
-
-    int widths[UI_PANEL_RIGHT_TAB_COUNT]={0},total=0;
-    TTF_Font* font=FontManager_GetUIPanelFont();
-    for(int i=0;i<tabCount;++i) {
-        int w=(int)strlen(tabs[i].label)*8;
-        if(font) (void)TTF_SizeUTF8(font,tabs[i].label,&w,NULL);
-        widths[i]=w+12;total+=widths[i];
-    }
-    int cursor=contentX,available=contentW-gapTotal;
+    /* Wrap complete labels rather than shrinking seven tabs into unreadable cells. */
+    int cursor = contentX;
+    int tabY = contentY;
+    TTF_Font* font = FontManager_GetUIPanelFont();
     for (int i = 0; i < tabCount; ++i) {
-        int width=total>0 ? widths[i]*available/total : tabW;
-        if(i==tabCount-1)width=contentX+contentW-cursor;
-        tabs[i].bounds=(SDL_Rect){cursor,contentY,width,tabHeight};
-        tabs[i].active=(i==activeIndex);
-        cursor+=width+spacing;
+        int width = (int)strlen(tabs[i].label) * 8;
+        if (font) (void)TTF_SizeUTF8(font, tabs[i].label, &width, NULL);
+        width += 16;
+        if (width > contentW) width = contentW;
+        if (cursor > contentX && cursor + width > contentX + contentW) {
+            cursor = contentX;
+            tabY += tabHeight + spacing;
+        }
+        tabs[i].bounds = (SDL_Rect){cursor, tabY, width, tabHeight};
+        tabs[i].active = (i == activeIndex);
+        cursor += width + spacing;
     }
 
     if (outBodyRect) {
         *outBodyRect = (SDL_Rect){
             contentX,
-            contentY + tabHeight + spacing + 2,
+            tabY + tabHeight + spacing + 2,
             contentW,
-            paneRect.h - ((contentY + tabHeight + spacing + 2) - paneRect.y) - padding
+            paneRect.h - ((tabY + tabHeight + spacing + 2) - paneRect.y) - padding
         };
         if (outBodyRect->w < 0) outBodyRect->w = 0;
         if (outBodyRect->h < 0) outBodyRect->h = 0;

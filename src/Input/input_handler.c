@@ -1,3 +1,4 @@
+#include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_parts.h"
 // src/Input/input_handler.c
 #include "input_handler.h"
@@ -18,6 +19,7 @@ void Input_Handle(AppContext *ctx, SDL_Event* event) {
         InputViewportNavigation_HandleMouseButton(&event->button)) return;
     if (event->type == SDL_MOUSEMOTION &&
         InputViewportNavigation_HandleMouseMotion(&event->motion)) return;
+    if (UIPanel_RoutesEvent(event)) return;
     if (UIPanel_PartsEvent(event)) return;
     UIPanelState* panel=UIPanel_Get();
     if(UIPanel_TravelEvent(event))return;

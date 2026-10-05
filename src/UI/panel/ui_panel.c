@@ -1,3 +1,4 @@
+#include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_spatial.h"
 #include "UI/ui_panel_motion.h"
 #include "UI/ui_panel_parts.h"
@@ -727,6 +728,7 @@ void UIPanel_OnWindowResized(int screenW, int screenH) {
     UIPanel_LayoutRightPaneButtons(&g_uiPanel, &metrics);
     UIPanel_LayoutMeasurementPane();
     UIPanel_LayoutParts();
+    UIPanel_LayoutRoutes();
 }
 
 void UIPanel_Init(int screenW, int screenH) {
@@ -1064,6 +1066,7 @@ bool UIPanel_IsObjectTransformDialogActive(void) {
 }
 
 bool UIPanel_IsCapturingKeyboard(void) {
+    if (g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_ROUTES && (g_uiPanel.routes.input || g_uiPanel.routes.chooser || g_uiPanel.routes.picking)) return true;
     if (g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_PARTS && (g_uiPanel.parts.input || g_uiPanel.parts.chooser)) return true;
     if (g_uiPanel.measurement.active && g_uiPanel.measurement.placing) return true;
     return UIPanel_IsSaveDialogActive() ||
@@ -1087,6 +1090,8 @@ void UIPanel_ResetTransientUiState(void) {
     ui->objectModelTree.operationScrollbarDragging = false;
     ui->pathPointPlacementArmed = false;
     UIPanel_PartsStopInput();
+    UIPanel_RoutesStopInput();
+    memset(&ui->routes,0,sizeof(ui->routes));
     memset(&ui->parts,0,sizeof(ui->parts));
     memset(&ui->spatial,0,sizeof(ui->spatial));
     ui->parts.rotation_axis=2;
@@ -1108,6 +1113,7 @@ void UIPanel_ResetTransientUiState(void) {
 }
 
 void UIPanel_RenderOverlays(SDL_Renderer* renderer) {
+    UIPanel_RenderRouteViewport(renderer);
     UIPanel_RenderConstraintViewport(renderer);
     UIPanel_RenderMotionViewport(renderer);
     UIPanel_RenderMotionPreview(renderer);

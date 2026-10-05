@@ -124,3 +124,13 @@ van-concept-smoke: van_concept_tool
 	@python3 tests/test_van_concept.py $(PROGRAM_BIN_DIR)/van_concept_tool
 
 -include $(PROGRAM_BUILD_DIR)/tools/van_concept_tool.d
+
+$(PROGRAM_BIN_DIR)/physical_route_tool: $(PROGRAM_BUILD_DIR)/tools/physical_route_tool.o $(VAN_CONCEPT_OBJS) $(AGENT_SCENE_TOOL_SHARED_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $^ -o $@ $(LDFLAGS)
+
+.PHONY: physical_route_tool route-smoke
+physical_route_tool: $(PROGRAM_BIN_DIR)/physical_route_tool
+route-smoke: physical_route_tool
+	@python3 tests/test_physical_route_tool.py $(PROGRAM_BIN_DIR)/physical_route_tool
+-include $(PROGRAM_BUILD_DIR)/tools/physical_route_tool.d

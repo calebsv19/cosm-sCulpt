@@ -1,3 +1,4 @@
+#include "Layout/layout_routes.h"
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_relationships.h"
 #include "Tools/canonical_scene_export.h"
@@ -1039,6 +1040,10 @@ static cJSON* build_scene_json(const Layout* layout,
         cJSON_Delete(line_drawing_ext);
         cJSON_Delete(root);
         return NULL;
+    }
+    cJSON* route_report = Layout_RoutesReportJson(layout);
+    if (!route_report || !upsert_object_item(line_drawing_ext, "physical_routes", route_report)) {
+        cJSON_Delete(route_report);cJSON_Delete(root);return NULL;
     }
     cJSON_AddNumberToObject(line_drawing_ext, "active_anchor_count", (double)active_anchors);
     cJSON_AddNumberToObject(line_drawing_ext, "active_wall_count", (double)active_walls);

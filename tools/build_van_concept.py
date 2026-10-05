@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Compose a native engineering document from explicit, provisional concept parts.
 
-This authoring input is app-local, not the general agent request schema. Geometry
-is serialized in existing schema 19; native APIs derive motion and compile exports.
+This authoring input is app-local, not the general agent request schema. The input uses legacy schema 19; native APIs migrate to the current schema,
+derive motion and compile exports.
 New output directories only: regenerating never overwrites an edited project.
 """
 import argparse

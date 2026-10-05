@@ -351,6 +351,16 @@ typedef struct {
     LayoutMotionMember members[LAYOUT_MAX_MOTION_MEMBERS];
 } LayoutMotionEnvelope;
 
+#define LAYOUT_MAX_ROUTES 32
+#define LAYOUT_MAX_ROUTE_POINTS 64
+typedef struct {
+    char id[64];
+    LayoutEntityInfo info; /* Cable/Pipe metadata; world-space route, no transform parent. */
+    LayoutGeometricReference source, destination;
+    size_t point_count;
+    double points_meters[LAYOUT_MAX_ROUTE_POINTS][3]; /* Includes captured endpoint positions. */
+} LayoutPhysicalRoute;
+
 typedef struct {
     Object3D* items;
     size_t count;
@@ -369,6 +379,9 @@ typedef struct {
     uint32_t next_spatial_rule_id;
     LayoutMotionEnvelope motion_envelopes[LAYOUT_MAX_MOTION_ENVELOPES];
     size_t motion_envelope_count;
+    LayoutPhysicalRoute routes[LAYOUT_MAX_ROUTES];
+    size_t route_count;
+    uint32_t next_route_id;
     LayoutEntityQuery view_query; /* transient viewport filter; never changes authored visibility */
 } LayoutObjectStore;
 
