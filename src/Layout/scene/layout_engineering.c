@@ -1,4 +1,5 @@
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_saved_views.h"
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
@@ -90,11 +91,11 @@ bool Layout_ValidateEngineering(const Layout* layout, char* message, size_t capa
         valid=Layout_EntityInfoValid(&o->info) && (!o->info.parent_id[0] || Layout_FindAssembly(store,o->info.parent_id));
     }
     if (!valid && message && capacity) snprintf(message,capacity,"Invalid metadata or assembly tree: check IDs, parent cycles, properties and rigid frames.");
-    return valid && Layout_ValidateMotionScopes(layout,message,capacity) && Layout_ValidateRelationships(layout,message,capacity) && Layout_ValidateSpatialRecords(layout,message,capacity) && Layout_ValidateRoutes(layout,message,capacity);
+    return valid && Layout_ValidateSavedViews(layout) && Layout_ValidateMotionScopes(layout,message,capacity) && Layout_ValidateRelationships(layout,message,capacity) && Layout_ValidateSpatialRecords(layout,message,capacity) && Layout_ValidateRoutes(layout,message,capacity);
 }
 bool Layout_HasEngineeringData(const Layout* layout) {
     if (!layout) return false;
-    if (layout->objectStore.assembly_count || layout->objectStore.relationship_count || layout->objectStore.spatial_rule_count || layout->objectStore.route_count) return true;
+    if (layout->objectStore.assembly_count || layout->objectStore.relationship_count || layout->objectStore.spatial_rule_count || layout->objectStore.route_count || layout->objectStore.saved_view_count) return true;
     for (size_t i=0;i<layout->objectStore.count;++i) {
         const Object3D* o=&layout->objectStore.items[i];
         if (!o->isDeleted && (o->info.label[0] || o->info.entity_type[0] || o->info.parent_id[0] || o->info.reference || o->info.property_count || o->info.volume_role || o->info.volume_owner[0])) return true;
@@ -249,6 +250,8 @@ bool Layout_EntityLocalFrame(const Layout* layout, const char* id, PlaneFrame3* 
 }
 bool Layout_QueryMatches(const LayoutObjectStore* store, const char* id, const LayoutEntityQuery* query) {
     const LayoutEntityInfo* info=Layout_EntityInfo(store,id);
+    const LayoutPhysicalRoute* route=Layout_FindRoute(store,id);
+    if (!info && route) info=&route->info;
     if (!info || !Layout_EntityInfoValid(info) || !query || !bounded(query->entity_type,sizeof(query->entity_type)) ||
         !bounded(query->assembly_id,sizeof(query->assembly_id)) || !bounded(query->property_key,sizeof(query->property_key)) ||
         !bounded(query->property_value,sizeof(query->property_value)) || query->designation<0 || query->designation>2) return false;
@@ -256,6 +259,10 @@ bool Layout_QueryMatches(const LayoutObjectStore* store, const char* id, const L
     if (query->designation && info->reference!=(query->designation==2)) return false;
     if (query->assembly_id[0] && strcmp(id,query->assembly_id) && !Layout_IsDescendant(store,info->parent_id,query->assembly_id)) return false;
     if (!query->property_key[0]) return true;
+    if (route && (!strcmp(query->property_key,"power_domain") || !strcmp(query->property_key,"circuit"))) {
+        const char* value=!strcmp(query->property_key,"power_domain")?route->electrical.power_domain:route->electrical.circuit;
+        return value[0] && (!query->property_value[0] || !strcmp(value,query->property_value));
+    }
     for (size_t i=0;i<info->property_count;++i) {
         const LayoutProperty* p=&info->properties[i];
         if (strcmp(p->key,query->property_key)) continue;
@@ -268,7 +275,7 @@ bool Layout_QueryMatches(const LayoutObjectStore* store, const char* id, const L
     return false;
 }
 bool Layout_ObjectShown(const LayoutObjectStore* store, const Object3D* object) {
-    return object && !object->isDeleted && object->coreMeta.flags.visible && Layout_QueryMatches(store,object->coreMeta.object_id,&store->view_query);
+    return object && !object->isDeleted && object->coreMeta.flags.visible && Layout_EntityShown(store,object->coreMeta.object_id);
 }
 size_t Layout_QueryEntities(const LayoutObjectStore* store, const LayoutEntityQuery* query, char (*ids)[64], size_t capacity) {
     if (!store) return 0;
@@ -279,6 +286,10 @@ size_t Layout_QueryEntities(const LayoutObjectStore* store, const LayoutEntityQu
     }
     for (size_t i=0;i<store->count;++i) if (!store->items[i].isDeleted && Layout_QueryMatches(store,store->items[i].coreMeta.object_id,query)) {
         if (ids && count<capacity) snprintf(ids[count],64,"%s",store->items[i].coreMeta.object_id);
+        ++count;
+    }
+    for (size_t i=0;i<store->route_count;++i) if (Layout_QueryMatches(store,store->routes[i].id,query)) {
+        if (ids && count<capacity) snprintf(ids[count],64,"%s",store->routes[i].id);
         ++count;
     }
     return count;

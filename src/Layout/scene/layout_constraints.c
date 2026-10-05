@@ -1,5 +1,6 @@
 #include "Layout/layout_routes.h"
 #include "Layout/layout_constraints.h"
+#include "Layout/layout_saved_views.h"
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
@@ -316,7 +317,7 @@ bool Layout_SolveGeometryCandidate(Layout* candidate) {
 bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutation mutate, void* context,
     LayoutGeometryBeforePublish before_publish, void* history_context) {
     if (!layout || !mutate || layout->geometryEditActive || layout->objectStore.constraintCount > LAYOUT_MAX_CONSTRAINTS ||
-        layout->objectStore.assembly_count>LAYOUT_MAX_ASSEMBLIES || layout->objectStore.relationship_count>LAYOUT_MAX_RELATIONSHIPS || layout->objectStore.spatial_rule_count>LAYOUT_MAX_SPATIAL_RULES || layout->objectStore.motion_envelope_count>LAYOUT_MAX_MOTION_ENVELOPES || layout->objectStore.route_count>LAYOUT_MAX_ROUTES) return false;
+        layout->objectStore.assembly_count>LAYOUT_MAX_ASSEMBLIES || layout->objectStore.relationship_count>LAYOUT_MAX_RELATIONSHIPS || layout->objectStore.spatial_rule_count>LAYOUT_MAX_SPATIAL_RULES || layout->objectStore.motion_envelope_count>LAYOUT_MAX_MOTION_ENVELOPES || layout->objectStore.route_count>LAYOUT_MAX_ROUTES || layout->objectStore.saved_view_count>LAYOUT_MAX_SAVED_VIEWS) return false;
     layout->geometryMessage[0]=0;
     const Object3D* object=Layout_ObjectStore_FindConst(&layout->objectStore,edited);
     if (object && object->coreMeta.flags.locked) return fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Object is locked.");
@@ -359,7 +360,9 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
     if (ok) ok=Layout_ValidateEngineering(&candidate,layout->geometryMessage,sizeof(layout->geometryMessage));
     if (ok) ok=solve(&candidate,edited,layout->geometryMessage,sizeof(layout->geometryMessage));
     if (!ok && !layout->geometryMessage[0]) fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Geometry edit rejected.");
-    bool changed=ok && (candidate.objectStore.route_count!=layout->objectStore.route_count ||
+    bool changed=ok && (candidate.objectStore.saved_view_count!=layout->objectStore.saved_view_count ||
+        memcmp(candidate.objectStore.saved_views,layout->objectStore.saved_views,sizeof(layout->objectStore.saved_views)) ||
+        candidate.objectStore.route_count!=layout->objectStore.route_count ||
         candidate.objectStore.next_route_id!=layout->objectStore.next_route_id ||
         memcmp(candidate.objectStore.routes,layout->objectStore.routes,sizeof(layout->objectStore.routes)) ||
         candidate.objectStore.count!=layout->objectStore.count ||
@@ -387,6 +390,9 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
             candidate.objectStore.items=NULL;
             layout->objectStore.count=candidate.objectStore.count;
         } else if (bytes) memcpy(layout->objectStore.items,candidate.objectStore.items,bytes);
+        memcpy(layout->objectStore.saved_views,candidate.objectStore.saved_views,sizeof(layout->objectStore.saved_views));
+        layout->objectStore.saved_view_count=candidate.objectStore.saved_view_count;
+        Layout_RestoreViewVisibility(&layout->objectStore,&candidate.objectStore);
         memcpy(layout->objectStore.routes,candidate.objectStore.routes,sizeof(layout->objectStore.routes));
         layout->objectStore.route_count=candidate.objectStore.route_count;
         layout->objectStore.next_route_id=candidate.objectStore.next_route_id;

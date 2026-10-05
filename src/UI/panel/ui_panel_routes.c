@@ -1,4 +1,7 @@
 #include "UI/ui_panel_routes.h"
+#include "Layout/layout_saved_views.h"
+#include <stdlib.h>
+#include <ctype.h>
 #include "UI/ui_panel_shell.h"
 #include "UI/ui_panel_right_scroll.h"
 #include "UI/ui_panel_summary_surface.h"
@@ -31,6 +34,44 @@ static void coordinate_text(void) {
         snprintf(ui->routes.coordinates[k],64,"%.9g %s",value,UIPanel_GetDisplayUnitSymbol());
     }
 }
+static void design_text(void) {
+    UIPanelState* ui=UIPanel_Get();LayoutPhysicalRoute* r=&ui->routes.draft;LayoutRouteElectrical* e=&r->electrical;
+    const double values[]={r->radius_meters,r->clearance_meters,r->maximum_length_meters,e->nominal_volts,e->design_amps,e->area_mm2,e->return_meters,e->allowance_meters,e->fuse_amps};
+    for (int i=0;i<9;++i) {
+        ui->routes.design[i][0]=0;
+        if (values[i]>0) snprintf(ui->routes.design[i],64,"%.9g%s",values[i],i<3 || i==6 || i==7?" m":"");
+    }
+    ui->routes.design[9][0]=0;
+}
+static char* input_buffer(int action,size_t* capacity) {
+    UIPanelState* ui=UIPanel_Get();*capacity=64;
+    if (action==ROUTES_NAME) {*capacity=96;return ui->routes.draft.info.label;}
+    if (action==ROUTES_CIRCUIT)return ui->routes.draft.electrical.circuit;
+    if (action==ROUTES_DOMAIN)return ui->routes.draft.electrical.power_domain;
+    if (action>=ROUTES_X && action<=ROUTES_Z)return ui->routes.coordinates[action-ROUTES_X];
+    if (action>=ROUTES_RADIUS && action<=ROUTES_AWG)return ui->routes.design[action-ROUTES_RADIUS];
+    return NULL;
+}
+static bool apply_design(void) {
+    UIPanelState* ui=UIPanel_Get();LayoutPhysicalRoute* r=&ui->routes.draft;LayoutRouteElectrical e=r->electrical;
+    double values[9];
+    for (int i=0;i<9;++i) {
+        const char* text=ui->routes.design[i];values[i]=0;
+        if (!text[0]) continue;
+        bool valid;
+        if (i<3 || i==6 || i==7) valid=Editor_ParseLength(text,UIPanel_GetDisplayUnit(),&values[i]);
+        else {char* end;values[i]=strtod(text,&end);while(isspace((unsigned char)*end))++end;valid=end!=text && !*end;}
+        if (!valid || !isfinite(values[i]) || values[i]<0 || values[i]>1e9) {message("Use finite nonnegative inputs; blank means unspecified. Draft not saved.");return false;}
+    }
+    if (ui->routes.design[9][0]) {
+        char* end;double gauge=strtod(ui->routes.design[9],&end);while(isspace((unsigned char)*end))++end;
+        if (*end || end==ui->routes.design[9] || !isfinite(gauge) || gauge<-3 || gauge>40 || gauge!=floor(gauge)) {message("AWG: integer 0..40; -1/-2/-3 mean 2/0, 3/0, 4/0.");return false;}
+        values[5]=Layout_AWGArea((int)gauge);
+    }
+    r->radius_meters=values[0];r->clearance_meters=values[1];r->maximum_length_meters=values[2];
+    e.nominal_volts=values[3];e.design_amps=values[4];e.area_mm2=values[5];e.return_meters=values[6];e.allowance_meters=values[7];e.fuse_amps=values[8];r->electrical=e;
+    return true;
+}
 static bool apply_coordinates(void) {
     if (!intermediate()) return true;
     UIPanelState* ui=UIPanel_Get(); double point[3];
@@ -53,7 +94,7 @@ static void choose(const LayoutPhysicalRoute* route) {
     ui->routes.observed_valid=true;ui->routes.creating=false;
     ui->routes.endpoints_open=false;ui->routes.remove_pending=false;
     if (ui->routes.point>=route->point_count) ui->routes.point=route->point_count>2?1:0;
-    coordinate_text();
+    coordinate_text();design_text();ui->routes.check_count=0;ui->routes.inspected_segment=0;
 }
 static void refresh(void) {
     UIPanelState* ui=UIPanel_Get();
@@ -70,7 +111,7 @@ static void new_route(void) {
     memset(&ui->routes,0,sizeof(ui->routes));ui->routes.creating=true;ui->routes.endpoints_open=true;
     ui->routes.draft.point_count=2;
     snprintf(ui->routes.draft.info.label,96,"New cable");snprintf(ui->routes.draft.info.entity_type,64,"Cable");
-    coordinate_text();
+    coordinate_text();design_text();
 }
 static void cell(RoutePane* p,int action,const char* title,const char* value,int column,int columns,bool enabled,bool selected) {
     UIPanelState* ui=UIPanel_Get();int gap=6,w=(p->body.w-24-(columns-1)*gap)/columns;
@@ -132,6 +173,16 @@ static RoutePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         if (ui->routes.chooser==1) {
             for (size_t i=0;i<store->route_count;++i) row(&p,ROUTES_CHOICE_BASE+(int)i,store->routes[i].info.label,true);
             if (!store->route_count) note(&p,"No saved routes. Choose New route.");
+        } else if(ui->routes.chooser==4) {
+            note(&p,"Toggle regions for this draft, then Close choices and Save route. Coverage checks the union of selected boxes.");
+            for(size_t i=0;i<store->count;++i) {
+                const Object3D* o=&store->items[i];if(!Layout_FindCorridor(store,o->coreMeta.object_id))continue;
+                bool selected=false;for(size_t j=0;j<ui->routes.draft.corridor_count;++j)if(!strcmp(o->coreMeta.object_id,ui->routes.draft.corridor_ids[j]))selected=true;
+                snprintf(text,sizeof(text),"%s %s",selected?"[x]":"[ ]",o->info.label[0]?o->info.label:o->coreMeta.object_id);
+                row(&p,ROUTES_CHOICE_BASE+(int)i,text,true);
+            }
+            row(&p,ROUTES_MARK_CORRIDOR,"Mark selected box as corridor",Global_Get()->editor.selectedObject3DId!=0);
+            note(&p,"Create / size a box with existing Object controls, name it in Parts, then mark it here. This changes its semantic type.");
         } else {
             note(&p,ui->routes.chooser==2?"Choose source center":"Choose destination center");
             for (size_t i=0;i<store->count;++i) if (endpoint_object(&store->items[i])) {
@@ -161,6 +212,40 @@ static RoutePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         row(&p,ROUTES_SOURCE,text,true);row(&p,ROUTES_USE_SOURCE,"Use selected object as source",Global_Get()->editor.selectedObject3DId!=0);
         endpoint_label(&draft->destination,name,sizeof(name));snprintf(text,sizeof(text),"Destination: %s",name);
         row(&p,ROUTES_DESTINATION,text,true);row(&p,ROUTES_USE_DESTINATION,"Use selected object as destination",Global_Get()->editor.selectedObject3DId!=0);
+    }
+    if(ui->routes.observed_valid && !Layout_EntityShown(store,ui->routes.id))row(&p,ROUTES_SHOW,"Show route (clear view filters)",true);
+    row(&p,ROUTES_CORRIDORS,ui->routes.corridors_open?"- Corridors / limits":"+ Corridors / limits",true);
+    if(ui->routes.corridors_open) {
+        snprintf(text,sizeof(text),"Assigned regions: %zu",draft->corridor_count);row(&p,ROUTES_CORRIDOR_CHOOSER,text,true);
+        for(size_t i=0;i<draft->corridor_count;++i) {const Object3D* o=Layout_FindCorridor(store,draft->corridor_ids[i]);note(&p,o?(o->info.label[0]?o->info.label:draft->corridor_ids[i]):"Missing region");}
+        field(&p,ROUTES_RADIUS,"Radius",ui->routes.design[0],true);field(&p,ROUTES_CLEARANCE,"Clearance",ui->routes.design[1],true);
+        field(&p,ROUTES_MAX_LENGTH,"Max length",ui->routes.design[2],true);
+    }
+    row(&p,ROUTES_ELECTRICAL,ui->routes.electrical_open?"- Electrical":"+ Electrical",true);
+    if(ui->routes.electrical_open) {
+        snprintf(text,sizeof(text),"Class: %s",(const char*[]){"Unknown","DC power","Signal / CAN","AC power"}[draft->electrical.voltage_class]);row(&p,ROUTES_CLASS,text,true);
+        field(&p,ROUTES_CIRCUIT,"Circuit",draft->electrical.circuit,true);field(&p,ROUTES_DOMAIN,"Domain",draft->electrical.power_domain,true);
+        field(&p,ROUTES_VOLTS,"Volts (V)",ui->routes.design[3],true);field(&p,ROUTES_AMPS,"Load (A)",ui->routes.design[4],true);
+        row(&p,ROUTES_COPPER,draft->electrical.copper?"Material: Copper (20 C)":"Material: Unknown",true);
+        field(&p,ROUTES_AREA,"Area mm2",ui->routes.design[5],true);field(&p,ROUTES_AWG,"AWG",ui->routes.design[9],true);
+        field(&p,ROUTES_RETURN,"Return",ui->routes.design[6],true);field(&p,ROUTES_ALLOWANCE,"Allowance",ui->routes.design[7],true);field(&p,ROUTES_FUSE,"Fuse (A)",ui->routes.design[8],true);
+        note(&p,"Blank = unspecified. AWG converts to area on Save; edit area to override. Return length is explicit; allowance is outgoing extra cable.");
+        double drop,percent;
+        if(Layout_RouteVoltageDrop(draft,&drop,&percent)) {snprintf(text,sizeof(text),"Applied inputs estimate: %.3g V (%.3g%%)",drop,percent);note(&p,text);}
+        else note(&p,"Drop: unknown. Needs DC voltage, load, copper area and return length.");
+        note(&p,"Ideal copper at 20 C; excludes contacts, temperature, ampacity and fuse coordination. Signal routes do not use this calculation.");
+        row(&p,ROUTES_SAVE,"Save route details",ready);
+    }
+    row(&p,ROUTES_CHECKS,ui->routes.checks_open?"- Checks":"+ Checks",true);
+    if(ui->routes.checks_open) {
+        row(&p,ROUTES_RUN_CHECKS,"Check current draft",ready);
+        if(ui->routes.check_count)note(&p,"Results are a snapshot. Rerun after edits. Click an issue to inspect its segment / target.");
+        size_t n=ui->routes.check_count<128?ui->routes.check_count:128;
+        for(size_t i=0;i<n;++i) {
+            const LayoutRouteCheck* check=&ui->routes.checks[i];snprintf(text,sizeof(text),"%s %s%s%zu",(const char*[]){"OK","Error","Review"}[check->severity],check->code,check->segment?" · segment ":" · route ",check->segment);
+            row(&p,ROUTES_CHECK_BASE+(int)i,text,true);note(&p,check->message);
+        }
+        if(ui->routes.check_count>128)note(&p,"List truncated at 128; agent report includes total / truncation.");
     }
     p.y+=5;
     snprintf(text,sizeof(text),"Point %zu / %zu%s",ui->routes.point+1,draft->point_count,intermediate()?" · intermediate":ui->routes.point?" · destination":" · source");
@@ -206,9 +291,27 @@ static bool set_endpoint(int slot,const Object3D* object) {
 static bool action(int command) {
     UIPanelState* ui=UIPanel_Get();LayoutPhysicalRoute* route=&ui->routes.draft;
     int chooser=ui->routes.chooser;bool was_picking=ui->routes.picking;UIPanel_RoutesStopInput();
+    if(command>=ROUTES_CHECK_BASE) {
+        size_t i=(size_t)(command-ROUTES_CHECK_BASE);
+        if(i<ui->routes.check_count && i<128 && apply_coordinates()) {
+            const LayoutRouteCheck* check=&ui->routes.checks[i];if(check->segment && check->segment<route->point_count)ui->routes.point=ui->routes.inspected_segment=check->segment;
+            for(size_t j=0;j<layout()->objectStore.count;++j)if(!strcmp(layout()->objectStore.items[j].coreMeta.object_id,check->target_id))Global_Get()->editor.selectedObject3DId=layout()->objectStore.items[j].objectId;
+            Layout_ShowAllViews(&layout()->objectStore);coordinate_text();
+        }
+        return true;
+    }
     if (command>=ROUTES_CHOICE_BASE) {
         size_t i=(size_t)(command-ROUTES_CHOICE_BASE);
         if (chooser==1 && i<layout()->objectStore.route_count) choose(&layout()->objectStore.routes[i]);
+        else if(chooser==4 && i<layout()->objectStore.count) {
+            const Object3D* o=&layout()->objectStore.items[i];bool removed=false;
+            for(size_t j=0;j<route->corridor_count;++j)if(!strcmp(o->coreMeta.object_id,route->corridor_ids[j])) {
+                memmove(route->corridor_ids[j],route->corridor_ids[j+1],(route->corridor_count-j-1)*64);--route->corridor_count;removed=true;break;
+            }
+            if(!removed && Layout_FindCorridor(&layout()->objectStore,o->coreMeta.object_id) && route->corridor_count<LAYOUT_MAX_ROUTE_CORRIDORS)
+                snprintf(route->corridor_ids[route->corridor_count++],64,"%s",o->coreMeta.object_id);
+            ui->routes.chooser=4;
+        }
         else if ((chooser==2 || chooser==3) && i<layout()->objectStore.count) (void)set_endpoint(chooser==3,&layout()->objectStore.items[i]);
         return true;
     }
@@ -217,9 +320,23 @@ static bool action(int command) {
     else if (command==ROUTES_SOURCE || command==ROUTES_DESTINATION) ui->routes.chooser=command==ROUTES_SOURCE?2:3;
     else if (command==ROUTES_USE_SOURCE || command==ROUTES_USE_DESTINATION)
         (void)set_endpoint(command==ROUTES_USE_DESTINATION,Layout_ObjectStore_FindConst(&layout()->objectStore,Global_Get()->editor.selectedObject3DId));
+    else if(command==ROUTES_CORRIDORS)ui->routes.corridors_open=!ui->routes.corridors_open;
+    else if(command==ROUTES_ELECTRICAL)ui->routes.electrical_open=!ui->routes.electrical_open;
+    else if(command==ROUTES_CHECKS)ui->routes.checks_open=!ui->routes.checks_open;
+    else if(command==ROUTES_CLASS)route->electrical.voltage_class=(route->electrical.voltage_class+1)%4;
+    else if(command==ROUTES_COPPER)route->electrical.copper=!route->electrical.copper;
+    else if(command==ROUTES_SHOW) {Layout_ShowAllViews(&layout()->objectStore);Global_FlagHitboxesDirty();}
+    else if(command==ROUTES_CORRIDOR_CHOOSER)ui->routes.chooser=4;
+    else if(command==ROUTES_MARK_CORRIDOR) {
+        bool ok=Layout_MarkCorridor(layout(),Global_Get()->editor.selectedObject3DId,Layout_GeometryHistory,NULL);
+        message(ok?"Selected box is now a corridor. Name / dimensions remain editable in Parts / Object.":"Choose a design box without reserved-space or motion-envelope roles.");ui->routes.chooser=4;
+    } else if(command==ROUTES_RUN_CHECKS) {
+        if(apply_coordinates() && apply_design()) {ui->routes.check_count=Layout_CheckRoute(layout(),route,ui->routes.checks,128);message("Checks refreshed for current draft, including hidden obstacles.");}
+    }
     else if (command==ROUTES_ENDPOINTS) ui->routes.endpoints_open=!ui->routes.endpoints_open;
     else if (command==ROUTES_CABLE || command==ROUTES_PIPE) snprintf(route->info.entity_type,64,"%s",command==ROUTES_CABLE?"Cable":"Pipe");
-    else if (command==ROUTES_NAME || (command>=ROUTES_X && command<=ROUTES_Z)) {
+    else if (command==ROUTES_NAME || command==ROUTES_CIRCUIT || command==ROUTES_DOMAIN || (command>=ROUTES_RADIUS && command<=ROUTES_AWG) || (command>=ROUTES_X && command<=ROUTES_Z)) {
+        if(command==ROUTES_AREA)ui->routes.design[9][0]=0;
         ui->routes.input=command;ui->routes.replace_text=true;SDL_StartTextInput();
     } else if (command==ROUTES_CANCEL) {
         if (!chooser) {
@@ -232,7 +349,7 @@ static bool action(int command) {
             coordinate_text();message("Endpoint positions staged. Save route to commit.");
         }
     } else if (command==ROUTES_SAVE) {
-        if (apply_coordinates()) {
+        if (apply_coordinates() && apply_design()) {
             bool creating=!route->id[0];char id[64];snprintf(id,64,"%s",route->id);
             if (Layout_EditRoute(layout(),route,NULL,Layout_GeometryHistory,NULL)) {
                 const LayoutPhysicalRoute* saved=creating?&layout()->objectStore.routes[layout()->objectStore.route_count-1]:Layout_FindRoute(&layout()->objectStore,id);
@@ -294,8 +411,8 @@ bool UIPanel_RoutesEvent(const SDL_Event* event) {
     if (event->type==SDL_KEYDOWN && event->key.keysym.sym==SDLK_ESCAPE && (ui->routes.input || ui->routes.chooser || ui->routes.picking)) {UIPanel_RoutesStopInput();return true;}
     if (ui->routes.chooser && event->type==SDL_KEYDOWN)return true;
     if (!ui->routes.input)return false;
-    char* buffer=ui->routes.input==ROUTES_NAME?ui->routes.draft.info.label:ui->routes.coordinates[ui->routes.input-ROUTES_X];
-    size_t capacity=ui->routes.input==ROUTES_NAME?sizeof(ui->routes.draft.info.label):64;
+    size_t capacity;char* buffer=input_buffer(ui->routes.input,&capacity);
+    if(!buffer)return false;
     if (event->type==SDL_KEYDOWN) {
         SDL_Keycode key=event->key.keysym.sym;
         if (key==SDLK_RETURN || key==SDLK_KP_ENTER) UIPanel_RoutesStopInput();
@@ -324,9 +441,15 @@ static Vec2 project(const double point[3]) {
 static void draw_route(SDL_Renderer* renderer,const LayoutPhysicalRoute* route,bool selected) {
     if(route->point_count<2 || route->point_count>LAYOUT_MAX_ROUTE_POINTS)return;
     SDL_Color color=Layout_RouteEndpointsCurrent(layout(),route)?(SDL_Color){70,230,195,255}:(SDL_Color){255,185,70,255};
+    if(Layout_RouteEndpointsCurrent(layout(),route) && route->electrical.voltage_class==1)
+        color=route->electrical.nominal_volts>=20?(SDL_Color){255,165,60,255}:(SDL_Color){105,180,255,255};
     if(!selected){color.r/=2;color.g/=2;color.b/=2;}
     SDL_SetRenderDrawColor(renderer,color.r,color.g,color.b,color.a);
     for(size_t i=1;i<route->point_count;++i) {
+        if(selected) {
+            SDL_Color segment_color=UIPanel_Get()->routes.inspected_segment==i?(SDL_Color){255,95,80,255}:color;
+            SDL_SetRenderDrawColor(renderer,segment_color.r,segment_color.g,segment_color.b,segment_color.a);
+        }
         Vec2 a=project(route->points_meters[i-1]),b=project(route->points_meters[i]);
         if(isfinite(a.x) && isfinite(a.y) && isfinite(b.x) && isfinite(b.y)) {
             SDL_RenderDrawLine(renderer,a.x,a.y,b.x,b.y);
@@ -349,8 +472,8 @@ void UIPanel_RenderRouteViewport(SDL_Renderer* renderer) {
     for(size_t i=0;i<layout()->objectStore.route_count;++i) {
         const LayoutPhysicalRoute* route=&layout()->objectStore.routes[i];
         if(active && (ui->routes.observed_valid || ui->routes.creating) && !strcmp(route->id,ui->routes.id))continue;
-        draw_route(renderer,route,false);
+        if(Layout_EntityShown(&layout()->objectStore,route->id))draw_route(renderer,route,false);
     }
-    if(active && (ui->routes.creating || ui->routes.observed_valid))draw_route(renderer,&ui->routes.draft,true);
+    if(active && (ui->routes.creating || (ui->routes.observed_valid && Layout_EntityShown(&layout()->objectStore,ui->routes.id))))draw_route(renderer,&ui->routes.draft,true);
     SDL_RenderSetClipRect(renderer,clipped?&old:NULL);
 }

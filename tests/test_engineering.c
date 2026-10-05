@@ -153,7 +153,7 @@ static bool test_parts_mouse_workflow_filter_history(void) {
     TEST_ASSERT(click(PARTS_MOVE));TEST_ASSERT(text(PARTS_DX,"25 mm") && text(PARTS_DY,"0") && text(PARTS_DZ,"0") && text(PARTS_ANGLE,"30"));
     Editor_ClearHistory(&s->editor);TEST_ASSERT(click(PARTS_APPLY_MOVE));TEST_ASSERT(fabs(s->layout.objectStore.items[0].transform.position.x-.025)<1e-6 && Editor_UndoCount(&s->editor)==1);
     TEST_ASSERT(Editor_Undo(&s->editor,&s->layout));UIPanel_LayoutParts();TEST_ASSERT(s->layout.objectStore.items[0].transform.position.x==0);
-    TEST_ASSERT(click(PARTS_FILTERS));TEST_ASSERT(text(PARTS_KEY,"subsystem") && text(PARTS_VALUE,"electrical"));s->layoutDirtySinceSave=false;size_t undo=Editor_UndoCount(&s->editor);TEST_ASSERT(click(PARTS_APPLY_FILTER));
+    TEST_ASSERT(click(PARTS_FILTERS) && click(PARTS_CUSTOM_FILTER));TEST_ASSERT(text(PARTS_KEY,"subsystem") && text(PARTS_VALUE,"electrical"));s->layoutDirtySinceSave=false;size_t undo=Editor_UndoCount(&s->editor);TEST_ASSERT(click(PARTS_APPLY_FILTER));
     TEST_ASSERT(Layout_ObjectShown(&s->layout.objectStore,&s->layout.objectStore.items[0]) && !Layout_ObjectShown(&s->layout.objectStore,&s->layout.objectStore.items[1]));
     TEST_ASSERT(!s->layoutDirtySinceSave && Editor_UndoCount(&s->editor)==undo);
     TEST_ASSERT(click(PARTS_CLEAR_FILTER) && Layout_ObjectShown(&s->layout.objectStore,&s->layout.objectStore.items[1]));

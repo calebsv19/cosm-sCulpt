@@ -12,7 +12,7 @@ typedef struct PartsPane {
 } PartsPane;
 static inline bool contains(SDL_Rect r,int x,int y) {return x>=r.x && y>=r.y && x<r.x+r.w && y<r.y+r.h;}
 static inline bool is_field(int action) {
-    return action==PARTS_NAME || action==PARTS_KEY || action==PARTS_VALUE ||
+    return action==PARTS_VIEW_NAME || action==PARTS_NAME || action==PARTS_KEY || action==PARTS_VALUE ||
         (action>=PARTS_DX && action<=PARTS_ANGLE) || (action>=PARTS_VOLUME_NAME && action<=PARTS_VOLUME_Z) || action==PARTS_CHECK_DISTANCE;
 }
 static inline void cell(PartsPane* p,int action,const char* title,const char* value,int column,int columns,bool enabled,bool selected) {

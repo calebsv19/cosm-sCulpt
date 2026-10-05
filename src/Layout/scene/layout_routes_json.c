@@ -1,4 +1,6 @@
 #include "Layout/layout_routes.h"
+#include "Layout/layout_route_design.h"
+#include "Layout/layout_saved_views.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -41,6 +43,7 @@ cJSON* Layout_RouteToJson(const LayoutPhysicalRoute* route) {
         cJSON* point = cJSON_CreateDoubleArray(route->points_meters[i], 3);
         if (!point || !cJSON_AddItemToArray(points, point)) { cJSON_Delete(point); cJSON_Delete(value); return NULL; }
     }
+    if (!Layout_RouteDesignWriteJson(route,value)) {cJSON_Delete(value);return NULL;}
     return value;
 }
 bool Layout_RouteFromJson(const cJSON* value, LayoutPhysicalRoute* route) {
@@ -58,6 +61,7 @@ bool Layout_RouteFromJson(const cJSON* value, LayoutPhysicalRoute* route) {
     result.point_count = (size_t)cJSON_GetArraySize(points);
     for (size_t i = 0; i < result.point_count; ++i)
         if (!vector(cJSON_GetArrayItem(points, (int)i), result.points_meters[i])) return false;
+    if (!Layout_RouteDesignReadJson(&result,value)) return false;
     *route = result;
     return true;
 }
@@ -100,6 +104,12 @@ cJSON* Layout_RoutesReportJson(const Layout* layout) {
         const LayoutPhysicalRoute* route = &layout->objectStore.routes[i];
         cJSON* value = Layout_RouteToJson(route);
         if (!value || !cJSON_AddItemToArray(routes, value)) { cJSON_Delete(value); cJSON_Delete(report); return NULL; }
+        if (!cJSON_AddItemToObject(value,"checks",Layout_RouteChecksJson(layout,route))) {cJSON_Delete(report);return NULL;}
+        double drop,percent;
+        if (Layout_RouteVoltageDrop(route,&drop,&percent)) {
+            cJSON_AddNumberToObject(value,"estimated_drop_volts",drop);cJSON_AddNumberToObject(value,"estimated_drop_percent",percent);
+            cJSON_AddStringToObject(value,"drop_basis","copper_20C_explicit_return_no_contacts_no_ampacity");
+        } else cJSON_AddStringToObject(value,"drop_basis","unknown_or_not_DC");
         double a[3], b[3];
         if (!Layout_RouteEndpoint(layout, &route->source, a) || !Layout_RouteEndpoint(layout, &route->destination, b) ||
             !cJSON_AddNumberToObject(value, "length_m", Layout_RouteLength(route)) ||
@@ -109,5 +119,6 @@ cJSON* Layout_RoutesReportJson(const Layout* layout) {
             cJSON_Delete(report); return NULL;
         }
     }
+    if (!Layout_SavedViewsWriteJson(layout,report)) {cJSON_Delete(report);return NULL;}
     return report;
 }

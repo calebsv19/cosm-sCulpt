@@ -256,6 +256,14 @@ typedef struct {
     char property_value[128]; /* exact text or canonical scalar representation */
 } LayoutEntityQuery;
 
+#define LAYOUT_MAX_SAVED_VIEWS 16
+#define LAYOUT_MAX_VIEW_QUERIES 8
+typedef struct {
+    char id[64], name[96];
+    size_t query_count;
+    LayoutEntityQuery queries[LAYOUT_MAX_VIEW_QUERIES]; /* OR of AND queries. */
+} LayoutSavedView;
+
 typedef struct {
     uint32_t objectId;
     Object3DKind kind;
@@ -353,12 +361,23 @@ typedef struct {
 
 #define LAYOUT_MAX_ROUTES 32
 #define LAYOUT_MAX_ROUTE_POINTS 64
+#define LAYOUT_MAX_ROUTE_CORRIDORS 8
+typedef struct {
+    char circuit[64], power_domain[64];
+    int voltage_class; /* 0 unknown, 1 DC, 2 signal, 3 AC */
+    double nominal_volts, design_amps, area_mm2, return_meters, allowance_meters, fuse_amps;
+    bool copper; /* false = material unknown; calculation currently supports copper only. */
+} LayoutRouteElectrical;
 typedef struct {
     char id[64];
     LayoutEntityInfo info; /* Cable/Pipe metadata; world-space route, no transform parent. */
     LayoutGeometricReference source, destination;
     size_t point_count;
     double points_meters[LAYOUT_MAX_ROUTE_POINTS][3]; /* Includes captured endpoint positions. */
+    size_t corridor_count;
+    char corridor_ids[LAYOUT_MAX_ROUTE_CORRIDORS][64];
+    double radius_meters, clearance_meters, maximum_length_meters; /* zero = unspecified */
+    LayoutRouteElectrical electrical;
 } LayoutPhysicalRoute;
 
 typedef struct {
@@ -383,6 +402,10 @@ typedef struct {
     size_t route_count;
     uint32_t next_route_id;
     LayoutEntityQuery view_query; /* transient viewport filter; never changes authored visibility */
+    LayoutSavedView saved_views[LAYOUT_MAX_SAVED_VIEWS];
+    size_t saved_view_count;
+    char hidden_view_ids[LAYOUT_MAX_SAVED_VIEWS][64], isolated_view_id[64]; /* transient */
+    size_t hidden_view_count;
 } LayoutObjectStore;
 
 

@@ -9,6 +9,7 @@
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
 #include "Layout/layout_routes.h"
+#include "Layout/layout_route_design.h"
 #define UI_BTN_SAVED_MOTION 105
 #define UI_BTN_MEASURE 98
 
@@ -471,7 +472,8 @@ typedef struct {
         bool observed_valid, creating, properties_open, movement_open, delete_pending;
         int chooser, input, property_kind, rotation_axis;
         bool replace_text;
-        char key[48], value[128], move[3][64], angle[64], message[160];
+        char key[48], value[128], move[3][64], angle[64], message[160], view_name[96];
+        bool custom_filter_open;
         LayoutEntityQuery filter;
         LayoutRelationship link, observed_link;
         bool link_observed, link_remove_pending;
@@ -482,7 +484,10 @@ typedef struct {
         bool observed_valid, creating, endpoints_open, remove_pending, picking, replace_text;
         int input, chooser;
         size_t point;
-        char coordinates[3][64], message[160];
+        char coordinates[3][64], message[160], design[10][64];
+        bool corridors_open, electrical_open, checks_open;
+        LayoutRouteCheck checks[128];size_t check_count;
+        size_t inspected_segment;
     } routes;
     struct {
         LayoutVolumeEdit volume;

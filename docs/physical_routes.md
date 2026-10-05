@@ -1,4 +1,4 @@
-# S5A physical routes
+# Physical routes
 
 Implemented 2026-10-04. A Cable or Pipe is an app-owned engineering polyline with a
 stable ID, name, extensible properties, two persistent entity endpoint references,
@@ -36,7 +36,7 @@ control and participates in Undo.
 
 ## Native and agent contract
 
-Native layout schema **20** adds `engineering.routes` and `nextRouteId`. Older
+Native layout schema **20** introduced `engineering.routes` and `nextRouteId`. Older
 schema 19 documents remain readable and gain an empty route list when saved.
 Malformed route records reject the candidate without replacing the loaded scene.
 Routes use the existing candidate validation and history boundary. Camera/light
@@ -54,8 +54,8 @@ Edit using a structured JSON command and a **new** output path:
 build/toolchains/clang/bin/physical_route_tool edit input.layout.json command.json NEW.layout.json
 ```
 
-Command schema: `line_drawing_route_edit_v1`. Operations are `upsert`, `remove` and
-`refresh`. For upsert, `route` has these fields:
+Command schema: `line_drawing_route_edit_v1`. Operations are `upsert`, `remove`, `refresh`, `default_views` and
+`mark_corridor` (numeric `object_id`, design box only). For upsert, `route` has these fields:
 
 ```json
 {
@@ -113,3 +113,7 @@ physics integration or manufacturing fit is claimed by this first polyline slice
 Shared reuse: existing `core_units`, primitive frames and scene compilation;
 app-owned route policy and pane controls. No new shared module or shared version
 change is introduced.
+
+Schema 21 adds saved views and optional typed route design inputs. See
+[routing views and electrical controls](routing_views_and_electrical.md) for the
+current visible workflow, JSON/readback and check boundaries.

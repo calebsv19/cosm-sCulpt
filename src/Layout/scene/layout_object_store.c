@@ -87,6 +87,8 @@ void Layout_ObjectStore_Init(LayoutObjectStore* store) {
     store->spatial_rule_count=0;store->next_spatial_rule_id=1;
     memset(store->motion_envelopes,0,sizeof(store->motion_envelopes));store->motion_envelope_count=0;
     memset(store->routes,0,sizeof(store->routes));store->route_count=0;store->next_route_id=1;
+    memset(store->saved_views,0,sizeof(store->saved_views));store->saved_view_count=0;
+    store->hidden_view_count=0;store->isolated_view_id[0]=0;
 }
 
 void Layout_ObjectStore_Free(LayoutObjectStore* store) {
@@ -109,6 +111,8 @@ void Layout_ObjectStore_Free(LayoutObjectStore* store) {
     store->spatial_rule_count=0;store->next_spatial_rule_id=1;
     memset(store->motion_envelopes,0,sizeof(store->motion_envelopes));store->motion_envelope_count=0;
     memset(store->routes,0,sizeof(store->routes));store->route_count=0;store->next_route_id=1;
+    memset(store->saved_views,0,sizeof(store->saved_views));store->saved_view_count=0;
+    store->hidden_view_count=0;store->isolated_view_id[0]=0;
 }
 
 Object3D* Layout_ObjectStore_Find(LayoutObjectStore* store, uint32_t objectId) {

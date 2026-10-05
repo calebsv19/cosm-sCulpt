@@ -1,4 +1,5 @@
 #include "Layout/layout_routes.h"
+#include "Layout/layout_route_design.h"
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>
@@ -25,6 +26,8 @@ bool Layout_RouteEntityReferenced(const LayoutObjectStore* store, const char* id
     for (size_t i = 0; i < store->route_count && i < LAYOUT_MAX_ROUTES; ++i)
         if (!strcmp(store->routes[i].source.entity_id, id) ||
             !strcmp(store->routes[i].destination.entity_id, id)) return true;
+    for (size_t i=0;i<store->route_count;++i) for (size_t j=0;j<store->routes[i].corridor_count;++j)
+        if (!strcmp(store->routes[i].corridor_ids[j],id)) return true;
     return false;
 }
 bool Layout_RouteEndpoint(const Layout* layout, const LayoutGeometricReference* ref, double point[3]) {
@@ -77,6 +80,7 @@ bool Layout_ValidateRoutes(const Layout* layout, char* message, size_t capacity)
             for (int k = 0; k < 3; ++k)
                 if (!isfinite(route->points_meters[p][k]) || fabs(route->points_meters[p][k]) > 1e9)
                     reason = "Route coordinates must be finite physical meters within +/-1e9.";
+        if (!reason && !Layout_RouteDesignValid(layout,route)) reason="Invalid corridor membership or electrical inputs; use finite nonnegative values.";
         if (!reason && !isfinite(Layout_RouteLength(route))) reason = "Route length is not finite.";
         if (!reason && Layout_EntityInfo(store, route->id)) reason = "Route identity conflicts with an object or assembly.";
         for (size_t j = 0; !reason && j < i; ++j)

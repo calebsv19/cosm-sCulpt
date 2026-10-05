@@ -2,6 +2,8 @@
  * Outputs are create-only; inspect never mutates the source document. */
 #include "Layout/layout_json.h"
 #include "Layout/layout_routes.h"
+#include "Layout/layout_saved_views.h"
+#include "Layout/layout_route_design.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -55,6 +57,12 @@ int main(int argc, char** argv) {
             LayoutPhysicalRoute route;
             ok = Layout_RouteFromJson(cJSON_GetObjectItemCaseSensitive(command, "route"), &route) &&
                 Layout_EditRoute(&layout, &route, NULL, NULL, NULL);
+        } else if (ok && !strcmp(operation->valuestring,"default_views"))
+            ok=Layout_InstallDefaultViews(&layout,NULL,NULL);
+        else if (ok && !strcmp(operation->valuestring,"mark_corridor")) {
+            const cJSON* object_id=cJSON_GetObjectItemCaseSensitive(command,"object_id");
+            ok=cJSON_IsNumber(object_id) && object_id->valuedouble>=1 && object_id->valuedouble<=UINT32_MAX &&
+                object_id->valuedouble==object_id->valueint && Layout_MarkCorridor(&layout,(uint32_t)object_id->valueint,NULL,NULL);
         } else if (ok && cJSON_IsString(id) && !strcmp(operation->valuestring, "remove"))
             ok = Layout_EditRoute(&layout, NULL, id->valuestring, NULL, NULL);
         else if (ok && cJSON_IsString(id) && !strcmp(operation->valuestring, "refresh"))

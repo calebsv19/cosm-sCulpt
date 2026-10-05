@@ -1,5 +1,6 @@
 #include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel_parts.h"
+#include "Layout/layout_saved_views.h"
 #include "UI/ui_panel_shell.h"
 #include "UI/ui_panel_right_scroll.h"
 #include "UI/ui_panel_summary_surface.h"
@@ -135,14 +136,25 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     if (ui->activeRightTab!=UI_PANEL_RIGHT_TAB_PARTS) return p;
     if (Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_SCENE) {note(&p,"Parts are edited in the Scene workspace.");return p;}
     for (int i=0;i<6;++i) {
-        cell(&p,(const int[]){PARTS_OBJECTS,PARTS_ASSEMBLIES,PARTS_FILTERS,PARTS_LINKS,PARTS_VOLUMES,PARTS_CHECKS}[i],(const char*[]){"Objects","Assemblies","Filters","Links","Volumes","Checks"}[i],NULL,i%2,2,true,ui->parts.mode==i);
+        cell(&p,(const int[]){PARTS_OBJECTS,PARTS_ASSEMBLIES,PARTS_FILTERS,PARTS_LINKS,PARTS_VOLUMES,PARTS_CHECKS}[i],(const char*[]){"Objects","Assemblies","Views","Links","Volumes","Checks"}[i],NULL,i%2,2,true,ui->parts.mode==i);
         if (i%2) p.y+=p.h;
     }
     p.y+=5;char text[256];LayoutObjectStore* store=&layout()->objectStore;
     if (ui->parts.mode>=4) {UIPanel_SpatialBuild(&p);return p;}
     if (ui->parts.mode==3) links_form(&p);
     else if (ui->parts.mode==2) {
-        note(&p,"Show matching objects. Filters do not delete geometry.");
+        row(&p,PARTS_CLEAR_FILTER,"Show all",true);
+        if (!store->saved_view_count) row(&p,PARTS_VIEW_DEFAULTS,"Add standard views",true);
+        for (size_t i=0;i<store->saved_view_count;++i) {
+            const LayoutSavedView* v=&store->saved_views[i];
+            snprintf(text,sizeof(text),"%s %s",Layout_ViewHidden(store,v->id)?"[ ]":"[x]",v->name);
+            cell(&p,8000+(int)i,text,NULL,0,3,true,!Layout_ViewHidden(store,v->id));
+            cell(&p,8100+(int)i,"Only",NULL,1,3,true,!strcmp(store->isolated_view_id,v->id));
+            cell(&p,8200+(int)i,"Remove",NULL,2,3,true,false);p.y+=p.h;
+        }
+        note(&p,"Toggle groups or use Only. Multiple groups combine; unclassified objects stay visible. Checks still include hidden geometry.");
+        row(&p,PARTS_CUSTOM_FILTER,ui->parts.custom_filter_open?"- Custom query":"+ Custom query / save view",true);
+        if (ui->parts.custom_filter_open) {
         snprintf(text,sizeof(text),"Type: %s",ui->parts.filter.entity_type[0]?ui->parts.filter.entity_type:"All");row(&p,PARTS_TYPE,text,true);
         snprintf(text,sizeof(text),"Role: %s",(const char*[]){"All","Design","Reference"}[ui->parts.filter.designation]);row(&p,PARTS_ROLE,text,true);
         label(ui->parts.filter.assembly_id,text,sizeof(text));char parent[256];snprintf(parent,sizeof(parent),"Assembly: %.220s",ui->parts.filter.assembly_id[0]?text:"All");row(&p,PARTS_PARENT,parent,true);
@@ -150,7 +162,10 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         row(&p,PARTS_APPLY_FILTER,"Apply filter",true);row(&p,PARTS_CLEAR_FILTER,"Show all",true);
         size_t shown=0;for(size_t i=0;i<store->count;++i)if(Layout_ObjectShown(store,&store->items[i]))++shown;
         snprintf(text,sizeof(text),"Showing %zu / %zu objects",shown,Layout_ObjectStore_LiveCount(store));row(&p,0,text,true);
-        note(&p,"All fields combine. Empty Equals matches any value. Length filters use meters.");
+        field(&p,PARTS_VIEW_NAME,"View name",ui->parts.view_name);
+        row(&p,PARTS_VIEW_SAVE,"Save query as view",ui->parts.view_name[0]!=0);
+        note(&p,"All query fields combine. Empty Equals matches any value. Save with an existing name replaces that view; Undo restores it.");
+        }
     } else {
         label(ui->parts.id,text,sizeof(text));row(&p,PARTS_SELECT,ui->parts.creating?"New assembly":text,true);
         if (ui->parts.mode==1 && !ui->parts.movement_open) row(&p,PARTS_NEW,"New assembly",true);
@@ -259,6 +274,7 @@ static char* input_buffer(size_t* capacity) {
     UIPanelState* ui=UIPanel_Get();
     char* spatial=UIPanel_SpatialInputBuffer(capacity);if(spatial)return spatial;
     switch(ui->parts.input) {
+        case PARTS_VIEW_NAME:*capacity=96;return ui->parts.view_name;
         case PARTS_NAME:*capacity=sizeof(ui->parts.draft.label);return ui->parts.draft.label;
         case PARTS_TYPE:*capacity=64;return ui->parts.mode==2 ? ui->parts.filter.entity_type : ui->parts.draft.entity_type;
         case PARTS_KEY:*capacity=sizeof(ui->parts.key);return ui->parts.key;
@@ -407,6 +423,31 @@ bool UIPanel_PartsClick(int x,int y) {
     else if(action==PARTS_PARENT)ui->parts.chooser=chooser==3?0:3;
     else if(action==PARTS_PROPERTY_KIND)ui->parts.chooser=chooser==4?0:4;
     else if(action==PARTS_ROLE) {if(ui->parts.mode==2)ui->parts.filter.designation=(ui->parts.filter.designation+1)%3;else ui->parts.draft.reference=!ui->parts.draft.reference;}
+    else if(action==PARTS_CUSTOM_FILTER)ui->parts.custom_filter_open=!ui->parts.custom_filter_open;
+    else if(action==PARTS_VIEW_DEFAULTS) {
+        bool ok=Layout_InstallDefaultViews(layout(),Layout_GeometryHistory,NULL);
+        snprintf(ui->parts.message,160,"%s",ok?"Standard view queries added; Save Layout keeps the definitions.":layout()->geometryMessage);
+    } else if(action==PARTS_VIEW_SAVE) {
+        LayoutSavedView v={.query_count=1};snprintf(v.name,96,"%s",ui->parts.view_name);
+        LayoutObjectStore* s=&layout()->objectStore;unsigned serial=1;
+        for (;;) {
+            snprintf(v.id,64,"custom_%u",serial++);bool found=false;
+            for(size_t i=0;i<s->saved_view_count;++i)if(!strcmp(s->saved_views[i].id,v.id))found=true;
+            if(!found)break;
+        }
+        for(size_t i=0;i<s->saved_view_count;++i)if(!strcmp(s->saved_views[i].name,v.name))snprintf(v.id,64,"%s",s->saved_views[i].id);
+        v.queries[0]=ui->parts.filter;snprintf(v.queries[0].property_key,48,"%s",ui->parts.key);snprintf(v.queries[0].property_value,128,"%s",ui->parts.value);
+        bool ok=Layout_EditSavedView(layout(),&v,NULL,Layout_GeometryHistory,NULL);
+        snprintf(ui->parts.message,160,"%s",ok?"Saved view definition; Save Layout writes it to disk.":"Cannot save view; check name and list capacity.");
+    } else if(ui->parts.mode==2 && action>=8000 && action<8300) {
+        LayoutObjectStore* s=&layout()->objectStore;size_t i=(size_t)(action%100);
+        if(i<s->saved_view_count) {
+            char id[64];snprintf(id,64,"%s",s->saved_views[i].id);
+            if(action>=8200)(void)Layout_EditSavedView(layout(),NULL,id,Layout_GeometryHistory,NULL);
+            else if(action>=8100)Layout_IsolateView(s,id);
+            else Layout_ToggleView(s,id);
+        }
+    }
     else if(action==PARTS_PROPERTIES)ui->parts.properties_open=!ui->parts.properties_open;
     else if(action==PARTS_MOVE) {
         ui->parts.movement_open=!ui->parts.movement_open;
@@ -432,9 +473,9 @@ bool UIPanel_PartsClick(int x,int y) {
             snprintf(ui->parts.message,160,"%s",ok?"Selected object added; its world pose is unchanged.":layout()->geometryMessage);}
     }
     else if(action==PARTS_APPLY_FILTER || action==PARTS_CLEAR_FILTER) {
-        if(action==PARTS_CLEAR_FILTER){memset(&ui->parts.filter,0,sizeof(ui->parts.filter));ui->parts.key[0]=ui->parts.value[0]=0;}
+        if(action==PARTS_CLEAR_FILTER){Layout_ShowAllViews(&layout()->objectStore);memset(&ui->parts.filter,0,sizeof(ui->parts.filter));ui->parts.key[0]=ui->parts.value[0]=0;}
         snprintf(ui->parts.filter.property_key,48,"%s",ui->parts.key);snprintf(ui->parts.filter.property_value,128,"%s",ui->parts.value);
-        layout()->objectStore.view_query=ui->parts.filter;Global_Get()->layoutDirty=true;Global_FlagHitboxesDirty();
+        layout()->objectStore.view_query=ui->parts.filter;Global_FlagHitboxesDirty();
         snprintf(ui->parts.message,160,"%s",action==PARTS_CLEAR_FILTER?"Showing all authored visible objects.":"Filter applied.");
     } else if(!chooser && action>=6000) {
         size_t i=(size_t)(action-6000);if(i<layout()->objectStore.count){ui->parts.mode=0;Global_Get()->editor.selectedObject3DId=layout()->objectStore.items[i].objectId;select_entity(layout()->objectStore.items[i].coreMeta.object_id);}

@@ -37,3 +37,9 @@ provisional. Use the [measurement checklist](van_measurement_checklist.md) befor
 treating the model as a build plan. See the [S5 plan](s5_routing_plan.md) for the
 contracts and acceptance criteria, and [physical routes](physical_routes.md) for
 the delivered controls and agent interface.
+
+The next local example, `van_wiring_tentative_s5b.layout.json`, adds saved Views,
+corridor membership, visible route checks and typed electrical assumptions. See
+[routing views and electrical controls](routing_views_and_electrical.md). The prior
+working document is retained separately; this example is not measured or electrically
+validated and deliberately retains unresolved route findings.

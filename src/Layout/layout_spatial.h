@@ -38,3 +38,7 @@ bool Layout_SpatialBoundsDistance(const Layout* layout, const double min_meters[
     const Object3D* target, double* meters, bool* intersects);
 bool Layout_SpatialDistance(const Layout* layout, const Object3D* a, const Object3D* b,
     double* meters, bool* intersects, bool* approximate);
+/* Segment intersection interval against an oriented primitive or mesh AABB proxy.
+ * Positive padding expands each local box axis conservatively; negative shrinks. */
+bool Layout_SpatialSegmentInterval(const Layout* layout, const Object3D* object,
+    const double a[3], const double b[3], double padding, double* start, double* end, bool* approximate);

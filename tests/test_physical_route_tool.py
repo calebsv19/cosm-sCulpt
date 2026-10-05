@@ -60,5 +60,13 @@ with tempfile.TemporaryDirectory(prefix='ld-route-smoke-') as directory:
         if change=='infinite':bad['route']['points_m'][1][0]=float('inf')
         request.write_text(json.dumps(bad));output=root/f'bad{index}.json'
         assert not run('edit',saved,request,output,success=False)['ok'] and not output.exists()
+    request.write_text(json.dumps(dict(schema=command['schema'],operation='default_views')))
+    views=root/'views.json';view_report=run('edit',removed,request,views)
+    assert len(view_report['savedViews'])==10 and view_report==run('inspect',views)
+    eligible=next(e for e in json.loads(saved.read_text())['engineering']['entities'] if not e['reference'] and not e['volumeRole'] and e['id'] not in ['can_hub','water_controller'])
+    numeric=next(o['id'] for o in json.loads(saved.read_text())['objects3d'] if o['persistentId']==eligible['id'])
+    request.write_text(json.dumps(dict(schema=command['schema'],operation='mark_corridor',object_id=numeric)))
+    region=root/'region.json';run('edit',saved,request,region)
+    assert any(e['type']=='RoutingCorridor' and e['id']==eligible['id'] for e in json.loads(region.read_text())['engineering']['entities'])
     assert INPUT.read_bytes()==before
 print('route-smoke passed: native inspect/edit/reload, physical point edit, stale/refresh, removal, overwrite refusal and invalid-input isolation')

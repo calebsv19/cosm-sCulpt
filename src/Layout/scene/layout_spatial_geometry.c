@@ -215,3 +215,25 @@ cJSON* Layout_SpatialReportJson(const Layout* l) {
     }
     free(results);if(!ok){cJSON_Delete(report);return NULL;}return report;
 }
+
+bool Layout_SpatialSegmentInterval(const Layout* layout, const Object3D* object,
+    const double a[3], const double b[3], double padding, double* start, double* end, bool* approximate) {
+    Box volume;
+    if (!box(layout,object,&volume)) return false;
+    *approximate=volume.approximate;
+    D3 from=sub((D3){a[0],a[1],a[2]},volume.center);
+    D3 delta=sub((D3){b[0],b[1],b[2]},(D3){a[0],a[1],a[2]});
+    double lo=0,hi=1;
+    for (int k=0;k<3;++k) {
+        double half=volume.half[k]+padding,origin=dot(from,volume.axis[k]),direction=dot(delta,volume.axis[k]);
+        if (half<0) {lo=1;hi=0;break;}
+        if (fabs(direction)<1e-15) {if (fabs(origin)>half+1e-9) {lo=1;hi=0;break;}}
+        else {
+            double t0=(-half-origin)/direction,t1=(half-origin)/direction;
+            if (t0>t1) {double swap=t0;t0=t1;t1=swap;}
+            lo=fmax(lo,t0);hi=fmin(hi,t1);
+            if (lo>hi+1e-9) break;
+        }
+    }
+    *start=lo;*end=hi;return true;
+}
