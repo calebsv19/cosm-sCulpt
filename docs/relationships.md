@@ -5,8 +5,8 @@ Date: 2026-09-29. Current layout schema: **16**. Program VERSION remains 0.4.0.
 
 ## Using Links
 
-Open **Object → Connections**. Use the selector below the Object tab to choose Connections:
-Objects, Assemblies, Filters and Links. This form contains three selectors and
+Open **Object → Connections** using the selector below the Object tab.
+This form contains three selectors and
 explicit Create/Update/New/Remove actions; it requires no new shortcuts.
 
 1. Choose **Part** (the source). Objects and assemblies are both available,
