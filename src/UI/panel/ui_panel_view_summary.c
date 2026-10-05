@@ -213,7 +213,7 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
              state->grid.gridSize);
     snprintf(line_plane,
              sizeof(line_plane),
-             "Plane  %s   %s=%.2f",
+             "Construction  %s   %s=%.2f",
              UIPanel_ViewPlaneAxisLabel(plane.axis),
              UIPanel_ViewPlaneCoordinateLabel(plane.axis),
              plane.offset);
@@ -246,6 +246,7 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
                                  label_color,
                                  accent_color);
 
+    if (!object_mode) return; /* Scene workspace is owned by the Section controls. */
     if (workspace_rect.w <= 0 || workspace_rect.h <= 0) return;
 
     snprintf(work_camera, sizeof(work_camera), "Mouse tool: %s",

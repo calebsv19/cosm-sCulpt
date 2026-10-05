@@ -20,6 +20,12 @@ static bool UIPanel_RightControlButtonVisible(int button_id) {
             ? state->layout.sceneAuthoring.selected_kind
             : LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE;
     switch (button_id) {
+        case UI_BTN_PANEL_THICKNESS:
+        case UI_BTN_PANEL_KEEP_FACE:
+        case UI_BTN_PANEL_MATERIAL: {
+            const Object3D* o=state ? Layout_ObjectStore_FindConst(&state->layout.objectStore,state->editor.selectedObject3DId) : NULL;
+            return !object_mode && !scene_authoring_selected && Layout_PanelThicknessAxis(o)>=0;
+        }
         case UI_BTN_SAVED_MOTION: {
             if (scene_authoring_selected || object_mode || !state) return false;
             const Object3D* o = Layout_ObjectStore_FindConst(&state->layout.objectStore, state->editor.selectedObject3DId);
@@ -186,6 +192,9 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
         case UI_BTN_SCENE_AUTHORING_EDIT_MODE: spec = (UIPanelRightControlRowSpec){ 7, 3, 0 }; break;
         case UI_BTN_SCENE_AUTHORING_EDIT_LABEL: spec = (UIPanelRightControlRowSpec){ 7, 3, 1 }; break;
         case UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED: spec = (UIPanelRightControlRowSpec){ 7, 3, 2 }; break;
+        case UI_BTN_PANEL_THICKNESS: spec = (UIPanelRightControlRowSpec){ 9, 1, 0 }; break;
+        case UI_BTN_PANEL_KEEP_FACE: spec = (UIPanelRightControlRowSpec){ 10, 1, 0 }; break;
+        case UI_BTN_PANEL_MATERIAL: spec = (UIPanelRightControlRowSpec){ 11, 1, 0 }; break;
         case UI_BTN_EDIT_PRISM_WIDTH: spec = (UIPanelRightControlRowSpec){ 8, 4, 0 }; break;
         case UI_BTN_EDIT_PRISM_HEIGHT: spec = (UIPanelRightControlRowSpec){ 8, 4, 1 }; break;
         case UI_BTN_EDIT_PRISM_DEPTH: spec = (UIPanelRightControlRowSpec){ 8, 4, 2 }; break;

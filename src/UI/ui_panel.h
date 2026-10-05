@@ -165,6 +165,9 @@ typedef struct {
 #define UI_BTN_SCENE_AUTHORING_PATH_PLAYBACK_MODE 82
 #define UI_BTN_SCENE_AUTHORING_PATH_DURATION 83
 #define UI_BTN_SCENE_AUTHORING_PATH_CLOSED 84
+#define UI_BTN_PANEL_THICKNESS 110
+#define UI_BTN_PANEL_KEEP_FACE 111
+#define UI_BTN_PANEL_MATERIAL 112
 #define UI_BTN_PREVIEW_WIREFRAME 85
 #define UI_BTN_PREVIEW_FLAT 86
 #define UI_BTN_PREVIEW_MATERIAL 87
@@ -259,7 +262,8 @@ typedef enum {
     UI_PRISM_DIMENSION_TARGET_NONE = 0,
     UI_PRISM_DIMENSION_TARGET_WIDTH = 1,
     UI_PRISM_DIMENSION_TARGET_HEIGHT = 2,
-    UI_PRISM_DIMENSION_TARGET_DEPTH = 3
+    UI_PRISM_DIMENSION_TARGET_DEPTH = 3,
+    UI_PRISM_DIMENSION_TARGET_THICKNESS = 4
 } UIPrismDimensionDialogTarget;
 
 typedef enum {
@@ -343,6 +347,10 @@ typedef struct {
         SDL_Rect viewRect;
         SDL_Rect modesRect;
     } viewPane;
+    int sectionInput;
+    bool sectionReplace, sectionDragging;
+    char sectionText[96], sectionMessage[160];
+    int panelKeepFace;
     struct {
         SDL_Rect summaryRect;
         SDL_Rect workspaceRect;
@@ -426,6 +434,7 @@ typedef struct {
     struct {
         bool active;
         UIPrismDimensionDialogTarget target;
+        int keepFace;
         uint32_t objectId;
         char buffer[64];
         size_t length;

@@ -142,6 +142,7 @@ const char* UIPanel_PrismDimensionTargetLabel(UIPrismDimensionDialogTarget targe
         case UI_PRISM_DIMENSION_TARGET_WIDTH: return "Width";
         case UI_PRISM_DIMENSION_TARGET_HEIGHT: return "Height";
         case UI_PRISM_DIMENSION_TARGET_DEPTH: return "Depth";
+        case UI_PRISM_DIMENSION_TARGET_THICKNESS: return "Panel thickness";
         case UI_PRISM_DIMENSION_TARGET_NONE:
         default: return "Dimension";
     }
@@ -238,13 +239,17 @@ bool UIPanel_BeginPrismDimensionDialog(UIPrismDimensionDialogTarget target) {
         SDL_Log("[UI] Dimension edit blocked: select a valid plane or rect prism first.");
         return false;
     }
-    if (target == UI_PRISM_DIMENSION_TARGET_DEPTH &&
+    if ((target == UI_PRISM_DIMENSION_TARGET_DEPTH || target == UI_PRISM_DIMENSION_TARGET_THICKNESS) &&
         object->kind != OBJECT3D_KIND_RECT_PRISM) {
         SDL_Log("[UI] Depth edit blocked: selected object has no depth dimension.");
         return false;
     }
 
-    if (object->kind == OBJECT3D_KIND_PLANE) {
+    if (target==UI_PRISM_DIMENSION_TARGET_THICKNESS) {
+        int axis=Layout_PanelThicknessAxis(object);
+        if(axis<0)return false;
+        worldValue=(double)(axis==0?object->rectPrism.width:axis==1?object->rectPrism.height:object->rectPrism.depth);
+    } else if (object->kind == OBJECT3D_KIND_PLANE) {
         if (target == UI_PRISM_DIMENSION_TARGET_WIDTH) worldValue = (double)object->plane.width;
         else worldValue = (double)object->plane.height;
     } else {
@@ -259,6 +264,7 @@ bool UIPanel_BeginPrismDimensionDialog(UIPrismDimensionDialogTarget target) {
     ui->prismDimensionDialog.active = true;
     ui->prismDimensionDialog.validationMessage[0] = '\0';
     ui->prismDimensionDialog.target = target;
+    ui->prismDimensionDialog.keepFace=ui->panelKeepFace;
     ui->prismDimensionDialog.objectId = object->objectId;
     snprintf(ui->prismDimensionDialog.buffer,
              sizeof(ui->prismDimensionDialog.buffer),
@@ -305,6 +311,21 @@ bool UIPanel_ApplyPrismDimensionDialog(UIPanelState* ui) {
         snprintf(ui->prismDimensionDialog.validationMessage, sizeof(ui->prismDimensionDialog.validationMessage),
                  "Enter a length, for example 20 mm or 3.5 in.");
         return false;
+    }
+    if(ui->prismDimensionDialog.target==UI_PRISM_DIMENSION_TARGET_THICKNESS) {
+        Object3D before=*object;
+        if(!Layout_SetPanelThickness(&state->layout,object->objectId,meters,ui->prismDimensionDialog.keepFace,
+            Editor_ReserveGeometryHistory,&state->editor)) {
+            snprintf(ui->prismDimensionDialog.validationMessage,sizeof(ui->prismDimensionDialog.validationMessage),
+                "Thickness must be positive and smaller than both spans; locked/scaled panels cannot change.");
+            return false;
+        }
+        const Object3D* after=Layout_ObjectStore_FindConst(&state->layout.objectStore,before.objectId);
+        UIPanel_ClosePrismDimensionDialog(ui);
+        if(after && memcmp(&before.rectPrism,&after->rectPrism,sizeof(before.rectPrism))) {
+            Global_FlagLayoutChanged();Global_FlagHitboxesDirty();
+        }
+        return true;
     }
     EditorNumericEditKind kind;
     switch (ui->prismDimensionDialog.target) {

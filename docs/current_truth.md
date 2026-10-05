@@ -1,5 +1,19 @@
 # Sculpt Current Truth
 
+## V1 / V2 solid panels and movable sections (2026-10-05)
+
+Scene native solids now share mesh depth/owner rendering and visible-surface picking.
+View adds Section/Cutaway, direction, a visible slider, numeric position/step,
+stepping, side flipping and assembly focus. Explicit Panel thickness edits preserve
+a chosen local face and participate in validated geometry mutation and Undo.
+The seven-panel existing cabinet is the acceptance example; its isolated study
+retains original geometry and IDs. Exact sections omit imported meshes and
+zero-thickness planes; mesh cutaways are uncapped. No cut geometry is saved.
+521 checks across 49 groups, route smoke and native Solid/Section/Cutaway captures
+pass. The native section capture verifies surface picking and empty-space rejection.
+Desktop package and human acceptance are separate handoff evidence.
+See [controls and exact limits](solid_sections.md).
+
 ## S5 connected sections, inventory and panel furniture (2026-10-05)
 
 Ordinary Scene outlines now use one stroke without decorative box-face diagonals.
@@ -260,7 +274,7 @@ van workflow audit using illustrative assemblies, service spaces and movement,
 then S5 routing corridors/paths. Independent follower/mesh/multiple-joint motion is deferred.
 The dated milestone accounts below retain their original proof/next-step history.
 
-Last updated: 2026-10-04
+Last updated: 2026-10-05
 
 ## S3B/S3C reserved volumes and spatial checks (2026-09-30)
 

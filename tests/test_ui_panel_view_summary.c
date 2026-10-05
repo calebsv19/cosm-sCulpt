@@ -5,6 +5,7 @@
 #include "UI/ui_panel_view_layout.h"
 #include "UI/ui_panel_view_summary.h"
 #include "UI/input_ui_panel.h"
+#include "UI/ui_panel_right_scroll.h"
 
 static bool test_view_summary_reserves_space_for_view_controls(void) {
     GlobalState* state = NULL;
@@ -143,7 +144,12 @@ static bool test_view_sections_fit_inside_pane_and_anchor_bottom(void) {
     TEST_ASSERT(summary_rect.y + summary_rect.h <= workspace_rect.y);
     TEST_ASSERT(workspace_rect.y + workspace_rect.h <= view_rect.y);
     TEST_ASSERT(view_rect.y + view_rect.h <= modes_rect.y);
-    TEST_ASSERT(modes_rect.y + modes_rect.h == ui->rightBodyRect.y + ui->rightBodyRect.h);
+    TEST_ASSERT(modes_rect.y + modes_rect.h >= ui->rightBodyRect.y + ui->rightBodyRect.h);
+
+    if (modes_rect.y + modes_rect.h > ui->rightBodyRect.y + ui->rightBodyRect.h) {
+        TEST_ASSERT(UIPanel_RightScrollHandleWheel(ui->rightBodyRect.x + 5, ui->rightBodyRect.y + 5, -100));
+        UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    }
 
     for (int i = 0; i < ui->count; ++i) {
         const UIButton* btn = &ui->buttons[i];
@@ -239,6 +245,8 @@ static bool test_view_preview_buttons_select_renderer_mode(void) {
     UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_VIEW);
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
 
+    (void)UIPanel_RightScrollHandleWheel(ui->rightBodyRect.x + 5, ui->rightBodyRect.y + 5, -100);
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     for (size_t i = 0; i < sizeof(button_ids) / sizeof(button_ids[0]); ++i) {
         const UIButton* btn = NULL;
         for (int index = 0; index < ui->count; ++index) {

@@ -1,6 +1,7 @@
 #include "Core/editor_preferences.h"
 #include <sys/stat.h>
 #include "Core/line_drawing_engineering_proof.h"
+#include "Core/line_drawing_section_proof.h"
 // src/main.c
 #include "line_drawing/line_drawing_app_main.h"
 #include "Core/SDLApp/sdl_app_framework.h"
@@ -529,6 +530,7 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         return 1;
     }
 
+    const bool cabinet_proof = proof_mode && !strncmp(proof_mode, "cabinet-", 8);
     const bool parts_proof=proof_mode && !strncmp(proof_mode,"parts-",6);
     const bool hinge_proof=proof_mode && !strncmp(proof_mode,"constraint-hinge",16);
     const bool travel_setup=proof_mode && (!strcmp(proof_mode,"constraint-travel-setup") || !strcmp(proof_mode,"constraint-travel-error"));
@@ -538,7 +540,7 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
     const bool constraint_angle = pivot_feedback || (proof_mode && strcmp(proof_mode, "constraint-angle") == 0);
     const bool placement_proof = parts_proof || hinge_proof || travel_proof || constraint_distance || constraint_angle || (proof_mode && strcmp(proof_mode, "placement") == 0);
     const bool measurement_proof = placement_proof || (proof_mode && strcmp(proof_mode, "measurement") == 0);
-    if (measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
+    if (cabinet_proof || measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
         LineDrawingHostEnterEditor();
         if (visualMeshPath && visualMeshPath[0] &&
             !LineDrawingVisualArtifactStageMesh(visualMeshPath)) {
@@ -672,9 +674,14 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         }
     }
 
-    if (visualMeshPath && visualMeshPath[0]) {
+    if (cabinet_proof && !LineDrawingSection_StageProof(proof_mode)) return 1;
+    if (cabinet_proof || (visualMeshPath && visualMeshPath[0])) {
         if (!App_RenderOnce(app, handleRender)) {
             fprintf(stderr, "line_drawing: visual-artifact mesh warmup render failed\n");
+            return 1;
+        }
+        if (cabinet_proof && !LineDrawingSection_CheckProof(proof_mode)) {
+            fprintf(stderr, "line_drawing: cabinet section visible-surface picking failed\n");
             return 1;
         }
         SDL_Delay(180u);

@@ -1,0 +1,1044 @@
+{
+  "file": {
+    "schemaVersion": 21,
+    "generator": "LineDrawing",
+    "gridSize": 0.05000000074505806
+  },
+  "engineering": {
+    "nextAssemblyId": 1,
+    "entities": [
+      {
+        "name": "Driver Wardrobe - full height / backing",
+        "type": "Panel",
+        "parent": "storage_driver_unit",
+        "reference": false,
+        "volumeRole": 0,
+        "volumeOwner": "",
+        "properties": [
+          {
+            "key": "dimensions_status",
+            "kind": 0,
+            "value": "concept_not_measured"
+          },
+          {
+            "key": "subsystem",
+            "kind": 0,
+            "value": "interior.structure"
+          },
+          {
+            "key": "source",
+            "kind": 0,
+            "value": "user_ai_concept_reinterpreted"
+          },
+          {
+            "key": "layout_revision",
+            "kind": 0,
+            "value": "narrow_v2"
+          },
+          {
+            "key": "zone",
+            "kind": 0,
+            "value": "storage"
+          },
+          {
+            "key": "construction",
+            "kind": 0,
+            "value": "panelized_concept"
+          },
+          {
+            "key": "status",
+            "kind": 0,
+            "value": "concept_not_measured"
+          },
+          {
+            "key": "material",
+            "kind": 0,
+            "value": "plywood_tentative"
+          }
+        ],
+        "id": "storage_driver"
+      },
+      {
+        "name": "End Rear",
+        "type": "Panel",
+        "parent": "storage_driver_unit",
+        "reference": false,
+        "volumeRole": 0,
+        "volumeOwner": "",
+        "properties": [
+          {
+            "key": "subsystem",
+            "kind": 0,
+            "value": "interior.structure"
+          },
+          {
+            "key": "status",
+            "kind": 0,
+            "value": "concept_not_measured"
+          },
+          {
+            "key": "material",
+            "kind": 0,
+            "value": "plywood_tentative"
+          },
+          {
+            "key": "construction",
+            "kind": 0,
+            "value": "panelized_concept"
+          }
+        ],
+        "id": "storage_driver_end_rear"
+      },
+      {
+        "name": "End Front",
+        "type": "Panel",
+        "parent": "storage_driver_unit",
+        "reference": false,
+        "volumeRole": 0,
+        "volumeOwner": "",
+        "properties": [
+          {
+            "key": "subsystem",
+            "kind": 0,
+            "value": "interior.structure"
+          },
+          {
+            "key": "status",
+            "kind": 0,
+            "value": "concept_not_measured"
+          },
+          {
+            "key": "material",
+            "kind": 0,
+            "value": "plywood_tentative"
+          },
+          {
+            "key": "construction",
+            "kind": 0,
+            "value": "panelized_concept"
+          }
+        ],
+        "id": "storage_driver_end_front"
+      },
+      {
+        "name": "Bottom",
+        "type": "Panel",
+        "parent": "storage_driver_unit",
+        "reference": false,
+        "volumeRole": 0,
+        "volumeOwner": "",
+        "properties": [
+          {
+            "key": "subsystem",
+            "kind": 0,
+            "value": "interior.structure"
+          },
+          {
+            "key": "status",
+            "kind": 0,
+            "value": "concept_not_measured"
+          },
+          {
+            "key": "material",
+            "kind": 0,
+            "value": "plywood_tentative"
+          },
+          {
+            "key": "construction",
+            "kind": 0,
+            "value": "panelized_concept"
+          }
+        ],
+        "id": "storage_driver_bottom"
+      },
+      {
+        "name": "Top",
+        "type": "Panel",
+        "parent": "storage_driver_unit",
+        "reference": false,
+        "volumeRole": 0,
+        "volumeOwner": "",
+        "properties": [
+          {
+            "key": "subsystem",
+            "kind": 0,
+            "value": "interior.structure"
+          },
+          {
+            "key": "status",
+            "kind": 0,
+            "value": "concept_not_measured"
+          },
+          {
+            "key": "material",
+            "kind": 0,
+            "value": "plywood_tentative"
+          },
+          {
+            "key": "construction",
+            "kind": 0,
+            "value": "panelized_concept"
+          }
+        ],
+        "id": "storage_driver_top"
+      },
+      {
+        "name": "Door",
+        "type": "Panel",
+        "parent": "storage_driver_unit",
+        "reference": false,
+        "volumeRole": 0,
+        "volumeOwner": "",
+        "properties": [
+          {
+            "key": "subsystem",
+            "kind": 0,
+            "value": "interior.structure"
+          },
+          {
+            "key": "status",
+            "kind": 0,
+            "value": "concept_not_measured"
+          },
+          {
+            "key": "material",
+            "kind": 0,
+            "value": "plywood_tentative"
+          },
+          {
+            "key": "construction",
+            "kind": 0,
+            "value": "panelized_concept"
+          },
+          {
+            "key": "motion_status",
+            "kind": 0,
+            "value": "hinge_and_service_access_TBD"
+          }
+        ],
+        "id": "storage_driver_door"
+      },
+      {
+        "name": "Shelf",
+        "type": "Panel",
+        "parent": "storage_driver_unit",
+        "reference": false,
+        "volumeRole": 0,
+        "volumeOwner": "",
+        "properties": [
+          {
+            "key": "subsystem",
+            "kind": 0,
+            "value": "interior.structure"
+          },
+          {
+            "key": "status",
+            "kind": 0,
+            "value": "concept_not_measured"
+          },
+          {
+            "key": "material",
+            "kind": 0,
+            "value": "plywood_tentative"
+          },
+          {
+            "key": "construction",
+            "kind": 0,
+            "value": "panelized_concept"
+          }
+        ],
+        "id": "storage_driver_shelf"
+      }
+    ],
+    "assemblies": [
+      {
+        "name": "Van layout - likely 2023 nominal basis",
+        "type": "Assembly",
+        "parent": "",
+        "reference": false,
+        "volumeRole": 0,
+        "volumeOwner": "",
+        "properties": [
+          {
+            "key": "dimensions_status",
+            "kind": 0,
+            "value": "concept_not_measured"
+          },
+          {
+            "key": "subsystem",
+            "kind": 0,
+            "value": "van"
+          },
+          {
+            "key": "source",
+            "kind": 0,
+            "value": "user_ai_concept_reinterpreted"
+          }
+        ],
+        "worldFrame": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "id": "van"
+      },
+      {
+        "name": "Mid-van tall storage",
+        "type": "Assembly",
+        "parent": "van",
+        "reference": false,
+        "volumeRole": 0,
+        "volumeOwner": "",
+        "properties": [
+          {
+            "key": "dimensions_status",
+            "kind": 0,
+            "value": "concept_not_measured"
+          },
+          {
+            "key": "subsystem",
+            "kind": 0,
+            "value": "van"
+          },
+          {
+            "key": "source",
+            "kind": 0,
+            "value": "user_ai_concept_reinterpreted"
+          }
+        ],
+        "worldFrame": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "id": "storage"
+      },
+      {
+        "name": "Driver Wardrobe - full height / panel assembly",
+        "type": "Assembly",
+        "parent": "storage",
+        "reference": false,
+        "volumeRole": 0,
+        "volumeOwner": "",
+        "properties": [
+          {
+            "key": "subsystem",
+            "kind": 0,
+            "value": "interior.structure"
+          },
+          {
+            "key": "status",
+            "kind": 0,
+            "value": "concept_not_measured"
+          }
+        ],
+        "worldFrame": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "id": "storage_driver_unit"
+      }
+    ],
+    "relationships": [
+      {
+        "id": "relationship_5",
+        "source": "storage_driver_end_rear",
+        "target": "storage_driver",
+        "type": "attached_to"
+      },
+      {
+        "id": "relationship_6",
+        "source": "storage_driver_end_front",
+        "target": "storage_driver",
+        "type": "attached_to"
+      },
+      {
+        "id": "relationship_7",
+        "source": "storage_driver_bottom",
+        "target": "storage_driver",
+        "type": "attached_to"
+      },
+      {
+        "id": "relationship_8",
+        "source": "storage_driver_top",
+        "target": "storage_driver",
+        "type": "attached_to"
+      },
+      {
+        "id": "relationship_9",
+        "source": "storage_driver_door",
+        "target": "storage_driver",
+        "type": "attached_to"
+      },
+      {
+        "id": "relationship_10",
+        "source": "storage_driver_shelf",
+        "target": "storage_driver",
+        "type": "attached_to"
+      }
+    ],
+    "nextRelationshipId": 88,
+    "spatialChecks": [],
+    "nextSpatialCheckId": 13,
+    "motionEnvelopes": [],
+    "routes": [],
+    "nextRouteId": 23,
+    "savedViews": []
+  },
+  "geometricConstraints": [],
+  "nextConstraintId": 1,
+  "physicalContext": {
+    "coordinateSystem": "right_handed_z_up_meters",
+    "metersPerWorldUnit": 1
+  },
+  "scene3d": {
+    "bounds": {
+      "enabled": false,
+      "clampOnEdit": false,
+      "min": {
+        "x": -1.0499999523162842,
+        "y": -2.1500000953674316,
+        "z": -0.10000000149011612
+      },
+      "max": {
+        "x": 1.0499999523162842,
+        "y": 2.1500000953674316,
+        "z": 2.049999952316284
+      }
+    },
+    "constructionPlane": {
+      "mode": "axis_aligned",
+      "axis": "xy",
+      "offset": 0,
+      "customFrame": {
+        "origin": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "axisU": {
+          "x": 0,
+          "y": -1,
+          "z": 0
+        },
+        "axisV": {
+          "x": 1,
+          "y": 0,
+          "z": 0
+        },
+        "normal": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        }
+      }
+    }
+  },
+  "sceneAuthoring": {
+    "cameras": [
+      {
+        "cameraId": "camera_main",
+        "label": "Main Camera",
+        "pathId": "path_camera_main",
+        "position": {
+          "x": -8,
+          "y": -8,
+          "z": 6
+        },
+        "lookAtTarget": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "fixedForward": {
+          "x": 0,
+          "y": 0.9438583254814148,
+          "z": -0.330350399017334
+        },
+        "orientationMode": "path_facing",
+        "rollDegrees": 0,
+        "verticalFovDegrees": 50,
+        "nearClip": 0.10000000149011612,
+        "farClip": 250
+      }
+    ],
+    "lights": [
+      {
+        "lightId": "light_key",
+        "label": "Key Light",
+        "kind": "directional",
+        "position": {
+          "x": 0,
+          "y": -6,
+          "z": 8
+        },
+        "direction": {
+          "x": 0.20000000298023224,
+          "y": 0.4000000059604645,
+          "z": -1
+        },
+        "aimTarget": {
+          "x": 0.7302967309951782,
+          "y": -4.539406776428223,
+          "z": 4.348516464233398
+        },
+        "pathId": "path_light_key",
+        "enabled": true,
+        "positionMode": "independent",
+        "color": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "intensity": 1,
+        "radius": 0.25,
+        "areaWidth": 2,
+        "areaHeight": 2,
+        "innerConeDegrees": 25,
+        "outerConeDegrees": 40,
+        "falloff": "inverse_square"
+      }
+    ],
+    "paths": [
+      {
+        "pathId": "path_camera_main",
+        "label": "Main Camera Path",
+        "role": "camera",
+        "curveType": "bezier",
+        "boundLightId": "",
+        "boundCameraId": "camera_main",
+        "closed": false,
+        "playbackMode": "once",
+        "durationSeconds": 5,
+        "normalizedDistance": 0,
+        "playing": false,
+        "controlPoints": [
+          {
+            "x": -8,
+            "y": -8,
+            "z": 6
+          },
+          {
+            "x": -3,
+            "y": -11,
+            "z": 9
+          },
+          {
+            "x": 3,
+            "y": -11,
+            "z": 9
+          },
+          {
+            "x": 8,
+            "y": -8,
+            "z": 6
+          }
+        ],
+        "tangentModes": [
+          "smooth",
+          "smooth"
+        ]
+      },
+      {
+        "pathId": "path_light_key",
+        "label": "Key Light Path",
+        "role": "light",
+        "curveType": "bezier",
+        "boundLightId": "light_key",
+        "boundCameraId": "",
+        "closed": false,
+        "playbackMode": "once",
+        "durationSeconds": 5,
+        "normalizedDistance": 0,
+        "playing": false,
+        "controlPoints": [
+          {
+            "x": -4,
+            "y": -6,
+            "z": 7
+          },
+          {
+            "x": -1.5,
+            "y": -8,
+            "z": 10
+          },
+          {
+            "x": 1.5,
+            "y": -8,
+            "z": 10
+          },
+          {
+            "x": 4,
+            "y": -6,
+            "z": 7
+          }
+        ],
+        "tangentModes": [
+          "smooth",
+          "smooth"
+        ]
+      }
+    ],
+    "materials": [
+      {
+        "materialId": "mat_default",
+        "label": "Default Matte",
+        "rgba": [
+          0.7200000286102295,
+          0.7200000286102295,
+          0.6800000071525574,
+          1
+        ]
+      }
+    ],
+    "selection": {
+      "kind": "none",
+      "index": 0
+    }
+  },
+  "objects3d": [
+    {
+      "id": 38,
+      "persistentId": "storage_driver",
+      "flags": {
+        "visible": true,
+        "locked": false,
+        "selectable": true
+      },
+      "kind": "rect_prism",
+      "objectType": "rect_prism_primitive",
+      "dimensionalMode": "full_3d",
+      "lockedPlane": "xy",
+      "transform": {
+        "position": {
+          "x": -0.8959999680519104,
+          "y": -0.7181000113487244,
+          "z": 0.865000009536743
+        },
+        "rotationDeg": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "rectPrism": {
+        "width": 0.017999999225139618,
+        "height": 0.7799999713897705,
+        "depth": 1.7300000190734863,
+        "lockToConstructionPlane": false,
+        "lockToBounds": false,
+        "frame": {
+          "origin": {
+            "x": -0.8959999680519104,
+            "y": -0.7181000113487244,
+            "z": 0.865000009536743
+          },
+          "axisU": {
+            "x": 1,
+            "y": 0,
+            "z": 0
+          },
+          "axisV": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "normal": {
+            "x": 0,
+            "y": 0,
+            "z": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 66,
+      "persistentId": "storage_driver_end_rear",
+      "flags": {
+        "visible": true,
+        "locked": false,
+        "selectable": true
+      },
+      "kind": "rect_prism",
+      "objectType": "rect_prism_primitive",
+      "dimensionalMode": "full_3d",
+      "lockedPlane": "xy",
+      "transform": {
+        "position": {
+          "x": -0.6549999713897705,
+          "y": -1.0990999937057495,
+          "z": 0.865000009536743
+        },
+        "rotationDeg": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "rectPrism": {
+        "width": 0.46399998664855957,
+        "height": 0.017999999225139618,
+        "depth": 1.7300000190734863,
+        "lockToConstructionPlane": false,
+        "lockToBounds": false,
+        "frame": {
+          "origin": {
+            "x": -0.6549999713897705,
+            "y": -1.0990999937057495,
+            "z": 0.865000009536743
+          },
+          "axisU": {
+            "x": 1,
+            "y": 0,
+            "z": 0
+          },
+          "axisV": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "normal": {
+            "x": 0,
+            "y": 0,
+            "z": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 67,
+      "persistentId": "storage_driver_end_front",
+      "flags": {
+        "visible": true,
+        "locked": false,
+        "selectable": true
+      },
+      "kind": "rect_prism",
+      "objectType": "rect_prism_primitive",
+      "dimensionalMode": "full_3d",
+      "lockedPlane": "xy",
+      "transform": {
+        "position": {
+          "x": -0.6549999713897705,
+          "y": -0.3371000289916992,
+          "z": 0.865000009536743
+        },
+        "rotationDeg": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "rectPrism": {
+        "width": 0.46399998664855957,
+        "height": 0.017999999225139618,
+        "depth": 1.7300000190734863,
+        "lockToConstructionPlane": false,
+        "lockToBounds": false,
+        "frame": {
+          "origin": {
+            "x": -0.6549999713897705,
+            "y": -0.3371000289916992,
+            "z": 0.865000009536743
+          },
+          "axisU": {
+            "x": 1,
+            "y": 0,
+            "z": 0
+          },
+          "axisV": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "normal": {
+            "x": 0,
+            "y": 0,
+            "z": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 68,
+      "persistentId": "storage_driver_bottom",
+      "flags": {
+        "visible": true,
+        "locked": false,
+        "selectable": true
+      },
+      "kind": "rect_prism",
+      "objectType": "rect_prism_primitive",
+      "dimensionalMode": "full_3d",
+      "lockedPlane": "xy",
+      "transform": {
+        "position": {
+          "x": -0.6549999713897705,
+          "y": -0.7181000113487244,
+          "z": 0.00899999961256981
+        },
+        "rotationDeg": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "rectPrism": {
+        "width": 0.46399998664855957,
+        "height": 0.74399995803833,
+        "depth": 0.017999999225139618,
+        "lockToConstructionPlane": false,
+        "lockToBounds": false,
+        "frame": {
+          "origin": {
+            "x": -0.6549999713897705,
+            "y": -0.7181000113487244,
+            "z": 0.00899999961256981
+          },
+          "axisU": {
+            "x": 1,
+            "y": 0,
+            "z": 0
+          },
+          "axisV": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "normal": {
+            "x": 0,
+            "y": 0,
+            "z": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 69,
+      "persistentId": "storage_driver_top",
+      "flags": {
+        "visible": true,
+        "locked": false,
+        "selectable": true
+      },
+      "kind": "rect_prism",
+      "objectType": "rect_prism_primitive",
+      "dimensionalMode": "full_3d",
+      "lockedPlane": "xy",
+      "transform": {
+        "position": {
+          "x": -0.6549999713897705,
+          "y": -0.7181000113487244,
+          "z": 1.721000075340271
+        },
+        "rotationDeg": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "rectPrism": {
+        "width": 0.46399998664855957,
+        "height": 0.74399995803833,
+        "depth": 0.017999999225139618,
+        "lockToConstructionPlane": false,
+        "lockToBounds": false,
+        "frame": {
+          "origin": {
+            "x": -0.6549999713897705,
+            "y": -0.7181000113487244,
+            "z": 1.721000075340271
+          },
+          "axisU": {
+            "x": 1,
+            "y": 0,
+            "z": 0
+          },
+          "axisV": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "normal": {
+            "x": 0,
+            "y": 0,
+            "z": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 70,
+      "persistentId": "storage_driver_door",
+      "flags": {
+        "visible": true,
+        "locked": false,
+        "selectable": true
+      },
+      "kind": "rect_prism",
+      "objectType": "rect_prism_primitive",
+      "dimensionalMode": "full_3d",
+      "lockedPlane": "xy",
+      "transform": {
+        "position": {
+          "x": -0.4139999747276306,
+          "y": -0.7181000113487244,
+          "z": 0.865000009536743
+        },
+        "rotationDeg": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "rectPrism": {
+        "width": 0.017999999225139618,
+        "height": 0.7799999713897705,
+        "depth": 1.7300000190734863,
+        "lockToConstructionPlane": false,
+        "lockToBounds": false,
+        "frame": {
+          "origin": {
+            "x": -0.4139999747276306,
+            "y": -0.7181000113487244,
+            "z": 0.865000009536743
+          },
+          "axisU": {
+            "x": 1,
+            "y": 0,
+            "z": 0
+          },
+          "axisV": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "normal": {
+            "x": 0,
+            "y": 0,
+            "z": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 71,
+      "persistentId": "storage_driver_shelf",
+      "flags": {
+        "visible": true,
+        "locked": false,
+        "selectable": true
+      },
+      "kind": "rect_prism",
+      "objectType": "rect_prism_primitive",
+      "dimensionalMode": "full_3d",
+      "lockedPlane": "xy",
+      "transform": {
+        "position": {
+          "x": -0.6549999713897705,
+          "y": -0.7181000113487244,
+          "z": 0.865000009536743
+        },
+        "rotationDeg": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "rectPrism": {
+        "width": 0.46399998664855957,
+        "height": 0.74399995803833,
+        "depth": 0.017999999225139618,
+        "lockToConstructionPlane": false,
+        "lockToBounds": false,
+        "frame": {
+          "origin": {
+            "x": -0.6549999713897705,
+            "y": -0.7181000113487244,
+            "z": 0.865000009536743
+          },
+          "axisU": {
+            "x": 1,
+            "y": 0,
+            "z": 0
+          },
+          "axisV": {
+            "x": 0,
+            "y": 1,
+            "z": 0
+          },
+          "normal": {
+            "x": 0,
+            "y": 0,
+            "z": 1
+          }
+        }
+      }
+    }
+  ],
+  "anchors": [],
+  "walls": []
+}

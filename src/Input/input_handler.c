@@ -1,3 +1,4 @@
+#include "UI/ui_panel_section.h"
 #include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_parts.h"
 // src/Input/input_handler.c
@@ -15,6 +16,7 @@
 void Input_Handle(AppContext *ctx, SDL_Event* event) {
     if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST)
         InputViewportNavigation_ResetGesture();
+    if (UIPanel_SectionEvent(event)) return;
     if ((event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP) &&
         InputViewportNavigation_HandleMouseButton(&event->button)) return;
     if (event->type == SDL_MOUSEMOTION &&

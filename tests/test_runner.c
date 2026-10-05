@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+bool sections_run_tests(void);
 bool layout_run_tests(void);
 bool physical_context_run_tests(void);
 bool numeric_edit_run_tests(void);
@@ -61,6 +62,7 @@ typedef struct TestGroup {
 } TestGroup;
 
 static const TestGroup kTestGroups[] = {
+    {"Sections", sections_run_tests, true},
     {"Layout", layout_run_tests, true},
     {"PhysicalContext", physical_context_run_tests, true},
     {"NumericEdit", numeric_edit_run_tests, true},

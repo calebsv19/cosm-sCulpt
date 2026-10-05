@@ -1,5 +1,12 @@
 # Line Drawing Future Intent
 
+V1/V2 update (2026-10-05): [solid panels and movable sections](solid_sections.md)
+now ship with visible View controls and an existing cabinet acceptance study.
+The next construction slice is V3: panel-aware cabinet/furring assemblies, measured
+mounting offsets and explicit fastening locations. Saved section bookmarks, section
+hatching/dimensions and blueprint export follow after those construction contracts.
+Imported mesh caps and general booleans remain separate geometry work.
+
 
 Implementation update (2026-09-29): the bounded S0/S1 mechanical-layout baseline
 now includes persistent distance/join/fixed-angle rules, physical pivot offsets,

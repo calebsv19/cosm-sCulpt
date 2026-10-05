@@ -330,7 +330,8 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                 corners2[c] = WorldToScreen(SpaceAdapter_ProjectToView(corners3[c], &viewCtx), grid);
             }
 
-            if (!objectWorkspace) {
+            if (!objectWorkspace && (state->previewMode==LINE_DRAWING_PREVIEW_MODE_WIREFRAME ||
+                state->previewMode==LINE_DRAWING_PREVIEW_MODE_BOUNDS || isSelected || isHovered)) {
                 int thickness = 1;
                 if (isSelected) {
                     SDL_SetRenderDrawColor(renderer, 255, 220, 0, 255);
@@ -472,7 +473,9 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                     thickness = 1;
                 }
 
-                if (object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE ||
+                if ((object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
+                     (state->previewMode == LINE_DRAWING_PREVIEW_MODE_BOUNDS ||
+                      state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME || isSelected || isHovered)) ||
                     (meshBoundsMode ||
                      (!meshPreviewDrawn && (isSelected || isHovered)))) {
                     for (int e = 0; e < 12; ++e) {
@@ -908,13 +911,18 @@ void Layout_Render(const Layout* layout, AppContext* ctx) {
             style,
             NULL);
     }
+    /* Exact section/cutaway pixels are authoritative. Full bounds, routes,
+     * motion cages and gizmos would otherwise redraw removed geometry over them. */
+    if(state && state->workspaceMode==LINE_DRAWING_WORKSPACE_MODE_SCENE &&
+        state->spaceMode==SPACE_MODE_3D && state->sectionView.mode!=LAYOUT_SECTION_OFF) return;
     Layout_RenderSceneBounds3D(layout, renderer);
     Layout_RenderPrimitivePlacementPreview(renderer);
     if (state &&
         state->spaceMode == SPACE_MODE_3D &&
         (state->previewMode == LINE_DRAWING_PREVIEW_MODE_FLAT ||
          state->previewMode == LINE_DRAWING_PREVIEW_MODE_MATERIAL)) {
-        Layout_RenderObjectSurfaces(layout, renderer);
+        if (state->workspaceMode==LINE_DRAWING_WORKSPACE_MODE_OBJECT)
+            Layout_RenderObjectSurfaces(layout, renderer);
     }
     Layout_RenderObjects3D(layout, renderer);
     if (state &&

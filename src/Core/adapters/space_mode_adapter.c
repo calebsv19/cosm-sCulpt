@@ -29,6 +29,13 @@ SpaceViewContext SpaceAdapter_BuildViewContext(const GlobalState* state) {
     } else {
         resolvedPlane = state->activePlane;
     }
+    /* Section orientation is a view override; the authored construction plane stays intact. */
+    if (state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_SCENE &&
+        state->sectionView.mode != LAYOUT_SECTION_OFF) {
+        resolvedPlane.axis = state->sectionView.axis == 0 ? VIEW_PLANE_YZ :
+            state->sectionView.axis == 1 ? VIEW_PLANE_XZ : VIEW_PLANE_XY;
+        if (state->sectionView.mode == LAYOUT_SECTION_EXACT) ctx.camera.enabled = false;
+    }
     ctx.plane.axis = resolvedPlane.axis;
     ctx.plane.offset = resolvedPlane.offset;
 

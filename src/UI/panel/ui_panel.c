@@ -992,6 +992,9 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "D", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_EDIT_PRISM_DEPTH);
     yR += btnH + spacing;
+    AddButton(&g_uiPanel, "Thickness", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_PANEL_THICKNESS);
+    AddButton(&g_uiPanel, "Keep center", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_PANEL_KEEP_FACE);
+    AddButton(&g_uiPanel, "Material", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_PANEL_MATERIAL);
     AddButton(&g_uiPanel, "ft", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_PRISM, UI_BTN_CYCLE_DISPLAY_UNITS);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Move saved motion", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS, UI_BTN_SAVED_MOTION);

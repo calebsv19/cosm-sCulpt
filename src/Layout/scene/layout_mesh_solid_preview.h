@@ -3,6 +3,7 @@
 #include "Core/space_mode_adapter.h"
 #include "Layout/Grid/grid.h"
 #include "Layout/layout.h"
+#include "Layout/layout_section.h"
 #include "core_mesh_asset.h"
 #include "core_mesh_preview.h"
 
@@ -84,7 +85,7 @@ bool Layout_MeshSolidPreviewViewChangeResetsQuality(
     const SpaceViewContext* previous,
     const SpaceViewContext* current);
 
-// Render every visible mesh instance into one cached depth-tested viewport texture.
+// Render visible meshes and native Scene primitives into one cached depth-tested texture.
 bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
                                    const Layout* layout,
                                    const SpaceViewContext* viewContext,
@@ -96,3 +97,14 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
 
 // Release cached mesh LODs, CPU buffers, and the uploaded viewport texture.
 void Layout_MeshSolidPreviewShutdown(SDL_Renderer* renderer);
+
+/* Returns false only if the view cache is unavailable/stale. Valid empty pixels return ID zero. */
+bool Layout_SolidPreviewPick(const Layout* layout, const SpaceViewContext* view, const Grid* grid,
+    int x, int y, uint32_t* object_id);
+
+/* Draw native world surfaces into caller-initialized buffers (transparent RGBA,
+ * depth INFINITY, owner -1). Same rasterizer used by the interactive depth pass. */
+bool Layout_RasterNativeSurfaces(const Layout* layout, const LayoutSectionView* section,
+    const SpaceViewContext* view, const Grid* grid, SDL_Rect clip, float raster_scale,
+    int width, int height, bool material, uint8_t* rgba, float* depth, int32_t* owner,
+    LayoutMeshSolidPreviewFrameStats* stats);

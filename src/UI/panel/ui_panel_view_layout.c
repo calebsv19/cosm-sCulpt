@@ -1,3 +1,6 @@
+#include "UI/ui_panel_section.h"
+#include "UI/ui_panel_right_scroll.h"
+#include "Core/global_state.h"
 #include "UI/ui_panel_view_layout.h"
 
 #include "UI/ui_panel_right_controls.h"
@@ -31,15 +34,22 @@ void UIPanel_UpdateViewPaneLayout(UIPanelState* ui) {
     view_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_VIEW);
     modes_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_MODES);
 
+    int total_height=ui->rightBodyRect.h;
+    if(Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_SCENE) {
+        int minimum=summary_height+view_height+modes_height+UIPanel_SectionHeight()+24;
+        if(total_height<minimum)total_height=minimum;
+        UIPanel_RightScrollSetContentHeight(ui,(float)total_height);
+    }
+    int scroll=(int)UIPanel_RightScrollOffset(ui);
     ui->viewPane.summaryRect = (SDL_Rect){
         ui->rightBodyRect.x,
-        ui->rightBodyRect.y,
+        ui->rightBodyRect.y-scroll,
         ui->rightBodyRect.w,
         summary_height
     };
     ui->viewPane.modesRect = (SDL_Rect){
         ui->rightBodyRect.x,
-        ui->rightBodyRect.y + ui->rightBodyRect.h - modes_height,
+        ui->rightBodyRect.y + total_height - modes_height-scroll,
         ui->rightBodyRect.w,
         modes_height
     };
@@ -49,11 +59,11 @@ void UIPanel_UpdateViewPaneLayout(UIPanelState* ui) {
         ui->rightBodyRect.w,
         view_height
     };
-    if (ui->viewPane.viewRect.y < ui->rightBodyRect.y) {
+    if (Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_OBJECT && ui->viewPane.viewRect.y < ui->rightBodyRect.y) {
         ui->viewPane.viewRect.y = ui->rightBodyRect.y;
     }
 
-    workspace_top = ui->rightBodyRect.y + summary_height;
+    workspace_top = ui->rightBodyRect.y + summary_height-scroll;
     if (summary_height > 0) workspace_top += UI_VIEW_PANE_SECTION_GAP;
     workspace_bottom = ui->viewPane.viewRect.y - UI_VIEW_PANE_SECTION_GAP;
     if (workspace_bottom < workspace_top) workspace_bottom = workspace_top;

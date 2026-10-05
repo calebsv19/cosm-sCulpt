@@ -1,3 +1,4 @@
+#include "UI/ui_panel_section.h"
 #include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_create_summary.h"
@@ -542,6 +543,25 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
                  "%s",
                  UIPanel_GetDisplayUnitSymbol());
         label = dynamicLabel;
+    } else if (btn->id==UI_BTN_PANEL_THICKNESS || btn->id==UI_BTN_PANEL_KEEP_FACE || btn->id==UI_BTN_PANEL_MATERIAL) {
+        const GlobalState* st=Global_Get();
+        const Object3D* o=st?Layout_ObjectStore_FindConst(&st->layout.objectStore,st->editor.selectedObject3DId):NULL;
+        int axis=Layout_PanelThicknessAxis(o);
+        if(axis>=0 && btn->id==UI_BTN_PANEL_THICKNESS) {
+            double value=(axis==0?o->rectPrism.width:axis==1?o->rectPrism.height:o->rectPrism.depth)*Layout_WorldScale(&st->layout);
+            (void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
+            snprintf(dynamicLabel,sizeof(dynamicLabel),"Thickness: %.6g %s",value,UIPanel_GetDisplayUnitSymbol());
+        } else if(btn->id==UI_BTN_PANEL_KEEP_FACE) {
+            int keep=UIPanel_Get()->panelKeepFace;
+            if(!keep)snprintf(dynamicLabel,sizeof(dynamicLabel),"Keep: center >");
+            else snprintf(dynamicLabel,sizeof(dynamicLabel),"Keep: local %s%c face >",axis==0?"U":axis==1?"V":"N",keep<0?'-':'+');
+        } else {
+            const char* material="unknown";
+            if(o)for(size_t i=0;i<o->info.property_count;++i)
+                if(!strcmp(o->info.properties[i].key,"material"))material=o->info.properties[i].text;
+            snprintf(dynamicLabel,sizeof(dynamicLabel),"Material: %s >",material);
+        }
+        label=dynamicLabel;
     } else if (btn->id == UI_BTN_EDIT_PRISM_WIDTH ||
                btn->id == UI_BTN_EDIT_PRISM_HEIGHT ||
                btn->id == UI_BTN_EDIT_PRISM_DEPTH) {
@@ -970,6 +990,7 @@ void Render_UIPanel(const UIPanelState* ui, SDL_Renderer* renderer) {
         if (had_clip) (void)SDL_RenderGetClipRect(renderer, &previous_clip);
         (void)SDL_RenderSetClipRect(renderer, &ui->rightBodyRect);
         Render_UIPanelRightTabSummary(ui, renderer);
+        UIPanel_RenderSection(renderer);
         UIPanel_RenderMeasurement(renderer);
         UIPanel_RenderParts(renderer);
         UIPanel_RenderRoutes(renderer);

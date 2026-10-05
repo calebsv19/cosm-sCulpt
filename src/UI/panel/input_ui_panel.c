@@ -1,3 +1,7 @@
+#include "Layout/layout_engineering.h"
+#include <stdio.h>
+#include <string.h>
+#include "UI/ui_panel_section.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/input_ui_panel.h"
 #include "UI/ui_panel_measurement.h"
@@ -187,6 +191,7 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
     }
 
     if (UIPanel_RightScrollHandleClick(mouseX, mouseY)) return true;
+    if (UIPanel_SectionClick(mouseX, mouseY)) return true;
     if (UIPanel_MeasurementClick(mouseX, mouseY)) return true;
     if (UIPanel_PartsClick(mouseX, mouseY)) return true;
 
@@ -658,6 +663,30 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 case UI_BTN_EDIT_PRISM_HEIGHT: { // Edit selected prism height
                     UIPanel_CloseFileBrowser(ui);
                     (void)UIPanel_BeginPrismHeightDialog();
+                    break;
+                }
+                case UI_BTN_PANEL_THICKNESS:
+                    (void)UIPanel_BeginPrismDimensionDialog(UI_PRISM_DIMENSION_TARGET_THICKNESS);
+                    break;
+                case UI_BTN_PANEL_KEEP_FACE:
+                    ui->panelKeepFace=ui->panelKeepFace==0?-1:ui->panelKeepFace==-1?1:0;
+                    break;
+                case UI_BTN_PANEL_MATERIAL: {
+                    const Object3D* o=Layout_ObjectStore_FindConst(&state->layout.objectStore,editor->selectedObject3DId);
+                    if (!o) break;
+                    LayoutEntityInfo info=o->info;
+                    size_t index=info.property_count;
+                    for(size_t i=0;i<info.property_count;++i) if(!strcmp(info.properties[i].key,"material"))index=i;
+                    if(index==info.property_count && index==LAYOUT_MAX_PROPERTIES) break;
+                    const char* old=index<info.property_count?info.properties[index].text:"";
+                    const char* next=strstr(old,"plywood")?"steel":!strcmp(old,"steel")?"foam":!strcmp(old,"foam")?"unknown":"plywood_tentative";
+                    if(index==info.property_count)info.property_count++;
+                    LayoutProperty* prop=&info.properties[index];
+                    memset(prop,0,sizeof(*prop));snprintf(prop->key,sizeof(prop->key),"material");
+                    prop->kind=LAYOUT_PROPERTY_TEXT;snprintf(prop->text,sizeof(prop->text),"%s",next);
+                    if(Layout_SetEntityInfo(&state->layout,o->coreMeta.object_id,&info,Layout_GeometryHistory,NULL)) {
+                        Global_FlagLayoutChanged();Global_FlagHitboxesDirty();
+                    }
                     break;
                 }
                 case UI_BTN_EDIT_PRISM_DEPTH: { // Edit selected prism depth

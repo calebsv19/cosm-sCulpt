@@ -4,6 +4,8 @@ Last updated: 2026-10-04
 
 Start here for public repository documentation.
 
+- [Solid panels and movable sections](solid_sections.md) — V1/V2 viewing, thickness controls and the existing cabinet acceptance study.
+
 - [Likely 2023 ProMaster dimensional basis](promaster_2023_dimension_basis.md) — factory sources, measurement datums, separately labeled upfit references and an editable nominal scene.
 - [Narrow van layout v2](van_layout_narrow_v2.md) — corrected bed width and 4-foot / approximately 3-foot sections.
 - [Vehicle measurement checklist](van_measurement_checklist.md) — datums, priorities and blank measured values.

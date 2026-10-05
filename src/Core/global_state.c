@@ -405,6 +405,7 @@ bool Global_SetWorkspaceMode(LineDrawingWorkspaceMode mode) {
     if (!LineDrawingWorkspaceModeHandoff_Apply(global, mode)) {
         return false;
     }
+    global->sectionView.mode = LAYOUT_SECTION_OFF;
     UIPanel_OnWindowResized(global->screenWidth, global->screenHeight);
     Global_FlagGridChanged();
     return true;
@@ -432,6 +433,8 @@ bool Global_SetPreviewMode(LineDrawingPreviewMode mode) {
         return false;
     }
     global->previewMode = mode;
+    if(mode==LINE_DRAWING_PREVIEW_MODE_WIREFRAME || mode==LINE_DRAWING_PREVIEW_MODE_BOUNDS)
+        global->sectionView.mode=LAYOUT_SECTION_OFF;
     Global_FlagGridChanged();
     return true;
 }
@@ -528,6 +531,7 @@ void Global_Init(int screenWidth, int screenHeight) {
     global->hitboxDirty = true;
     global->spaceMode = SPACE_MODE_3D;
     global->previewMode = LINE_DRAWING_PREVIEW_MODE_WIREFRAME;
+    global->sectionView=(LayoutSectionView){.axis=1,.step_meters=.025};
     global->activePlane = (ViewPlane){ .axis = VIEW_PLANE_XY, .offset = 0.0f };
     global->freeViewCamera = (FreeViewCamera){
         .enabled = false,
@@ -780,6 +784,7 @@ void Global_OnLayoutSaved(const char* path) {
 void Global_OnLayoutLoaded(const char* path) {
     GlobalState* state = Global_Get();
     if (!state) return;
+    state->sectionView.mode=LAYOUT_SECTION_OFF;
     if (path && *path) {
         strncpy(state->currentConfigPath, path, sizeof(state->currentConfigPath) - 1);
         state->currentConfigPath[sizeof(state->currentConfigPath) - 1] = '\0';
