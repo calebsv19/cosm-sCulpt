@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 enum {
-    SDL_APP_LOOP_WAIT_IDLE_DEFAULT_MS = 120,
+    SDL_APP_LOOP_WAIT_IDLE_DEFAULT_MS = 1000,
     SDL_APP_LOOP_WAIT_BUSY_MS = 8,
     SDL_APP_LOOP_WAIT_MIN_MS = 1,
     SDL_APP_LOOP_WAIT_MAX_MS = 5000
@@ -52,4 +52,14 @@ int SDLAppLoop_ComputeWaitTimeoutMs(const SDLAppLoopWaitPolicyInput* input) {
         timeout_ms = SDL_APP_LOOP_WAIT_MAX_MS;
     }
     return timeout_ms;
+}
+
+int SDLAppLoop_DemandWaitMs(bool dirty, bool suspended, bool retry, int timed_delay_ms) {
+    SDLAppLoopWaitPolicyInput input = {0};
+    int wait = SDLAppLoop_ComputeWaitTimeoutMs(&input);
+    if (suspended) return wait;
+    if (retry) return wait > 50 ? 50 : wait;
+    if (dirty && !retry) return 0;
+    if (timed_delay_ms >= 0 && timed_delay_ms < wait) wait = timed_delay_ms;
+    return wait;
 }

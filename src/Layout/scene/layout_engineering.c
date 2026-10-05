@@ -252,7 +252,12 @@ bool Layout_QueryMatches(const LayoutObjectStore* store, const char* id, const L
     const LayoutEntityInfo* info=Layout_EntityInfo(store,id);
     const LayoutPhysicalRoute* route=Layout_FindRoute(store,id);
     if (!info && route) info=&route->info;
-    if (!info || !Layout_EntityInfoValid(info) || !query || !bounded(query->entity_type,sizeof(query->entity_type)) ||
+    if (!info || !Layout_EntityInfoValid(info)) return false;
+    return Layout_QueryMatchesResolved(store,id,info,route,query);
+}
+bool Layout_QueryMatchesResolved(const LayoutObjectStore* store, const char* id,
+    const LayoutEntityInfo* info, const LayoutPhysicalRoute* route, const LayoutEntityQuery* query) {
+    if (!info || !query || !bounded(query->entity_type,sizeof(query->entity_type)) ||
         !bounded(query->assembly_id,sizeof(query->assembly_id)) || !bounded(query->property_key,sizeof(query->property_key)) ||
         !bounded(query->property_value,sizeof(query->property_value)) || query->designation<0 || query->designation>2) return false;
     if (query->entity_type[0] && strcmp(query->entity_type,Layout_EntityType(info))) return false;

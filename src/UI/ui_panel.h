@@ -701,3 +701,6 @@ const char* UIPanel_ScenePropertyDialogHint(UIScenePropertyDialogTarget target);
 bool UIPanel_TogglePathPointPlacement(void);
 bool UIPanel_RemoveSelectedPathPoint(void);
 bool UIPanel_FitSceneBoundsToSelectedObject(void);
+
+int UIPanel_FileStatusNextUpdateDelayMs(void);
+int UIPanel_LoadProgressNextUpdateDelayMs(void);

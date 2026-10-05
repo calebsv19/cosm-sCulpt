@@ -29,3 +29,7 @@ bool Layout_EngineeringReadJson(Layout* layout, const cJSON* root, bool required
 cJSON* Layout_EntityInfoToJson(const LayoutEntityInfo* info);
 bool Layout_EntityInfoFromJson(const cJSON* json, LayoutEntityInfo* info);
 bool Layout_EntityInfoValid(const LayoutEntityInfo* info);
+
+/* Internal presentation fast path: caller resolves and validates info once. */
+bool Layout_QueryMatchesResolved(const LayoutObjectStore* store, const char* id,
+    const LayoutEntityInfo* info, const LayoutPhysicalRoute* route, const LayoutEntityQuery* query);

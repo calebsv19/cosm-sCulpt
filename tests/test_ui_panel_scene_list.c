@@ -345,8 +345,61 @@ static bool test_scene_list_double_click_toggles_expanded_object(void) {
     return true;
 }
 
+static bool test_scene_list_cache_reuses_and_tracks_visibility(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    UIPanelState* ui = UIPanel_Get();
+    RectPrismPrimitiveCreateParams p = {.width=1, .height=1, .depth=1};
+    uint32_t first = 0, second = 0;
+    bool adjusted = false;
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(&state->layout, &p, &first, &adjusted));
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(&state->layout, &p, &second, &adjusted));
+    UIPanel_PrepareSceneList(ui, &state->layout);
+    uint64_t builds = UIPanel_SceneListCacheBuildCount();
+    for (int i=0; i<20; ++i) UIPanel_PrepareSceneList(ui, &state->layout);
+    TEST_ASSERT(UIPanel_SceneListCacheBuildCount() == builds);
+    Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, first);
+    object->coreMeta.flags.visible = false;
+    int x=0, y=0;
+    ld_test_scene_list_first_row_point(ui, &x, &y);
+    TEST_ASSERT(UIPanel_HandleSceneListClick(x,y));
+    TEST_ASSERT(state->editor.selectedObject3DId == second);
+    TEST_ASSERT(UIPanel_SceneListCacheBuildCount() == builds + 1);
+    object->coreMeta.flags.visible = true;
+    snprintf(state->layout.objectStore.view_query.entity_type,64,"Cabinet");
+    Object3D* second_object = Layout_ObjectStore_Find(&state->layout.objectStore,second);
+    snprintf(second_object->info.entity_type,64,"Cabinet");
+    UIPanel_PrepareSceneList(ui,&state->layout);
+    TEST_ASSERT(UIPanel_HandleSceneListClick(x,y));
+    TEST_ASSERT(state->editor.selectedObject3DId == second);
+    builds = UIPanel_SceneListCacheBuildCount();
+    snprintf(object->info.entity_type,64,"Cabinet");
+    UIPanel_PrepareSceneList(ui,&state->layout);
+    TEST_ASSERT(UIPanel_SceneListCacheBuildCount() == builds + 1);
+    TEST_ASSERT(UIPanel_HandleSceneListClick(x,y));
+    TEST_ASSERT(state->editor.selectedObject3DId == first);
+    UIPanel_SceneListClearSelection();
+    ui->sceneList.expandedObjectId = 0;
+    ld_test_shutdown_runtime();
+    return true;
+}
+
+static bool test_unchanged_window_does_not_dirty_picking(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    state->hitboxDirty = false;
+    Global_SetWindowSize(state->screenWidth,state->screenHeight);
+    TEST_ASSERT(!state->hitboxDirty);
+    Global_SetWindowSize(state->screenWidth+1,state->screenHeight);
+    TEST_ASSERT(state->hitboxDirty);
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 bool ui_panel_scene_list_run_tests(void) {
     const TestCase cases[] = {
+        { "cache_reuse_and_visibility", test_scene_list_cache_reuses_and_tracks_visibility },
+        { "unchanged_window_keeps_picking", test_unchanged_window_does_not_dirty_picking },
         { "scene_list_click_selects_first_object",
           test_scene_list_click_selects_first_object },
         { "scene_list_click_selects_authoring_light_row",

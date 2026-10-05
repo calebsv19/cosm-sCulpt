@@ -9,8 +9,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define SDL_APP_LOOP_IDLE_HEARTBEAT_MS 250u
-#define SDL_APP_LOOP_INTERACTION_HOLD_MS 180u
 
 static bool app_try_recreate_swapchain(AppContext* ctx, int width, int height) {
     if (!ctx || !ctx->renderer || !ctx->window) {
@@ -45,8 +43,7 @@ static bool app_event_is_interaction(const SDL_Event* event) {
 
 static bool app_process_event(AppContext* ctx,
                               AppCallbacks* callbacks,
-                              const SDL_Event* event,
-                              Uint32* interaction_active_until_ms) {
+                              const SDL_Event* event) {
     SDL_Event mutable_event;
     bool dirty = false;
     if (!ctx || !event) return false;
@@ -69,18 +66,12 @@ static bool app_process_event(AppContext* ctx,
         dirty = true;
     }
 
-    if (app_event_is_interaction(&mutable_event)) {
-        if (interaction_active_until_ms) {
-            *interaction_active_until_ms = SDL_GetTicks() + SDL_APP_LOOP_INTERACTION_HOLD_MS;
-        }
-        dirty = true;
-    }
+    if (app_event_is_interaction(&mutable_event) || mutable_event.type == SDL_USEREVENT ||
+        mutable_event.type == SDL_DROPFILE || mutable_event.type == SDL_DROPTEXT ||
+        mutable_event.type == SDL_WINDOWEVENT) dirty = true;
 
-    if (callbacks && callbacks->handleInput) {
-        callbacks->handleInput(ctx, &mutable_event);
-        dirty = true;
-    }
-    return dirty;
+    if (callbacks && callbacks->handleInput) callbacks->handleInput(ctx, &mutable_event);
+    return dirty || ctx->redraw_requested;
 }
 
 bool App_Init(AppContext* ctx, const char* title, int width, int height, bool vsync) {
@@ -108,12 +99,13 @@ bool App_Init(AppContext* ctx, const char* title, int width, int height, bool vs
 
     ctx->deltaTime = 0.0f;
     ctx->quit = false;
+    ctx->redraw_requested = false;
     ctx->userData = NULL;
     ctx->pending_swapchain_recreate = false;
     ctx->pending_swapchain_width = 0;
     ctx->pending_swapchain_height = 0;
     ctx->renderMode = RENDER_ALWAYS;
-    ctx->renderThreshold = 0.033f;     // 30 FPS by default
+    ctx->renderThreshold = 0.033f;     // First-update delta after an idle wait
     ctx->timeSinceLastRender = 0.0f;
 
     return true;
@@ -124,108 +116,59 @@ void App_Run(AppContext* ctx, AppCallbacks* callbacks) {
     uint64_t perf_freq = SDL_GetPerformanceFrequency();
     SDL_Event event;
     bool frame_dirty = true;
-    Uint32 last_render_ms = 0u;
-    Uint32 interaction_active_until_ms = 0u;
+    bool retry = false;
 
     while (!ctx->quit) {
         uint64_t frame_begin_counter = SDL_GetPerformanceCounter();
         uint32_t wait_blocked_ms = 0u;
         uint32_t wait_call_count = 0u;
-        Uint32 now_ms = SDL_GetTicks();
-        bool interaction_active = now_ms < interaction_active_until_ms;
-        bool background_busy = false;
+        bool suspended = (SDL_GetWindowFlags(ctx->window) & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN)) != 0;
+        int timed_delay = callbacks && callbacks->nextUpdateDelayMs ? callbacks->nextUpdateDelayMs(ctx) : -1;
+        int wait_ms = SDLAppLoop_DemandWaitMs(frame_dirty || ctx->redraw_requested,
+                                            suspended, retry, timed_delay);
+        if (ctx->renderMode == RENDER_ALWAYS && !suspended && !retry) wait_ms = 0;
+        bool timed_due = !suspended && timed_delay == 0;
+        if (wait_ms > 0) {
+            uint64_t wait_start = SDL_GetPerformanceCounter();
+            int received = SDL_WaitEventTimeout(&event, wait_ms);
+            wait_blocked_ms = app_elapsed_ms(wait_start, SDL_GetPerformanceCounter(), perf_freq);
+            wait_call_count = 1;
+            if (received == 1) frame_dirty |= app_process_event(ctx, callbacks, &event);
+            else if (!suspended && timed_delay >= 0 && wait_ms >= timed_delay) timed_due = true;
+        }
+        while (SDL_PollEvent(&event)) frame_dirty |= app_process_event(ctx, callbacks, &event);
+        if (ctx->quit) break;
 
-        if (!frame_dirty) {
-            SDLAppLoopWaitPolicyInput wait_input = {
-                .high_intensity_mode = (ctx->renderMode == RENDER_ALWAYS),
-                .interaction_active = interaction_active,
-                .background_busy = background_busy,
-                .resize_pending = ctx->pending_swapchain_recreate,
-            };
-            int wait_timeout_ms = SDLAppLoop_ComputeWaitTimeoutMs(&wait_input);
-            if (wait_timeout_ms > 0) {
-                uint64_t wait_start = SDL_GetPerformanceCounter();
-                int wait_result = SDL_WaitEventTimeout(&event, wait_timeout_ms);
-                uint64_t wait_end = SDL_GetPerformanceCounter();
-                wait_blocked_ms += app_elapsed_ms(wait_start, wait_end, perf_freq);
-                wait_call_count += 1u;
-                if (wait_result == 1) {
-                    frame_dirty |= app_process_event(ctx,
-                                                     callbacks,
-                                                     &event,
-                                                     &interaction_active_until_ms);
-                }
-            }
-        }
-        while (SDL_PollEvent(&event)) {
-            frame_dirty |= app_process_event(ctx,
-                                             callbacks,
-                                             &event,
-                                             &interaction_active_until_ms);
-        }
-        if (ctx->quit) {
-            if (perf_freq > 0u) {
-                uint64_t frame_end_counter = SDL_GetPerformanceCounter();
-                double frame_elapsed_sec =
-                    (double)(frame_end_counter - frame_begin_counter) / (double)perf_freq;
-                SDLAppLoop_DiagTick(frame_elapsed_sec, wait_blocked_ms, wait_call_count);
-            }
-            break;
-        }
-
-        // Delta Time Calculation
         uint64_t now_ns = core_time_now_ns();
         ctx->deltaTime = (float)core_time_ns_to_seconds(core_time_diff_ns(now_ns, last_time_ns));
         last_time_ns = now_ns;
-
+        /* Starting playback after a long sleep must not jump by that idle time. */
+        if (timed_delay < 0 && ctx->deltaTime > ctx->renderThreshold) ctx->deltaTime = ctx->renderThreshold;
         ctx->timeSinceLastRender += ctx->deltaTime;
+        if (callbacks && callbacks->handleUpdate) callbacks->handleUpdate(ctx);
+        frame_dirty |= ctx->redraw_requested || timed_due;
 
-        // Update logic
-        if (callbacks && callbacks->handleUpdate) {
-            callbacks->handleUpdate(ctx);
+        suspended = (SDL_GetWindowFlags(ctx->window) & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN)) != 0;
+        if (!suspended && ctx->pending_swapchain_recreate &&
+            app_try_recreate_swapchain(ctx, ctx->pending_swapchain_width, ctx->pending_swapchain_height)) {
+            ctx->pending_swapchain_recreate = false;
+            frame_dirty = true;
         }
-
-        if (ctx->pending_swapchain_recreate) {
-            if (app_try_recreate_swapchain(ctx,
-                                           ctx->pending_swapchain_width,
-                                           ctx->pending_swapchain_height)) {
-                ctx->pending_swapchain_recreate = false;
-                frame_dirty = true;
-            }
-        }
-
-        now_ms = SDL_GetTicks();
-        interaction_active = now_ms < interaction_active_until_ms;
-
-        // Render logic
-        bool shouldRender = false;
-        bool heartbeat_due = (last_render_ms == 0u) ||
-                             ((Uint32)(now_ms - last_render_ms) >= SDL_APP_LOOP_IDLE_HEARTBEAT_MS);
-        bool threshold_due = ctx->timeSinceLastRender >= ctx->renderThreshold;
-
-        if (ctx->renderMode == RENDER_ALWAYS) {
-            shouldRender = true;
-        } else if (ctx->renderMode == RENDER_THROTTLED) {
-            if (frame_dirty || heartbeat_due || (interaction_active && threshold_due)) {
-                shouldRender = true;
-            }
-        }
-
-        if (shouldRender && callbacks && callbacks->handleRender) {
+        if (!suspended && (frame_dirty || ctx->renderMode == RENDER_ALWAYS) && callbacks && callbacks->handleRender) {
             if (App_RenderOnce(ctx, callbacks->handleRender)) {
-                ctx->timeSinceLastRender = 0.0f;
+                ctx->timeSinceLastRender = 0;
+                ctx->redraw_requested = false;
                 frame_dirty = false;
-                last_render_ms = SDL_GetTicks();
+                retry = false;
             } else {
                 frame_dirty = true;
+                retry = true;
             }
         }
-
         if (perf_freq > 0u) {
             uint64_t frame_end_counter = SDL_GetPerformanceCounter();
-            double frame_elapsed_sec =
-                (double)(frame_end_counter - frame_begin_counter) / (double)perf_freq;
-            SDLAppLoop_DiagTick(frame_elapsed_sec, wait_blocked_ms, wait_call_count);
+            double elapsed = (double)(frame_end_counter - frame_begin_counter) / (double)perf_freq;
+            SDLAppLoop_DiagTick(elapsed, wait_blocked_ms, wait_call_count);
         }
     }
 }

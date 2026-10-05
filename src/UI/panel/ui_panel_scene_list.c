@@ -15,6 +15,8 @@
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
 
 enum {
     UI_SCENE_LIST_DOUBLE_CLICK_MS = 350,
@@ -65,15 +67,6 @@ static bool UIPanelSceneList_PointInRect(int x, int y, SDL_Rect rect) {
            y >= rect.y && y <= rect.y + rect.h;
 }
 
-static size_t UIPanelSceneList_LiveObjectCount(const LayoutObjectStore* store) {
-    size_t count = 0u;
-    if (!store) return 0u;
-    for (size_t i = 0; i < store->count; ++i) {
-        if (Layout_ObjectShown(store,&store->items[i]) && store->items[i].objectId != 0u) ++count;
-    }
-    return count;
-}
-
 typedef enum {
     UI_SCENE_LIST_ROW_NONE = 0,
     UI_SCENE_LIST_ROW_OBJECT = 1,
@@ -92,56 +85,109 @@ static void UIPanelSceneList_ClampScroll(UIPanelState* ui, const Layout* layout)
 static bool UIPanelSceneList_HasScrollbar(const UIPanelState* ui, const Layout* layout);
 static SDL_Rect UIPanelSceneList_ScrollTrackRect(const UIPanelState* ui);
 
-static const Object3D* UIPanelSceneList_ObjectAtVisibleIndex(const LayoutObjectStore* store, int visibleIndex) {
-    int current = 0;
-    if (!store || visibleIndex < 0) return NULL;
+/* Presentation cache only: indices survive geometry replacement/undo. A bounded
+ * content fingerprint also catches direct visibility changes and scene reloads. */
+static struct {
+    const Layout* layout;
+    uint64_t signature;
+    UIPanelSceneListRow* rows;
+    size_t count;
+    size_t capacity;
+    float content_height;
+    uint64_t builds;
+    bool valid;
+} s_scene_list;
+
+static uint64_t UIPanelSceneList_Hash(uint64_t hash, const void* data, size_t size) {
+    const unsigned char* bytes = data;
+    for (size_t i = 0; i < size; ++i) hash = (hash ^ bytes[i]) * UINT64_C(1099511628211);
+    return hash;
+}
+
+void UIPanel_ResetSceneListCache(void) {
+    free(s_scene_list.rows);
+    memset(&s_scene_list, 0, sizeof(s_scene_list));
+}
+
+uint64_t UIPanel_SceneListCacheBuildCount(void) { return s_scene_list.builds; }
+
+void UIPanel_PrepareSceneList(const UIPanelState* ui, const Layout* layout) {
+    if (!ui || !layout) return;
+    const LayoutObjectStore* store = &layout->objectStore;
+    uint64_t hash = UINT64_C(14695981039346656037);
+#define HASH_FIELD(value) hash = UIPanelSceneList_Hash(hash, &(value), sizeof(value))
+    HASH_FIELD(store->count);
+    HASH_FIELD(store->assembly_count);
+    HASH_FIELD(store->route_count);
+    HASH_FIELD(store->saved_view_count);
+    HASH_FIELD(store->view_query);
+    HASH_FIELD(store->hidden_view_count);
+    HASH_FIELD(store->hidden_view_ids);
+    HASH_FIELD(store->isolated_view_id);
     for (size_t i = 0; i < store->count; ++i) {
         const Object3D* object = &store->items[i];
-        if (!Layout_ObjectShown(store,object) || object->objectId == 0u) continue;
-        if (current == visibleIndex) return object;
-        ++current;
+        HASH_FIELD(object->objectId);
+        HASH_FIELD(object->coreMeta.object_id);
+        HASH_FIELD(object->isDeleted);
+        HASH_FIELD(object->coreMeta.flags.visible);
+        HASH_FIELD(object->info);
     }
-    return NULL;
+    for (size_t i = 0; i < store->assembly_count; ++i) {
+        HASH_FIELD(store->assemblies[i].id);
+        HASH_FIELD(store->assemblies[i].info);
+    }
+    for (size_t i = 0; i < store->route_count; ++i) {
+        HASH_FIELD(store->routes[i].id);
+        HASH_FIELD(store->routes[i].info);
+        HASH_FIELD(store->routes[i].electrical);
+    }
+    for (size_t i = 0; i < store->saved_view_count; ++i) HASH_FIELD(store->saved_views[i]);
+    HASH_FIELD(layout->sceneAuthoring.light_count);
+    HASH_FIELD(layout->sceneAuthoring.path_count);
+    HASH_FIELD(layout->sceneAuthoring.material_count);
+    HASH_FIELD(ui->sceneList.expandedObjectId);
+    int font_height = UIPanelSceneList_FontHeight();
+    HASH_FIELD(font_height);
+#undef HASH_FIELD
+    if (s_scene_list.valid && s_scene_list.layout == layout && s_scene_list.signature == hash) return;
+    size_t capacity = store->count + layout->sceneAuthoring.light_count +
+        layout->sceneAuthoring.path_count + layout->sceneAuthoring.material_count;
+    if (capacity > s_scene_list.capacity) {
+        UIPanelSceneListRow* rows = realloc(s_scene_list.rows, capacity * sizeof(*rows));
+        if (!rows) { s_scene_list.valid = false; s_scene_list.count = 0; return; }
+        s_scene_list.rows = rows;
+        s_scene_list.capacity = capacity;
+    }
+    s_scene_list.count = 0;
+    s_scene_list.content_height = 0;
+    for (size_t i = 0; i < store->count; ++i) {
+        const Object3D* object = &store->items[i];
+        if (!object->objectId || !Layout_ObjectShown(store, object)) continue;
+        s_scene_list.rows[s_scene_list.count++] = (UIPanelSceneListRow){UI_SCENE_LIST_ROW_OBJECT, i, NULL};
+        s_scene_list.content_height += UIPanelSceneList_RowHeightForObject(ui, object) + UIPanelSceneList_RowGap();
+    }
+    const size_t counts[] = {layout->sceneAuthoring.light_count, layout->sceneAuthoring.path_count,
+        layout->sceneAuthoring.material_count};
+    for (size_t kind = 0; kind < 3; ++kind) for (size_t i = 0; i < counts[kind]; ++i) {
+        s_scene_list.rows[s_scene_list.count++] = (UIPanelSceneListRow){(UIPanelSceneListRowKind)(UI_SCENE_LIST_ROW_LIGHT + kind), i, NULL};
+        s_scene_list.content_height += UIPanelSceneList_RowHeight() + UIPanelSceneList_RowGap();
+    }
+    if (s_scene_list.count) s_scene_list.content_height -= UIPanelSceneList_RowGap();
+    s_scene_list.layout = layout;
+    s_scene_list.signature = hash;
+    s_scene_list.valid = true;
+    ++s_scene_list.builds;
 }
 
 static size_t UIPanelSceneList_TotalRowCount(const Layout* layout) {
-    if (!layout) return 0u;
-    return UIPanelSceneList_LiveObjectCount(&layout->objectStore) +
-           layout->sceneAuthoring.light_count +
-           layout->sceneAuthoring.path_count +
-           layout->sceneAuthoring.material_count;
+    return s_scene_list.valid && s_scene_list.layout == layout ? s_scene_list.count : 0;
 }
 
-static UIPanelSceneListRow UIPanelSceneList_RowAtVisibleIndex(const Layout* layout, int visibleIndex) {
-    UIPanelSceneListRow row = { UI_SCENE_LIST_ROW_NONE, 0u, NULL };
-    const size_t live_objects = layout ? UIPanelSceneList_LiveObjectCount(&layout->objectStore) : 0u;
-    size_t offset = 0u;
-    if (!layout || visibleIndex < 0) return row;
-    if ((size_t)visibleIndex < live_objects) {
-        row.kind = UI_SCENE_LIST_ROW_OBJECT;
-        row.index = (size_t)visibleIndex;
-        row.object = UIPanelSceneList_ObjectAtVisibleIndex(&layout->objectStore, visibleIndex);
-        return row;
-    }
-
-    offset = (size_t)visibleIndex - live_objects;
-    if (offset < layout->sceneAuthoring.light_count) {
-        row.kind = UI_SCENE_LIST_ROW_LIGHT;
-        row.index = offset;
-        return row;
-    }
-    offset -= layout->sceneAuthoring.light_count;
-    if (offset < layout->sceneAuthoring.path_count) {
-        row.kind = UI_SCENE_LIST_ROW_PATH;
-        row.index = offset;
-        return row;
-    }
-    offset -= layout->sceneAuthoring.path_count;
-    if (offset < layout->sceneAuthoring.material_count) {
-        row.kind = UI_SCENE_LIST_ROW_MATERIAL;
-        row.index = offset;
-        return row;
-    }
+static UIPanelSceneListRow UIPanelSceneList_RowAtVisibleIndex(const Layout* layout, int index) {
+    UIPanelSceneListRow row = {UI_SCENE_LIST_ROW_NONE, 0, NULL};
+    if (index < 0 || (size_t)index >= UIPanelSceneList_TotalRowCount(layout)) return row;
+    row = s_scene_list.rows[index];
+    if (row.kind == UI_SCENE_LIST_ROW_OBJECT) row.object = &layout->objectStore.items[row.index];
     return row;
 }
 
@@ -178,19 +224,7 @@ static SDL_Rect UIPanelSceneList_ContentClipRect(const UIPanelState* ui,
 
 static float UIPanelSceneList_MaxScrollOffset(const UIPanelState* ui, const Layout* layout) {
     SDL_Rect listRect = UIPanelSceneList_ListRect(ui);
-    const size_t rowCount = UIPanelSceneList_TotalRowCount(layout);
-    const int rowGap = UIPanelSceneList_RowGap();
-    float totalHeight = 0.0f;
-    if (rowCount == 0u) return 0.0f;
-    for (int i = 0;; ++i) {
-        UIPanelSceneListRow row = UIPanelSceneList_RowAtVisibleIndex(layout, i);
-        if (row.kind == UI_SCENE_LIST_ROW_NONE) break;
-        totalHeight += (float)UIPanelSceneList_RowHeightForRow(ui, row);
-        totalHeight += (float)rowGap;
-    }
-    if (totalHeight > 0.0f) {
-        totalHeight -= (float)rowGap;
-    }
+    float totalHeight = UIPanelSceneList_TotalRowCount(layout) ? s_scene_list.content_height : 0;
     if (totalHeight <= (float)listRect.h) return 0.0f;
     return totalHeight - (float)listRect.h;
 }
@@ -216,8 +250,7 @@ static SDL_Rect UIPanelSceneList_ScrollThumbRect(const UIPanelState* ui,
     SDL_Rect track = UIPanelSceneList_ScrollTrackRect(ui);
     SDL_Rect thumb = track;
     const size_t rowCount = UIPanelSceneList_TotalRowCount(layout);
-    const int rowGap = UIPanelSceneList_RowGap();
-    float contentHeight = 0.0f;
+    float contentHeight = s_scene_list.content_height;
     float ratio = 1.0f;
     float thumbH = 0.0f;
     float maxScroll = 0.0f;
@@ -229,15 +262,6 @@ static SDL_Rect UIPanelSceneList_ScrollThumbRect(const UIPanelState* ui,
         return thumb;
     }
 
-    for (int i = 0;; ++i) {
-        UIPanelSceneListRow row = UIPanelSceneList_RowAtVisibleIndex(layout, i);
-        if (row.kind == UI_SCENE_LIST_ROW_NONE) break;
-        contentHeight += (float)UIPanelSceneList_RowHeightForRow(ui, row);
-        contentHeight += (float)rowGap;
-    }
-    if (contentHeight > 0.0f) {
-        contentHeight -= (float)rowGap;
-    }
     if (contentHeight <= 0.0f) {
         thumb.h = 0;
         return thumb;
@@ -481,6 +505,7 @@ bool UIPanel_HandleSceneListClick(int mouseX, int mouseY) {
     now_ticks = SDL_GetTicks();
     listRect = UIPanelSceneList_ListRect(ui);
     if (!UIPanelSceneList_PointInRect(mouseX, mouseY, listRect)) return false;
+    UIPanel_PrepareSceneList(ui, &state->layout);
 
     if (UIPanelSceneList_HasScrollbar(ui, &state->layout)) {
         SDL_Rect track = UIPanelSceneList_ScrollTrackRect(ui);
@@ -542,6 +567,7 @@ bool UIPanel_HandleSceneListWheel(int mouseX, int mouseY, float wheel_delta) {
     if (ui->activeLeftTab != UI_PANEL_LEFT_TAB_SCENE) return false;
     listRect = UIPanelSceneList_ListRect(ui);
     if (!UIPanelSceneList_PointInRect(mouseX, mouseY, listRect)) return false;
+    UIPanel_PrepareSceneList(ui, &state->layout);
     ui->sceneList.scrollOffsetPx -= wheel_delta * (float)(UIPanelSceneList_RowHeight() * 2);
     UIPanelSceneList_ClampScroll(ui, &state->layout);
     return true;
@@ -560,6 +586,12 @@ void UIPanel_HandleSceneListMouseMotion(int mouseX, int mouseY) {
         if (ui) ui->sceneList.hoverIndex = -1;
         return;
     }
+    if (!ui->sceneList.scrollbarDragging &&
+        !UIPanelSceneList_PointInRect(mouseX, mouseY, UIPanelSceneList_ListRect(ui))) {
+        ui->sceneList.hoverIndex = -1;
+        return;
+    }
+    UIPanel_PrepareSceneList(ui, &state->layout);
     if (ui->sceneList.scrollbarDragging) {
         (void)UIPanelSceneList_ScrollbarDragTo(ui, &state->layout, mouseY);
     }
@@ -591,6 +623,7 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
     if (!ui || !renderer || !state || !font) return;
     if (ui->activeLeftTab != UI_PANEL_LEFT_TAB_SCENE) return;
     if (ui->leftBodyRect.w <= 0 || ui->leftBodyRect.h <= 0) return;
+    UIPanel_PrepareSceneList(ui, &state->layout);
 
     if (UIPanelVisual_ResolvePalette(&palette)) {
         labelColor = palette.text_muted;

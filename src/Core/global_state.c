@@ -2,6 +2,7 @@
 #include "Layout/layout_constraints.h"
 // src/Core/global_state.c
 #include "Core/global_state.h"
+#include "UI/ui_panel_scene_list.h"
 #include "Layout/scene/layout_scene_path_traversal.h"
 #include "Core/line_drawing_startup_config.h"
 #include "Core/space_mode_adapter.h"
@@ -587,6 +588,7 @@ void Global_Init(int screenWidth, int screenHeight) {
 
 
 void Global_Shutdown(void) {
+    UIPanel_ResetSceneListCache();
     UIPanel_WaitForAsyncStlImport();
     if (!global) return;
     if (global->lastSavedSnapshot) {
@@ -639,6 +641,7 @@ void Global_SetWindowSize(int w, int h) {
     FreeViewCamera resized_camera;
     Grid resized_grid;
     if (!global) return;
+    if (global->screenWidth == w && global->screenHeight == h) return;
     preserve_free_view_target = global->freeViewCamera.enabled &&
         LineDrawingPaneHost_GetViewportRect(&global->paneHost, &old_viewport);
     global->screenWidth = w;

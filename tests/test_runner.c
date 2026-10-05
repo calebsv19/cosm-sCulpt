@@ -1,5 +1,7 @@
 #include "test_framework.h"
 
+bool demand_loop_run_tests(void);
+
 #include <stdio.h>
 #include <string.h>
 
@@ -89,6 +91,7 @@ static const TestGroup kTestGroups[] = {
     {"SceneDocumentLifecycle", scene_document_lifecycle_run_tests, true},
     {"SculptScenePackage", sculpt_scene_package_run_tests, true},
     {"UIPanelSceneMenu", ui_panel_scene_menu_run_tests, true},
+    {"DemandLoop", demand_loop_run_tests, true},
     {"UIPanelSceneList", ui_panel_scene_list_run_tests, true},
     {"UIPanelViewSummary", ui_panel_view_summary_run_tests, true},
     {"UIPanelCreateSummary", ui_panel_create_summary_run_tests, true},

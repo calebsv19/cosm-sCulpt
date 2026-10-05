@@ -1,4 +1,5 @@
 #include "Layout/layout_saved_views.h"
+#include "Layout/layout_routes.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -58,11 +59,14 @@ void Layout_RestoreViewVisibility(LayoutObjectStore* s, const LayoutObjectStore*
     if (find(s,previous->isolated_view_id)) snprintf(s->isolated_view_id,64,"%s",previous->isolated_view_id);
 }
 bool Layout_EntityShown(const LayoutObjectStore* s, const char* id) {
-    if (!Layout_QueryMatches(s,id,&s->view_query)) return false;
+    const LayoutEntityInfo* info = Layout_EntityInfo(s,id);
+    const LayoutPhysicalRoute* route = Layout_FindRoute(s,id);
+    if (!info && route) info = &route->info;
+    if (!info || !Layout_EntityInfoValid(info) || !Layout_QueryMatchesResolved(s,id,info,route,&s->view_query)) return false;
     bool classified=false,shown=false;
     for (size_t i=0;i<s->saved_view_count;++i) {
         const LayoutSavedView* v=&s->saved_views[i];bool matches=false;
-        for (size_t j=0;j<v->query_count;++j) if (Layout_QueryMatches(s,id,&v->queries[j])) matches=true;
+        for (size_t j=0;j<v->query_count;++j) if (Layout_QueryMatchesResolved(s,id,info,route,&v->queries[j])) {matches=true;break;}
         if (!matches) continue;
         classified=true;
         if (s->isolated_view_id[0]) {if (!strcmp(s->isolated_view_id,v->id)) shown=true;}

@@ -1531,3 +1531,12 @@ void UIPanel_HandleMouseMotion(int mouseX, int mouseY) {
 
     ui->loadMenu.hoverIndex = UIPanel_LoadMenuIndexAtPoint(ui, mouseX, mouseY);
 }
+
+int UIPanel_LoadProgressNextUpdateDelayMs(void) {
+    const UIPanelState* ui = UIPanel_Get();
+    if (!ui) return -1;
+    if (ui->loadMenu.asyncStlActive) return 50;
+    if (ui->loadMenu.loadProgressState == UI_LOAD_PROGRESS_NONE || !ui->loadMenu.loadProgressFinishedTicks) return -1;
+    Uint32 elapsed = SDL_GetTicks() - ui->loadMenu.loadProgressFinishedTicks;
+    return elapsed < k_load_progress_finished_ttl_ms ? (int)(k_load_progress_finished_ttl_ms - elapsed) : 0;
+}

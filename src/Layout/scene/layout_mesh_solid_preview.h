@@ -108,3 +108,6 @@ bool Layout_RasterNativeSurfaces(const Layout* layout, const LayoutSectionView* 
     const SpaceViewContext* view, const Grid* grid, SDL_Rect clip, float raster_scale,
     int width, int height, bool material, uint8_t* rgba, float* depth, int32_t* owner,
     LayoutMeshSolidPreviewFrameStats* stats);
+
+/* One final refinement wake, then no periodic work for a settled preview. */
+int Layout_MeshSolidPreviewNextUpdateDelayMs(void);

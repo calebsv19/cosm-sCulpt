@@ -1351,3 +1351,9 @@ bool UIPanel_NewObjectAssetDocument(void) {
     UIPanel_RefreshConfigList();
     return true;
 }
+
+int UIPanel_FileStatusNextUpdateDelayMs(void) {
+    const UIPanelState* ui = UIPanel_Get();
+    if (!UIPanel_FilePaneActionStatusIsLive(ui)) return -1;
+    return (int)(kFilePaneActionStatusTtlMs - (Uint32)(SDL_GetTicks() - ui->filePane.actionStatusSetTicks));
+}

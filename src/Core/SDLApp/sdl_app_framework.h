@@ -18,22 +18,25 @@ typedef struct {
     VkRenderer renderer_storage;
     float deltaTime;
     bool quit;
+    bool redraw_requested;
     void* userData;
     bool pending_swapchain_recreate;
     int pending_swapchain_width;
     int pending_swapchain_height;
 
-    // NEW: configurable render behavior
+    // Configurable render behavior
     RenderMode renderMode;
-    float renderThreshold;      // seconds (e.g., 1.0 / 30.0 for 30 FPS cap)
+    float renderThreshold;      // maximum first-update delta after a settled wait
     float timeSinceLastRender;  // internal counter
 } AppContext;
 
 
 typedef struct {
     void (*handleInput)(AppContext* ctx, SDL_Event* event);   // SDL event input handling
-    void (*handleUpdate)(AppContext* ctx);  // Per-frame logic
+    void (*handleUpdate)(AppContext* ctx);  // Per-wake update logic
     void (*handleRender)(AppContext* ctx);  // Render function
+    /* -1 when settled; otherwise milliseconds until a timed visible update. */
+    int (*nextUpdateDelayMs)(AppContext* ctx);
 } AppCallbacks;
 
 

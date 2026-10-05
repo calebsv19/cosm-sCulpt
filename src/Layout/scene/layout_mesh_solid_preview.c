@@ -734,3 +734,10 @@ void Layout_MeshSolidPreviewShutdown(SDL_Renderer* renderer) {
     free(g_solidPreview.owner);
     memset(&g_solidPreview, 0, sizeof(g_solidPreview));
 }
+
+int Layout_MeshSolidPreviewNextUpdateDelayMs(void) {
+    if (!g_solidPreview.pixelsValid || !g_solidPreview.renderedInteractive) return -1;
+    uint64_t elapsed = core_time_diff_ns(core_time_now_ns(), g_solidPreview.qualityChangedAt);
+    if (elapsed >= LD_MESH_SOLID_SETTLE_NS) return 0;
+    return (int)((LD_MESH_SOLID_SETTLE_NS - elapsed + 999999u) / 1000000u);
+}

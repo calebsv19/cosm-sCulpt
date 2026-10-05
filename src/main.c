@@ -14,6 +14,7 @@
 #include "UI/ui_panel_right_scroll.h"
 #include "Layout/layout_constraints.h"
 #include "Layout/layout_json.h"
+#include "Layout/scene/layout_mesh_solid_preview.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
 
 
@@ -338,6 +339,7 @@ static void handleUpdate(AppContext *ctx) {
     if (g_startup_frame_presented && !g_startup_session_restored) {
         g_startup_session_restored = true;
         (void)UIPanel_RestorePersistedFileSession();
+        ctx->redraw_requested = true;
     }
     if (g_line_drawing_host_mode == LINE_DRAWING_HOST_MODE_MENU) {
         (void)ctx;
@@ -351,6 +353,22 @@ static void handleUpdate(AppContext *ctx) {
     g_line_drawing_update_frame.hitboxes_rebuilt = g_line_drawing_update_frame.state_ready;
 }
 
+
+static int nextUpdateDelayMs(AppContext* ctx) {
+    (void)ctx;
+    if (g_startup_frame_presented && !g_startup_session_restored) return 0;
+    if (g_line_drawing_host_mode == LINE_DRAWING_HOST_MODE_MENU) return -1;
+    GlobalState* state = Global_Get();
+    if (state) for (size_t i = 0; i < state->layout.sceneAuthoring.path_count; ++i)
+        if (state->layout.sceneAuthoring.paths[i].playing) return 16;
+    int delay = state && state->spaceMode == SPACE_MODE_3D &&
+        Global_GetPreviewMode() != LINE_DRAWING_PREVIEW_MODE_BOUNDS ?
+        Layout_MeshSolidPreviewNextUpdateDelayMs() : -1;
+    const int pending[] = {UIPanel_LoadProgressNextUpdateDelayMs(), UIPanel_FileStatusNextUpdateDelayMs()};
+    for (size_t i = 0; i < sizeof(pending) / sizeof(pending[0]); ++i)
+        if (pending[i] >= 0 && (delay < 0 || pending[i] < delay)) delay = pending[i];
+    return delay;
+}
 
 static void handleRender(AppContext *ctx) {
     if (g_line_drawing_host_mode == LINE_DRAWING_HOST_MODE_MENU) {
@@ -739,7 +757,8 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
     AppCallbacks cbs = {
         .handleInput  = handleInput,
         .handleUpdate = handleUpdate,
-        .handleRender = handleRender
+        .handleRender = handleRender,
+        .nextUpdateDelayMs = nextUpdateDelayMs
     };
     App_SetRenderMode(&app, RENDER_THROTTLED, 1.0f / 60.0f);
     if (vulkan_rollout) {
