@@ -19,6 +19,10 @@ Actions still performs no directory scan. The document and undo history are unto
 by this catalog refresh. Full host and folder-picker tests pass, including the new
 dotted-filename and editor-return regressions.
 
+Toolbar changes to mode, view, plane, bounds or gizmo cancel active input gestures
+while retaining Measure's selected rule and the Routes/Parts edit context. They no
+longer clear Measure's active state while leaving its controls visible.
+
 Existing Parts filters provide one transient AND query for geometry. They do not
 include physical routes or saved multi-view toggles. Corridor geometry/membership,
 route obstacle checks, voltage/circuit forms and electrical calculations are not

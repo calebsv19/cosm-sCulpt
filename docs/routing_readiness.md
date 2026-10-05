@@ -14,6 +14,7 @@ and length. **Save route** accepts one undoable edit; **File > Save Layout** wri
 the active working document. Use **Measure > Saved constraints > bed_lift** to move
 the whole narrow bed through Z=950–1650 mm with the slider or Min/Max/Reset.
 Reset returns to the saved home. Use a free/side view to inspect vertical movement.
+Toolbar view/mode changes retain the selected rule and keep the panel responsive.
 **Parts > Filters** can isolate existing geometry by type, assembly, role or
 property. **Show all** clears that transient filter. It currently excludes routes.
 

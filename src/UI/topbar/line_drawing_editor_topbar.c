@@ -1,4 +1,6 @@
 #include "UI/ui_panel_measurement.h"
+#include "UI/ui_panel_parts.h"
+#include "UI/ui_panel_routes.h"
 #include "UI/topbar/line_drawing_editor_topbar.h"
 
 #include "Core/global_state.h"
@@ -690,6 +692,13 @@ static void Topbar_DrawStatusChips(SDL_Renderer* renderer,
 #undef DRAW_NEXT_CHIP
 }
 
+static void Topbar_EndViewInput(void) {
+    /* View changes cancel gestures, but retain the visible panel's edit context. */
+    UIPanel_MeasurementStopInput();
+    UIPanel_PartsStopInput();
+    UIPanel_RoutesStopInput();
+}
+
 bool LineDrawingEditorTopbar_HandleClick(int mouse_x, int mouse_y) {
     LineDrawingEditorTopbarLayout layout = Topbar_ResolveLayout();
 
@@ -707,27 +716,27 @@ bool LineDrawingEditorTopbar_HandleClick(int mouse_x, int mouse_y) {
         return true;
     }
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.mode_chip)) {
-        UIPanel_ResetTransientUiState();
+        Topbar_EndViewInput();
         (void)InputEditorAction_ToggleSpaceMode(true);
         return true;
     }
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.view_chip)) {
-        UIPanel_ResetTransientUiState();
+        Topbar_EndViewInput();
         (void)InputEditorAction_ToggleFreeView();
         return true;
     }
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.plane_chip)) {
-        UIPanel_ResetTransientUiState();
+        Topbar_EndViewInput();
         (void)InputEditorAction_CycleActivePlane();
         return true;
     }
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.bounds_chip)) {
-        UIPanel_ResetTransientUiState();
+        Topbar_EndViewInput();
         (void)UIPanel_ToggleSceneBoundsEnabled();
         return true;
     }
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.gizmo_chip)) {
-        UIPanel_ResetTransientUiState();
+        Topbar_EndViewInput();
         (void)InputEditorAction_ToggleObjectGizmoMode();
         return true;
     }

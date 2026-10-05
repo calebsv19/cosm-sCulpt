@@ -4,6 +4,7 @@
 #include "UI/ui_panel_measurement.h"
 #include "Input/input_handler.h"
 #include "Core/space_mode_adapter.h"
+#include "UI/topbar/line_drawing_editor_topbar.h"
 
 static uint32_t prism(const char* name, Vec3 origin) {
     RectPrismPrimitiveCreateParams p = {.width=1, .height=0.5f, .depth=0.2f,
@@ -224,6 +225,41 @@ static bool test_viewport_pick_identity_filtering_and_no_mutation(void) {
     free(before);free(after);ld_test_shutdown_runtime();return true;
 }
 
+static bool test_toolbar_view_change_retains_measure_context(void) {
+    ld_test_init_runtime();
+    GlobalState* s=Global_Get();
+    TEST_ASSERT(Global_SetSpaceMode(SPACE_MODE_3D,true));
+    TEST_ASSERT(prism("A",(Vec3){0,0,0}) && prism("B",(Vec3){2,0,0}));
+    TEST_ASSERT(UIPanel_BeginMeasurement());
+    UIPanelState* ui=UIPanel_Get();
+    ui->measurement.operation=3;
+    ui->measurement.rules_open=true;
+    ui->measurement.picking=true;
+    EditorGeometricReference saved=ui->measurement.refs[0];
+    Editor_ClearHistory(&s->editor);
+    char* before=Layout_SaveToString(&s->layout);
+    CorePaneRect pane;
+    TEST_ASSERT(LineDrawingPaneHost_GetRectForRole(&s->paneHost,LINE_DRAWING_PANE_ROLE_TOP_BAR,&pane));
+    int height=((int)pane.height-26)/2;
+    if(height<20)height=20;
+    if(height>28)height=28;
+    int row=(int)pane.y+10+height+6;
+    if(row+height>(int)(pane.y+pane.height)-4)row=(int)(pane.y+pane.height)-height-4;
+    int file_width=(int)pane.width/3;
+    if(file_width>230)file_width=230;
+    if(file_width<150)file_width=150;
+    int x=(int)pane.x+10+file_width+6+10;
+    TEST_ASSERT(LineDrawingEditorTopbar_HandleClick(x,row+height/2));
+    TEST_ASSERT(ui->measurement.active && ui->activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE);
+    TEST_ASSERT(ui->measurement.operation==3 && ui->measurement.rules_open && !ui->measurement.picking);
+    TEST_ASSERT(memcmp(&saved,&ui->measurement.refs[0],sizeof(saved))==0);
+    TEST_ASSERT(LineDrawingEditorTopbar_HandleClick(x+118,row+height/2));
+    TEST_ASSERT(ui->measurement.active && ui->measurement.operation==3);
+    char* after=Layout_SaveToString(&s->layout);
+    TEST_ASSERT(strcmp(before,after)==0 && Editor_UndoCount(&s->editor)==0);
+    free(before);free(after);ld_test_shutdown_runtime();return true;
+}
+
 bool measurement_run_tests(void) {
     const TestCase cases[]={
         {"distances_scales_readonly",test_distances_scales_and_readonly},
@@ -233,7 +269,8 @@ bool measurement_run_tests(void) {
         {"invalid_degenerate_unsupported",test_invalid_and_unsupported},
         {"selectable_refs_modal_input",test_ui_selection_and_modal_input},
         {"plane_face_and_session_reset",test_plane_reference_and_invalid_face},
-        {"viewport_reference_pick",test_viewport_pick_identity_filtering_and_no_mutation}
+        {"viewport_reference_pick",test_viewport_pick_identity_filtering_and_no_mutation},
+        {"toolbar_view_preserves_measure_context",test_toolbar_view_change_retains_measure_context}
     };
     return run_test_cases("Measurement",cases,sizeof(cases)/sizeof(cases[0]));
 }
