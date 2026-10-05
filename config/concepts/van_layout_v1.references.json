@@ -1,0 +1,23 @@
+{
+  "references": [
+    {
+      "name": "passenger_side_elevation",
+      "file": "1-Photo-1.jpg",
+      "sha256": "fc6afaadd7f3ef177af015d6acf36067f822e1830dd08cb6aac418f5a3dab587",
+      "basis": "user_supplied_AI_concept_not_dimension_source"
+    },
+    {
+      "name": "driver_side_elevation",
+      "file": "2-Photo-2.jpg",
+      "sha256": "c88968c8eb81be4fc11bdf3c311b7dd54242e14857c88298596342c1acea900a",
+      "basis": "user_supplied_AI_concept_not_dimension_source"
+    },
+    {
+      "name": "top_view",
+      "file": "3-Photo-3.jpg",
+      "sha256": "b0bc175959cb2d6dc26858b0c40743983b8fae7def6a0740dfd8c446018d8ae7",
+      "basis": "user_supplied_AI_concept_not_dimension_source"
+    }
+  ],
+  "images_not_calibrated": true
+}

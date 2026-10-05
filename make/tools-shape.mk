@@ -110,3 +110,17 @@ shape_to_trace_batch: shape_trace_tool
 
 -include $(SHAPE_TOOL_OBJS:.o=.d)
 -include $(AGENT_SCENE_TOOL_OBJS:.o=.d)
+
+# Offline concept finalization shares the existing headless layout/export modules.
+VAN_CONCEPT_OBJS := $(filter-out $(PROGRAM_BUILD_DIR)/tools/agent_scene_tool.o,$(AGENT_SCENE_TOOL_OBJS))
+$(PROGRAM_BIN_DIR)/van_concept_tool: $(PROGRAM_BUILD_DIR)/tools/van_concept_tool.o $(VAN_CONCEPT_OBJS) $(AGENT_SCENE_TOOL_SHARED_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $^ -o $@ $(LDFLAGS)
+
+.PHONY: van_concept_tool van-concept-smoke
+van_concept_tool: $(PROGRAM_BIN_DIR)/van_concept_tool
+
+van-concept-smoke: van_concept_tool
+	@python3 tests/test_van_concept.py $(PROGRAM_BIN_DIR)/van_concept_tool
+
+-include $(PROGRAM_BUILD_DIR)/tools/van_concept_tool.d

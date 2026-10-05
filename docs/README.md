@@ -169,3 +169,5 @@ Current verification contract:
   - `../../docs/private_program_docs/line_drawing/`
 
 - [Reserved space and spatial checks (S3B/S3C)](spatial_checks.md) — volume controls, check results, schema 17 and read-only agent reports.
+
+- [Van layout concept v1](van_layout_concept_v1.md) — corrected render interpretation, provisional dimensions, editable bed assembly and upper wiring intent.
