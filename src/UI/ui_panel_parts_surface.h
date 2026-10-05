@@ -20,11 +20,18 @@ static inline void cell(PartsPane* p,int action,const char* title,const char* va
     SDL_Rect rect={p->body.x+6+column*(w+gap),p->y,w,p->h-3};
     if (UIPanel_Get()->parts.mode == 2 && action >= 8000 && action < 8300) {
         int total = p->body.w - 24;
-        int label_w = total * 3 / 5;
-        int tool_w = (total - label_w - 8) / 2;
+        int only_w = 48, remove_w = 68;
+        TTF_Font* font = p->font ? p->font : FontManager_Get(FONT_DEFAULT);
+        if (font) {
+            (void)TTF_SizeUTF8(font, "Only", &only_w, NULL);
+            (void)TTF_SizeUTF8(font, "Remove", &remove_w, NULL);
+        }
+        only_w += 18;
+        remove_w += 18;
+        int label_w = total - only_w - remove_w - 8;
         int kind = (action - 8000) / 100;
-        rect.x = p->body.x + 6 + (kind ? label_w + 4 + (kind - 1) * (tool_w + 4) : 0);
-        rect.w = kind ? tool_w : label_w;
+        rect.x = p->body.x + 6 + (kind ? label_w + 4 + (kind - 1) * (only_w + 4) : 0);
+        rect.w = kind == 1 ? only_w : kind == 2 ? remove_w : label_w;
     }
     if (value) {
         int label_width=w/3;
@@ -57,12 +64,31 @@ static inline void cell(PartsPane* p,int action,const char* title,const char* va
 static inline void row(PartsPane* p,int action,const char* text,bool enabled) {cell(p,action,text,NULL,0,1,enabled,false);p->y+=p->h;}
 static inline void field(PartsPane* p,int action,const char* label,const char* value) {cell(p,action,label,value,0,1,true,false);p->y+=p->h;}
 static inline void note(PartsPane* p,const char* text) {
-    int chars=(p->body.w-34)/(p->font ? TTF_FontHeight(p->font)/2+1 : 9);if (chars<12) chars=12;
-    size_t start=0,length=strlen(text);
-    while (start<length) {
-        size_t n=length-start;if (n>(size_t)chars) n=(size_t)chars;
-        if (start+n<length) {size_t k=n;while (k && text[start+k]!=' ') --k;if (k) n=k;}
-        char line[256];snprintf(line,sizeof(line),"%.*s",(int)n,text+start);row(p,0,line,true);
-        start+=n;while (text[start]==' ') ++start;
+    int max_width = p->body.w - 38;
+    int old_height = p->h;
+    TTF_Font* font = p->font ? p->font : FontManager_Get(FONT_DEFAULT);
+    if (font) p->h = TTF_FontHeight(font) + 5;
+    size_t start = 0, length = strlen(text);
+    while (start < length) {
+        size_t n = length - start;
+        if (n > 255) n = 255;
+        char line[256];
+        for (;;) {
+            snprintf(line, sizeof(line), "%.*s", (int)n, text + start);
+            int width = (int)n * 9;
+            if (font) (void)TTF_SizeUTF8(font, line, &width, NULL);
+            if (width <= max_width || n == 1) break;
+            --n;
+        }
+        if (start + n < length) {
+            size_t k = n;
+            while (k && text[start + k] != ' ') --k;
+            if (k) n = k;
+        }
+        snprintf(line, sizeof(line), "%.*s", (int)n, text + start);
+        row(p, 0, line, true);
+        start += n;
+        while (text[start] == ' ') ++start;
     }
+    p->h = old_height;
 }
