@@ -67,6 +67,34 @@ invalid schema without changing the scene/history. Old scene fixtures still load
 
 ## S5B: named routing corridors
 
+### Opening slice: views before more wiring
+
+First add saved semantic view definitions and independent visibility toggles to
+the existing View/Parts UI. The current Parts filter supports one AND query,
+is transient and excludes physical routes. It does not yet provide simultaneous
+layer toggles. Include routes in the semantic query/visibility contract before
+adding corridor membership; preserve their stable IDs and undo behavior.
+
+The initial view controls should be short, individually labeled toggles:
+OEM, Furniture, Devices, Wiring, Plumbing, Walkways, Keep-outs, Service and Motion.
+Allow several together and offer Show all / Isolate. View membership comes from
+types/properties/relationships, not copies of objects or assembly paths. An
+object can participate in more than one view. Unknown classifications remain
+visible in All and are explicitly discoverable.
+
+Save query definitions in the scene; keep the user's active display choices
+separate from authored object visibility and engineering validity. Hiding a view
+must affect viewport drawing, annotations and picking consistently, including
+route overlays. It must not remove geometry from save/export or obstacle checks.
+The route editor should explain when a selected route is hidden and provide Show.
+Reopen/Undo must preserve definitions without silently changing physical geometry.
+
+Acceptance: isolate the upper wiring, combine it with bed motion and walkways,
+toggle furniture separately, then Show all. Confirm hidden obstacles still produce
+the same validation findings and save/reopen retains every entity and route.
+
+### Corridor authoring follows views
+
 Add named corridors such as upper_low_voltage_halo and passenger_sensor_riser.
 Represent corridor geometry separately from Cable/Pipe geometry and record route
 membership as structured intent. Reuse stable identity, metadata, filtering and
@@ -128,12 +156,23 @@ reconstruction is unnecessary for that milestone.
 
 ## After S5
 
+Electrical route details need a separate bounded contract and visible form:
+source/destination, circuit, power domain, nominal voltage, DC/AC/signal class,
+wire count, gauge or cross-section, material, protective device and allowances.
+Keep unspecified values explicitly unknown. The AI render's 12 V label and the
+earlier conceptual 24 V examples are not confirmed electrical decisions.
+Provide views by circuit and voltage class once those fields are authored; a CAN
+label alone does not establish a power route or compliant bus topology.
+Resistance/voltage-drop results also require current, conductor properties,
+return-path length and the calculation assumptions. Do not derive those from
+appearance or nominal route centerline length alone.
+
 Compiler metadata should reference stable scene entities through the inspected
 existing compiler contract. Materials/derived quantities, broader agent operations,
 simulation adapters and telemetry bindings follow as consumers of the same spatial
 model. They are not implemented merely because this document describes them.
 
-Next coding boundary: S5A, a manually editable physical polyline route with a
-usable compact pane, endpoint identity, physical length, undo and persistence.
+Next coding boundary: S5B opening views/query integration, then named corridors
+and S5C segment/clearance checks. S5A manual route authoring is already implemented.
 The measured-shell/reference pass can replace demonstration dimensions as soon as
 the blueprint references and verified dimensions are supplied.

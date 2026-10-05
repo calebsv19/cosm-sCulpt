@@ -80,6 +80,9 @@ typedef struct LineDrawingHostMenuState {
 } LineDrawingHostMenuState;
 
 void LineDrawingHostMenu_Init(LineDrawingHostMenuState* state);
+/* Refresh a previously requested section after editor saves/loads. Quick Actions
+ * remains free of filesystem discovery; entering a section requests its scan. */
+void LineDrawingHostMenu_ReturnFromEditor(LineDrawingHostMenuState* state);
 void LineDrawingHostMenu_BuildModel(LineDrawingHostMenuModel* out_model);
 int LineDrawingHostMenu_FirstSelectableIndex(const LineDrawingHostMenuModel* model);
 int LineDrawingHostMenu_MoveSelection(const LineDrawingHostMenuModel* model,

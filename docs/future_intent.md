@@ -24,7 +24,8 @@ ambiguity. Its Z-up screen projection/picking, gizmo sizing and Measure selector
 are repaired. Saved-motion discovery, Measure undo continuity, normal-exit presentation preferences
 and grouped pair findings now cover the remaining bounded UI refinement. The pre-S5 continuity/file-access slice now adds object-selection history retention,
 saved-state reconciliation, automatic file-load framing, requested folder discovery
-and an app-owned macOS folder chooser. S5 routing remains proposed. Independent
+and an app-owned macOS folder chooser. S5A manual route authoring is implemented;
+saved semantic views, corridors and route checks remain proposed. Independent
 constrained followers, arbitrary moving sets, meshes and multiple joints remain
 separate contracts. Broader snapping and
 reusable datums remain extensions. User acceptance remains separate from regression
@@ -38,9 +39,11 @@ read-only repeated-pair grouping now pass host regressions and rendered UI proof
 Desktop refresh and native bed selection/assembly motion, slider, Undo, Reset and
 normal relaunch now pass. Human acceptance remains separate. Object
 selection retention across history and saved-state comparison now pass, as do load
-framing and the native chooser. Next is [S5A route identity/points/endpoints/length](s5_routing_plan.md)
-with visible editing and undo, followed by named corridors and reserved-space
-checks. The same plan includes the blueprint calibration/measured-shell pass.
+framing and the native chooser. [S5A route identity/points/endpoints/length](physical_routes.md)
+now includes visible editing, undo and native/agent persistence. Next is
+[S5B views/query integration and named corridors](s5_routing_plan.md), followed by
+reserved-space checks and explicit electrical route details. The same plan
+includes the blueprint calibration/measured-shell pass.
 Real vehicle measurements remain pending.
 
 Last updated: 2026-10-04

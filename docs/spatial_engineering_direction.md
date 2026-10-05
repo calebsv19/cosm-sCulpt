@@ -23,7 +23,9 @@ motion checks; see [the walkthrough](illustrative_van_workflow.md). Its Z-up scr
 projection/picking, viewport-sized gizmos and Measure/overview label readability
 are repaired. Saved-motion discovery, object/history continuity, saved-state
 reconciliation, automatic framing and explicit folder access now complete the
-named pre-S5 refinement. [S5 routes and the measured van pass](s5_routing_plan.md)
+named pre-S5 refinement. [S5A manual routes](physical_routes.md) now provide stable
+endpoint references, editable physical polylines, length, undo, native persistence
+and metadata export. [S5B views/corridors and S5C checks](s5_routing_plan.md)
 remain proposed. Independent
 constrained followers, arbitrary moving sets, meshes and multiple joints remain
 separate contracts. Broader snapping and

@@ -1042,8 +1042,47 @@ static bool test_stl_import_bounds_proxy_preview_keeps_mesh_selectable(void) {
     return true;
 }
 
+static bool test_save_as_preserves_dotted_layout_filename(void) {
+    char template[] = "/tmp/ld_save_name_XXXXXX";
+    char* root = mkdtemp(template);
+    TEST_ASSERT(root != NULL);
+    ld_test_init_runtime();
+    TEST_ASSERT(Global_SetInputRoot(root, false));
+    char original[LINE_DRAWING_PATH_CAP], saved_as[LINE_DRAWING_PATH_CAP];
+    snprintf(original, sizeof(original), "%s/original.json", root);
+    snprintf(saved_as, sizeof(saved_as), "%s/van.routes.layout.json", root);
+    TEST_ASSERT(Layout_SaveToFile(&Global_Get()->layout, original));
+    Global_OnLayoutLoaded(original);
+    UIPanel_BeginSaveAsDialog();
+    UIPanelState* ui = UIPanel_Get();
+    TEST_ASSERT(ui->saveDialog.mode == UI_SAVE_DIALOG_LAYOUT);
+    ui->saveDialog.buffer[0] = '\0';
+    ui->saveDialog.length = ui->saveDialog.cursor = 0;
+    TEST_ASSERT(UIPanel_HandleTextInput("van.routes.layout.json"));
+    TEST_ASSERT(strcmp(ui->saveDialog.buffer, "van.routes.layout.json") == 0);
+    SDL_Event enter = {.type = SDL_KEYDOWN};
+    enter.key.keysym.sym = SDLK_RETURN;
+    TEST_ASSERT(UIPanel_HandleKeyEvent(&enter));
+    TEST_ASSERT(!ui->saveDialog.active);
+    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), saved_as) == 0);
+    TEST_ASSERT(access(saved_as, F_OK) == 0);
+    TEST_ASSERT(access(original, F_OK) == 0);
+    ui->saveDialog.active = true;
+    ui->saveDialog.mode = UI_SAVE_DIALOG_SCENE_BUNDLE;
+    ui->saveDialog.buffer[0] = '\0';
+    ui->saveDialog.length = ui->saveDialog.cursor = 0;
+    TEST_ASSERT(UIPanel_HandleTextInput("other.scene"));
+    TEST_ASSERT(strcmp(ui->saveDialog.buffer, "otherscene") == 0);
+    UIPanel_CloseSaveDialog(ui);
+    unlink(original); unlink(saved_as); rmdir(root);
+    ld_test_shutdown_runtime();
+    ld_test_remove_file_browser_runtime_state();
+    return true;
+}
+
 bool ui_panel_file_browser_run_tests(void) {
     const TestCase cases[] = {
+        { "save_as_preserves_dotted_layout_filename", test_save_as_preserves_dotted_layout_filename },
         { "file_browser_switches_modes_and_uses_pane_rect",
           test_file_browser_switches_modes_and_uses_pane_rect },
         { "file_pane_action_buttons_use_equal_column_widths",

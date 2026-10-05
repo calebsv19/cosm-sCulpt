@@ -40,7 +40,8 @@ bool UIPanel_HandleTextInput(const char* text) {
     if (ui->saveDialog.active) {
         for (const char* p = text; *p; ++p) {
             unsigned char c = (unsigned char)*p;
-            if (!(isalnum(c) || c == '_' || c == '-' || c == ' ')) continue;
+            if (!(isalnum(c) || c == '_' || c == '-' || c == ' ' ||
+                  (c == '.' && ui->saveDialog.mode != UI_SAVE_DIALOG_SCENE_BUNDLE))) continue;
             if (ui->saveDialog.length + 1 >= sizeof(ui->saveDialog.buffer)) break;
             memmove(&ui->saveDialog.buffer[ui->saveDialog.cursor + 1],
                     &ui->saveDialog.buffer[ui->saveDialog.cursor],

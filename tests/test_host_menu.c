@@ -247,8 +247,49 @@ static bool test_folder_access_is_requested_and_retryable(void) {
     return true;
 }
 
+static bool test_editor_return_refreshes_requested_catalog(void) {
+    char template[] = "/tmp/ld_menu_return_XXXXXX";
+    char* root = mkdtemp(template);
+    TEST_ASSERT(root != NULL);
+    ld_test_init_runtime();
+    TEST_ASSERT(Global_SetInputRoot(root, false));
+    char original[LINE_DRAWING_PATH_CAP], saved_as[LINE_DRAWING_PATH_CAP];
+    snprintf(original, sizeof(original), "%s/original.json", root);
+    snprintf(saved_as, sizeof(saved_as), "%s/working.layout.json", root);
+    TEST_ASSERT(Layout_SaveToFile(&Global_Get()->layout, original));
+    Global_OnLayoutLoaded(original);
+    LineDrawingHostMenuState state;
+    LineDrawingHostMenuCommand command = {0};
+    AppContext ctx = {0};
+    LineDrawingHostMenu_Init(&state);
+    SDL_Event event = {.type = SDL_MOUSEBUTTONDOWN};
+    event.button.button = SDL_BUTTON_LEFT;
+    event.button.x = 48; event.button.y = 260;
+    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(state.catalog.layout_count == 1);
+    TEST_ASSERT(Layout_SaveToFile(&Global_Get()->layout, saved_as));
+    Global_OnLayoutLoaded(saved_as);
+    const bool dirty = Global_Get()->layoutDirtySinceSave;
+    LineDrawingHostMenu_ReturnFromEditor(&state);
+    TEST_ASSERT(state.catalog.layout_count == 2);
+    TEST_ASSERT(state.catalog.active_layout_index >= 0);
+    TEST_ASSERT(strcmp(state.catalog.layouts[state.catalog.active_layout_index].path, saved_as) == 0);
+    TEST_ASSERT(state.filtered_layout_indices[state.selected_layout_index] == state.catalog.active_layout_index);
+    TEST_ASSERT(Global_Get()->layoutDirtySinceSave == dirty);
+    TEST_ASSERT(strcmp(Global_GetCurrentConfigPath(), saved_as) == 0);
+    unlink(original); unlink(saved_as); rmdir(root);
+    state.selected_section = LINE_DRAWING_HOST_MENU_SECTION_QUICK_ACTIONS;
+    LineDrawingHostMenu_ReturnFromEditor(&state);
+    TEST_ASSERT(!state.status_is_error);
+    TEST_ASSERT(!state.section_loaded[LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS]);
+    ld_test_shutdown_runtime();
+    ld_test_artifact_clear_recent_context_files();
+    return true;
+}
+
 bool host_menu_run_tests(void) {
     const TestCase cases[] = {
+        {"EditorReturnRefreshesRequestedCatalog", test_editor_return_refreshes_requested_catalog},
         {"FolderAccessRequestedRetryable", test_folder_access_is_requested_and_retryable},
         {"FirstSelectablePrefersResume", test_first_selectable_prefers_resume},
         {"MoveSelectionSkipsDisabledItems", test_move_selection_skips_disabled_items},

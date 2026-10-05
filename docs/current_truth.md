@@ -1,5 +1,30 @@
 # Sculpt Current Truth
 
+## S5A routes and routing preparation (2026-10-04)
+
+[Routes](physical_routes.md) now provides manually edited Cable/Pipe polylines,
+stable primitive endpoint references, physical length, endpoint freshness,
+one-action Undo/Redo, native schema 20 save/reload and structured CLI/export
+metadata. Export is centerline metadata, not rendered tube geometry. Camera/light
+animation paths remain separate. The corrected [narrow van v2](van_layout_narrow_v2.md)
+has a provisional 1800 x 820 mm transverse lift bed and a four-foot entry followed
+by three approximately three-foot sections. Real steel/finished dimensions remain
+unmeasured; the upper-halo CAN route is an exercise, not validated wiring.
+
+Save As now accepts periods in layout/object filenames, preserving `.layout.json`
+rather than silently stripping its dots. Scene package names retain their existing
+identifier restrictions. Returning from the editor refreshes a previously requested
+home section and its preview cache, selecting the active Save As document. Quick
+Actions still performs no directory scan. The document and undo history are untouched
+by this catalog refresh. Full host and folder-picker tests pass, including the new
+dotted-filename and editor-return regressions.
+
+Existing Parts filters provide one transient AND query for geometry. They do not
+include physical routes or saved multi-view toggles. Corridor geometry/membership,
+route obstacle checks, voltage/circuit forms and electrical calculations are not
+implemented in S5A. [The next-slice plan](s5_routing_plan.md) starts with views and
+route query integration, then corridors, checks and explicit electrical inputs.
+
 ## Pre-S5 continuity and file access (2026-10-04)
 
 Undo/Redo now restores selected objects through stable entity IDs, clearing the
@@ -29,8 +54,9 @@ Native chooser Cancel and selection of the existing van-project folder pass.
 No test pose was saved; the working document SHA256 remains
 1e58223a8a3e3248586c8cffce0bc5018c623961275d75fcefc9e299654f40e3.
 
-Next implementation: [S5A manual physical routes](s5_routing_plan.md), then named
-corridors and routing checks. Actual vehicle dimensions and blueprint calibration
+Next implementation after this historical slice: [S5A manual physical routes](physical_routes.md)
+(now implemented), then [views/corridors and routing checks](s5_routing_plan.md).
+Actual vehicle dimensions and blueprint calibration
 remain pending. This closes the named continuity/file-access slice, not every
 CAD, kinematics, filesystem or spatial-query capability in the original direction.
 

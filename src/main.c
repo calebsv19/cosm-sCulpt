@@ -283,6 +283,7 @@ static void LineDrawingHostEnterMenu(void) {
         (void)LineDrawingWorkspaceAuthoringHost_Cancel(state);
     }
     UIPanel_ResetTransientUiState();
+    LineDrawingHostMenu_ReturnFromEditor(&g_line_drawing_host_menu);
     g_line_drawing_host_mode = LINE_DRAWING_HOST_MODE_MENU;
     g_line_drawing_pending_invalidation_bits |= LINE_DRAWING_INPUT_INVALIDATION_REASON_ACTION;
 }

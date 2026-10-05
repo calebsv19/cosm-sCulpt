@@ -616,6 +616,22 @@ void LineDrawingHostMenu_Init(LineDrawingHostMenuState* state) {
              "Resume your workspace or choose a browser section. Folder access occurs when requested.");
 }
 
+void LineDrawingHostMenu_ReturnFromEditor(LineDrawingHostMenuState* state) {
+    if (!state) return;
+    const bool requested = state->selected_section >= 0 &&
+        state->selected_section < LINE_DRAWING_HOST_MENU_SECTION_COUNT &&
+        state->section_loaded[state->selected_section];
+    line_drawing_host_menu_stop_filter_editing(state);
+    line_drawing_host_menu_stop_scrollbar_drag(state);
+    line_drawing_host_menu_clear_hover(state);
+    memset(state->section_loaded, 0, sizeof(state->section_loaded));
+    LineDrawingCatalogPreviewCache_Init(&state->preview_cache);
+    /* Select the new active document rather than a stale index after Save As. */
+    state->selected_layout_index = -1;
+    state->selected_scene_index = -1;
+    if (requested) line_drawing_host_menu_refresh_catalog(state);
+}
+
 void LineDrawingHostMenu_BuildModel(LineDrawingHostMenuModel* out_model) {
     const char* current_layout = Global_GetLastLayoutPath();
     const char* current_scene = Global_GetLastSceneAuthoringPath();
