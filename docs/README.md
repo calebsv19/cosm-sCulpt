@@ -8,6 +8,7 @@ Start here for public repository documentation.
 - [Narrow van layout v2](van_layout_narrow_v2.md) — corrected bed width and 4-foot / approximately 3-foot sections.
 - [Vehicle measurement checklist](van_measurement_checklist.md) — datums, priorities and blank measured values.
 - [S5A physical routes](physical_routes.md) — Routes tab, native/agent contracts, undo and endpoint freshness.
+- [Routing views and electrical details](routing_views_and_electrical.md) — saved Views, named corridors, route checks and tentative 24 V/12 V/CAN example.
 - [Routing readiness and working-scene handoff](routing_readiness.md) — current controls, persistence checks and the next views/corridors/wiring sequence.
 
 - [S5 routing and measured van plan](s5_routing_plan.md) — current S0–S4 boundary, manual route editing, corridors, checks and blueprint calibration.

@@ -1,5 +1,34 @@
 # Sculpt Current Truth
 
+## S5B views, corridors and initial electrical details (2026-10-04)
+
+[Routing views and electrical details](routing_views_and_electrical.md) now ship
+through Parts → Views and Routes. Saved query definitions include route membership;
+show/hide, Only and Show all control viewport drawing and picking without changing
+export or validation. Definitions persist in schema 21; active visibility is transient.
+Named editable RoutingCorridor boxes, route membership, radius/clearance and maximum
+length are authored through visible controls and participate in Undo.
+
+Check current draft reports whole-segment corridor coverage, primitive intersections,
+conservative clearance/mesh/motion findings and stale references. Clicking a finding
+selects its target and highlights the affected segment. Reference/OEM geometry is
+excluded from this opening route-check slice; current motion checks use overview
+bounds, not exact swept geometry. Intermediate junctions and hollow cabinet walls
+remain unresolved contracts.
+
+Electrical forms store circuit, domain, voltage, load, conductor area/AWG, material,
+explicit return/allowance and tentative fuse intent. Supported copper DC inputs
+produce a per-route 20 °C cable-drop estimate; missing inputs stay unknown. Ampacity,
+fuse coordination, converter sizing and aggregate network loading are not validated.
+The new tentative fixture preserves the narrow bed and adds 13 views and 11 routes
+for 24 V, optional 12 V, CAN and local buck branches. Its loads, device sizes and
+gauges are explicit comparison assumptions, not selected construction specifications.
+
+514 host tests across 48 groups, native route CLI smoke, warning-clean build and
+Main Edit package self-test/refresh pass. The original user working document remains
+unchanged; the wiring example is a separate editable file. See the linked contract
+for the research basis, precise check boundaries and remaining S5 work.
+
 ## S5A routes and routing preparation (2026-10-04)
 
 [Routes](physical_routes.md) now provides manually edited Cable/Pipe polylines,
@@ -23,11 +52,11 @@ Toolbar changes to mode, view, plane, bounds or gizmo cancel active input gestur
 while retaining Measure's selected rule and the Routes/Parts edit context. They no
 longer clear Measure's active state while leaving its controls visible.
 
-Existing Parts filters provide one transient AND query for geometry. They do not
+At the S5A checkpoint, Parts filters provided one transient AND query for geometry. They did not
 include physical routes or saved multi-view toggles. Corridor geometry/membership,
-route obstacle checks, voltage/circuit forms and electrical calculations are not
-implemented in S5A. [The next-slice plan](s5_routing_plan.md) starts with views and
-route query integration, then corridors, checks and explicit electrical inputs.
+route obstacle checks, voltage/circuit forms and electrical calculations were not
+implemented in S5A. The subsequent S5B/C slice above implements their opening
+controls; [the plan](s5_routing_plan.md) records the remaining boundaries.
 
 ## Pre-S5 continuity and file access (2026-10-04)
 
@@ -208,7 +237,7 @@ van workflow audit using illustrative assemblies, service spaces and movement,
 then S5 routing corridors/paths. Independent follower/mesh/multiple-joint motion is deferred.
 The dated milestone accounts below retain their original proof/next-step history.
 
-Last updated: 2026-10-03
+Last updated: 2026-10-04
 
 ## S3B/S3C reserved volumes and spatial checks (2026-09-30)
 

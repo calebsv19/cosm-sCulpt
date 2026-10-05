@@ -26,7 +26,10 @@ reconciliation, automatic framing and explicit folder access now complete the
 named pre-S5 refinement. [S5A manual routes](physical_routes.md) now provide stable
 endpoint references, editable physical polylines, length, undo, native persistence
 and metadata export. [S5B views/corridors and S5C checks](s5_routing_plan.md)
-remain proposed. Independent
+now provide saved semantic groups, named corridor membership, bounded obstacle
+checks and explicit electrical inputs with conditional per-route DC drop estimates.
+See [their current limits](routing_views_and_electrical.md). Explicit junctions,
+aggregate circuit loading, penetrations and inventory import are next. Independent
 constrained followers, arbitrary moving sets, meshes and multiple joints remain
 separate contracts. Broader snapping and
 reusable datums remain extensions. User acceptance remains separate from regression
