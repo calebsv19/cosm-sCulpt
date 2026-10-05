@@ -1,0 +1,2865 @@
+{
+  "schema": "line_drawing_inventory_v1",
+  "unit": "m",
+  "load_basis": "explicit_assumptions_no_network_aggregation",
+  "items": [
+    {
+      "entity_id": "oem_floor",
+      "record_kind": "object",
+      "name": "Floor max extents - 1920 x 4097 mm nominal",
+      "entity_type": "Panel",
+      "assembly_id": "oem",
+      "subsystem": "oem",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        1.9199999570846558,
+        4.0970001220703125,
+        0.03999999910593033
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "oem_driver_wall",
+      "record_kind": "object",
+      "name": "Driver wall - maximum extents proxy",
+      "entity_type": "Surface",
+      "assembly_id": "oem",
+      "subsystem": "oem",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.019999999552965164,
+        4.0970001220703125,
+        1.9589999914169312
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "oem_passenger_wall",
+      "record_kind": "object",
+      "name": "Passenger wall - extents proxy",
+      "entity_type": "Surface",
+      "assembly_id": "oem",
+      "subsystem": "oem",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.019999999552965164,
+        2.8469998836517334,
+        1.9589999914169312
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "oem_door_header",
+      "record_kind": "object",
+      "name": "Side opening header - nominal size / provisional position",
+      "entity_type": "StructuralMember",
+      "assembly_id": "oem",
+      "subsystem": "oem",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.019999999552965164,
+        1.25,
+        0.20399999618530273
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "oem_front_boundary",
+      "record_kind": "object",
+      "name": "Front floor limit - full-height position unverified",
+      "entity_type": "Surface",
+      "assembly_id": "oem",
+      "subsystem": "oem",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        1.9199999570846558,
+        0.019999999552965164,
+        1.9589999914169312
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "oem_rear_boundary",
+      "record_kind": "object",
+      "name": "Rear opening - 1610 x 1790 mm nominal",
+      "entity_type": "Surface",
+      "assembly_id": "oem",
+      "subsystem": "oem",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        1.6100000143051147,
+        0.0020000000949949026,
+        1.7899999618530273
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "wheel_well_driver",
+      "record_kind": "object",
+      "name": "Driver wheel well - mixed-source box proxy",
+      "entity_type": "PhysicalObject",
+      "assembly_id": "oem",
+      "subsystem": "oem",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.24899999797344208,
+        0.8889999985694885,
+        0.4318000078201294
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "wheel_well_passenger",
+      "record_kind": "object",
+      "name": "Passenger wheel well - mixed-source box proxy",
+      "entity_type": "PhysicalObject",
+      "assembly_id": "oem",
+      "subsystem": "oem",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.24899999797344208,
+        0.8889999985694885,
+        0.4318000078201294
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "bed_guide",
+      "record_kind": "object",
+      "name": "Bed lift datum",
+      "entity_type": "MountPoint",
+      "assembly_id": "fixed_lift",
+      "subsystem": "fixed_lift",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.019999999552965164,
+        0.019999999552965164,
+        0.019999999552965164
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "bed_deck",
+      "record_kind": "object",
+      "name": "Narrow transverse bed - 1800 x 820 mm (length unverified)",
+      "entity_type": "Panel",
+      "assembly_id": "bed",
+      "subsystem": "bed",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        1.7999999523162842,
+        0.8199999928474426,
+        0.0599999986588955
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "bed_mattress",
+      "record_kind": "object",
+      "name": "Narrow mattress placeholder - 1760 x 780 mm",
+      "entity_type": "PhysicalObject",
+      "assembly_id": "bed",
+      "subsystem": "bed",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        1.7599999904632568,
+        0.7799999713897705,
+        0.119999997317791
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "bed_rail_driver",
+      "record_kind": "object",
+      "name": "Driver moving bed rail",
+      "entity_type": "Rail",
+      "assembly_id": "bed",
+      "subsystem": "bed",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.03999999910593033,
+        0.8199999928474426,
+        0.07999999821186066
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "fixed_guide_driver_rear",
+      "record_kind": "object",
+      "name": "Driver fixed lift guide rear",
+      "entity_type": "Rail",
+      "assembly_id": "fixed_lift",
+      "subsystem": "fixed_lift",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.019999999552965164,
+        0.02500000037252903,
+        1.4500000476837158
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "fixed_guide_driver_front",
+      "record_kind": "object",
+      "name": "Driver fixed lift guide front",
+      "entity_type": "Rail",
+      "assembly_id": "fixed_lift",
+      "subsystem": "fixed_lift",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.019999999552965164,
+        0.02500000037252903,
+        1.4500000476837158
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "bed_rail_passenger",
+      "record_kind": "object",
+      "name": "Passenger moving bed rail",
+      "entity_type": "Rail",
+      "assembly_id": "bed",
+      "subsystem": "bed",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.03999999910593033,
+        0.8199999928474426,
+        0.07999999821186066
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "fixed_guide_passenger_rear",
+      "record_kind": "object",
+      "name": "Passenger fixed lift guide rear",
+      "entity_type": "Rail",
+      "assembly_id": "fixed_lift",
+      "subsystem": "fixed_lift",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.019999999552965164,
+        0.02500000037252903,
+        1.4500000476837158
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "fixed_guide_passenger_front",
+      "record_kind": "object",
+      "name": "Passenger fixed lift guide front",
+      "entity_type": "Rail",
+      "assembly_id": "fixed_lift",
+      "subsystem": "fixed_lift",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.019999999552965164,
+        0.02500000037252903,
+        1.4500000476837158
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "desk_driver",
+      "record_kind": "object",
+      "name": "Driver rear worktop",
+      "entity_type": "Panel",
+      "assembly_id": "desk_driver_unit",
+      "subsystem": "desks",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.479999989271164,
+        0.8199999928474426,
+        0.03999999910593033
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_driver",
+      "record_kind": "object",
+      "name": "Driver rear drawer block / backing",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.017999999225139618,
+        0.3400000035762787,
+        0.709999978542328
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "chair_space_driver",
+      "record_kind": "object",
+      "name": "Driver chair use space - bed raised",
+      "entity_type": "ServiceVolume",
+      "assembly_id": "reserved",
+      "subsystem": "reserved",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.4300000071525574,
+        0.5699999928474426,
+        1.0499999523162842
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "desk_passenger",
+      "record_kind": "object",
+      "name": "Passenger rear worktop",
+      "entity_type": "Panel",
+      "assembly_id": "desk_passenger_unit",
+      "subsystem": "desks",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.479999989271164,
+        0.8199999928474426,
+        0.03999999910593033
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_passenger",
+      "record_kind": "object",
+      "name": "Passenger rear drawer block / backing",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.017999999225139618,
+        0.3400000035762787,
+        0.709999978542328
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "chair_space_passenger",
+      "record_kind": "object",
+      "name": "Passenger chair use space - bed raised",
+      "entity_type": "ServiceVolume",
+      "assembly_id": "reserved",
+      "subsystem": "reserved",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.4300000071525574,
+        0.5699999928474426,
+        1.0499999523162842
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "driver_bench",
+      "record_kind": "object",
+      "name": "Driver lounge / battery bench enclosure / backing",
+      "entity_type": "Panel",
+      "assembly_id": "driver_bench_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.017999999225139618,
+        2.0199999809265137,
+        0.5
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "driver_cushion",
+      "record_kind": "object",
+      "name": "Driver lounge cushion",
+      "entity_type": "PhysicalObject",
+      "assembly_id": "driver_bench_unit",
+      "subsystem": "electrical",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.5,
+        2.0199999809265137,
+        0.10000000149011612
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "battery",
+      "record_kind": "object",
+      "name": "Battery bay placeholder - capacity undecided",
+      "entity_type": "Battery",
+      "assembly_id": "electrical",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.3799999952316284,
+        0.5,
+        0.3799999952316284
+      ],
+      "power_domain": "provisional_24V",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "inverter",
+      "record_kind": "object",
+      "name": "Inverter packaging placeholder",
+      "entity_type": "Device",
+      "assembly_id": "electrical",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.3199999928474426,
+        0.300000011920929,
+        0.2800000011920929
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "fuse_box",
+      "record_kind": "object",
+      "name": "Distribution / fuse placeholder",
+      "entity_type": "Fuse",
+      "assembly_id": "electrical",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.0599999986588955,
+        0.2199999988079071,
+        0.15000000596046448
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "can_hub",
+      "record_kind": "object",
+      "name": "CAN hub placeholder",
+      "entity_type": "Controller",
+      "assembly_id": "electrical",
+      "subsystem": "embedded.control",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.0599999986588955,
+        0.10000000149011612,
+        0.07999999821186066
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "electrical_access",
+      "record_kind": "object",
+      "name": "Bench inboard service strip - provisional",
+      "entity_type": "ServiceVolume",
+      "assembly_id": "reserved",
+      "subsystem": "reserved",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.25,
+        2.0199999809265137,
+        0.600000023841858
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "kitchen_base",
+      "record_kind": "object",
+      "name": "Passenger kitchen enclosure / backing",
+      "entity_type": "Panel",
+      "assembly_id": "kitchen_base_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.017999999225139618,
+        0.759999990463257,
+        0.8700000047683716
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "kitchen_worktop",
+      "record_kind": "object",
+      "name": "Passenger sink / prep worktop",
+      "entity_type": "Panel",
+      "assembly_id": "kitchen_base_unit",
+      "subsystem": "kitchen",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.550000011920929,
+        0.800000011920929,
+        0.03999999910593033
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "sink",
+      "record_kind": "object",
+      "name": "Sink packaging placeholder",
+      "entity_type": "PhysicalObject",
+      "assembly_id": "kitchen",
+      "subsystem": "kitchen",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.36000001430511475,
+        0.300000011920929,
+        0.20000000298023224
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "cooktop_option",
+      "record_kind": "object",
+      "name": "Optional cooktop footprint - undecided",
+      "entity_type": "PhysicalObject",
+      "assembly_id": "kitchen",
+      "subsystem": "kitchen",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.3499999940395355,
+        0.23000000417232513,
+        0.019999999552965164
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "water_tank",
+      "record_kind": "object",
+      "name": "Under-kitchen tank packaging placeholder",
+      "entity_type": "Tank",
+      "assembly_id": "kitchen",
+      "subsystem": "water",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.3199999928474426,
+        0.4000000059604645,
+        0.3799999952316284
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "water_pump",
+      "record_kind": "object",
+      "name": "Under-kitchen water pump placeholder",
+      "entity_type": "Actuator",
+      "assembly_id": "kitchen",
+      "subsystem": "water",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.14000000059604645,
+        0.119999997317791,
+        0.1599999964237213
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "water_controller",
+      "record_kind": "object",
+      "name": "Water controller placeholder",
+      "entity_type": "Controller",
+      "assembly_id": "kitchen",
+      "subsystem": "water",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.03999999910593033,
+        0.07999999821186066,
+        0.0599999986588955
+      ],
+      "power_domain": "provisional_24V_to_5V",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_driver",
+      "record_kind": "object",
+      "name": "Driver Wardrobe - full height / backing",
+      "entity_type": "Panel",
+      "assembly_id": "storage_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.017999999225139618,
+        0.7799999713897705,
+        1.7300000190734863
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_passenger",
+      "record_kind": "object",
+      "name": "Passenger Pantry / tools - full height / backing",
+      "entity_type": "Panel",
+      "assembly_id": "storage_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.017999999225139618,
+        0.7799999713897705,
+        1.7300000190734863
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_driver",
+      "record_kind": "object",
+      "name": "Driver overhead cabinet - stops before bed / backing",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.012000000104308128,
+        1.9015666246414185,
+        0.33000001311302185
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_halo_driver",
+      "record_kind": "object",
+      "name": "Driver roof wiring corridor INTENT",
+      "entity_type": "RoutingCorridor",
+      "assembly_id": "upper",
+      "subsystem": "upper",
+      "part_number": "",
+      "status": "corridor_intent_not_cable",
+      "dimensions_m": [
+        0.07999999821186066,
+        3.9600000381469727,
+        0.07999999821186066
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_passenger",
+      "record_kind": "object",
+      "name": "Passenger overhead cabinet - stops before bed / backing",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.012000000104308128,
+        1.7238667011260986,
+        0.33000001311302185
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_halo_passenger",
+      "record_kind": "object",
+      "name": "Passenger roof wiring corridor INTENT",
+      "entity_type": "RoutingCorridor",
+      "assembly_id": "upper",
+      "subsystem": "upper",
+      "part_number": "",
+      "status": "corridor_intent_not_cable",
+      "dimensions_m": [
+        0.07999999821186066,
+        3.9600000381469727,
+        0.07999999821186066
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_halo_rear",
+      "record_kind": "object",
+      "name": "Rear roof cross-link corridor INTENT",
+      "entity_type": "RoutingCorridor",
+      "assembly_id": "upper",
+      "subsystem": "upper",
+      "part_number": "",
+      "status": "corridor_intent_not_cable",
+      "dimensions_m": [
+        1.7300000190734863,
+        0.07999999821186066,
+        0.07999999821186066
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "driver_power_riser",
+      "record_kind": "object",
+      "name": "Driver electrical riser INTENT",
+      "entity_type": "RoutingCorridor",
+      "assembly_id": "upper",
+      "subsystem": "upper",
+      "part_number": "",
+      "status": "corridor_intent_not_cable",
+      "dimensions_m": [
+        0.0599999986588955,
+        0.119999997317791,
+        1.559999942779541
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "walkway",
+      "record_kind": "object",
+      "name": "Main aisle - front / mid van",
+      "entity_type": "KeepoutVolume",
+      "assembly_id": "reserved",
+      "subsystem": "reserved",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.600000023841858,
+        2.9930665493011475,
+        1.7000000476837158
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "sliding_door_access",
+      "record_kind": "object",
+      "name": "Passenger entry keep-clear - opening provisional",
+      "entity_type": "KeepoutVolume",
+      "assembly_id": "reserved",
+      "subsystem": "reserved",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.479999989271164,
+        1.2192000150680542,
+        1.7000000476837158
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "rear_door_access",
+      "record_kind": "object",
+      "name": "Rear threshold keep-clear - provisional",
+      "entity_type": "KeepoutVolume",
+      "assembly_id": "reserved",
+      "subsystem": "reserved",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.800000011920929,
+        0.07999999821186066,
+        0.800000011920929
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_door_header_cabinet",
+      "record_kind": "object",
+      "name": "Passenger shallow upper storage above entry / backing",
+      "entity_type": "Panel",
+      "assembly_id": "upper_door_header_cabinet_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.012000000104308128,
+        1.0800000429153442,
+        0.1599999964237213
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "oem_beltline_front_limit",
+      "record_kind": "object",
+      "name": "Beltline front limit - 3889 mm length reference",
+      "entity_type": "Surface",
+      "assembly_id": "oem",
+      "subsystem": "oem",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        1.9199999570846558,
+        0.0020000000949949026,
+        0.05000000074505806
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "oem_side_opening_size",
+      "record_kind": "object",
+      "name": "Side opening - 1250 x 1755 mm nominal",
+      "entity_type": "Surface",
+      "assembly_id": "oem",
+      "subsystem": "oem",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.0020000000949949026,
+        1.25,
+        1.7549999952316284
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "obj3d_52",
+      "record_kind": "object",
+      "name": "Motion: Narrow transverse bed - 1800 x 820 mm (length unverified)",
+      "entity_type": "MotionEnvelope",
+      "assembly_id": "",
+      "subsystem": "",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        1.8000247478485107,
+        0.8200247287750244,
+        0.9400247931480408
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "dc24_halo_start",
+      "record_kind": "object",
+      "name": "24 V halo distribution start (tentative)",
+      "entity_type": "PowerBus",
+      "assembly_id": "upper",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.029999999329447746,
+        0.05000000074505806,
+        0.029999999329447746
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "dc24_halo_end",
+      "record_kind": "object",
+      "name": "24 V halo far end (tentative)",
+      "entity_type": "PowerBus",
+      "assembly_id": "upper",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.029999999329447746,
+        0.05000000074505806,
+        0.029999999329447746
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "dc12_converter",
+      "record_kind": "object",
+      "name": "24 to 12 V converter (size TBD)",
+      "entity_type": "Device",
+      "assembly_id": "electrical",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.07999999821186066,
+        0.119999997317791,
+        0.07999999821186066
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "dc12_halo_start",
+      "record_kind": "object",
+      "name": "Optional 12 V distribution start",
+      "entity_type": "PowerBus",
+      "assembly_id": "upper",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.02500000037252903,
+        0.03999999910593033,
+        0.02500000037252903
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "dc12_halo_end",
+      "record_kind": "object",
+      "name": "Optional 12 V far end",
+      "entity_type": "PowerBus",
+      "assembly_id": "upper",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.02500000037252903,
+        0.03999999910593033,
+        0.02500000037252903
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "water_local_buck",
+      "record_kind": "object",
+      "name": "Water ESP local 24 to 5 V buck (size TBD)",
+      "entity_type": "Device",
+      "assembly_id": "kitchen",
+      "subsystem": "water",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.03999999910593033,
+        0.0599999986588955,
+        0.03999999910593033
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "water_24_tap",
+      "record_kind": "object",
+      "name": "Water node 24 V halo tap",
+      "entity_type": "Connector",
+      "assembly_id": "upper",
+      "subsystem": "electrical",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.02500000037252903,
+        0.02500000037252903,
+        0.02500000037252903
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "rear_esp_node",
+      "record_kind": "object",
+      "name": "Rear ESP / CAN node (tentative)",
+      "entity_type": "Controller",
+      "assembly_id": "upper",
+      "subsystem": "embedded.control",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.03999999910593033,
+        0.07000000029802322,
+        0.05000000074505806
+      ],
+      "power_domain": "local_24V_to_5V",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "rear_local_buck",
+      "record_kind": "object",
+      "name": "Rear ESP local buck (size TBD)",
+      "entity_type": "Device",
+      "assembly_id": "upper",
+      "subsystem": "embedded.control",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.03999999910593033,
+        0.0599999986588955,
+        0.03999999910593033
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "rear_halo_tap",
+      "record_kind": "object",
+      "name": "Rear 24 V halo junction",
+      "entity_type": "Connector",
+      "assembly_id": "upper",
+      "subsystem": "electrical",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.02500000037252903,
+        0.02500000037252903,
+        0.02500000037252903
+      ],
+      "power_domain": "24V",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "driver_feeder_region",
+      "record_kind": "object",
+      "name": "Driver electrical feeder region",
+      "entity_type": "RoutingCorridor",
+      "assembly_id": "upper",
+      "subsystem": "electrical",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.550000011920929,
+        0.6600000262260437,
+        1.600000023841858
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "water_drop_region",
+      "record_kind": "object",
+      "name": "Passenger water node drop region",
+      "entity_type": "RoutingCorridor",
+      "assembly_id": "upper",
+      "subsystem": "electrical",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.5600000023841858,
+        0.119999997317791,
+        1.2999999523162842
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "rear_node_region",
+      "record_kind": "object",
+      "name": "Rear ESP short drop region",
+      "entity_type": "RoutingCorridor",
+      "assembly_id": "upper",
+      "subsystem": "electrical",
+      "part_number": "",
+      "status": "tentative_layout_not_hardware_selection",
+      "dimensions_m": [
+        0.119999997317791,
+        0.25,
+        0.25
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_driver_end_rear",
+      "record_kind": "object",
+      "name": "End Rear",
+      "entity_type": "Panel",
+      "assembly_id": "storage_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.017999999225139618,
+        1.7300000190734863
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_driver_end_front",
+      "record_kind": "object",
+      "name": "End Front",
+      "entity_type": "Panel",
+      "assembly_id": "storage_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.017999999225139618,
+        1.7300000190734863
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_driver_bottom",
+      "record_kind": "object",
+      "name": "Bottom",
+      "entity_type": "Panel",
+      "assembly_id": "storage_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.74399995803833,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_driver_top",
+      "record_kind": "object",
+      "name": "Top",
+      "entity_type": "Panel",
+      "assembly_id": "storage_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.74399995803833,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_driver_door",
+      "record_kind": "object",
+      "name": "Door",
+      "entity_type": "Panel",
+      "assembly_id": "storage_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.017999999225139618,
+        0.7799999713897705,
+        1.7300000190734863
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_driver_shelf",
+      "record_kind": "object",
+      "name": "Shelf",
+      "entity_type": "Panel",
+      "assembly_id": "storage_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.74399995803833,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_passenger_end_rear",
+      "record_kind": "object",
+      "name": "End Rear",
+      "entity_type": "Panel",
+      "assembly_id": "storage_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.017999999225139618,
+        1.7300000190734863
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_passenger_end_front",
+      "record_kind": "object",
+      "name": "End Front",
+      "entity_type": "Panel",
+      "assembly_id": "storage_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.017999999225139618,
+        1.7300000190734863
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_passenger_bottom",
+      "record_kind": "object",
+      "name": "Bottom",
+      "entity_type": "Panel",
+      "assembly_id": "storage_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.74399995803833,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_passenger_top",
+      "record_kind": "object",
+      "name": "Top",
+      "entity_type": "Panel",
+      "assembly_id": "storage_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.74399995803833,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_passenger_door",
+      "record_kind": "object",
+      "name": "Door",
+      "entity_type": "Panel",
+      "assembly_id": "storage_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.017999999225139618,
+        0.7799999713897705,
+        1.7300000190734863
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "storage_passenger_shelf",
+      "record_kind": "object",
+      "name": "Shelf",
+      "entity_type": "Panel",
+      "assembly_id": "storage_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.74399995803833,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_driver_end_rear",
+      "record_kind": "object",
+      "name": "End Rear",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.393999993801117,
+        0.017999999225139618,
+        0.709999978542328
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_driver_end_front",
+      "record_kind": "object",
+      "name": "End Front",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.393999993801117,
+        0.017999999225139618,
+        0.709999978542328
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_driver_bottom",
+      "record_kind": "object",
+      "name": "Bottom",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.393999993801117,
+        0.30399999022483826,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_driver_top",
+      "record_kind": "object",
+      "name": "Top",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.393999993801117,
+        0.30399999022483826,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_driver_door",
+      "record_kind": "object",
+      "name": "Door",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.017999999225139618,
+        0.3400000035762787,
+        0.709999978542328
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_driver_shelf",
+      "record_kind": "object",
+      "name": "Shelf",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.393999993801117,
+        0.30399999022483826,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_passenger_end_rear",
+      "record_kind": "object",
+      "name": "End Rear",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.393999993801117,
+        0.017999999225139618,
+        0.709999978542328
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_passenger_end_front",
+      "record_kind": "object",
+      "name": "End Front",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.393999993801117,
+        0.017999999225139618,
+        0.709999978542328
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_passenger_bottom",
+      "record_kind": "object",
+      "name": "Bottom",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.393999993801117,
+        0.30399999022483826,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_passenger_top",
+      "record_kind": "object",
+      "name": "Top",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.393999993801117,
+        0.30399999022483826,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_passenger_door",
+      "record_kind": "object",
+      "name": "Door",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.017999999225139618,
+        0.3400000035762787,
+        0.709999978542328
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "drawers_passenger_shelf",
+      "record_kind": "object",
+      "name": "Shelf",
+      "entity_type": "Panel",
+      "assembly_id": "drawers_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.393999993801117,
+        0.30399999022483826,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "driver_bench_end_rear",
+      "record_kind": "object",
+      "name": "End Rear",
+      "entity_type": "Panel",
+      "assembly_id": "driver_bench_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.017999999225139618,
+        0.5
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "driver_bench_end_front",
+      "record_kind": "object",
+      "name": "End Front",
+      "entity_type": "Panel",
+      "assembly_id": "driver_bench_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.017999999225139618,
+        0.5
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "driver_bench_bottom",
+      "record_kind": "object",
+      "name": "Bottom",
+      "entity_type": "Panel",
+      "assembly_id": "driver_bench_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        1.9839999675750732,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "driver_bench_top",
+      "record_kind": "object",
+      "name": "Top",
+      "entity_type": "Panel",
+      "assembly_id": "driver_bench_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        1.9839999675750732,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "kitchen_base_end_rear",
+      "record_kind": "object",
+      "name": "End Rear",
+      "entity_type": "Panel",
+      "assembly_id": "kitchen_base_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.017999999225139618,
+        0.8700000047683716
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "kitchen_base_end_front",
+      "record_kind": "object",
+      "name": "End Front",
+      "entity_type": "Panel",
+      "assembly_id": "kitchen_base_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.017999999225139618,
+        0.8700000047683716
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "kitchen_base_bottom",
+      "record_kind": "object",
+      "name": "Bottom",
+      "entity_type": "Panel",
+      "assembly_id": "kitchen_base_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.7239999771118164,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "kitchen_base_top",
+      "record_kind": "object",
+      "name": "Top",
+      "entity_type": "Panel",
+      "assembly_id": "kitchen_base_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.46399998664855957,
+        0.7239999771118164,
+        0.017999999225139618
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_driver_end_rear",
+      "record_kind": "object",
+      "name": "End Rear",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.22599999606609344,
+        0.012000000104308128,
+        0.33000001311302185
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_driver_end_front",
+      "record_kind": "object",
+      "name": "End Front",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.22599999606609344,
+        0.012000000104308128,
+        0.33000001311302185
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_driver_bottom",
+      "record_kind": "object",
+      "name": "Bottom",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.22599999606609344,
+        1.8775665760040283,
+        0.012000000104308128
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_driver_top",
+      "record_kind": "object",
+      "name": "Top",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.22599999606609344,
+        1.8775665760040283,
+        0.012000000104308128
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_driver_door",
+      "record_kind": "object",
+      "name": "Door",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.012000000104308128,
+        1.9015666246414185,
+        0.33000001311302185
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_driver_mount_rail",
+      "record_kind": "object",
+      "name": "Wall mounting rail / unverified attachment",
+      "entity_type": "Rail",
+      "assembly_id": "upper_cabinet_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.04499997943639755,
+        1.9015666246414185,
+        0.03500000014901161
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_passenger_end_rear",
+      "record_kind": "object",
+      "name": "End Rear",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.22599999606609344,
+        0.012000000104308128,
+        0.33000001311302185
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_passenger_end_front",
+      "record_kind": "object",
+      "name": "End Front",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.22599999606609344,
+        0.012000000104308128,
+        0.33000001311302185
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_passenger_bottom",
+      "record_kind": "object",
+      "name": "Bottom",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.22599999606609344,
+        1.6998666524887085,
+        0.012000000104308128
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_passenger_top",
+      "record_kind": "object",
+      "name": "Top",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.22599999606609344,
+        1.6998666524887085,
+        0.012000000104308128
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_passenger_door",
+      "record_kind": "object",
+      "name": "Door",
+      "entity_type": "Panel",
+      "assembly_id": "upper_cabinet_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.012000000104308128,
+        1.7238667011260986,
+        0.33000001311302185
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_cabinet_passenger_mount_rail",
+      "record_kind": "object",
+      "name": "Wall mounting rail / unverified attachment",
+      "entity_type": "Rail",
+      "assembly_id": "upper_cabinet_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.04499997943639755,
+        1.7238667011260986,
+        0.03500000014901161
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_door_header_cabinet_end_rear",
+      "record_kind": "object",
+      "name": "End Rear",
+      "entity_type": "Panel",
+      "assembly_id": "upper_door_header_cabinet_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.10599999874830246,
+        0.012000000104308128,
+        0.1599999964237213
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_door_header_cabinet_end_front",
+      "record_kind": "object",
+      "name": "End Front",
+      "entity_type": "Panel",
+      "assembly_id": "upper_door_header_cabinet_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.10599999874830246,
+        0.012000000104308128,
+        0.1599999964237213
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_door_header_cabinet_bottom",
+      "record_kind": "object",
+      "name": "Bottom",
+      "entity_type": "Panel",
+      "assembly_id": "upper_door_header_cabinet_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.10599999874830246,
+        1.055999994277954,
+        0.012000000104308128
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_door_header_cabinet_top",
+      "record_kind": "object",
+      "name": "Top",
+      "entity_type": "Panel",
+      "assembly_id": "upper_door_header_cabinet_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.10599999874830246,
+        1.055999994277954,
+        0.012000000104308128
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_door_header_cabinet_door",
+      "record_kind": "object",
+      "name": "Door",
+      "entity_type": "Panel",
+      "assembly_id": "upper_door_header_cabinet_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.012000000104308128,
+        1.0800000429153442,
+        0.1599999964237213
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "upper_door_header_cabinet_mount_rail",
+      "record_kind": "object",
+      "name": "Wall mounting rail / unverified attachment",
+      "entity_type": "Rail",
+      "assembly_id": "upper_door_header_cabinet_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.04499997943639755,
+        1.0800000429153442,
+        0.03500000014901161
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "desk_driver_leg_n1",
+      "record_kind": "object",
+      "name": "Desk support leg",
+      "entity_type": "StructuralMember",
+      "assembly_id": "desk_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.03999999910593033,
+        0.03999999910593033,
+        0.7100000381469727
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "desk_driver_leg_1",
+      "record_kind": "object",
+      "name": "Desk support leg",
+      "entity_type": "StructuralMember",
+      "assembly_id": "desk_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.03999999910593033,
+        0.03999999910593033,
+        0.7100000381469727
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "desk_passenger_leg_n1",
+      "record_kind": "object",
+      "name": "Desk support leg",
+      "entity_type": "StructuralMember",
+      "assembly_id": "desk_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.03999999910593033,
+        0.03999999910593033,
+        0.7100000381469727
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "desk_passenger_leg_1",
+      "record_kind": "object",
+      "name": "Desk support leg",
+      "entity_type": "StructuralMember",
+      "assembly_id": "desk_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.03999999910593033,
+        0.03999999910593033,
+        0.7100000381469727
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "bed_crossrail_rear",
+      "record_kind": "object",
+      "name": "Bed frame transverse crossrail",
+      "entity_type": "Rail",
+      "assembly_id": "bed",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        1.7899999618530273,
+        0.03999999910593033,
+        0.07999999821186066
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "bed_crossrail_front",
+      "record_kind": "object",
+      "name": "Bed frame transverse crossrail",
+      "entity_type": "Rail",
+      "assembly_id": "bed",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        1.7899999618530273,
+        0.03999999910593033,
+        0.07999999821186066
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "can_rear_tap",
+      "record_kind": "object",
+      "name": "Rear CAN0 junction",
+      "entity_type": "Connector",
+      "assembly_id": "upper",
+      "subsystem": "electrical.data",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.01600000075995922,
+        0.01600000075995922,
+        0.01600000075995922
+      ],
+      "power_domain": "signal",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "can_water_tap",
+      "record_kind": "object",
+      "name": "Water CAN0 junction",
+      "entity_type": "Connector",
+      "assembly_id": "upper",
+      "subsystem": "electrical.data",
+      "part_number": "",
+      "status": "concept_not_measured",
+      "dimensions_m": [
+        0.01600000075995922,
+        0.01600000075995922,
+        0.01600000075995922
+      ],
+      "power_domain": "signal",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "obj3d_124",
+      "record_kind": "object",
+      "name": "24V / passenger rear corner",
+      "entity_type": "Connector",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.01600000075995922,
+        0.01600000075995922,
+        0.01600000075995922
+      ],
+      "power_domain": "24V",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "obj3d_125",
+      "record_kind": "object",
+      "name": "24V / driver rear corner",
+      "entity_type": "Connector",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.01600000075995922,
+        0.01600000075995922,
+        0.01600000075995922
+      ],
+      "power_domain": "24V",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "obj3d_126",
+      "record_kind": "object",
+      "name": "CAN0 / passenger rear corner",
+      "entity_type": "Connector",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.01600000075995922,
+        0.01600000075995922,
+        0.01600000075995922
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "obj3d_127",
+      "record_kind": "object",
+      "name": "CAN0 / driver rear corner",
+      "entity_type": "Connector",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.01600000075995922,
+        0.01600000075995922,
+        0.01600000075995922
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "obj3d_128",
+      "record_kind": "object",
+      "name": "CAN0 / driver upper entry",
+      "entity_type": "Connector",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.01600000075995922,
+        0.01600000075995922,
+        0.01600000075995922
+      ],
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "obj3d_129",
+      "record_kind": "object",
+      "name": "12V / passenger rear corner",
+      "entity_type": "Connector",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.01600000075995922,
+        0.01600000075995922,
+        0.01600000075995922
+      ],
+      "power_domain": "12V",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "obj3d_130",
+      "record_kind": "object",
+      "name": "12V / driver rear corner",
+      "entity_type": "Connector",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "dimensions_m": [
+        0.01600000075995922,
+        0.01600000075995922,
+        0.01600000075995922
+      ],
+      "power_domain": "12V",
+      "nominal_volts": null,
+      "design_amps": null
+    },
+    {
+      "entity_id": "van",
+      "record_kind": "assembly",
+      "name": "Van layout - likely 2023 nominal basis",
+      "entity_type": "Assembly",
+      "assembly_id": "",
+      "subsystem": "van",
+      "part_number": "",
+      "status": ""
+    },
+    {
+      "entity_id": "oem",
+      "record_kind": "assembly",
+      "name": "OEM nominal extents - box proxies",
+      "entity_type": "Assembly",
+      "assembly_id": "van",
+      "subsystem": "van",
+      "part_number": "",
+      "status": ""
+    },
+    {
+      "entity_id": "bed",
+      "record_kind": "assembly",
+      "name": "Rear lift bed",
+      "entity_type": "Assembly",
+      "assembly_id": "van",
+      "subsystem": "van",
+      "part_number": "",
+      "status": ""
+    },
+    {
+      "entity_id": "desks",
+      "record_kind": "assembly",
+      "name": "Rear paired desks",
+      "entity_type": "Assembly",
+      "assembly_id": "van",
+      "subsystem": "van",
+      "part_number": "",
+      "status": ""
+    },
+    {
+      "entity_id": "kitchen",
+      "record_kind": "assembly",
+      "name": "Passenger kitchen / water",
+      "entity_type": "Assembly",
+      "assembly_id": "van",
+      "subsystem": "van",
+      "part_number": "",
+      "status": ""
+    },
+    {
+      "entity_id": "storage",
+      "record_kind": "assembly",
+      "name": "Mid-van tall storage",
+      "entity_type": "Assembly",
+      "assembly_id": "van",
+      "subsystem": "van",
+      "part_number": "",
+      "status": ""
+    },
+    {
+      "entity_id": "electrical",
+      "record_kind": "assembly",
+      "name": "Driver battery bench / electrical",
+      "entity_type": "Assembly",
+      "assembly_id": "van",
+      "subsystem": "van",
+      "part_number": "",
+      "status": ""
+    },
+    {
+      "entity_id": "upper",
+      "record_kind": "assembly",
+      "name": "Upper cabinets and wiring intent",
+      "entity_type": "Assembly",
+      "assembly_id": "van",
+      "subsystem": "van",
+      "part_number": "",
+      "status": ""
+    },
+    {
+      "entity_id": "reserved",
+      "record_kind": "assembly",
+      "name": "Access / motion reservations",
+      "entity_type": "Assembly",
+      "assembly_id": "van",
+      "subsystem": "van",
+      "part_number": "",
+      "status": ""
+    },
+    {
+      "entity_id": "fixed_lift",
+      "record_kind": "assembly",
+      "name": "Fixed bed lift guides - mounting undecided",
+      "entity_type": "Assembly",
+      "assembly_id": "van",
+      "subsystem": "van",
+      "part_number": "",
+      "status": ""
+    },
+    {
+      "entity_id": "storage_driver_unit",
+      "record_kind": "assembly",
+      "name": "Driver Wardrobe - full height / panel assembly",
+      "entity_type": "Assembly",
+      "assembly_id": "storage",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured"
+    },
+    {
+      "entity_id": "storage_passenger_unit",
+      "record_kind": "assembly",
+      "name": "Passenger Pantry / tools - full height / panel assembly",
+      "entity_type": "Assembly",
+      "assembly_id": "storage",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured"
+    },
+    {
+      "entity_id": "drawers_driver_unit",
+      "record_kind": "assembly",
+      "name": "Driver rear drawer block / panel assembly",
+      "entity_type": "Assembly",
+      "assembly_id": "desk_driver_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured"
+    },
+    {
+      "entity_id": "drawers_passenger_unit",
+      "record_kind": "assembly",
+      "name": "Passenger rear drawer block / panel assembly",
+      "entity_type": "Assembly",
+      "assembly_id": "desk_passenger_unit",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured"
+    },
+    {
+      "entity_id": "driver_bench_unit",
+      "record_kind": "assembly",
+      "name": "Driver lounge / battery bench enclosure / panel assembly",
+      "entity_type": "Assembly",
+      "assembly_id": "electrical",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured"
+    },
+    {
+      "entity_id": "kitchen_base_unit",
+      "record_kind": "assembly",
+      "name": "Passenger kitchen enclosure / panel assembly",
+      "entity_type": "Assembly",
+      "assembly_id": "kitchen",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured"
+    },
+    {
+      "entity_id": "upper_cabinet_driver_unit",
+      "record_kind": "assembly",
+      "name": "Driver overhead cabinet - stops before bed / panel assembly",
+      "entity_type": "Assembly",
+      "assembly_id": "upper",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured"
+    },
+    {
+      "entity_id": "upper_cabinet_passenger_unit",
+      "record_kind": "assembly",
+      "name": "Passenger overhead cabinet - stops before bed / panel assembly",
+      "entity_type": "Assembly",
+      "assembly_id": "upper",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured"
+    },
+    {
+      "entity_id": "upper_door_header_cabinet_unit",
+      "record_kind": "assembly",
+      "name": "Passenger shallow upper storage above entry / panel assembly",
+      "entity_type": "Assembly",
+      "assembly_id": "upper",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured"
+    },
+    {
+      "entity_id": "desk_driver_unit",
+      "record_kind": "assembly",
+      "name": "Driver desk / connected supports",
+      "entity_type": "Assembly",
+      "assembly_id": "desks",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured"
+    },
+    {
+      "entity_id": "desk_passenger_unit",
+      "record_kind": "assembly",
+      "name": "Passenger desk / connected supports",
+      "entity_type": "Assembly",
+      "assembly_id": "desks",
+      "subsystem": "interior.structure",
+      "part_number": "",
+      "status": "concept_not_measured"
+    },
+    {
+      "entity_id": "route_1",
+      "record_kind": "route",
+      "name": "CAN0 / hub to upper entry",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.data",
+      "part_number": "",
+      "status": "",
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null,
+      "length_m": 1.9050000023841862
+    },
+    {
+      "entity_id": "route_2",
+      "record_kind": "route",
+      "name": "24 V / driver side",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "power_domain": "24V",
+      "nominal_volts": 24,
+      "design_amps": 10,
+      "length_m": 3.68
+    },
+    {
+      "entity_id": "route_3",
+      "record_kind": "route",
+      "name": "Optional 12 V / driver side",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "power_domain": "12V",
+      "nominal_volts": 12,
+      "design_amps": 5,
+      "length_m": 3.68
+    },
+    {
+      "entity_id": "route_4",
+      "record_kind": "route",
+      "name": "24 V feed from protected distribution (fuse TBD)",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "",
+      "part_number": "",
+      "status": "",
+      "power_domain": "24V",
+      "nominal_volts": 24,
+      "design_amps": 10,
+      "length_m": 2.1050000023841884
+    },
+    {
+      "entity_id": "route_5",
+      "record_kind": "route",
+      "name": "24 V feed to 12 V converter (capacity TBD)",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "",
+      "part_number": "",
+      "status": "",
+      "power_domain": "24V",
+      "nominal_volts": 24,
+      "design_amps": null,
+      "length_m": 0.37483325150080615
+    },
+    {
+      "entity_id": "route_6",
+      "record_kind": "route",
+      "name": "12 V converter to optional halo",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "",
+      "part_number": "",
+      "status": "",
+      "power_domain": "12V",
+      "nominal_volts": 12,
+      "design_amps": 5,
+      "length_m": 2.395
+    },
+    {
+      "entity_id": "route_7",
+      "record_kind": "route",
+      "name": "Water buck 24 V branch - load assumption 0.5 A",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "",
+      "part_number": "",
+      "status": "",
+      "power_domain": "24V",
+      "nominal_volts": 24,
+      "design_amps": 0.5,
+      "length_m": 1.505
+    },
+    {
+      "entity_id": "route_8",
+      "record_kind": "route",
+      "name": "Water buck 5 V output - load assumption 1 A",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "",
+      "part_number": "",
+      "status": "",
+      "power_domain": "5V",
+      "nominal_volts": 5,
+      "design_amps": 1,
+      "length_m": 0.12999999284744287
+    },
+    {
+      "entity_id": "route_9",
+      "record_kind": "route",
+      "name": "Rear buck 24 V branch - load assumption 0.5 A",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "",
+      "part_number": "",
+      "status": "",
+      "power_domain": "24V",
+      "nominal_volts": 24,
+      "design_amps": 0.5,
+      "length_m": 0.174928556845359
+    },
+    {
+      "entity_id": "route_10",
+      "record_kind": "route",
+      "name": "Rear buck 5 V output - load assumption 1 A",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "",
+      "part_number": "",
+      "status": "",
+      "power_domain": "5V",
+      "nominal_volts": 5,
+      "design_amps": 1,
+      "length_m": 0.0900000000000001
+    },
+    {
+      "entity_id": "route_11",
+      "record_kind": "route",
+      "name": "Rear CAN stub - illustrative 0.3 m limit at 1 Mbps",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "",
+      "part_number": "",
+      "status": "",
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null,
+      "length_m": 0.13038404810405307
+    },
+    {
+      "entity_id": "route_12",
+      "record_kind": "route",
+      "name": "24 V / water node to passenger front",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "power_domain": "24V",
+      "nominal_volts": 24,
+      "design_amps": 10,
+      "length_m": 1.4211666786670685
+    },
+    {
+      "entity_id": "route_13",
+      "record_kind": "route",
+      "name": "24 V / rear node to water node",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "power_domain": "24V",
+      "nominal_volts": 24,
+      "design_amps": 10,
+      "length_m": 2.0688333213329315
+    },
+    {
+      "entity_id": "route_14",
+      "record_kind": "route",
+      "name": "24 V / passenger rear to rear node",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "power_domain": "24V",
+      "nominal_volts": 24,
+      "design_amps": 10,
+      "length_m": 0.19000000000000025
+    },
+    {
+      "entity_id": "route_15",
+      "record_kind": "route",
+      "name": "24 V / rear crossover",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "power_domain": "24V",
+      "nominal_volts": 24,
+      "design_amps": 10,
+      "length_m": 1.73
+    },
+    {
+      "entity_id": "route_16",
+      "record_kind": "route",
+      "name": "CAN0 / water node drop",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.data",
+      "part_number": "",
+      "status": "",
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null,
+      "length_m": 1.2611205242775922
+    },
+    {
+      "entity_id": "route_17",
+      "record_kind": "route",
+      "name": "CAN0 / rear node to water node",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.data",
+      "part_number": "",
+      "status": "",
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null,
+      "length_m": 2.0688333213
+    },
+    {
+      "entity_id": "route_18",
+      "record_kind": "route",
+      "name": "CAN0 / passenger rear to rear node",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.data",
+      "part_number": "",
+      "status": "",
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null,
+      "length_m": 0.18999999999999995
+    },
+    {
+      "entity_id": "route_19",
+      "record_kind": "route",
+      "name": "CAN0 / rear crossover",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.data",
+      "part_number": "",
+      "status": "",
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null,
+      "length_m": 1.75
+    },
+    {
+      "entity_id": "route_20",
+      "record_kind": "route",
+      "name": "CAN0 / driver side",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.data",
+      "part_number": "",
+      "status": "",
+      "power_domain": "",
+      "nominal_volts": null,
+      "design_amps": null,
+      "length_m": 3.19
+    },
+    {
+      "entity_id": "route_21",
+      "record_kind": "route",
+      "name": "Optional 12 V / passenger rear to rear node",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "power_domain": "12V",
+      "nominal_volts": 12,
+      "design_amps": 5,
+      "length_m": 3.68
+    },
+    {
+      "entity_id": "route_22",
+      "record_kind": "route",
+      "name": "Optional 12 V / rear crossover",
+      "entity_type": "Cable",
+      "assembly_id": "",
+      "subsystem": "electrical.power",
+      "part_number": "",
+      "status": "",
+      "power_domain": "12V",
+      "nominal_volts": 12,
+      "design_amps": 5,
+      "length_m": 1.71
+    }
+  ]
+}

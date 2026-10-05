@@ -43,6 +43,25 @@ static void design_text(void) {
     }
     ui->routes.design[9][0]=0;
 }
+/* Compare field text with its displayed saved form. Parsing a rounded display
+ * value would introduce a spurious edit before a split. */
+static bool saved_draft(void) {
+    UIPanelState* ui=UIPanel_Get();
+    if(!ui->routes.observed_valid || memcmp(&ui->routes.draft,&ui->routes.observed,sizeof(ui->routes.draft)))return false;
+    for(int k=0;k<3;++k) {
+        double value=ui->routes.observed.points_meters[ui->routes.point][k];char expected[64];
+        (void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
+        snprintf(expected,sizeof(expected),"%.9g %s",value,UIPanel_GetDisplayUnitSymbol());
+        if(strcmp(expected,ui->routes.coordinates[k]))return false;
+    }
+    const LayoutPhysicalRoute* r=&ui->routes.observed;const LayoutRouteElectrical* e=&r->electrical;
+    const double values[]={r->radius_meters,r->clearance_meters,r->maximum_length_meters,e->nominal_volts,e->design_amps,e->area_mm2,e->return_meters,e->allowance_meters,e->fuse_amps};
+    for(int i=0;i<9;++i) {
+        char expected[64]={0};if(values[i]>0)snprintf(expected,sizeof(expected),"%.9g%s",values[i],i<3 || i==6 || i==7?" m":"");
+        if(strcmp(expected,ui->routes.design[i]))return false;
+    }
+    return !ui->routes.design[9][0];
+}
 static char* input_buffer(int action,size_t* capacity) {
     UIPanelState* ui=UIPanel_Get();*capacity=64;
     if (action==ROUTES_NAME) {*capacity=96;return ui->routes.draft.info.label;}
@@ -79,7 +98,14 @@ static bool apply_coordinates(void) {
         if (!Editor_ParseLength(ui->routes.coordinates[k],UIPanel_GetDisplayUnit(),&point[k]) || fabs(point[k])>1e9) {
             message("Enter finite coordinates, e.g. 1250 mm. Route unchanged."); return false;
         }
-    memcpy(ui->routes.draft.points_meters[ui->routes.point],point,sizeof(point));
+    bool unchanged=true;
+    for(int k=0;k<3;++k) {
+        double v=ui->routes.draft.points_meters[ui->routes.point][k];char expected[64];
+        (void)core_units_convert(v,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&v);
+        snprintf(expected,sizeof(expected),"%.9g %s",v,UIPanel_GetDisplayUnitSymbol());
+        if(strcmp(expected,ui->routes.coordinates[k]))unchanged=false;
+    }
+    if(!unchanged)memcpy(ui->routes.draft.points_meters[ui->routes.point],point,sizeof(point));
     return true;
 }
 void UIPanel_RoutesStopInput(void) {
@@ -236,6 +262,38 @@ static RoutePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         note(&p,"Ideal copper at 20 C; excludes contacts, temperature, ampacity and fuse coordination. Signal routes do not use this calculation.");
         row(&p,ROUTES_SAVE,"Save route details",ready);
     }
+    row(&p,ROUTES_CONNECTIONS,ui->routes.connections_open?"- Connections / sections":"+ Connections / sections",true);
+    if (ui->routes.connections_open) {
+        for (int end=0;end<2;++end) {
+            const char* id=end?draft->destination.entity_id:draft->source.entity_id;
+            char name[96];endpoint_label(end?&draft->destination:&draft->source,name,sizeof(name));
+            snprintf(text,sizeof(text),"%s: %s",end?"To":"From",name);note(&p,text);
+            for(size_t i=0;i<store->route_count;++i) {
+                const LayoutPhysicalRoute* r=&store->routes[i];
+                if(strcmp(r->id,draft->id) && (!strcmp(id,r->source.entity_id) || !strcmp(id,r->destination.entity_id)))
+                    row(&p,ROUTES_LINK_BASE+(int)i,r->info.label,true);
+            }
+        }
+        note(&p,"Shared endpoint IDs connect sections. Crossings do not. Device input/output ports and circuit loads still need explicit design.");
+        cJSON* nodes=Layout_RouteConnectionsJson(layout());
+        const cJSON* node;
+        cJSON_ArrayForEach(node,nodes) {
+            const cJSON* id=cJSON_GetObjectItemCaseSensitive(node,"entity_id");
+            const cJSON* conflict=cJSON_GetObjectItemCaseSensitive(node,"domain_conflict");
+            const cJSON* offsets=cJSON_GetObjectItemCaseSensitive(node,"port_offsets_differ");
+            if(cJSON_IsString(id) && (!strcmp(id->valuestring,draft->source.entity_id) || !strcmp(id->valuestring,draft->destination.entity_id))) {
+                if(cJSON_IsTrue(conflict))note(&p,"Review: this passive junction joins different voltage domains / signal classes.");
+                if(cJSON_IsTrue(offsets))note(&p,"Review: shared entity has different port offsets; connection is not coincident.");
+            }
+        }
+        cJSON_Delete(nodes);
+        bool clean=saved_draft();
+        row(&p,ROUTES_SPLIT_NEW,"New junction at this point",clean && intermediate());
+        const Object3D* selected=Layout_ObjectStore_FindConst(store,Global_Get()->editor.selectedObject3DId);
+        bool junction=selected && (!strcmp(selected->info.entity_type,"Connector") || !strcmp(selected->info.entity_type,"PowerBus"));
+        row(&p,ROUTES_SPLIT_SELECTED,"Split at selected junction",clean && intermediate() && junction);
+        note(&p,"Choose an interior point below. Split is one Undo; original ID stays on the first section. Save draft changes first. Section return lengths are apportioned; whole-route max length is cleared.");
+    }
     row(&p,ROUTES_CHECKS,ui->routes.checks_open?"- Checks":"+ Checks",true);
     if(ui->routes.checks_open) {
         row(&p,ROUTES_RUN_CHECKS,"Check current draft",ready);
@@ -291,6 +349,11 @@ static bool set_endpoint(int slot,const Object3D* object) {
 static bool action(int command) {
     UIPanelState* ui=UIPanel_Get();LayoutPhysicalRoute* route=&ui->routes.draft;
     int chooser=ui->routes.chooser;bool was_picking=ui->routes.picking;UIPanel_RoutesStopInput();
+    if(command>=ROUTES_LINK_BASE) {
+        size_t i=(size_t)(command-ROUTES_LINK_BASE);
+        if(i<layout()->objectStore.route_count)choose(&layout()->objectStore.routes[i]);
+        return true;
+    }
     if(command>=ROUTES_CHECK_BASE) {
         size_t i=(size_t)(command-ROUTES_CHECK_BASE);
         if(i<ui->routes.check_count && i<128 && apply_coordinates()) {
@@ -320,6 +383,17 @@ static bool action(int command) {
     else if (command==ROUTES_SOURCE || command==ROUTES_DESTINATION) ui->routes.chooser=command==ROUTES_SOURCE?2:3;
     else if (command==ROUTES_USE_SOURCE || command==ROUTES_USE_DESTINATION)
         (void)set_endpoint(command==ROUTES_USE_DESTINATION,Layout_ObjectStore_FindConst(&layout()->objectStore,Global_Get()->editor.selectedObject3DId));
+    else if(command==ROUTES_CONNECTIONS)ui->routes.connections_open=!ui->routes.connections_open;
+    else if(command==ROUTES_SPLIT_NEW || command==ROUTES_SPLIT_SELECTED) {
+        const Object3D* o=Layout_ObjectStore_FindConst(&layout()->objectStore,Global_Get()->editor.selectedObject3DId);
+        const char* junction=command==ROUTES_SPLIT_SELECTED && o?o->coreMeta.object_id:"";
+        char id[64];snprintf(id,sizeof(id),"%s",ui->routes.id);
+        if(saved_draft() &&
+            Layout_SplitRoute(layout(),id,ui->routes.point,junction,Layout_GeometryHistory,NULL)) {
+            choose(Layout_FindRoute(&layout()->objectStore,id));
+            message("Split saved as two connected sections. Undo restores the whole route; review section loads and limits.");
+        } else message(layout()->geometryMessage[0]?layout()->geometryMessage:"Save draft changes before splitting.");
+    }
     else if(command==ROUTES_CORRIDORS)ui->routes.corridors_open=!ui->routes.corridors_open;
     else if(command==ROUTES_ELECTRICAL)ui->routes.electrical_open=!ui->routes.electrical_open;
     else if(command==ROUTES_CHECKS)ui->routes.checks_open=!ui->routes.checks_open;
@@ -401,7 +475,14 @@ bool UIPanel_RoutesEvent(const SDL_Event* event) {
             SpaceViewContext view=SpaceAdapter_BuildViewContext(Global_Get());Vec3 world;
             if (SpaceAdapter_ScreenToWorld(event->button.x,event->button.y,&Global_Get()->grid,&view,true,&world)) {
                 double scale=Layout_WorldScale(layout());double point[3]={world.x*scale,world.y*scale,world.z*scale};
-                memcpy(ui->routes.draft.points_meters[ui->routes.point],point,sizeof(point));coordinate_text();
+                bool unchanged=true;
+    for(int k=0;k<3;++k) {
+        double v=ui->routes.draft.points_meters[ui->routes.point][k];char expected[64];
+        (void)core_units_convert(v,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&v);
+        snprintf(expected,sizeof(expected),"%.9g %s",v,UIPanel_GetDisplayUnitSymbol());
+        if(strcmp(expected,ui->routes.coordinates[k]))unchanged=false;
+    }
+    if(!unchanged)memcpy(ui->routes.draft.points_meters[ui->routes.point],point,sizeof(point));coordinate_text();
                 UIPanel_RoutesStopInput();message("Point staged on construction plane. Save route to commit.");
             } else message("No construction-plane intersection at this view. Choose an orthographic view.");
             return true;

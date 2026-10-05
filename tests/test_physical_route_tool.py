@@ -68,5 +68,46 @@ with tempfile.TemporaryDirectory(prefix='ld-route-smoke-') as directory:
     request.write_text(json.dumps(dict(schema=command['schema'],operation='mark_corridor',object_id=numeric)))
     region=root/'region.json';run('edit',saved,request,region)
     assert any(e['type']=='RoutingCorridor' and e['id']==eligible['id'] for e in json.loads(region.read_text())['engineering']['entities'])
+    request.write_text(json.dumps(dict(schema=command['schema'],operation='split',id='route_1',point_index=1)))
+    split_file=root/'split.json';split=run('edit',saved,request,split_file)
+    assert split['count']==2
+    assert abs(sum(r['length_m'] for r in split['routes'])-created['routes'][0]['length_m'])<1e-9
+    junction=split['routes'][0]['destination']['entity_id']
+    assert junction==split['routes'][1]['source']['entity_id']
+    node=next(n for n in split['connections'] if n['entity_id']==junction)
+    assert node['degree']==2 and node['passive_junction'] and not node['domain_conflict']
+    request.write_text(json.dumps(dict(schema=command['schema'],operation='inventory',items=[dict(entity_id='route_1',subsystem='electrical.data',design_amps=None)])))
+    inventory_file=root/'inventory.json';inv=run('edit',split_file,request,inventory_file)
+    assert next(i for i in inv['inventory']['items'] if i['entity_id']=='route_1')['subsystem']=='electrical.data'
+    for rows in [[dict(entity_id='missing',name='unknown')],[dict(entity_id='route_1',design_amps=-1)],[dict(entity_id='route_1',dimensions_m=[1,2,3])]]:
+        request.write_text(json.dumps(dict(schema=command['schema'],operation='inventory',items=rows)))
+        bad_file=root/'inventory_bad.json'
+        assert not run('edit',split_file,request,bad_file,success=False)['ok'] and not bad_file.exists()
+    # Generate the finite panel/section acceptance fixture through native edits.
+    connected=root/'connected'
+    subprocess.run([sys.executable,str(ROOT/'tools/build_van_sections.py'),'--output',str(connected),'--tool',str(TOOL)],check=True,capture_output=True,text=True)
+    document=json.loads((connected/'van_connected_sections.layout.json').read_text())
+    proof=run('inspect',connected/'van_connected_sections.layout.json')
+    assert proof['count']==22 and len(document['engineering']['assemblies'])==21
+    assert not any(n['domain_conflict'] or n['stale_sections'] for n in proof['connections'])
+    nodes={n['entity_id']:n for n in proof['connections']}
+    assert nodes['water_24_tap']['degree']==3 and nodes['rear_halo_tap']['degree']==3 and nodes['can_rear_tap']['degree']==3
+    assert nodes['rear_halo_tap']['sections']!=nodes['can_rear_tap']['sections']
+    old=json.loads((ROOT/'config/examples/van_wiring_tentative_s5b.layout.json').read_text())
+    for family in ['route_1','route_2','route_3']:
+        sections=[r for r in proof['routes'] if any(p['key']=='section_of' and p['value']==family for p in r['properties'])]
+        original=next(r for r in old['engineering']['routes'] if r['id']==family)
+        if family!='route_1':
+            old_length=sum(sum((a-b)**2 for a,b in zip(u,v))**.5 for u,v in zip(original['points_m'],original['points_m'][1:]))
+            assert abs(sum(r['length_m'] for r in sections)-old_length)<1e-6
+            assert abs(sum(r['design']['electrical']['return_m'] for r in sections)-original['design']['electrical']['return_m'])<1e-9
+    objects={o['persistentId']:o for o in document['objects3d']}
+    assert abs(objects['bed_deck']['rectPrism']['height']-.82)<1e-6
+    assert abs(objects['bed_deck']['rectPrism']['width']-1.8)<1e-6
+    assert objects['driver_bench']['rectPrism']['width']<.019
+    assert any(e['id']=='driver_bench_top' and e['parent']=='driver_bench_unit' for e in document['engineering']['entities'])
+    envelope=document['engineering']['motionEnvelopes'][0]
+    assert len(envelope['members'])==6 and envelope['samples']==16
+    assert json.loads((connected/'provenance.json').read_text())['panel_contact_audit'].startswith('connected')
     assert INPUT.read_bytes()==before
-print('route-smoke passed: native inspect/edit/reload, physical point edit, stale/refresh, removal, overwrite refusal and invalid-input isolation')
+print('route-smoke passed: connected panel van, split conservation, junction incidence, inventory atomicity, motion refresh, native inspect/edit/reload, physical point edit, stale/refresh, removal, overwrite refusal and invalid-input isolation')

@@ -4,6 +4,8 @@
 #include "Layout/layout_routes.h"
 #include "Layout/layout_saved_views.h"
 #include "Layout/layout_route_design.h"
+#include "Layout/layout_inventory.h"
+#include "Layout/layout_motion.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,6 +59,21 @@ int main(int argc, char** argv) {
             LayoutPhysicalRoute route;
             ok = Layout_RouteFromJson(cJSON_GetObjectItemCaseSensitive(command, "route"), &route) &&
                 Layout_EditRoute(&layout, &route, NULL, NULL, NULL);
+        } else if (ok && !strcmp(operation->valuestring, "refresh_motion")) {
+            const cJSON* samples=cJSON_GetObjectItemCaseSensitive(command,"samples");
+            ok=cJSON_IsString(id) && cJSON_IsNumber(samples) && samples->valuedouble>=2 &&
+                samples->valuedouble<=256 && samples->valuedouble==samples->valueint &&
+                Layout_GenerateMotionEnvelope(&layout,id->valuestring,(uint32_t)samples->valueint,NULL,NULL);
+        } else if (ok && !strcmp(operation->valuestring, "inventory")) {
+            ok=Layout_EditInventory(&layout,cJSON_GetObjectItemCaseSensitive(command,"items"),NULL,NULL);
+        } else if (ok && !strcmp(operation->valuestring, "split")) {
+            const cJSON* point = cJSON_GetObjectItemCaseSensitive(command, "point_index");
+            const cJSON* junction = cJSON_GetObjectItemCaseSensitive(command, "junction_id");
+            ok = cJSON_IsString(id) && cJSON_IsNumber(point) && point->valuedouble >= 1 &&
+                point->valuedouble < LAYOUT_MAX_ROUTE_POINTS && point->valuedouble == point->valueint &&
+                (!junction || cJSON_IsString(junction)) &&
+                Layout_SplitRoute(&layout, id->valuestring, (size_t)point->valueint,
+                    junction ? junction->valuestring : "", NULL, NULL);
         } else if (ok && !strcmp(operation->valuestring,"default_views"))
             ok=Layout_InstallDefaultViews(&layout,NULL,NULL);
         else if (ok && !strcmp(operation->valuestring,"mark_corridor")) {

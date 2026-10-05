@@ -2,6 +2,7 @@
 #include "Layout/layout_routes.h"
 #include "Layout/layout_route_design.h"
 #include "Layout/layout_saved_views.h"
+#include "Layout/layout_inventory.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_right_scroll.h"
@@ -232,8 +233,68 @@ static bool test_electrical_math_roundtrip_invalid_and_visible_controls(void) {
     UIPanel_LayoutRoutes();TEST_ASSERT(click(ROUTES_CHECKS) && click(ROUTES_RUN_CHECKS) && UIPanel_Get()->routes.check_count>0);
     ld_test_shutdown_runtime();return true;
 }
+
+static bool test_split_junction_atomic_history_conservation(void) {
+    TEST_ASSERT(setup());LayoutPhysicalRoute r=route();
+    r.electrical=(LayoutRouteElectrical){.voltage_class=1,.nominal_volts=24,.design_amps=5,.area_mm2=2.5,.return_meters=7,.allowance_meters=1,.copper=true};
+    snprintf(r.electrical.power_domain,64,"24V");r.maximum_length_meters=8;
+    TEST_ASSERT(Layout_EditRoute(live(),&r,NULL,NULL,NULL));
+    char* before=Layout_SaveToString(live());double old_drop,percent;
+    TEST_ASSERT(Layout_RouteVoltageDrop(&r,&old_drop,&percent));
+    TEST_ASSERT(!Layout_SplitRoute(live(),"route_1",1,"",deny,NULL) && same(before));
+    TEST_ASSERT(!Layout_SplitRoute(live(),"route_1",0,"",Layout_GeometryHistory,NULL) && same(before));
+    TEST_ASSERT(!Layout_SplitRoute(live(),"route_1",1,"A",Layout_GeometryHistory,NULL) && same(before));
+    TEST_ASSERT(Layout_SplitRoute(live(),"route_1",1,"",Layout_GeometryHistory,NULL));
+    TEST_ASSERT(live()->objectStore.count==3 && live()->objectStore.route_count==2 && Editor_UndoCount(&Global_Get()->editor)==1);
+    const LayoutPhysicalRoute* a=&live()->objectStore.routes[0],*b=&live()->objectStore.routes[1];
+    TEST_ASSERT(!strcmp(a->id,"route_1") && !strcmp(a->destination.entity_id,b->source.entity_id));
+    TEST_ASSERT(Layout_RouteEndpointsCurrent(live(),a) && Layout_RouteEndpointsCurrent(live(),b));
+    TEST_ASSERT(fabs(Layout_RouteLength(a)+Layout_RouteLength(b)-7)<1e-12);
+    TEST_ASSERT(fabs(a->electrical.return_meters+b->electrical.return_meters-7)<1e-12 && b->electrical.allowance_meters==0);
+    TEST_ASSERT(!a->maximum_length_meters && !b->maximum_length_meters);
+    double da,db;TEST_ASSERT(Layout_RouteVoltageDrop(a,&da,&percent) && Layout_RouteVoltageDrop(b,&db,&percent) && fabs(da+db-old_drop)<1e-12);
+    cJSON* graph=Layout_RouteConnectionsJson(live());
+    TEST_ASSERT(graph && cJSON_GetArraySize(graph)==3);
+    const cJSON* junction=cJSON_GetArrayItem(graph,2);
+    TEST_ASSERT(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(junction,"passive_junction")) && cJSON_GetObjectItemCaseSensitive(junction,"degree")->valueint==2);
+    TEST_ASSERT(!cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(junction,"domain_conflict")));cJSON_Delete(graph);
+    TEST_ASSERT(!Layout_ObjectStore_Delete(&live()->objectStore,3));
+    char* split_save=Layout_SaveToString(live());TEST_ASSERT(Layout_LoadFromString(live(),split_save));Layout_FreeString(split_save);
+    TEST_ASSERT(Editor_Undo(&Global_Get()->editor,live()) && same(before));
+    TEST_ASSERT(Editor_Redo(&Global_Get()->editor,live()) && live()->objectStore.route_count==2);
+    LayoutPhysicalRoute mismatch=live()->objectStore.routes[1];snprintf(mismatch.electrical.power_domain,64,"12V");mismatch.electrical.nominal_volts=12;
+    TEST_ASSERT(Layout_EditRoute(live(),&mismatch,NULL,NULL,NULL));graph=Layout_RouteConnectionsJson(live());
+    TEST_ASSERT(cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(cJSON_GetArrayItem(graph,2),"domain_conflict")));cJSON_Delete(graph);
+    LayoutRouteCheck checks[128];size_t count=Layout_CheckRoute(live(),&mismatch,checks,128);bool found=false;
+    for(size_t i=0;i<count && i<128;++i)if(!strcmp(checks[i].code,"junction_domain"))found=true;
+    TEST_ASSERT(found);
+    Layout_FreeString(before);ld_test_shutdown_runtime();return true;
+}
+static bool test_inventory_transaction_and_visible_split_navigation(void) {
+    TEST_ASSERT(setup());LayoutPhysicalRoute r=route();TEST_ASSERT(Layout_EditRoute(live(),&r,NULL,NULL,NULL));
+    char* before=Layout_SaveToString(live());
+    cJSON* rows=cJSON_Parse("[{\"entity_id\":\"A\",\"subsystem\":\"water\",\"design_amps\":0.5},{\"entity_id\":\"missing\",\"name\":\"invalid\"}]");
+    TEST_ASSERT(!Layout_EditInventory(live(),rows,Layout_GeometryHistory,NULL) && same(before));cJSON_Delete(rows);
+    rows=cJSON_Parse("[{\"entity_id\":\"A\",\"subsystem\":\"water\",\"design_amps\":0.5},{\"entity_id\":\"route_1\",\"design_amps\":2,\"power_domain\":\"24V\",\"nominal_volts\":24}]");
+    TEST_ASSERT(!Layout_EditInventory(live(),rows,deny,NULL) && same(before));
+    TEST_ASSERT(Layout_EditInventory(live(),rows,Layout_GeometryHistory,NULL));cJSON_Delete(rows);
+    cJSON* inventory=Layout_InventoryJson(live());TEST_ASSERT(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(inventory,"items"))==3);cJSON_Delete(inventory);
+    TEST_ASSERT(live()->objectStore.routes[0].electrical.design_amps==2);
+    TEST_ASSERT(Editor_Undo(&Global_Get()->editor,live()) && same(before));
+    const char* invalids[]={"[{\"entity_id\":\"A\",\"design_amps\":-1}]","[{\"entity_id\":\"A\",\"dimensions_m\":[2,3,4]}]","[{\"entity_id\":\"A\"},{\"entity_id\":\"A\"}]"};
+    for(size_t i=0;i<3;++i){rows=cJSON_Parse(invalids[i]);TEST_ASSERT(!Layout_EditInventory(live(),rows,NULL,NULL) && same(before));cJSON_Delete(rows);}
+    Global_SetWindowSize(1800,3400);UIPanel_OnWindowResized(1800,3400);UIPanel_SetActiveRightTab(UIPanel_Get(),UI_PANEL_RIGHT_TAB_ROUTES);
+    TEST_ASSERT(click(ROUTES_NEXT) && UIPanel_Get()->routes.point==1 && click(ROUTES_CONNECTIONS));
+    TEST_ASSERT(click(ROUTES_SPLIT_NEW) && live()->objectStore.route_count==2);
+    TEST_ASSERT(click(ROUTES_LINK_BASE+1) && !strcmp(UIPanel_Get()->routes.id,"route_2"));
+    TEST_ASSERT(Editor_Undo(&Global_Get()->editor,live()) && live()->objectStore.route_count==1);
+    TEST_ASSERT(Editor_Redo(&Global_Get()->editor,live()) && live()->objectStore.route_count==2);
+    Layout_FreeString(before);ld_test_shutdown_runtime();return true;
+}
 bool routes_run_tests(void) {
     const TestCase tests[]={
+        {"split_junction_atomic_conservation",test_split_junction_atomic_history_conservation},
+        {"inventory_atomic_visible_sections",test_inventory_transaction_and_visible_split_navigation},
         {"length_history_stale_refresh_identity",test_physical_length_history_stale_refresh_identity},
         {"invalid_edits_atomic",test_invalid_edits_and_denied_history_are_atomic},
         {"native_migration_export",test_native_migration_export_and_malformed_documents},

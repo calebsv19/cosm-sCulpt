@@ -1,4 +1,5 @@
 #include "Layout/layout_routes.h"
+#include "Layout/layout_inventory.h"
 #include "Layout/layout_route_design.h"
 #include "Layout/layout_saved_views.h"
 #include <math.h>
@@ -119,6 +120,8 @@ cJSON* Layout_RoutesReportJson(const Layout* layout) {
             cJSON_Delete(report); return NULL;
         }
     }
+    if (!cJSON_AddItemToObject(report,"connections",Layout_RouteConnectionsJson(layout))) {cJSON_Delete(report);return NULL;}
+    if (!cJSON_AddItemToObject(report,"inventory",Layout_InventoryJson(layout))) {cJSON_Delete(report);return NULL;}
     if (!Layout_SavedViewsWriteJson(layout,report)) {cJSON_Delete(report);return NULL;}
     return report;
 }

@@ -134,3 +134,131 @@ bool Layout_RefreshRouteEndpoints(Layout* layout, const char* id,
         return fail(layout, "Route endpoints cannot resolve; choose supported objects.");
     return Layout_EditRoute(layout, &route, NULL, history, context);
 }
+
+typedef struct { const char* id; size_t point; const char* junction; } RouteSplit;
+static bool section_property(LayoutPhysicalRoute* r, const char* origin) {
+    LayoutProperty* p = NULL;
+    for (size_t i = 0; i < r->info.property_count; ++i)
+        if (!strcmp(r->info.properties[i].key, "section_of")) p = &r->info.properties[i];
+    if (p) return true; /* Preserve the first section's family through repeated splits. */
+    if (r->info.property_count == LAYOUT_MAX_PROPERTIES) return false;
+    p = &r->info.properties[r->info.property_count++];
+    memset(p, 0, sizeof(*p));
+    snprintf(p->key, sizeof(p->key), "section_of");
+    snprintf(p->text, sizeof(p->text), "%s", origin);
+    return true;
+}
+static bool split(Layout* l, void* context) {
+    const RouteSplit* cmd = context;
+    LayoutObjectStore* store = &l->objectStore;
+    const LayoutPhysicalRoute* saved = Layout_FindRoute(store, cmd->id);
+    if (!saved || !cmd->point || cmd->point + 1 >= saved->point_count)
+        return fail(l, "Choose an interior point on a saved route.");
+    if (store->route_count == LAYOUT_MAX_ROUTES)
+        return fail(l, "Route capacity reached; split needs one additional section.");
+    if (!Layout_RouteEndpointsCurrent(l, saved)) return fail(l, "Refresh stale endpoints before splitting.");
+    LayoutPhysicalRoute a = *saved, b = *saved;
+    if (!section_property(&a, saved->id) || !section_property(&b, saved->id))
+        return fail(l, "Free a metadata slot for section_of before splitting.");
+    LayoutGeometricReference ref = {0};
+    if (cmd->junction && cmd->junction[0]) {
+        const LayoutEntityInfo* info = Layout_EntityInfo(store, cmd->junction);
+        if (!info || (strcmp(info->entity_type, "Connector") && strcmp(info->entity_type, "PowerBus")))
+            return fail(l, "A shared junction must be an existing Connector or PowerBus.");
+        snprintf(ref.entity_id, sizeof(ref.entity_id), "%s", cmd->junction);
+    } else {
+        double scale = Layout_WorldScale(l);
+        RectPrismPrimitiveCreateParams p = {.width=(float)(.016/scale), .height=(float)(.016/scale),
+            .depth=(float)(.016/scale), .useExplicitFrame=true,
+            .explicitFrame={.origin={(float)(a.points_meters[cmd->point][0]/scale),
+                (float)(a.points_meters[cmd->point][1]/scale), (float)(a.points_meters[cmd->point][2]/scale)},
+                .axisU={1,0,0}, .axisV={0,1,0}, .normal={0,0,1}}};
+        uint32_t object_id = 0; bool adjusted = false;
+        if (!Layout_CreateRectPrismPrimitive(l, &p, &object_id, &adjusted) || adjusted)
+            return fail(l, "Junction position conflicts with bounds or geometry precision.");
+        Object3D* o = Layout_ObjectStore_Find(store, object_id);
+        snprintf(o->info.entity_type, sizeof(o->info.entity_type), "Connector");
+        snprintf(o->info.label, sizeof(o->info.label), "Junction / %.64s", a.id);
+        LayoutProperty* domain=&o->info.properties[o->info.property_count++];
+        snprintf(domain->key,sizeof(domain->key),"power_domain");
+        snprintf(domain->text,sizeof(domain->text),"%s",a.electrical.power_domain);
+        for(size_t i=0;i<a.info.property_count;++i)if(!strcmp(a.info.properties[i].key,"bus") && a.info.properties[i].text[0])
+            o->info.properties[o->info.property_count++]=a.info.properties[i];
+        snprintf(ref.entity_id, sizeof(ref.entity_id), "%s", o->coreMeta.object_id);
+    }
+    double resolved[3];
+    if (!Layout_RouteEndpoint(l, &ref, resolved)) return fail(l, "Junction cannot resolve.");
+    for (int k = 0; k < 3; ++k)
+        if (fabs(resolved[k] - a.points_meters[cmd->point][k]) > 1e-6)
+            return fail(l, "Selected junction must match this point within 0.001 mm.");
+    a.destination = ref; a.point_count = cmd->point + 1;
+    memset(a.points_meters + a.point_count, 0, (LAYOUT_MAX_ROUTE_POINTS-a.point_count)*sizeof(a.points_meters[0]));
+    b.source = ref; b.point_count -= cmd->point;
+    memmove(b.points_meters, b.points_meters + cmd->point, b.point_count*sizeof(b.points_meters[0]));
+    memset(b.points_meters + b.point_count, 0, (LAYOUT_MAX_ROUTE_POINTS-b.point_count)*sizeof(b.points_meters[0]));
+    double length = Layout_RouteLength(saved), first = Layout_RouteLength(&a);
+    if (first <= 1e-9 || length-first <= 1e-9) return fail(l, "Split must leave two nonzero sections.");
+    a.electrical.return_meters = saved->electrical.return_meters * first / length;
+    b.electrical.return_meters = saved->electrical.return_meters - a.electrical.return_meters;
+    b.electrical.allowance_meters = 0;
+    a.maximum_length_meters = b.maximum_length_meters = 0;
+    snprintf(a.info.label, sizeof(a.info.label), "%.80s / A", saved->info.label);
+    snprintf(b.info.label, sizeof(b.info.label), "%.80s / B", saved->info.label);
+    b.id[0] = 0;
+    RouteEdit first_edit = {&a, NULL}, second_edit = {&b, NULL};
+    return edit(l, &first_edit) && edit(l, &second_edit);
+}
+bool Layout_SplitRoute(Layout* l, const char* id, size_t point, const char* junction,
+    LayoutGeometryBeforePublish history, void* context) {
+    if (!l || !id || (junction && strlen(junction) >= 64)) return false;
+    RouteSplit cmd = {id, point, junction};
+    return Layout_RunGeometryEdit(l, 0, split, &cmd, history, context);
+}
+cJSON* Layout_RouteConnectionsJson(const Layout* l) {
+    if (!Layout_ValidateRoutes(l, NULL, 0)) return NULL;
+    cJSON* nodes = cJSON_CreateArray();
+    if (!nodes) return NULL;
+    const LayoutObjectStore* store = &l->objectStore;
+    for (size_t i = 0; i < store->count; ++i) {
+        const Object3D* o = &store->items[i];
+        if (o->isDeleted) continue;
+        cJSON* node = cJSON_CreateObject();
+        cJSON* incidents = cJSON_AddArrayToObject(node, "sections");
+        size_t count = 0; bool mismatch = false, offset_mismatch = false, stale = false;
+        const LayoutPhysicalRoute* baseline = NULL; LayoutGeometricReference first = {0};
+        bool junction = !strcmp(o->info.entity_type, "Connector") || !strcmp(o->info.entity_type, "PowerBus");
+        for (size_t j = 0; j < store->route_count; ++j) {
+            const LayoutPhysicalRoute* r = &store->routes[j];
+            const LayoutGeometricReference* ref = !strcmp(r->source.entity_id, o->coreMeta.object_id) ? &r->source :
+                !strcmp(r->destination.entity_id, o->coreMeta.object_id) ? &r->destination : NULL;
+            if (!ref) continue;
+            cJSON* entry = cJSON_CreateObject();
+            cJSON_AddStringToObject(entry, "route_id", r->id);
+            cJSON_AddStringToObject(entry, "end", ref == &r->source ? "source" : "destination");
+            cJSON_AddStringToObject(entry, "domain", r->electrical.power_domain);
+            cJSON_AddStringToObject(entry, "circuit", r->electrical.circuit);
+            cJSON_AddItemToArray(incidents, entry);
+            stale |= !Layout_RouteEndpointsCurrent(l, r);
+            if (!baseline) { baseline = r; first = *ref; }
+            else {
+                const LayoutRouteElectrical* a = &baseline->electrical; const LayoutRouteElectrical* b = &r->electrical;
+                mismatch |= (a->voltage_class && b->voltage_class && a->voltage_class != b->voltage_class) ||
+                    (a->power_domain[0] && b->power_domain[0] && strcmp(a->power_domain, b->power_domain)) ||
+                    (a->circuit[0] && b->circuit[0] && strcmp(a->circuit,b->circuit)) ||
+                    (a->nominal_volts > 0 && b->nominal_volts > 0 && fabs(a->nominal_volts-b->nominal_volts)>1e-6);
+                for (int k = 0; k < 3; ++k) offset_mismatch |= fabs(first.local_offset_meters[k]-ref->local_offset_meters[k])>1e-6;
+            }
+            ++count;
+        }
+        if (!count) { cJSON_Delete(node); continue; }
+        cJSON_AddStringToObject(node, "entity_id", o->coreMeta.object_id);
+        cJSON_AddStringToObject(node, "name", o->info.label[0] ? o->info.label : o->coreMeta.object_id);
+        cJSON_AddBoolToObject(node, "passive_junction", junction);
+        cJSON_AddNumberToObject(node, "degree", (double)count);
+        cJSON_AddBoolToObject(node, "domain_conflict", junction && mismatch);
+        cJSON_AddBoolToObject(node, "port_offsets_differ", offset_mismatch);
+        cJSON_AddBoolToObject(node, "stale_sections", stale);
+        cJSON_AddItemToArray(nodes, node);
+    }
+    return nodes;
+}

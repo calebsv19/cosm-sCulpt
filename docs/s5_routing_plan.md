@@ -1,6 +1,6 @@
 # S5 Routing and Measured Van Plan
 
-Updated: 2026-10-04. S5A polylines plus initial S5B views/corridors and S5C route/electrical checks are implemented. See [current controls and limits](routing_views_and_electrical.md).
+Updated: 2026-10-05. S5A polylines plus initial S5B views/corridors and S5C route/electrical checks are implemented. See [current controls and limits](routing_views_and_electrical.md).
 See [physical routes](physical_routes.md) for the delivered UI/native/CLI contract
 and [narrow van v2](van_layout_narrow_v2.md) for the corrected furniture layout.
 
@@ -172,6 +172,10 @@ existing compiler contract. Materials/derived quantities, broader agent operatio
 simulation adapters and telemetry bindings follow as consumers of the same spatial
 model. They are not implemented merely because this document describes them.
 
-Next coding boundary: explicit intermediate junctions and split circuit sections, then inventory-driven loading, penetrations and refined motion/OEM clearance checks. S5B/S5C opening controls are implemented; automatic routing and solved electrical topology remain future work.
+Explicit intermediate junctions, split sections, native inventory patching and a
+connected panel-furniture example are now implemented; see
+[the section contract](routing_sections_and_furniture.md). Next coding boundary:
+source/port-aware inventory-driven loading, named penetrations and refined
+motion/OEM clearance checks, followed by a reviewed spreadsheet adapter. S5B/S5C opening controls are implemented; automatic routing and solved electrical topology remain future work.
 The measured-shell/reference pass can replace demonstration dimensions as soon as
 the blueprint references and verified dimensions are supplied.

@@ -118,6 +118,28 @@ static bool covered(const Layout* l,const LayoutPhysicalRoute* r,const double a[
 size_t Layout_CheckRoute(const Layout* l,const LayoutPhysicalRoute* r,LayoutRouteCheck* out,size_t capacity) {
     if (!l || !r || r->point_count<2 || r->point_count>LAYOUT_MAX_ROUTE_POINTS) return 0;
     Checks c={out,capacity,0,r};
+    /* Validate each authored passive junction against the current draft, rather
+     * than assuming that coincident-looking polylines are electrically joined. */
+    for(int end=0;end<2;++end) {
+        const LayoutGeometricReference* ref=end?&r->destination:&r->source;
+        const LayoutEntityInfo* info=Layout_EntityInfo(&l->objectStore,ref->entity_id);
+        if(!info || (strcmp(info->entity_type,"Connector") && strcmp(info->entity_type,"PowerBus")))continue;
+        bool conflict=false,offsets=false;
+        for(size_t i=0;i<l->objectStore.route_count;++i) {
+            const LayoutPhysicalRoute* other=&l->objectStore.routes[i];if(!strcmp(other->id,r->id))continue;
+            const LayoutGeometricReference* peer=!strcmp(other->source.entity_id,ref->entity_id)?&other->source:
+                !strcmp(other->destination.entity_id,ref->entity_id)?&other->destination:NULL;
+            if(!peer)continue;
+            const LayoutRouteElectrical* a=&r->electrical;const LayoutRouteElectrical* b=&other->electrical;
+            conflict |= (a->voltage_class && b->voltage_class && a->voltage_class!=b->voltage_class) ||
+                (a->power_domain[0] && b->power_domain[0] && strcmp(a->power_domain,b->power_domain)) ||
+                (a->circuit[0] && b->circuit[0] && strcmp(a->circuit,b->circuit)) ||
+                (a->nominal_volts>0 && b->nominal_volts>0 && fabs(a->nominal_volts-b->nominal_volts)>1e-6);
+            for(int k=0;k<3;++k)offsets |= fabs(ref->local_offset_meters[k]-peer->local_offset_meters[k])>1e-6;
+        }
+        if(conflict)emit(&c,0,ref->entity_id,"junction_domain",LAYOUT_SPATIAL_ERROR,false,"Passive junction joins incompatible authored circuits / voltage domains / signal classes.");
+        if(offsets)emit(&c,0,ref->entity_id,"junction_ports",LAYOUT_SPATIAL_WARNING,false,"Shared endpoint ID has different local ports; coincidence / internal connection is not established.");
+    }
     if (!Layout_RouteEndpointsCurrent(l,r)) emit(&c,0,"","stale_endpoints",LAYOUT_SPATIAL_WARNING,false,"Refresh captured endpoint positions; checks use the saved polyline.");
     if (r->maximum_length_meters>0 && Layout_RouteLength(r)>r->maximum_length_meters)
         emit(&c,0,"","maximum_length",LAYOUT_SPATIAL_ERROR,false,"Route exceeds its authored maximum centerline length.");

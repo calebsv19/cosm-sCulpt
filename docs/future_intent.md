@@ -43,12 +43,13 @@ selection retention across history and saved-state comparison now pass, as do lo
 framing and the native chooser. [S5A route identity/points/endpoints/length](physical_routes.md)
 now includes visible editing, undo and native/agent persistence. Saved views,
 named corridors, route checks and electrical details now extend that foundation.
-Next is explicit intermediate junction connectivity, trunk/branch load accounting,
-cabinet penetrations and a stable-ID inventory import. [The S5 plan](s5_routing_plan.md)
+Explicit junctions/sections, native inventory patches and connected panel furniture
+are now implemented. Next is source/port-aware trunk/branch load accounting,
+cabinet penetrations and a reviewed spreadsheet adapter to the inventory contract. [The S5 plan](s5_routing_plan.md)
 includes the blueprint calibration/measured-shell pass.
 Real vehicle measurements remain pending.
 
-Last updated: 2026-10-04
+Last updated: 2026-10-05
 
 ## Spatial Engineering Priority
 

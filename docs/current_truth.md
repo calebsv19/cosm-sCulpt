@@ -1,5 +1,28 @@
 # Sculpt Current Truth
 
+## S5 connected sections, inventory and panel furniture (2026-10-05)
+
+Ordinary Scene outlines now use one stroke without decorative box-face diagonals.
+Routes adds collapsed Connections / sections with shared-endpoint navigation and
+atomic split-at-point junction creation/reuse. Native readback/export reports
+endpoint incidence, stale sections, port offsets and passive domain conflicts;
+route checks include conflicting junction domains. Per-section electrical inputs
+remain explicit assumptions, with no automatic network-current solver.
+
+Native inventory readback/atomic patching uses existing stable IDs and metadata.
+Read-only dimensions are observed from geometry; invalid/duplicate IDs, unsupported
+fields and capacity failures reject the entire update. This provides a future
+spreadsheet boundary, not a completed Excel importer.
+
+The separate connected van fixture uses hollow panel cabinets/bench/drawers,
+contacting desk supports and a joined bed frame, with 130 objects, 21 assemblies,
+87 links and 22 routes. The narrow bed dimensions remain 1.80 × 0.82 m and its
+six-member motion envelope is regenerated. Power and CAN use distinct junctions;
+existing route IDs survive on their source sections. Prior working layouts remain
+preserved. Intersections/protection/unknown loading findings remain to be resolved.
+See [controls, contract and physical limits](routing_sections_and_furniture.md).
+
+
 ## S5B views, corridors and initial electrical details (2026-10-04)
 
 [Routing views and electrical details](routing_views_and_electrical.md) now ship

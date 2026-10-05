@@ -147,11 +147,9 @@ core_scene/core_object and core_scene_compile retain their existing boundaries;
 these document-specific engineering contracts remain app-owned and require no
 shared ABI/version change.
 
-Next: turn the illustrative junctions into explicit intermediate connectivity;
-separate trunk sections and branch circuits for aggregate load/drop reasoning;
-refine cabinet solids into walls and explicit penetrations; compare routes against
-measured OEM boundaries; improve motion overlap precision with interval coverage;
-and add a guarded inventory import/merge keyed by stable entity IDs. An inventory
-should distinguish planned from selected parts and record quantity, input/output
-voltage, continuous/peak load, measured/nominal dimensions, protection requirements,
-location, circuit and source/manual references. Unknowns remain unknown.
+The next [section and furniture slice](routing_sections_and_furniture.md) now adds
+explicit junction incidence, atomic route splitting, native stable-ID inventory
+patches and a separate hollow-panel van fixture. The opening 11-route fixture
+above remains preserved. Aggregate network loads/drop, actual penetrations,
+measured OEM boundaries, precise motion intervals and an Excel/CSV adapter remain
+future work. Planned/selected parts and verified measurements must stay distinct.

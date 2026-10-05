@@ -485,7 +485,7 @@ typedef struct {
         int input, chooser;
         size_t point;
         char coordinates[3][64], message[160], design[10][64];
-        bool corridors_open, electrical_open, checks_open;
+        bool corridors_open, electrical_open, checks_open, connections_open;
         LayoutRouteCheck checks[128];size_t check_count;
         size_t inspected_segment;
     } routes;

@@ -274,3 +274,5 @@ now expose route checks and explicit voltage-drop assumptions. The
 [corrected narrow ProMaster layout](docs/van_layout_narrow_v2.md) and
 [measurement checklist](docs/van_measurement_checklist.md) define the current
 provisional van draft.
+
+The spatial engineering workflow now includes [connected route sections, native subsystem inventory and panel furniture](docs/routing_sections_and_furniture.md).

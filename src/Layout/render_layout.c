@@ -331,10 +331,10 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
             }
 
             if (!objectWorkspace) {
-                int thickness = 2;
+                int thickness = 1;
                 if (isSelected) {
                     SDL_SetRenderDrawColor(renderer, 255, 220, 0, 255);
-                    thickness = 3;
+                    thickness = 2;
                 } else if (isHovered) {
                     SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
                     thickness = 2;
@@ -344,7 +344,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                                            ApplyDepthToChannel(200, depthFactor),
                                            ApplyDepthToChannel(130, depthFactor),
                                            255);
-                    thickness = 2;
+                    thickness = 1;
                 }
 
                 for (int edge = 0; edge < 4; ++edge) {
@@ -355,25 +355,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                                           thickness);
                 }
 
-                SDL_SetRenderDrawColor(renderer,
-                                       ApplyDepthToChannel(90, depthFactor),
-                                       ApplyDepthToChannel(170, depthFactor),
-                                       ApplyDepthToChannel(110, depthFactor),
-                                       isSelected ? 255 : 200);
-                DrawLineWithThickness(renderer,
-                                      (int)corners2[0].x, (int)corners2[0].y,
-                                      (int)corners2[2].x, (int)corners2[2].y,
-                                      1);
-                DrawLineWithThickness(renderer,
-                                      (int)corners2[1].x, (int)corners2[1].y,
-                                      (int)corners2[3].x, (int)corners2[3].y,
-                                      1);
-                for (int c = 0; c < 4; ++c) {
-                    DrawFilledCircle(renderer,
-                                     (int)corners2[c].x,
-                                     (int)corners2[c].y,
-                                     isSelected ? 3 : 2);
-                }
+
             }
 
             if (isSelected && !objectTopologyEditMode) {
@@ -423,7 +405,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                 }
             }
 
-            DrawObjectOriginMarker(renderer, originScreen, isSelected, isHovered);
+            if (isSelected || isHovered) DrawObjectOriginMarker(renderer, originScreen, isSelected, isHovered);
         } else if (object->kind == OBJECT3D_KIND_RECT_PRISM ||
                    object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
             Vec3 corners3[8];
@@ -448,7 +430,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                 {0, 4}, {1, 5}, {2, 6}, {3, 7}
             };
             if (!objectWorkspace) {
-                int thickness = 2;
+                int thickness = 1;
                 const bool meshBoundsMode =
                     object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
                     state->previewMode == LINE_DRAWING_PREVIEW_MODE_BOUNDS;
@@ -464,7 +446,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                                                             depthFactor);
                 if (isSelected) {
                     SDL_SetRenderDrawColor(renderer, 255, 210, 80, 255);
-                    thickness = meshPreviewDrawn ? 1 : 3;
+                    thickness = meshPreviewDrawn ? 1 : 2;
                 } else if (isHovered) {
                     SDL_SetRenderDrawColor(renderer, 90, 220, 255, 255);
                     thickness = meshPreviewDrawn ? 1 : 2;
@@ -487,7 +469,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                                                ApplyDepthToChannel(215, depthFactor),
                                                255);
                     }
-                    thickness = 2;
+                    thickness = 1;
                 }
 
                 if (object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE ||
@@ -503,23 +485,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                     }
                 }
 
-                if (!meshPreviewDrawn &&
-                    (object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE ||
-                     meshBoundsMode || isSelected || isHovered)) {
-                    SDL_SetRenderDrawColor(renderer,
-                                           ApplyDepthToChannel(95, depthFactor),
-                                           ApplyDepthToChannel(140, depthFactor),
-                                           ApplyDepthToChannel(190, depthFactor),
-                                           isSelected ? 255 : 210);
-                    DrawLineWithThickness(renderer, (int)corners2[0].x, (int)corners2[0].y,
-                                          (int)corners2[2].x, (int)corners2[2].y, 1);
-                    DrawLineWithThickness(renderer, (int)corners2[1].x, (int)corners2[1].y,
-                                          (int)corners2[3].x, (int)corners2[3].y, 1);
-                    DrawLineWithThickness(renderer, (int)corners2[4].x, (int)corners2[4].y,
-                                          (int)corners2[6].x, (int)corners2[6].y, 1);
-                    DrawLineWithThickness(renderer, (int)corners2[5].x, (int)corners2[5].y,
-                                          (int)corners2[7].x, (int)corners2[7].y, 1);
-                }
+
             }
 
             if (isSelected &&
@@ -621,7 +587,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                 }
             }
 
-            DrawObjectOriginMarker(renderer, originScreen, isSelected, isHovered);
+            if (isSelected || isHovered) DrawObjectOriginMarker(renderer, originScreen, isSelected, isHovered);
         }
     }
 }
@@ -748,7 +714,7 @@ static void Layout_RenderWalls(const Layout* layout, SDL_Renderer* renderer){
         int thickness = 1;
         if ((int)i == selectedIndex) {
             SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);  // Yellow
-            thickness = 3;
+            thickness = 2;
         } else if ((int)i == hoveredIndex) {
             SDL_SetRenderDrawColor(renderer, 180, 220, 255, 255);
             thickness = 2;

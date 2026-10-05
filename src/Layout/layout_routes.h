@@ -22,3 +22,15 @@ bool Layout_RouteFromJson(const cJSON* json, LayoutPhysicalRoute* route);
 /* Structured agent readback and export: meter polylines, length and stale state.
  * This is app-owned engineering metadata, not renderer tube geometry. */
 cJSON* Layout_RoutesReportJson(const Layout* layout);
+
+/* Split a saved route at an interior point. Empty junction creates a Connector;
+ * an existing Connector/PowerBus must resolve at that point (1 um tolerance).
+ * Original ID stays on the source section. One transaction/Undo includes both
+ * sections and the new junction. Return length is divided by centerline length;
+ * allowance stays on the source section; whole-route length limits are cleared.
+ * Loads are retained assumptions, never recomputed network currents. */
+bool Layout_SplitRoute(Layout* layout, const char* id, size_t point, const char* junction,
+    LayoutGeometryBeforePublish history, void* context);
+/* Read-only incidence graph. Shared endpoint IDs establish candidate connections;
+ * crossings do not. Converter/device ports are not inferred as passive junctions. */
+cJSON* Layout_RouteConnectionsJson(const Layout* layout);
