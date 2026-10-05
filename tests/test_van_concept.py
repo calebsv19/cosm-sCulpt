@@ -50,4 +50,34 @@ with tempfile.TemporaryDirectory(prefix='ld-concept-smoke-') as tmp:
     invalid.write_text(json.dumps(request))
     build(root / 'failed', invalid, success=False)
     assert not (root / 'failed').exists(), 'Invalid candidate published'
+    nominal_request = ROOT / 'config/concepts/van_layout_promaster_2023_nominal_v1.json'
+    nominal_id = 'van_layout_promaster_2023_nominal_v1'
+    n1, n2 = root / 'nominal_first', root / 'nominal_second'
+    build(n1, nominal_request); build(n2, nominal_request)
+    for name in (nominal_id + '.layout.json', 'scene_authoring.json', 'scene_runtime.json', 'validation.json'):
+        assert (n1 / name).read_bytes() == (n2 / name).read_bytes(), name
+    nominal = json.loads((n1 / (nominal_id + '.layout.json')).read_text())
+    objs = {o['persistentId']: o for o in nominal['objects3d']}
+    floor = objs['oem_floor']['rectPrism']
+    assert abs(floor['width'] - 1.920) < 1e-6 and abs(floor['height'] - 4.097) < 1e-6
+    driver = objs['wheel_well_driver']['rectPrism']
+    passenger = objs['wheel_well_passenger']['rectPrism']
+    gap = passenger['frame']['origin']['x'] - passenger['width']/2 - (driver['frame']['origin']['x'] + driver['width']/2)
+    assert abs(gap - 1.422) < 1e-6
+    opening = objs['oem_side_opening_size']['rectPrism']
+    assert abs(opening['height'] - 1.250) < 1e-6 and abs(opening['depth'] - 1.755) < 1e-6
+    for id in ('bed_deck', 'bed_mattress', 'battery', 'kitchen_worktop'):
+        assert objs[id] == objects[id], 'Concept furniture was silently resized or relocated'
+    entities = {e['id']: e for e in nominal['engineering']['entities']}
+    status = {p['key']:p['value'] for p in entities['oem_floor']['properties']}
+    assert status['dimensions_status'] == 'mixed_nominal_and_proxy'
+    assert json.loads((n1 / 'scene_authoring.json').read_text())['scene_id'] == nominal_id
+    report = json.loads((n1 / 'validation.json').read_text())
+    assert report['dimensionsStatus'] == 'published_nominal_with_provisional_geometry'
+    assert report['nativeReloadAndTravelPassed'] and len(report['results']) == 12
+    assert (n1 / (nominal_id + '.layout.json')).read_bytes() == (ROOT / 'config/examples' / (nominal_id + '.layout.json')).read_bytes()
+    request['scene_id'] = '../outside'
+    invalid.write_text(json.dumps(request))
+    build(root / 'invalid_identity', invalid, success=False)
+    assert not (root / 'invalid_identity').exists()
 print('van-concept-smoke passed: deterministic native motion/export, corrected sides, checks, overwrite refusal and invalid-input isolation')

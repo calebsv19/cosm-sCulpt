@@ -25,8 +25,9 @@ def plan(p,fill,stroke='#526c7e',dash=False,opacity=1):
     x,y,z=p['center_m'];w,l,h=p['size_m']
     rect(95+(x-w/2+W/2)*180,145+(L/2-y-l/2)*180,w*180,l*180,fill,stroke,dash,opacity)
 
-text(42,42,'Van layout concept v1 — corrected spatial interpretation',27)
-text(42,72,'Provisional geometry • meters internally • no vehicle measurements adopted',16)
+nominal = 'dimension_basis' in request
+text(42,42,'ProMaster 3500 — nominal reference layout' if nominal else 'Van layout concept v1 — corrected spatial interpretation',27)
+text(42,72,'Likely 2023 High Roof / 159 extended body • factory maxima, box proxies and provisional furniture' if nominal else 'Provisional geometry • meters internally • no vehicle measurements adopted',16)
 text(95,117,'TOP — front / cab ↑',19)
 rect(95,145,W*180,L*180,'#fff')
 for id in ['driver_bench','storage_driver','storage_passenger','kitchen_base','desk_driver','desk_passenger','drawers_driver','drawers_passenger']:
@@ -36,6 +37,9 @@ plan(parts['walkway'],'#e1efe8',dash=True,opacity=.6)
 for id in ['upper_halo_driver','upper_halo_passenger','upper_halo_rear']:
     plan(parts[id],'none','#8454b5',dash=True)
 plan(parts['bed_deck'],'#c9dcf5','#30609b',dash=True,opacity=.5)
+if nominal:
+    for id in ['wheel_well_driver','wheel_well_passenger']:
+        plan(parts[id],'none','#ad5c37',dash=True)
 plan(parts['sliding_door_access'],'#fcf1c8','#a48a35',dash=True)
 text(65,530,'DRIVER',15,transform='rotate(-90 65 530)')
 text(461,470,'PASSENGER',15,transform='rotate(90 461 470)')
@@ -44,7 +48,10 @@ for id,num in [('driver_bench','1'),('kitchen_base','2'),('storage_driver','3'),
     svg.append(f'<circle cx="{x}" cy="{y}" r="13" fill="white" stroke="#173045"/>')
     text(x,y+5,num,15,**{'text-anchor':'middle'})
 text(95,914,'Rear doors ↓',17)
-text(95,941,'Shell: 1850 × 4064 × 1930 mm (provisional)',14)
+text(95,941,f'Extents: {W*1000:.0f} × {L*1000:.0f} × {H*1000:.0f} mm',14)
+if nominal:
+    text(95,969,'Wheel-well gap: 1422 mm nominal',14)
+    text(95,994,'Width at bed/roof height: unverified',14)
 
 def elevation(side,top):
     text(565,top-26,side.upper()+' ELEVATION — front left / rear right',18)
@@ -56,18 +63,21 @@ def elevation(side,top):
     for id in ['bed_deck','bed_mattress']:
         p=parts[id];x,y,z=p['center_m'];w,l,h=p['size_m']
         rect(565+(L/2-y-l/2)*145,top+(H-z-h/2)*145,l*145,h*145,'#b7cee8','#30609b')
-        rect(565+(L/2-y-l/2)*145,top+(H-z-.70-h/2)*145,l*145,h*145,'none','#30609b',True)
+        travel = request['bed_travel_m']
+        offset = travel['max'] - travel['home']
+        rect(565+(L/2-y-l/2)*145,top+(H-z-offset-h/2)*145,l*145,h*145,'none','#30609b',True)
     rect(565,top+(H-1.92)*145,L*145,.08*145,'none','#8454b5',True)
     text(900,top+75,'Raised bed (dashed)',14)
     text(900,top+164,'Lowered bed',14)
-    text(580,top+H*145+22,'Deck center: 950–1650 mm • same horizontal platform in both views',14)
+    travel = request['bed_travel_m']
+    text(580,top+H*145+22,f"Deck center: {travel['min']*1000:.0f}–{travel['max']*1000:.0f} mm • same horizontal platform in both views",14)
 
 elevation('driver',170)
 elevation('passenger',580)
 text(565,930,'1 Battery bench / lounge   2 Kitchen   3 Wardrobe   4 Pantry',15)
 text(565,958,'5 Single rear lift bed over paired desks   6 Sliding-door entry',15)
 text(565,986,'Purple dashed: upper wiring intent; cables/routing are still S5 work.',14)
-text(42,1020,'AI render zone lengths, voltage labels and structural details are not verified specifications.',14)
+text(42,1020,'Nominal maxima do not establish local fit; wheel-well boxes combine sources; furniture remains unmeasured.' if nominal else 'AI render zone lengths, voltage labels and structural details are not verified specifications.',14)
 svg.append('</svg>')
 output.parent.mkdir(parents=True,exist_ok=True)
 output.write_text('\n'.join(svg)+'\n')

@@ -33,9 +33,27 @@ static bool write_json(const char *file, cJSON *value) {
 
 int main(int argc, char **argv) {
     if (argc < 3) {
-        fprintf(stderr, "usage: van_concept_tool draft.layout.json new-staging-directory [bed-check-target ...]\n");
+        fprintf(stderr, "usage: van_concept_tool draft.layout.json new-staging-directory [--profile scene_id dimensions_status] [bed-check-target ...]\n");
         return 1;
     }
+    const char *scene_id = "van_layout_concept_v1";
+    const char *dimensions_status = "concept_not_measured";
+    int target_start = 3;
+    if (argc > 3 && strcmp(argv[3], "--profile") == 0) {
+        if (argc < 6) return 1;
+        scene_id = argv[4];
+        dimensions_status = argv[5];
+        target_start = 6;
+    }
+    /* Output names are identities, never caller-provided filesystem paths. */
+    size_t id_length = strlen(scene_id);
+    if (id_length == 0 || id_length > 80 || scene_id[0] < 'a' || scene_id[0] > 'z') return 1;
+    for (size_t i = 0; i < id_length; ++i) {
+        char c = scene_id[i];
+        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) return 1;
+    }
+    if (strcmp(dimensions_status, "concept_not_measured") != 0 &&
+        strcmp(dimensions_status, "published_nominal_with_provisional_geometry") != 0) return 1;
     Layout layout = {0}, loaded = {0};
     Layout_Init(&layout, .05f);
     Layout_Init(&loaded, .05f);
@@ -45,7 +63,9 @@ int main(int argc, char **argv) {
     char diagnostics[512] = {0};
     bool ok = false;
     const char *stage = "paths";
-    if (!path(layout_path, argv[2], "van_layout_concept_v1.layout.json") ||
+    char layout_name[128];
+    snprintf(layout_name, sizeof(layout_name), "%s.layout.json", scene_id);
+    if (!path(layout_path, argv[2], layout_name) ||
         !path(authoring_path, argv[2], "scene_authoring.json") ||
         !path(runtime_path, argv[2], "scene_runtime.json") ||
         !path(report_path, argv[2], "validation.json")) goto done;
@@ -65,7 +85,7 @@ int main(int argc, char **argv) {
     if (!envelope || !Layout_MotionEnvelopeCurrent(&layout, envelope)) goto done;
     const Object3D *volume = Layout_ObjectStore_FindConst(&layout.objectStore, envelope->object_id);
     stage = "spatial rule";
-    for (int i = 3; i < argc; ++i) {
+    for (int i = target_start; i < argc; ++i) {
         LayoutSpatialRule rule = {.kind = LAYOUT_SPATIAL_NO_INTERSECTION};
         snprintf(rule.source, sizeof(rule.source), "%s", volume->coreMeta.object_id);
         snprintf(rule.target, sizeof(rule.target), "%s", argv[i]);
@@ -99,13 +119,13 @@ int main(int argc, char **argv) {
     }
     stage = "report";
     report = Layout_SpatialReportJson(&layout);
-    if (!report || !cJSON_AddStringToObject(report, "dimensionsStatus", "concept_not_measured") ||
+    if (!report || !cJSON_AddStringToObject(report, "dimensionsStatus", dimensions_status) ||
         !cJSON_AddBoolToObject(report, "nativeReloadAndTravelPassed", true)) goto done;
     cJSON_AddItemToObject(report, "motionPoseChecks", pose_checks);
     pose_checks = NULL;
     stage = "export";
     if (!Layout_SaveToFile(&layout, layout_path) ||
-        !LineDrawingCanonicalScene_ExportLayoutToFile(&layout, "van_layout_concept_v1", authoring_path) ||
+        !LineDrawingCanonicalScene_ExportLayoutToFile(&layout, scene_id, authoring_path) ||
         core_scene_compile_authoring_file_to_runtime_file(authoring_path, runtime_path,
             diagnostics, sizeof(diagnostics)).code != CORE_OK || !write_json(report_path, report)) goto done;
     ok = true;

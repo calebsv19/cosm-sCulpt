@@ -9,6 +9,7 @@ import argparse
 import copy
 import json
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -75,13 +76,20 @@ def main():
     if args.out.exists():
         parser.error('Output exists; choose a new directory to preserve manual edits')
     request = json.loads(args.request.read_text())
+    scene_id = request['scene_id']
+    if not re.fullmatch(r'[a-z][a-z0-9_]{0,79}', scene_id):
+        parser.error('Scene ID must be a lowercase identifier, not a path')
+    status = request['status']
+    if status not in ('concept_not_measured', 'published_nominal_with_provisional_geometry'):
+        parser.error('Unsupported dimension provenance status')
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.van-concept-', dir=args.out.parent) as tmp:
         staging = Path(tmp)
         draft = staging / 'concept_draft.layout.json'
         draft.write_text(json.dumps(compose(request), indent=2, allow_nan=False) + '\n')
         targets = request['bed_check_targets']
-        subprocess.run([str(args.tool.resolve()), str(draft), str(staging), *targets], check=True)
+        subprocess.run([str(args.tool.resolve()), str(draft), str(staging),
+            '--profile', scene_id, status, *targets], check=True)
         (staging / 'concept_request.json').write_text(json.dumps(request, indent=2) + '\n')
         draft.unlink()
         # Directory publish happens only after native validation and export succeed.

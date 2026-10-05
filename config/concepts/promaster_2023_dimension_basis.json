@@ -1,0 +1,295 @@
+{
+  "schema": "line_drawing_vehicle_dimension_basis_v1",
+  "vehicle": {
+    "make": "Ram",
+    "model": "ProMaster",
+    "series": "3500",
+    "body": "159_in_extended_cargo",
+    "roof": "High Roof H2",
+    "model_year": 2023,
+    "model_year_status": "user_likely_not_confirmed"
+  },
+  "retrieved": "2026-10-04",
+  "canonical_unit": "m",
+  "sources": [
+    {
+      "id": "ram_2023",
+      "url": "https://xr793.com/wp-content/uploads/2023/04/2023-Ram-Commercial-Specs.pdf",
+      "author": "Ram",
+      "document": "2023 Ram Commercial specifications",
+      "page": 51,
+      "hosting": "archive mirror of manufacturer publication",
+      "verification": "visually checked 3500 cargo 159 WB extended High Roof column",
+      "sha256": "57c9d30ec46bad9b6f86227637b3085d506c752a4d5fcaafd10f9b116066b499"
+    },
+    {
+      "id": "ram_bodybuilder_2020",
+      "url": "https://www.ramtrucks.com/BodyBuilder/service/Image?imageId=MtQrP%2FFqLY5r%2Fest8MtGjGgHzAHGUTU0WB3rWuqSY7YmQ2vEhuBWBG%2BtayvEWWPb%0A",
+      "author": "FCA US LLC",
+      "document": "ProMaster Views & Charts",
+      "published": "2020-06-12",
+      "page": 2,
+      "column": "L5H2 VF3L17 / VF3L27",
+      "verification": "web-extracted metric table; matching 2023 inch entries corroborated visually"
+    },
+    {
+      "id": "upfit_extended",
+      "url": "https://upfitsupply.com/wp-content/uploads/Measurements-RAM-ProMaster-159-Ext-2024.pdf",
+      "author": "Upfit Supply",
+      "document": "159 Extended vehicle layout guide",
+      "published": "2024",
+      "page": 1,
+      "verification": "visually checked callouts; measurement method and tolerances unpublished",
+      "sha256": "c45611a8c42e390acdcefb14e0e6d2f9f013155c20843782b532a6114fff1c2a",
+      "applicability_page": "https://upfitsupply.com/blogs/measurement-guides/ram-promaster-159-ext-wb-interior-cargo-measurements"
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "wheelbase",
+      "datum": "L101",
+      "published_mm": 4039,
+      "published_in": 159.0,
+      "value_m": 4.039,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": null,
+      "note": "Distance between axle centers; extended body retains the 159-inch wheelbase."
+    },
+    {
+      "id": "exterior_length",
+      "datum": "L103",
+      "published_mm": 6364,
+      "published_in": 250.6,
+      "value_m": 6.364,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": "ram_2023",
+      "note": "Overall body length, not interior build length."
+    },
+    {
+      "id": "exterior_height",
+      "datum": "H101",
+      "published_mm": 2603,
+      "published_in": 102.5,
+      "value_m": 2.603,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": "ram_2023",
+      "note": "Maximum overall exterior height; not interior clearance."
+    },
+    {
+      "id": "exterior_width_no_mirrors",
+      "datum": "W103",
+      "published_mm": 2066,
+      "published_in": 81.3,
+      "value_m": 2.066,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": "ram_2023",
+      "note": "Maximum exterior width without mirrors."
+    },
+    {
+      "id": "cargo_floor_length",
+      "datum": "L202-1",
+      "published_mm": 4097,
+      "published_in": 161.3,
+      "value_m": 4.097,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": "ram_2023",
+      "note": "At floor behind front row; not a constant usable length at every height."
+    },
+    {
+      "id": "cargo_body_length",
+      "datum": "L507",
+      "published_mm": 4070,
+      "published_in": 160.2,
+      "value_m": 4.07,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": null,
+      "note": "Separately named cargo-body overall length; datum differs from L202-1."
+    },
+    {
+      "id": "cargo_beltline_length",
+      "datum": "L204-1",
+      "published_mm": 3889,
+      "published_in": 153.1,
+      "value_m": 3.889,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": null,
+      "note": "Behind front row at beltline; not a verified full-height conservative box."
+    },
+    {
+      "id": "cargo_floor_width",
+      "datum": "W500",
+      "published_mm": 1920,
+      "published_in": 75.6,
+      "value_m": 1.92,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": "ram_2023",
+      "note": "Maximum at cargo floor; not wall/rib width at bed or roof height."
+    },
+    {
+      "id": "wheel_well_gap",
+      "datum": "W201",
+      "published_mm": 1422,
+      "published_in": 56.0,
+      "value_m": 1.422,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": "ram_2023",
+      "note": "Between wheel houses at floor."
+    },
+    {
+      "id": "cargo_max_height",
+      "datum": "H505",
+      "published_mm": 1959,
+      "published_in": 77.1,
+      "value_m": 1.959,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": "ram_2023",
+      "note": "Maximum untrimmed cargo height; roof ribs and build layers reduce local clearance."
+    },
+    {
+      "id": "side_opening_width",
+      "datum": "L508",
+      "published_mm": 1250,
+      "published_in": 49.2,
+      "value_m": 1.25,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": "ram_2023",
+      "note": "Factory side opening width; longitudinal location not supplied."
+    },
+    {
+      "id": "side_opening_height",
+      "datum": "H508",
+      "published_mm": 1755,
+      "published_in": 69.1,
+      "value_m": 1.755,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": "ram_2023",
+      "note": "Opening height, not a verified Z coordinate above cargo floor."
+    },
+    {
+      "id": "rear_opening_width",
+      "datum": "W207",
+      "published_mm": 1610,
+      "published_in": 63.4,
+      "value_m": 1.61,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": "ram_2023",
+      "note": "Lower rear opening width; narrower local details may exist."
+    },
+    {
+      "id": "rear_opening_height",
+      "datum": "H202",
+      "published_mm": 1790,
+      "published_in": 70.5,
+      "value_m": 1.79,
+      "status": "published_nominal_not_vehicle_measured",
+      "source": "ram_bodybuilder_2020",
+      "corroboration": "ram_2023",
+      "note": "Rear opening height, not full cargo height."
+    },
+    {
+      "id": "wheel_well_length",
+      "published_in": 35,
+      "value_m": 0.889,
+      "status": "upfitter_reference_not_vehicle_measured",
+      "source": "upfit_extended",
+      "note": "Longitudinal wheel-well box extent in the guide."
+    },
+    {
+      "id": "wheel_well_height",
+      "published_in": 17,
+      "value_m": 0.4318,
+      "status": "upfitter_reference_not_vehicle_measured",
+      "source": "upfit_extended",
+      "note": "Height above guide floor."
+    },
+    {
+      "id": "wheel_well_depth",
+      "published_in": 9,
+      "value_m": 0.2286,
+      "status": "upfitter_reference_not_vehicle_measured",
+      "source": "upfit_extended",
+      "note": "Across-van depth in guide; not substituted for factory width datum."
+    },
+    {
+      "id": "rear_to_wheel_well",
+      "published_in": 25.5,
+      "value_m": 0.6477,
+      "status": "upfitter_reference_not_vehicle_measured",
+      "source": "upfit_extended",
+      "note": "Rear guide datum to trailing wheel-well edge; aligning with factory floor rear is provisional."
+    },
+    {
+      "id": "usable_floor_length",
+      "published_in": 156,
+      "value_m": 3.9624,
+      "status": "upfitter_reference_not_vehicle_measured",
+      "source": "upfit_extended",
+      "note": "Upfitter floor extent; differs from factory floor-behind-front-row datum."
+    },
+    {
+      "id": "usable_floor_width",
+      "published_in": 74,
+      "value_m": 1.8796,
+      "status": "upfitter_reference_not_vehicle_measured",
+      "source": "upfit_extended",
+      "note": "Upfitter floor extent; differs from factory maximum at floor."
+    },
+    {
+      "id": "usable_side_opening_width",
+      "published_in": 48.5,
+      "value_m": 1.2319,
+      "status": "upfitter_reference_not_vehicle_measured",
+      "source": "upfit_extended",
+      "note": "Smaller than factory published opening."
+    },
+    {
+      "id": "usable_rear_opening_width",
+      "published_in": 61,
+      "value_m": 1.5494,
+      "status": "upfitter_reference_not_vehicle_measured",
+      "source": "upfit_extended",
+      "note": "Smaller than factory lower opening."
+    },
+    {
+      "id": "driver_shelving_span",
+      "published_in": 147,
+      "value_m": 3.7338,
+      "status": "upfitter_reference_not_vehicle_measured",
+      "source": "upfit_extended",
+      "note": "Straight shelving wall space; not full cargo-floor length."
+    },
+    {
+      "id": "passenger_shelving_span",
+      "published_in": 101,
+      "value_m": 2.5654,
+      "status": "upfitter_reference_not_vehicle_measured",
+      "source": "upfit_extended",
+      "note": "Wall space behind side opening."
+    }
+  ],
+  "unresolved": [
+    "VIN/model year and actual body/roof confirmation",
+    "Floor, rear threshold and seatback measurement datums",
+    "Wall width at multiple heights and longitudinal stations",
+    "Roof curvature, ribs and local height minima",
+    "Exact wheel-well shape and placement on this vehicle",
+    "Side opening location and lower-threshold Z relative to cargo floor",
+    "OEM mounting-hole/rib locations and allowable structural loads",
+    "Finished floor, insulation, furring and panel thicknesses",
+    "W200 1714 mm labelled maximum cargo width conflicts with W500 1920 mm at floor; no universal width adopted",
+    "Upfitter dimensions use narrower usable-space datums; do not average with OEM maxima"
+  ]
+}
