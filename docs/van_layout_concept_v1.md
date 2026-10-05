@@ -188,7 +188,7 @@ at 1200 mm. **Undo** restored 950/1040/910, Saved and the selected bed. No test
 pose was saved. The concept is left open on those controls.
 
 Use **Max**, **Min** or the slider to inspect the arrangement, and **Undo** to
-return to the saved state. Use **Parts → Filters** to inspect an individual
+return to the saved state. Use **View → Visibility** to inspect an individual
 assembly or reference/design role when the full wireframe is crowded. Save a
 working copy before making persistent layout changes. `van_working.layout.json`
 was not overwritten or changed by the concept handoff.

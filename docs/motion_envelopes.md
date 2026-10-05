@@ -13,11 +13,11 @@ Independent joints and exact swept-solid collision remain outside this contract.
    Scope is saved immediately in one undoable command. The slider and numeric
    Position then move the selected group, including nested assembly frames.
 3. Click **Create envelope** below the movement slider and Min/Max/Reset controls.
-   The editor opens **Parts → Volumes** and selects the generated wire box.
+   The editor opens **Object → Volumes** and selects the generated wire box.
 4. The pane shows **current / STALE**, the moving part, the saved range and the
    box size. The box is labeled **overview bounds**; checks use member intervals.
    **Details** reveals the movement ID, pose count and padding.
-5. Click **Run checks** to open **Parts → Checks**. Select a named result, then
+5. Click **Run checks** to open **Object → Checks**. Select a named result, then
    **Select A / Select B** to locate the envelope or obstruction.
 6. Use **Edit movement** to return to Measure with the moving B object selected.
    The existing slider, Min/Max/Reset and numeric Position control inspect motion.
@@ -103,7 +103,7 @@ swept union, penetration depth or structural acceptance is provided here.
 
 ## Inspect an obstruction without moving the scene
 
-In Parts → Checks, select a current envelope result and click **Inspect motion**.
+In Object → Checks, select a current envelope result and click **Inspect motion**.
 For a primitive obstacle this tests the saved sample positions against oriented
 primitive geometry, including a saved rule's requested clearance. It opens at the
 first sampled failure, or the closest sampled pose when no sample fails.

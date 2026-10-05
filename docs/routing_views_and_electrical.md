@@ -8,7 +8,7 @@ length. Those are design assumptions, not verified vehicle or mattress dimension
 
 ## Visible controls
 
-**Parts → Views** provides individual show/hide controls, **Only** to isolate one
+**View → Visibility** provides individual show/hide controls, **Only** to isolate one
 query group, and **Show all** to clear transient filters. Definitions persist in
 Save Layout; active hide/isolate state does not. Multiple enabled views combine
 by union. Thus a cable in Wiring and 24 V remains visible while either matching

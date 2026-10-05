@@ -159,7 +159,7 @@ static bool test_existing_cabinet_section_controls_and_empty_interior(void) {
     char* before = Layout_SaveToString(&s->layout);
     TEST_ASSERT(click_section(UI_SECTION_SELECTED));
     TEST_ASSERT(!strcmp(s->layout.objectStore.view_query.assembly_id, "storage_driver_unit"));
-    TEST_ASSERT(click_section(UI_SECTION_ALONG) && click_section(UI_SECTION_EXACT));
+    TEST_ASSERT(click_section(UI_SECTION_EXACT) && click_section(UI_SECTION_ALONG));
     TEST_ASSERT(s->sectionView.axis == 1 && s->sectionView.mode == LAYOUT_SECTION_EXACT);
     TEST_ASSERT(click_section(UI_SECTION_NEXT));
     TEST_ASSERT(click_section(UI_SECTION_PREVIOUS));
@@ -251,8 +251,52 @@ static bool test_panel_thickness_visible_form_and_undo(void) {
     ld_test_shutdown_runtime();
     return true;
 }
+static bool test_compact_navigation_and_slice_workspace(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    UIPanelState* ui = UIPanel_Get();
+    TEST_ASSERT(Layout_LoadFromFile(&state->layout, "config/examples/van_connected_sections_s5.layout.json"));
+    char* before = Layout_SaveToString(&state->layout);
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_VIEW);
+    UIPanel_OnWindowResized(1280, 720);
+    SDL_Rect off = ui->viewPane.workspaceRect;
+    TEST_ASSERT(click_section(UI_SECTION_EXACT));
+    TEST_ASSERT(ui->viewPane.workspaceRect.h > off.h);
+    SDL_Rect selected;
+    TEST_ASSERT(UIPanel_SectionControlRect(UI_SECTION_SELECTED, &selected));
+    TEST_ASSERT(selected.y + selected.h <= ui->rightBodyRect.y + ui->rightBodyRect.h);
+    TEST_ASSERT(click_section(UI_SECTION_ACROSS));
+    TEST_ASSERT(state->sectionView.axis == 0);
+    TEST_ASSERT(click_section(UI_SECTION_OFF));
+    for (int mode = 0; mode < 6; ++mode) {
+        int action = mode == 4 ? PARTS_VOLUMES : mode == 5 ? PARTS_CHECKS : PARTS_OBJECTS + mode;
+        TEST_ASSERT(ld_test_context_part(action));
+    }
+    /* Dismissing an open selector must not click the viewport behind it. */
+    SDL_Event e = {.type = SDL_MOUSEBUTTONDOWN};
+    e.button.button = SDL_BUTTON_LEFT;
+    e.button.x = ui->contextRect.x + 4;
+    e.button.y = ui->contextRect.y + 4;
+    TEST_ASSERT(UIPanel_ContextEvent(&e) && ui->contextMenuOpen);
+    e.button.x = 400; e.button.y = 400;
+    TEST_ASSERT(UIPanel_ContextEvent(&e) && !ui->contextMenuOpen);
+    char* after = Layout_SaveToString(&state->layout);
+    TEST_ASSERT(before && after && !strcmp(before, after));
+    TEST_ASSERT(Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_OBJECT));
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_OBJECT);
+    UIPanel_OnWindowResized(1280, 720);
+    e.button.x = ui->contextRect.x + 4; e.button.y = ui->contextRect.y + 4;
+    TEST_ASSERT(UIPanel_ContextEvent(&e));
+    e.button.y += 2 * (ui->contextRect.h + 2);
+    TEST_ASSERT(UIPanel_ContextEvent(&e) && ui->activeRightTab == UI_PANEL_RIGHT_TAB_EDIT);
+    TEST_ASSERT(UIPanel_ShouldShowGroup(ui, UI_PANEL_GROUP_RIGHT_EDIT_SELECT));
+    free(before); free(after);
+    ld_test_shutdown_runtime();
+    return true;
+}
 bool sections_run_tests(void) {
     const TestCase cases[] = {
+        {"compact_navigation_slice_readonly", test_compact_navigation_and_slice_workspace},
         {"geometry_winding_units_caps", test_section_geometry_winding_and_units},
         {"anchored_thickness_undo_atomicity", test_thickness_anchored_rotated_undo_atomicity},
         {"native_depth_order_independent", test_native_depth_is_order_independent},

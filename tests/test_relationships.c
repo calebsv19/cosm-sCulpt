@@ -151,6 +151,9 @@ static bool test_schema15_migration_and_capacity(void) {
     Layout_FreeString(json);ld_test_shutdown_runtime();return true;
 }
 static bool click(int action) {
+    if ((action >= PARTS_OBJECTS && action <= PARTS_LINKS) || action == PARTS_VOLUMES || action == PARTS_CHECKS)
+        return ld_test_context_part(action);
+
     SDL_Rect rect;TEST_ASSERT(UIPanel_PartsControlRect(action,&rect));TEST_ASSERT(rect.y>=UIPanel_Get()->rightBodyRect.y && rect.y+rect.h<=UIPanel_Get()->rightBodyRect.y+UIPanel_Get()->rightBodyRect.h);
     AppContext context={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};e.button.button=SDL_BUTTON_LEFT;e.button.x=rect.x+rect.w/2;e.button.y=rect.y+rect.h/2;Input_Handle(&context,&e);return true;
 }

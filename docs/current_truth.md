@@ -40,7 +40,7 @@ See [controls, contract and physical limits](routing_sections_and_furniture.md).
 ## S5B views, corridors and initial electrical details (2026-10-04)
 
 [Routing views and electrical details](routing_views_and_electrical.md) now ship
-through Parts → Views and Routes. Saved query definitions include route membership;
+through View → Visibility and Routes. Saved query definitions include route membership;
 show/hide, Only and Show all control viewport drawing and picking without changing
 export or validation. Definitions persist in schema 21; active visibility is transient.
 Named editable RoutingCorridor boxes, route membership, radius/clearance and maximum
@@ -242,10 +242,10 @@ bounded S5 route editing/corridors/checks.
 
 Measure now has **Moves: B only / assembly** below the existing movement controls.
 An explicit containing assembly moves rigidly with B, including nested members and
-assembly frames; envelopes sample the whole saved group. Parts → Volumes retains
+assembly frames; envelopes sample the whole saved group. Object → Volumes retains
 regeneration, status, size/range, stable IDs and movement/check navigation.
 
-Parts → Checks adds **Inspect motion** for current primitive envelope results.
+Object → Checks adds **Inspect motion** for current primitive envelope results.
 A read-only orange-wire preview opens at the first sampled failure or closest
 sample, with Previous/Next/Close controls and visible position/member feedback.
 The visible box is now labeled overview bounds. Checks use a transient union of
@@ -278,9 +278,9 @@ Last updated: 2026-10-05
 
 ## S3B/S3C reserved volumes and spatial checks (2026-09-30)
 
-**Parts → Volumes** now creates/edits named Keep-out and Service wire boxes, with
+**Object → Volumes** now creates/edits named Keep-out and Service wire boxes, with
 physical dimensions, expandable world position/owner fields and confirmed deletion.
-**Parts → Checks** runs read-only obstruction checks and expands saved pair-rule
+**Object → Checks** runs read-only obstruction checks and expands saved pair-rule
 editing separately. Results expose IDs, names, measured/required gaps, errors or
 warnings, object selection and stale-result feedback. Hidden design objects remain
 in checks; automatic checks exempt Reference geometry and a volume's declared owner.
@@ -300,7 +300,7 @@ and conservative envelopes, using these volume and checker contracts.
 
 ## S3a attachment, support and containment links (2026-09-29)
 
-**Parts → Links** now provides source/type/target selectors, Create/Update/New
+**Object → Connections** now provides source/type/target selectors, Create/Update/New
 and confirmed Remove controls, and clickable incoming/outgoing link inspection.
 Objects and assemblies use their existing stable IDs; rename/reparent/movement
 preserve references. Links describe physical relationships separately from transform
@@ -319,7 +319,8 @@ physical containment, attachment-fit or structural-capacity checks are claimed.
 
 ## S2 semantic organization and rigid assemblies (2026-09-29)
 
-The new **Parts** tab provides Objects, Assemblies and Filters with explicit
+The contextual **Object** selector provides Details and Assemblies;
+**View → Visibility** provides filters, with explicit
 selectors, inset fields and action buttons. Names/types, Design/Reference role,
 typed properties and assembly parents are saved independently of stable IDs.
 Nested assemblies move/rotate through a compact numerical form; reparent preserves

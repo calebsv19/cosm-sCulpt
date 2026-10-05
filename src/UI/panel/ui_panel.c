@@ -253,10 +253,10 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         "Assets"
     };
     static const char* k_right_button_labels[] = {
-        "Toggle Delete (D)",
-        "Pin Anchor (P)",
-        "Link Handles (L)",
-        "Mode: 3D (M)",
+        "Delete mode",
+        "Pin point",
+        "Link handles",
+        "Mode: 3D",
         "Face Select",
         "Sketch Rect",
         "Sketch Select",
@@ -326,7 +326,7 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
     font_h = UIPanel_FontHeightPx();
     text_pad_x = 5 + (font_h / 4);
     if (text_pad_x < 5) text_pad_x = 5;
-    pane_padding = 4 + (font_h / 5);
+    pane_padding = 3 + (font_h / 8);
     if (pane_padding < 5) pane_padding = 5;
     spacing = 2 + (font_h / 10);
     if (spacing < 3) spacing = 3;
@@ -384,8 +384,9 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
         left_tab_total += spacing * (UI_PANEL_LEFT_TAB_COUNT - 1);
         int right_tab_total = 0;
         for (int i=0;i<UI_PANEL_RIGHT_TAB_COUNT;++i)
-            right_tab_total += UIPanel_MeasureTextWidthPx(UIPanel_RightTabLabel((UIPanelRightTab)i)) + 12;
-        right_tab_total += spacing * (UI_PANEL_RIGHT_TAB_COUNT - 1);
+            if (i != UI_PANEL_RIGHT_TAB_EDIT && i != UI_PANEL_RIGHT_TAB_PARTS)
+                right_tab_total += UIPanel_MeasureTextWidthPx(UIPanel_RightTabLabel((UIPanelRightTab)i)) + 8;
+        right_tab_total += spacing * 4;
         int desired_left = left_button_w + (pane_padding * 2);
         int desired_right = right_button_w + (pane_padding * 2);
         if (desired_left < left_tab_total + (pane_padding * 2)) {
@@ -874,13 +875,13 @@ void UIPanel_Init(int screenW, int screenH) {
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Material", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_VIEW, UI_BTN_PREVIEW_MATERIAL);
     yR += btnH + spacing;
-    AddButton(&g_uiPanel, "Toggle Delete (D)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_TOGGLE_DELETE);
+    AddButton(&g_uiPanel, "Delete mode", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_TOGGLE_DELETE);
     yR += btnH + spacing;
-    AddButton(&g_uiPanel, "Pin Anchor (P)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_PIN_ANCHOR);
+    AddButton(&g_uiPanel, "Pin point", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_PIN_ANCHOR);
     yR += btnH + spacing;
-    AddButton(&g_uiPanel, "Link Handles (L)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_LINK_HANDLES);
+    AddButton(&g_uiPanel, "Link handles", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_LINK_HANDLES);
     yR += btnH + spacing;
-    AddButton(&g_uiPanel, "Mode: 3D (M)", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_TOGGLE_SPACE_MODE);
+    AddButton(&g_uiPanel, "Mode: 3D", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_MODES, UI_BTN_TOGGLE_SPACE_MODE);
     yR += btnH + spacing;
     AddButton(&g_uiPanel, "Geometry", xR, yR, rightBtnW, btnH, UI_PANEL_RIGHT, UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES, UI_BTN_CREATE_CATEGORY_GEOMETRY);
     yR += btnH + spacing;

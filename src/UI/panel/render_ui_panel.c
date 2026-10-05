@@ -225,7 +225,7 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     if (btn->id == UI_BTN_TOGGLE_SPACE_MODE) {
         GlobalState* state = Global_Get();
         const char* modeLabel = state ? Global_GetSpaceModeLabel(state->spaceMode) : "3D";
-        snprintf(dynamicLabel, sizeof(dynamicLabel), "%s (M)", modeLabel);
+        snprintf(dynamicLabel, sizeof(dynamicLabel), "%s", modeLabel);
         label = dynamicLabel;
     } else if (!object_mode &&
                btn->id == UI_BTN_EXPORT_SCENE &&
@@ -711,8 +711,8 @@ static const char* UIPanel_GroupTitle(UIPanelGroup group, UIPanelSide side) {
         case UI_PANEL_GROUP_LEFT_SCENE_BOUNDS: return "Scene Bounds";
         case UI_PANEL_GROUP_LEFT_FILE_IO: return object_mode ? "Asset Actions" : "File / IO";
         case UI_PANEL_GROUP_LEFT_ROOT_PATHS: return object_mode ? "Asset Paths" : "Session Paths";
-        case UI_PANEL_GROUP_RIGHT_VIEW: return object_mode ? "Navigate" : "View";
-        case UI_PANEL_GROUP_RIGHT_MODES: return object_mode ? "Edit Modes" : "Modes";
+        case UI_PANEL_GROUP_RIGHT_VIEW: return "Camera / appearance";
+        case UI_PANEL_GROUP_RIGHT_MODES: return "Interaction";
         case UI_PANEL_GROUP_RIGHT_CREATE_CATEGORIES: return "Create By Intent";
         case UI_PANEL_GROUP_RIGHT_PRIMITIVES: return object_mode ? "Target / Sketch" : "Geometry";
         case UI_PANEL_GROUP_RIGHT_OPERATIONS:
@@ -997,4 +997,5 @@ void Render_UIPanel(const UIPanelState* ui, SDL_Renderer* renderer) {
         UIPanel_RightScrollRender(ui, renderer);
         (void)SDL_RenderSetClipRect(renderer, had_clip ? &previous_clip : NULL);
     }
+    UIPanel_RenderContext(renderer, ui);
 }

@@ -140,8 +140,8 @@ static void new_route(void) {
     coordinate_text();design_text();
 }
 static void cell(RoutePane* p,int action,const char* title,const char* value,int column,int columns,bool enabled,bool selected) {
-    UIPanelState* ui=UIPanel_Get();int gap=6,w=(p->body.w-24-(columns-1)*gap)/columns;
-    SDL_Rect r={p->body.x+6+column*(w+gap),p->y,w,p->h-5};
+    UIPanelState* ui=UIPanel_Get();int gap=4,w=(p->body.w-24-(columns-1)*gap)/columns;
+    SDL_Rect r={p->body.x+6+column*(w+gap),p->y,w,p->h-3};
     if (value) {
         int label_width=w/4;
         if (p->renderer) UIPanelSummary_DrawTextClipped(p->renderer,p->font,title,r.x+2,r.y+5,label_width-4,r.h-4,p->palette.text_primary);
@@ -191,7 +191,7 @@ static RoutePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     UIPanelState* ui=UIPanel_Get();RoutePane p={.renderer=renderer,.font=FontManager_Get(FONT_DEFAULT),
         .body=ui->rightBodyRect,.x=x,.click_y=y,.wanted=wanted};
     (void)UIPanelVisual_ResolvePalette(&p.palette);
-    p.h=(p.font?TTF_FontHeight(p.font):18)+16;p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui);
+    p.h=(p.font?TTF_FontHeight(p.font):18)+8;p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui);
     if (Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_SCENE) {note(&p,"Routes are edited in the Scene workspace.");return p;}
     char text[256];LayoutObjectStore* store=&layout()->objectStore;
     if (ui->routes.chooser) {

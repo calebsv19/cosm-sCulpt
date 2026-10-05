@@ -251,6 +251,8 @@ CoreResult line_drawing_font_bridge_resolve(LineDrawingFontSlot slot,
         return result;
     }
 
+    /* Compact editor default; the existing font preset and zoom still apply. */
+    text_run.logical_point_size -= 2;
     if (text_run.logical_point_size < spec->min_point_size) {
         text_run.logical_point_size = spec->min_point_size;
     }

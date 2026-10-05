@@ -17,21 +17,21 @@ UIPanelVisualMetrics UIPanelVisual_MakeMetrics(TTF_Font* font) {
     }
     if (font_h < 12) font_h = 12;
 
-    metrics.pad_x = 8;
-    metrics.pad_y = 7;
-    metrics.section_gap = 6;
+    metrics.pad_x = 4;
+    metrics.pad_y = 3;
+    metrics.section_gap = 4;
     metrics.line_h = font_h + 4;
-    metrics.row_h = font_h + 10;
+    metrics.row_h = font_h + 6;
     if (metrics.row_h < 24) metrics.row_h = 24;
-    metrics.tab_h = font_h + 10;
+    metrics.tab_h = font_h + 6;
     if (metrics.tab_h < 26) metrics.tab_h = 26;
-    metrics.tab_gap = 6;
+    metrics.tab_gap = 3;
     metrics.row_text_y = (metrics.row_h - font_h) / 2;
     if (metrics.row_text_y < 3) metrics.row_text_y = 3;
     metrics.tab_text_y = (metrics.tab_h - font_h) / 2;
     if (metrics.tab_text_y < 3) metrics.tab_text_y = 3;
     metrics.chip_h = font_h + 4;
-    metrics.accent_h = 4;
+    metrics.accent_h = 2;
     return metrics;
 }
 

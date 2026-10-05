@@ -4,6 +4,8 @@
 #include "UI/ui_panel_measurement.h"
 #include "Core/global_state.h"
 #include "UI/font_manager.h"
+#include "UI/ui_panel_visual_style.h"
+#include "UI/ui_panel_summary_surface.h"
 
 #include <SDL2/SDL.h>
 #include <stdio.h>
@@ -56,6 +58,7 @@ void UIPanel_SetActiveRightTab(UIPanelState* ui, UIPanelRightTab tab) {
             state->editor.viewportTool = VIEWPORT_TOOL_SELECT;
     }
     ui->measurement.active = tab == UI_PANEL_RIGHT_TAB_MEASURE;
+    ui->contextMenuOpen = false;
     ui->activeRightTab = tab;
     if (object_mode) {
         ui->objectActiveRightTab = tab;
@@ -140,6 +143,9 @@ static void UIPanel_RefreshTabLabels(UIPanelState* ui) {
 
 void UIPanel_InitShellState(UIPanelState* ui) {
     if (!ui) return;
+    ui->contextMenuOpen = false;
+    ui->sectionHelpOpen = false;
+    ui->contextRect = (SDL_Rect){0};
     ui->sceneActiveLeftTab = UI_PANEL_LEFT_TAB_SCENE;
     ui->sceneActiveRightTab = UI_PANEL_RIGHT_TAB_CREATE;
     ui->objectActiveLeftTab = UI_PANEL_LEFT_TAB_SCENE;
@@ -180,21 +186,31 @@ static void UIPanel_UpdateSideTabs(UIPanelTabButton* tabs,
     int contentY = paneRect.y + padding;
     int contentW = paneRect.w - (padding * 2);
     if (contentW < 0) contentW = 0;
-    /* Wrap complete labels rather than shrinking seven tabs into unreadable cells. */
-    int cursor = contentX;
-    int tabY = contentY;
+    /* Hidden legacy identities are reached through the contextual tool selector. */
+    int visible = tabCount;
+    if (tabCount == UI_PANEL_RIGHT_TAB_COUNT) visible -= 2;
+    int total = 0;
     TTF_Font* font = FontManager_GetUIPanelFont();
     for (int i = 0; i < tabCount; ++i) {
+        if (tabCount == UI_PANEL_RIGHT_TAB_COUNT &&
+            (i == UI_PANEL_RIGHT_TAB_EDIT || i == UI_PANEL_RIGHT_TAB_PARTS)) continue;
         int width = (int)strlen(tabs[i].label) * 8;
         if (font) (void)TTF_SizeUTF8(font, tabs[i].label, &width, NULL);
-        width += 16;
-        if (width > contentW) width = contentW;
-        if (cursor > contentX && cursor + width > contentX + contentW) {
-            cursor = contentX;
-            tabY += tabHeight + spacing;
-        }
+        total += width + 8;
+    }
+    int available = contentW - spacing * (visible - 1);
+    int cursor = contentX;
+    int tabY = contentY;
+    for (int i = 0; i < tabCount; ++i) {
+        tabs[i].bounds = (SDL_Rect){0};
+        if (tabCount == UI_PANEL_RIGHT_TAB_COUNT &&
+            (i == UI_PANEL_RIGHT_TAB_EDIT || i == UI_PANEL_RIGHT_TAB_PARTS)) continue;
+        int width = (int)strlen(tabs[i].label) * 8;
+        if (font) (void)TTF_SizeUTF8(font, tabs[i].label, &width, NULL);
+        width += 8;
+        if (total > available && total > 0) width = width * available / total;
         tabs[i].bounds = (SDL_Rect){cursor, tabY, width, tabHeight};
-        tabs[i].active = (i == activeIndex);
+        tabs[i].active = i == activeIndex;
         cursor += width + spacing;
     }
 
@@ -232,11 +248,26 @@ void UIPanel_UpdateTabLayout(UIPanelState* ui,
                            ui->rightPaneRect,
                            metrics,
                            &ui->rightBodyRect);
+    ui->contextRect = (SDL_Rect){0};
+    if ((Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_SCENE ||
+         ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT || ui->activeRightTab == UI_PANEL_RIGHT_TAB_EDIT) &&
+        (ui->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW || ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT ||
+         ui->activeRightTab == UI_PANEL_RIGHT_TAB_PARTS || ui->activeRightTab == UI_PANEL_RIGHT_TAB_EDIT)) {
+        int h = metrics ? metrics->button_height_px : 24;
+        ui->contextRect = (SDL_Rect){ui->rightBodyRect.x, ui->rightBodyRect.y, ui->rightBodyRect.w, h};
+        ui->rightBodyRect.y += h + 4;
+        ui->rightBodyRect.h -= h + 4;
+        if (ui->rightBodyRect.h < 0) ui->rightBodyRect.h = 0;
+    }
+    if (ui->activeRightTab == UI_PANEL_RIGHT_TAB_PARTS) {
+        int primary = ui->parts.mode == 2 ? UI_PANEL_RIGHT_TAB_VIEW : UI_PANEL_RIGHT_TAB_OBJECT;
+        ui->rightTabs[primary].active = true;
+    } else if (ui->activeRightTab == UI_PANEL_RIGHT_TAB_EDIT) ui->rightTabs[UI_PANEL_RIGHT_TAB_OBJECT].active = true;
 }
 
 static bool UIPanel_PointInRect(int x, int y, SDL_Rect rect) {
-    return x >= rect.x && x <= (rect.x + rect.w) &&
-           y >= rect.y && y <= (rect.y + rect.h);
+    return rect.w > 0 && rect.h > 0 && x >= rect.x && x < rect.x + rect.w &&
+           y >= rect.y && y < rect.y + rect.h;
 }
 
 bool UIPanel_HandleTabClick(UIPanelState* ui, int mouseX, int mouseY) {
@@ -329,4 +360,82 @@ bool UIPanel_ShouldRenderRootSummary(const UIPanelState* ui) {
 
 bool UIPanel_ShouldRenderObjectSummary(const UIPanelState* ui) {
     return ui && ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT;
+}
+
+
+static bool context_is_view(const UIPanelState* ui) {
+    return ui->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW ||
+           (ui->activeRightTab == UI_PANEL_RIGHT_TAB_PARTS && ui->parts.mode == 2);
+}
+static const char* context_label(const UIPanelState* ui) {
+    if (ui->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW) return "Camera / section";
+    if (ui->activeRightTab == UI_PANEL_RIGHT_TAB_EDIT) return "Edit tools";
+    if (ui->activeRightTab == UI_PANEL_RIGHT_TAB_PARTS)
+        return (const char*[]){"Details", "Assemblies", "Visibility", "Connections", "Volumes", "Checks"}
+            [ui->parts.mode >= 0 && ui->parts.mode < 6 ? ui->parts.mode : 0];
+    return "Geometry";
+}
+static int context_count(const UIPanelState* ui) {
+    return Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT ? 2 : context_is_view(ui) ? 2 : 6;
+}
+
+void UIPanel_RenderContext(SDL_Renderer* renderer, const UIPanelState* ui) {
+    if (!renderer || !ui || ui->contextRect.w <= 0) return;
+    UIPanelVisualPalette p = {0};
+    (void)UIPanelVisual_ResolvePalette(&p);
+    TTF_Font* font = FontManager_GetUIPanelFont();
+    int count = ui->contextMenuOpen ? context_count(ui) : 0;
+    for (int i = -1; i < count; ++i) {
+        SDL_Rect r = ui->contextRect;
+        r.y += (i + 1) * (r.h + 2);
+        const char* label = i < 0 ? context_label(ui) : Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT
+            ? (const char*[]){"Geometry", "Edit tools"}[i] : context_is_view(ui)
+            ? (const char*[]){"Camera / section", "Visibility / saved views"}[i]
+            : (const char*[]){"Geometry", "Details / tags", "Assemblies", "Connections", "Volumes", "Checks", "Edit tools"}[i];
+        UIPanelVisual_DrawFrame(renderer, r, p.button_fill, p.button_border, 0);
+        if (font) UIPanelSummary_DrawTextClipped(renderer, font, label, r.x + 5, r.y + 2, r.w - 24, r.h - 3, p.text_primary);
+        if (i < 0 && font) UIPanelSummary_DrawTextClipped(renderer, font, "v", r.x + r.w - 15, r.y + 2, 12, r.h - 3, p.text_muted);
+    }
+}
+bool UIPanel_ContextEvent(const SDL_Event* event) {
+    UIPanelState* ui = UIPanel_Get();
+    if (!event || !ui) return false;
+    if (UIPanel_IsSaveDialogActive() || UIPanel_IsRootDialogActive() || UIPanel_IsPrismDimensionDialogActive() ||
+        UIPanel_IsSceneBoundsDialogActive() || UIPanel_IsConstructionPlaneDialogActive() ||
+        UIPanel_IsObjectTransformDialogActive() || UIPanel_IsScenePropertyDialogActive()) {
+        ui->contextMenuOpen = false;
+        return false;
+    }
+    if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) ui->contextMenuOpen = false;
+    if (ui->contextMenuOpen && event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
+        ui->contextMenuOpen = false;
+        return true;
+    }
+    if (event->type != SDL_MOUSEBUTTONDOWN || event->button.button != SDL_BUTTON_LEFT)
+        return ui->contextMenuOpen && (event->type == SDL_KEYDOWN || event->type == SDL_TEXTINPUT ||
+            event->type == SDL_MOUSEWHEEL || event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEBUTTONUP);
+    int x = event->button.x, y = event->button.y;
+    if (UIPanel_PointInRect(x, y, ui->contextRect)) {
+        ui->contextMenuOpen = !ui->contextMenuOpen;
+        return true;
+    }
+    if (!ui->contextMenuOpen) return false;
+    bool view = context_is_view(ui);
+    int count = context_count(ui);
+    ui->contextMenuOpen = false;
+    for (int i = 0; i < count; ++i) {
+        SDL_Rect r = ui->contextRect;
+        r.y += (i + 1) * (r.h + 2);
+        if (!UIPanel_PointInRect(x, y, r)) continue;
+        if (i == 0) UIPanel_SetActiveRightTab(ui, view ? UI_PANEL_RIGHT_TAB_VIEW : UI_PANEL_RIGHT_TAB_OBJECT);
+        else if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT && i == 1) UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_EDIT);
+        else {
+            UIPanel_PartsEnterMode(view ? 2 : (const int[]){0, 0, 1, 3, 4, 5}[i]);
+        }
+        ui->rightScroll[ui->activeRightTab].scrollOffsetPx = 0;
+        Global_FlagHitboxesDirty();
+        UIPanel_OnWindowResized(Global_Get()->screenWidth, Global_Get()->screenHeight);
+        return true;
+    }
+    return true; /* Dismissal consumes the click instead of editing an obscured object. */
 }

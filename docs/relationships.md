@@ -5,7 +5,7 @@ Date: 2026-09-29. Current layout schema: **16**. Program VERSION remains 0.4.0.
 
 ## Using Links
 
-Open **Parts → Links**. Parts now has a compact two-by-two mode selector:
+Open **Object → Connections**. Use the selector below the Object tab to choose Connections:
 Objects, Assemblies, Filters and Links. This form contains three selectors and
 explicit Create/Update/New/Remove actions; it requires no new shortcuts.
 

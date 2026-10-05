@@ -16,8 +16,6 @@ void UIPanel_UpdateViewPaneLayout(UIPanelState* ui) {
     int summary_height = 0;
     int view_height = 0;
     int modes_height = 0;
-    int workspace_top = 0;
-    int workspace_bottom = 0;
 
     if (!ui) return;
 
@@ -34,45 +32,20 @@ void UIPanel_UpdateViewPaneLayout(UIPanelState* ui) {
     view_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_VIEW);
     modes_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_MODES);
 
-    int total_height=ui->rightBodyRect.h;
-    if(Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_SCENE) {
-        int minimum=summary_height+view_height+modes_height+UIPanel_SectionHeight()+24;
-        if(total_height<minimum)total_height=minimum;
-        UIPanel_RightScrollSetContentHeight(ui,(float)total_height);
-    }
-    int scroll=(int)UIPanel_RightScrollOffset(ui);
-    ui->viewPane.summaryRect = (SDL_Rect){
-        ui->rightBodyRect.x,
-        ui->rightBodyRect.y-scroll,
-        ui->rightBodyRect.w,
-        summary_height
-    };
-    ui->viewPane.modesRect = (SDL_Rect){
-        ui->rightBodyRect.x,
-        ui->rightBodyRect.y + total_height - modes_height-scroll,
-        ui->rightBodyRect.w,
-        modes_height
-    };
-    ui->viewPane.viewRect = (SDL_Rect){
-        ui->rightBodyRect.x,
-        ui->viewPane.modesRect.y - UI_VIEW_PANE_SECTION_GAP - view_height,
-        ui->rightBodyRect.w,
-        view_height
-    };
-    if (Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_OBJECT && ui->viewPane.viewRect.y < ui->rightBodyRect.y) {
-        ui->viewPane.viewRect.y = ui->rightBodyRect.y;
-    }
+    int content_height = summary_height + view_height + modes_height + 12;
+    int section_height = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_SCENE
+                             ? UIPanel_SectionHeight() : 120;
+    content_height += section_height;
+    UIPanel_RightScrollSetContentHeight(ui, (float)content_height);
+    int y = ui->rightBodyRect.y - (int)UIPanel_RightScrollOffset(ui);
+    ui->viewPane.summaryRect = (SDL_Rect){ui->rightBodyRect.x, y, ui->rightBodyRect.w, summary_height};
+    y += summary_height;
+    ui->viewPane.viewRect = (SDL_Rect){ui->rightBodyRect.x, y, ui->rightBodyRect.w, view_height};
+    y += view_height + 4;
+    ui->viewPane.workspaceRect = (SDL_Rect){ui->rightBodyRect.x, y, ui->rightBodyRect.w, section_height};
+    y += section_height + 4;
+    ui->viewPane.modesRect = (SDL_Rect){ui->rightBodyRect.x, y, ui->rightBodyRect.w, modes_height};
 
-    workspace_top = ui->rightBodyRect.y + summary_height-scroll;
-    if (summary_height > 0) workspace_top += UI_VIEW_PANE_SECTION_GAP;
-    workspace_bottom = ui->viewPane.viewRect.y - UI_VIEW_PANE_SECTION_GAP;
-    if (workspace_bottom < workspace_top) workspace_bottom = workspace_top;
-    ui->viewPane.workspaceRect = (SDL_Rect){
-        ui->rightBodyRect.x,
-        workspace_top,
-        ui->rightBodyRect.w,
-        workspace_bottom - workspace_top
-    };
 }
 
 bool UIPanel_GetViewPaneRects(const UIPanelState* ui,

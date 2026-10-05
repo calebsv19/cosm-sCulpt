@@ -86,17 +86,17 @@ existing shared viewport bridge. Document schema, entity IDs and unit rules are 
    pump origin along Z**. This is distinct from the saved **100 mm minimum surface
    clearance** check. Inspect `bracket_right_angle` for coincident offset pivots
    and a maintained **90°** planar angle.
-5. In **Parts → Assemblies**, inspect the root, OEM reference, Lift bed, Water
-   cabinet and its nested Cabinet door. In **Parts → Objects**, inspect names,
-   types, IDs, membership and properties. In **Parts → Links**, inspect the bed
+5. In **Object → Assemblies**, inspect the root, OEM reference, Lift bed, Water
+   cabinet and its nested Cabinet door. In **Object → Details**, inspect names,
+   types, IDs, membership and properties. In **Object → Connections**, inspect the bed
    support links, cabinet/pump attachments and controller/tank/battery containment.
    Containment and support links describe intent; they do not prove fit or strength.
-6. Use **Parts → Filters** to inspect a subsystem or Reference/Design subset.
+6. Use **View → Visibility** to inspect a subsystem or Reference/Design subset.
    Clear the filter before the overall audit. Hidden objects remain in spatial
    validation. The controller's `network=can0` and power-domain fields are labels;
    there is no routed cable or verified electrical topology yet.
-7. In **Parts → Volumes**, inspect the walkway, fuse-box service space and the
-   two labeled motion overview boxes. In **Parts → Checks**, run checks, select
+7. In **Object → Volumes**, inspect the walkway, fuse-box service space and the
+   two labeled motion overview boxes. In **Object → Checks**, run checks, select
    a motion warning, then **Inspect motion → Check full range**. Preview Previous,
    Next and Close are read-only; they do not move the authored assembly.
 

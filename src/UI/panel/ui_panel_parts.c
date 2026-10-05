@@ -132,13 +132,9 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     UIPanelState* ui=UIPanel_Get();PartsPane p={.renderer=renderer,.font=FontManager_Get(FONT_DEFAULT),
         .body=ui->rightBodyRect,.x=x,.click_y=y,.wanted=wanted};
     (void)UIPanelVisual_ResolvePalette(&p.palette);
-    p.h=(p.font ? TTF_FontHeight(p.font) : 18)+18;p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui);
+    p.h=(p.font ? TTF_FontHeight(p.font) : 18)+8;p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui);
     if (ui->activeRightTab!=UI_PANEL_RIGHT_TAB_PARTS) return p;
     if (Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_SCENE) {note(&p,"Parts are edited in the Scene workspace.");return p;}
-    for (int i=0;i<6;++i) {
-        cell(&p,(const int[]){PARTS_OBJECTS,PARTS_ASSEMBLIES,PARTS_FILTERS,PARTS_LINKS,PARTS_VOLUMES,PARTS_CHECKS}[i],(const char*[]){"Objects","Assemblies","Views","Links","Volumes","Checks"}[i],NULL,i%2,2,true,ui->parts.mode==i);
-        if (i%2) p.y+=p.h;
-    }
     p.y+=5;char text[256];LayoutObjectStore* store=&layout()->objectStore;
     if (ui->parts.mode>=4) {UIPanel_SpatialBuild(&p);return p;}
     if (ui->parts.mode==3) links_form(&p);
@@ -409,15 +405,7 @@ bool UIPanel_PartsClick(int x,int y) {
         size_t i=(size_t)(action-7000);
         if (i<layout()->objectStore.relationship_count)choose_link(&layout()->objectStore.relationships[i]);
     } else if((action>=PARTS_OBJECTS && action<=PARTS_LINKS) || action==PARTS_VOLUMES || action==PARTS_CHECKS) {
-        if (action==PARTS_LINKS) {
-            const Object3D* object=Layout_ObjectStore_FindConst(&layout()->objectStore,Global_Get()->editor.selectedObject3DId);
-            new_link(Layout_EntityInfo(&layout()->objectStore,ui->parts.id)?ui->parts.id:object?object->coreMeta.object_id:NULL);
-        }
-        ui->parts.mode=action==PARTS_VOLUMES?4:action==PARTS_CHECKS?5:action-PARTS_OBJECTS;ui->parts.properties_open=false;ui->parts.movement_open=false;ui->parts.creating=false;ui->parts.id[0]=0;ui->parts.observed_valid=false;ui->parts.message[0]=0;ui->parts.delete_pending=false;ui->spatial.remove_pending=false;
-        ui->rightScroll[UI_PANEL_RIGHT_TAB_PARTS].scrollOffsetPx=0;
-        if(ui->parts.mode==4)UIPanel_SpatialEnterVolumes();
-        if(ui->parts.mode==2){ui->parts.filter=layout()->objectStore.view_query;snprintf(ui->parts.key,48,"%s",ui->parts.filter.property_key);snprintf(ui->parts.value,128,"%s",ui->parts.filter.property_value);}
-        else {ui->parts.key[0]=ui->parts.value[0]=0;}
+        UIPanel_PartsEnterMode(action==PARTS_VOLUMES?4:action==PARTS_CHECKS?5:action-PARTS_OBJECTS);
     } else if(action==PARTS_SELECT)ui->parts.chooser=chooser==1?0:1;
     else if(action==PARTS_TYPE)ui->parts.chooser=chooser==2?0:2;
     else if(action==PARTS_PARENT)ui->parts.chooser=chooser==3?0:3;
@@ -520,4 +508,32 @@ bool UIPanel_PartsEvent(const SDL_Event* event) {
     }
     if(event->type==SDL_WINDOWEVENT && event->window.event==SDL_WINDOWEVENT_FOCUS_LOST)UIPanel_PartsStopInput();
     return false;
+}
+
+void UIPanel_PartsEnterMode(int mode) {
+    if (mode < 0 || mode > 5) return;
+    UIPanelState* ui = UIPanel_Get();
+    UIPanel_PartsStopInput();
+    if (mode == 3) {
+        const Object3D* object = Layout_ObjectStore_FindConst(&layout()->objectStore, Global_Get()->editor.selectedObject3DId);
+        new_link(Layout_EntityInfo(&layout()->objectStore, ui->parts.id) ? ui->parts.id : object ? object->coreMeta.object_id : NULL);
+    }
+    ui->parts.mode = mode;
+    ui->parts.properties_open = false;
+    ui->parts.movement_open = false;
+    ui->parts.creating = false;
+    ui->parts.id[0] = 0;
+    ui->parts.observed_valid = false;
+    ui->parts.message[0] = 0;
+    ui->parts.delete_pending = false;
+    ui->spatial.remove_pending = false;
+    ui->rightScroll[UI_PANEL_RIGHT_TAB_PARTS].scrollOffsetPx = 0;
+    if (mode == 4) UIPanel_SpatialEnterVolumes();
+    if (mode == 2) {
+        ui->parts.filter = layout()->objectStore.view_query;
+        snprintf(ui->parts.key, sizeof(ui->parts.key), "%s", ui->parts.filter.property_key);
+        snprintf(ui->parts.value, sizeof(ui->parts.value), "%s", ui->parts.filter.property_value);
+    } else ui->parts.key[0] = ui->parts.value[0] = 0;
+    UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_PARTS);
+    UIPanel_LayoutParts();
 }

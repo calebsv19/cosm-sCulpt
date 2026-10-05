@@ -16,11 +16,19 @@ static inline bool is_field(int action) {
         (action>=PARTS_DX && action<=PARTS_ANGLE) || (action>=PARTS_VOLUME_NAME && action<=PARTS_VOLUME_Z) || action==PARTS_CHECK_DISTANCE;
 }
 static inline void cell(PartsPane* p,int action,const char* title,const char* value,int column,int columns,bool enabled,bool selected) {
-    int gap=6,w=(p->body.w-24-(columns-1)*gap)/columns;
-    SDL_Rect rect={p->body.x+6+column*(w+gap),p->y,w,p->h-5};
+    int gap=4,w=(p->body.w-24-(columns-1)*gap)/columns;
+    SDL_Rect rect={p->body.x+6+column*(w+gap),p->y,w,p->h-3};
+    if (UIPanel_Get()->parts.mode == 2 && action >= 8000 && action < 8300) {
+        int total = p->body.w - 24;
+        int label_w = total * 3 / 5;
+        int tool_w = (total - label_w - 8) / 2;
+        int kind = (action - 8000) / 100;
+        rect.x = p->body.x + 6 + (kind ? label_w + 4 + (kind - 1) * (tool_w + 4) : 0);
+        rect.w = kind ? tool_w : label_w;
+    }
     if (value) {
         int label_width=w/3;
-        if (p->renderer && p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,title,rect.x+2,rect.y+5,label_width-4,rect.h-4,p->palette.text_primary);
+        if (p->renderer && p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,title,rect.x+2,rect.y+3,label_width-4,rect.h-4,p->palette.text_primary);
         rect.x+=label_width;rect.w-=label_width;title=value;
     }
     if (action==p->wanted) p->found=rect;
@@ -38,7 +46,7 @@ static inline void cell(PartsPane* p,int action,const char* title,const char* va
         }
     }
     bool chooser=action==PARTS_SELECT || action==PARTS_TYPE || action==PARTS_PARENT || action==PARTS_PROPERTY_KIND || action==PARTS_LINK_SOURCE || action==PARTS_LINK_TARGET || action==PARTS_LINK_TYPE || action==PARTS_VOLUME_SELECT || action==PARTS_VOLUME_ROLE || action==PARTS_VOLUME_OWNER || action==PARTS_CHECK_SOURCE || action==PARTS_CHECK_TARGET || action==PARTS_CHECK_KIND;
-    if (p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,title,rect.x+7,rect.y+5,rect.w-(chooser?30:14),rect.h-6,text);
+    if (p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,title,rect.x+7,rect.y+3,rect.w-(chooser?30:14),rect.h-4,text);
     if (chooser) {
         int cx=rect.x+rect.w-13,cy=rect.y+rect.h/2;
         SDL_SetRenderDrawColor(p->renderer,text.r,text.g,text.b,255);

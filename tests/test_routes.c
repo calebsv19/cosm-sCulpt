@@ -140,11 +140,15 @@ static bool test_visible_draft_controls_undo_cancel_and_wrapped_tabs(void) {
     SDL_Rect left={0,0,300,1000},right={1400,0,350,1000};UIPanel_UpdateTabLayout(UIPanel_Get(),&left,&right,NULL);
     const UIPanelState* ui=UIPanel_Get();
     for(int i=0;i<UI_PANEL_RIGHT_TAB_COUNT;++i) {
-        TEST_ASSERT(ui->rightTabs[i].bounds.w>=(int)strlen(ui->rightTabs[i].label)*8+16);
+        if (i == UI_PANEL_RIGHT_TAB_EDIT || i == UI_PANEL_RIGHT_TAB_PARTS) {
+            TEST_ASSERT(ui->rightTabs[i].bounds.w == 0);
+            continue;
+        }
+        TEST_ASSERT(ui->rightTabs[i].bounds.w > 0);
+        TEST_ASSERT(ui->rightTabs[i].bounds.y == ui->rightTabs[0].bounds.y);
         TEST_ASSERT(ui->rightTabs[i].bounds.y+ui->rightTabs[i].bounds.h<ui->rightBodyRect.y);
         TEST_ASSERT(ui->rightTabs[i].bounds.x+ui->rightTabs[i].bounds.w<=right.x+right.w);
     }
-    TEST_ASSERT(ui->rightTabs[UI_PANEL_RIGHT_TAB_ROUTES].bounds.y>ui->rightTabs[0].bounds.y);
     ld_test_shutdown_runtime();return true;
 }
 static bool test_saved_view_union_persistence_and_ui(void) {
@@ -169,7 +173,7 @@ static bool test_saved_view_union_persistence_and_ui(void) {
     Layout_ShowAllViews(&live()->objectStore);TEST_ASSERT(Layout_ObjectShown(&live()->objectStore,&live()->objectStore.items[0]));
     LayoutEntityQuery q={.entity_type="Cable"};TEST_ASSERT(Layout_QueryEntities(&live()->objectStore,&q,NULL,0)==1);
     Global_SetWindowSize(1800,2200);UIPanel_OnWindowResized(1800,2200);UIPanel_SetActiveRightTab(UIPanel_Get(),UI_PANEL_RIGHT_TAB_PARTS);
-    SDL_Rect rect;TEST_ASSERT(UIPanel_PartsControlRect(PARTS_FILTERS,&rect));TEST_ASSERT(UIPanel_PartsClick(rect.x+2,rect.y+2));
+    SDL_Rect rect;TEST_ASSERT(ld_test_context_part(PARTS_FILTERS));
     TEST_ASSERT(UIPanel_PartsControlRect(8000,&rect) && UIPanel_PartsClick(rect.x+2,rect.y+2) && Layout_ViewHidden(&live()->objectStore,"power"));
     TEST_ASSERT(UIPanel_PartsControlRect(8100,&rect) && UIPanel_PartsClick(rect.x+2,rect.y+2) && !strcmp(live()->objectStore.isolated_view_id,"power"));
     TEST_ASSERT(UIPanel_PartsControlRect(PARTS_CLEAR_FILTER,&rect) && UIPanel_PartsClick(rect.x+2,rect.y+2) && !live()->objectStore.isolated_view_id[0]);

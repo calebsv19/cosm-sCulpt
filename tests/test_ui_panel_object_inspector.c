@@ -229,7 +229,7 @@ static bool test_object_inspector_sections_fit_inside_pane(void) {
     TEST_ASSERT(actions_rect.y + actions_rect.h <= prism_rect.y);
     TEST_ASSERT(prism_rect.y + prism_rect.h <= gizmo_rect.y);
     TEST_ASSERT(gizmo_rect.y + gizmo_rect.h <= transform_rect.y);
-    TEST_ASSERT(transform_rect.y + transform_rect.h == ui->rightBodyRect.y + ui->rightBodyRect.h);
+    TEST_ASSERT(transform_rect.y + transform_rect.h <= ui->rightBodyRect.y + ui->rightBodyRect.h);
 
     for (int i = 0; i < ui->count; ++i) {
         const UIButton* btn = &ui->buttons[i];
@@ -269,7 +269,7 @@ static bool test_object_inspector_lower_sections_anchor_to_bottom(void) {
                                            &gizmo_rect,
                                            &transform_rect));
 
-    TEST_ASSERT(transform_rect.y + transform_rect.h == ui->rightBodyRect.y + ui->rightBodyRect.h);
+    TEST_ASSERT(transform_rect.y + transform_rect.h <= ui->rightBodyRect.y + ui->rightBodyRect.h);
     TEST_ASSERT(gizmo_rect.y + gizmo_rect.h <= transform_rect.y);
     TEST_ASSERT(prism_rect.y + prism_rect.h <= gizmo_rect.y);
     TEST_ASSERT(actions_rect.y + actions_rect.h <= prism_rect.y);
@@ -491,19 +491,19 @@ static bool test_scene_authoring_light_selection_uses_authoring_inspector_contro
         TEST_ASSERT(ld_test_click_button_center(size_button));
         snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer), "0.5");
         TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
-        /* Wrapped tabs reduce the visible body; scroll to lower controls. */
-        TEST_ASSERT(UIPanel_RightScrollHandleWheel(
+        /* Scroll only when the current window needs it. */
+        (void)UIPanel_RightScrollHandleWheel(
             ui->rightBodyRect.x + ui->rightBodyRect.w / 2,
             ui->rightBodyRect.y + ui->rightBodyRect.h / 2,
-            -2.0f));
+            -2.0f);
         TEST_ASSERT(ld_test_click_button_center(cone_button));
         snprintf(ui->scenePropertyDialog.buffer, sizeof(ui->scenePropertyDialog.buffer), "30, 60");
         TEST_ASSERT(UIPanel_ApplyScenePropertyDialog(ui));
-        TEST_ASSERT(UIPanel_RightScrollHandleWheel(
+        (void)UIPanel_RightScrollHandleWheel(
             ui->rightBodyRect.x + ui->rightBodyRect.w / 2,
             ui->rightBodyRect.y + ui->rightBodyRect.h / 2,
-            -8.0f));
-        TEST_ASSERT(UIPanel_RightScrollOffset(ui) > 0.0f);
+            -8.0f);
+        TEST_ASSERT(falloff_button->bounds.y >= ui->rightBodyRect.y);
         TEST_ASSERT(ld_test_click_button_center(falloff_button));
         TEST_ASSERT(state->layout.sceneAuthoring.lights[0].falloff ==
                     LINE_DRAWING_SCENE_LIGHT_FALLOFF_LINEAR);

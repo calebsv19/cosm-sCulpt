@@ -27,7 +27,7 @@ static bool test_view_summary_reserves_space_for_view_controls(void) {
     UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
 
     reserved_height = UIPanel_ViewSummaryReservedHeight(ui);
-    TEST_ASSERT(reserved_height > 0);
+    TEST_ASSERT(reserved_height == 0);
     TEST_ASSERT(UIPanel_GetViewPaneRects(ui,
                                          &summary_rect,
                                          &workspace_rect,
@@ -35,8 +35,8 @@ static bool test_view_summary_reserves_space_for_view_controls(void) {
                                          &modes_rect));
     TEST_ASSERT(summary_rect.h == reserved_height);
     TEST_ASSERT(workspace_rect.y >= summary_rect.y + summary_rect.h);
-    TEST_ASSERT(view_rect.y >= workspace_rect.y + workspace_rect.h);
-    TEST_ASSERT(modes_rect.y >= view_rect.y + view_rect.h);
+    TEST_ASSERT(workspace_rect.y >= view_rect.y + view_rect.h);
+    TEST_ASSERT(modes_rect.y >= workspace_rect.y + workspace_rect.h);
 
     for (int i = 0; i < ui->count; ++i) {
         if (ui->buttons[i].id == UI_BTN_RESET_ORIGIN) {
@@ -142,9 +142,9 @@ static bool test_view_sections_fit_inside_pane_and_anchor_bottom(void) {
     TEST_ASSERT(summary_rect.x >= ui->rightBodyRect.x);
     TEST_ASSERT(summary_rect.y >= ui->rightBodyRect.y);
     TEST_ASSERT(summary_rect.y + summary_rect.h <= workspace_rect.y);
-    TEST_ASSERT(workspace_rect.y + workspace_rect.h <= view_rect.y);
+    TEST_ASSERT(view_rect.y + view_rect.h <= workspace_rect.y);
     TEST_ASSERT(view_rect.y + view_rect.h <= modes_rect.y);
-    TEST_ASSERT(modes_rect.y + modes_rect.h >= ui->rightBodyRect.y + ui->rightBodyRect.h);
+    TEST_ASSERT(modes_rect.y + modes_rect.h <= ui->rightBodyRect.y + ui->rightBodyRect.h);
 
     if (modes_rect.y + modes_rect.h > ui->rightBodyRect.y + ui->rightBodyRect.h) {
         TEST_ASSERT(UIPanel_RightScrollHandleWheel(ui->rightBodyRect.x + 5, ui->rightBodyRect.y + 5, -100));

@@ -37,6 +37,21 @@ This subtree owns the editor-local pane shell and pane-scoped controls.
   - `ui_panel_scene_property_dialog.c` owns validated direct value edits and
     their single-undo commit boundary.
 
+## Compact navigation
+
+The five primary right tabs occupy one row. Scene View owns Camera / section and
+Visibility / saved views; Object owns Geometry, Details, Assemblies, Connections,
+Volumes and Checks. The asset workspace reaches Edit tools through Properties.
+Internal Edit/Parts enum identities remain stable, but their tab rectangles are
+empty. The shell renders the selector outside the body clip and owns its events
+before body/viewport input. Dismissing it consumes the click. Opening a modal
+closes it. PartsEnterMode retains initialization for link drafts and volumes.
+
+View and Object use content-based layout. Off hides inactive slice fields; Slice
+and Cutaway expose them. Help is an optional disclosure. Density uses existing
+shared font/theme services with app-local metrics; persisted font choices and zoom
+remain supported. No shared ABI or physical document schema changed.
+
 ## Boundary
 
 - Keep pane layout, button routing, summary surfaces, browser state, and

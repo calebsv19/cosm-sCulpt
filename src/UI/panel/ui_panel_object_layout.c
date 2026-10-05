@@ -9,70 +9,6 @@ enum {
     UI_OBJECT_PANE_SECTION_GAP = 6
 };
 
-static void UIPanel_UpdateLegacyObjectPaneLayout(UIPanelState* ui,
-                                                  int summary_height,
-                                                  int details_height,
-                                                  int actions_height,
-                                                  int prism_height,
-                                                  int gizmo_height,
-                                                  int transform_height) {
-    int summary_top = ui->rightBodyRect.y;
-    int details_top = summary_top + summary_height + UI_OBJECT_PANE_SECTION_GAP;
-    int transform_top = ui->rightBodyRect.y + ui->rightBodyRect.h - transform_height;
-    int gizmo_top = 0;
-    int prism_top = 0;
-    int actions_top = 0;
-    int details_bottom = 0;
-    int details_target_height = 0;
-    if (transform_top < details_top) transform_top = details_top;
-    gizmo_top = transform_top - UI_OBJECT_PANE_SECTION_GAP - gizmo_height;
-    if (gizmo_top < details_top) gizmo_top = details_top;
-    prism_top = gizmo_top - UI_OBJECT_PANE_SECTION_GAP - prism_height;
-    if (prism_top < details_top) prism_top = details_top;
-    actions_top = prism_top - UI_OBJECT_PANE_SECTION_GAP - actions_height;
-    if (actions_top < details_top) actions_top = details_top;
-    details_bottom = actions_top - UI_OBJECT_PANE_SECTION_GAP;
-    if (details_bottom < details_top) details_bottom = details_top;
-    details_target_height = details_bottom - details_top;
-    if (details_target_height > details_height) details_target_height = details_height;
-    if (details_target_height < 0) details_target_height = 0;
-    details_bottom = details_top + details_target_height;
-    actions_top = details_bottom + UI_OBJECT_PANE_SECTION_GAP;
-    prism_top = actions_top + actions_height + UI_OBJECT_PANE_SECTION_GAP;
-    gizmo_top = prism_top + prism_height + UI_OBJECT_PANE_SECTION_GAP;
-    transform_top = gizmo_top + gizmo_height + UI_OBJECT_PANE_SECTION_GAP;
-    if (transform_top + transform_height < ui->rightBodyRect.y + ui->rightBodyRect.h) {
-        const int slack = (ui->rightBodyRect.y + ui->rightBodyRect.h) -
-                          (transform_top + transform_height);
-        actions_top += slack;
-        prism_top += slack;
-        gizmo_top += slack;
-        transform_top += slack;
-    } else if (transform_top + transform_height > ui->rightBodyRect.y + ui->rightBodyRect.h) {
-        const int overflow = (transform_top + transform_height) -
-                             (ui->rightBodyRect.y + ui->rightBodyRect.h);
-        details_target_height -= overflow;
-        if (details_target_height < 0) details_target_height = 0;
-        details_bottom = details_top + details_target_height;
-        actions_top = details_bottom + UI_OBJECT_PANE_SECTION_GAP;
-        prism_top = actions_top + actions_height + UI_OBJECT_PANE_SECTION_GAP;
-        gizmo_top = prism_top + prism_height + UI_OBJECT_PANE_SECTION_GAP;
-        transform_top = gizmo_top + gizmo_height + UI_OBJECT_PANE_SECTION_GAP;
-    }
-    ui->objectPane.summaryRect = (SDL_Rect){ui->rightBodyRect.x, summary_top,
-                                            ui->rightBodyRect.w, summary_height};
-    ui->objectPane.detailsRect = (SDL_Rect){ui->rightBodyRect.x, details_top,
-                                            ui->rightBodyRect.w, details_target_height};
-    ui->objectPane.actionsRect = (SDL_Rect){ui->rightBodyRect.x, actions_top,
-                                            ui->rightBodyRect.w, actions_height};
-    ui->objectPane.prismRect = (SDL_Rect){ui->rightBodyRect.x, prism_top,
-                                          ui->rightBodyRect.w, prism_height};
-    ui->objectPane.gizmoRect = (SDL_Rect){ui->rightBodyRect.x, gizmo_top,
-                                          ui->rightBodyRect.w, gizmo_height};
-    ui->objectPane.transformRect = (SDL_Rect){ui->rightBodyRect.x, transform_top,
-                                              ui->rightBodyRect.w, transform_height};
-}
-
 void UIPanel_UpdateObjectPaneLayout(UIPanelState* ui) {
     UIPanelLayoutMetrics metrics = {0};
     SDL_Rect zero = {0, 0, 0, 0};
@@ -113,14 +49,6 @@ void UIPanel_UpdateObjectPaneLayout(UIPanelState* ui) {
     prism_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_PRISM);
     gizmo_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_GIZMO);
     transform_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_TRANSFORM);
-
-    if (!UIPanel_SceneAuthoringInspectorHasSelection()) {
-        UIPanel_RightScrollSetContentHeight(ui, (float)ui->rightBodyRect.h);
-        UIPanel_UpdateLegacyObjectPaneLayout(ui, summary_height, details_height,
-                                             actions_height, prism_height,
-                                             gizmo_height, transform_height);
-        return;
-    }
 
     cursor_y = content_rect.y;
 #define UI_OBJECT_PLACE(rect_field, height_value) \

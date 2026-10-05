@@ -151,8 +151,10 @@ int UIPanel_CreateSummaryReservedHeight(const UIPanelState* ui) {
     font_h = UIPanelCreateSummary_FontHeight();
     line_gap = UIPanelCreateSummary_LineGap();
     pad = UIPanelCreateSummary_PanelPad();
-    return (pad * 2) + (font_h * UI_CREATE_SUMMARY_HEADER_LINES) +
-           (line_gap * (UI_CREATE_SUMMARY_HEADER_LINES - 1));
+    int lines = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT
+        ? UI_CREATE_SUMMARY_HEADER_LINES : 2;
+    return (pad * 2) + (font_h * lines) +
+           (line_gap * (lines - 1));
 }
 
 void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
@@ -411,28 +413,14 @@ void Render_UIPanelCreateSummary(const UIPanelState* ui, SDL_Renderer* renderer)
              sizeof(summary_stage),
              "Choose an intent below");
 
-    summary_lines[0] = summary_space;
-    summary_lines[1] = summary_plane;
-    summary_lines[2] = summary_mode;
-    summary_lines[3] = summary_grid;
-    summary_lines[4] = summary_stage;
-    summary_colors[0] = accent_color;
-    summary_colors[1] = value_color;
-    summary_colors[2] = value_color;
-    summary_colors[3] = value_color;
-    summary_colors[4] = label_color;
-
+    summary_lines[0] = summary_mode;
+    summary_lines[1] = summary_grid;
+    summary_colors[0] = value_color;
+    summary_colors[1] = label_color;
     UIPanelSummary_DrawCard(renderer, summary_rect, fill_color, border_color, accent_color, metrics.accent_h);
-    UIPanelCreateSummary_DrawLines(renderer,
-                                   font,
-                                   summary_rect,
-                                   "Create",
-                                   summary_lines,
-                                   summary_colors,
-                                   5,
-                                   false,
-                                   label_color,
-                                   accent_color);
+    UIPanelCreateSummary_DrawLines(renderer, font, summary_rect, NULL,
+                                   summary_lines, summary_colors, 2, false,
+                                   label_color, accent_color);
 
     if (workspace_rect.w <= 0 || workspace_rect.h <= 0) return;
 

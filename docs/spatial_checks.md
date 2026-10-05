@@ -6,7 +6,7 @@ layout and S2/S3A identities, assemblies and relationships.
 
 ## Visible workflow
 
-Use **Parts → Volumes** to create a box representing Keep-out or Service space.
+Use **Object → Volumes** to create a box representing Keep-out or Service space.
 Enter a Name, choose its Role and enter Width U, Height V and Depth N. Dimensions
 accept mm, cm, m, in or ft; bare numbers use the current display unit. New boxes
 start axis-aligned at world zero. **Position / owner +** exposes world X/Y/Z and an
@@ -23,7 +23,7 @@ choosing an owner does not attach or move the volume. Parent both into an assemb
 when they should move together. Editing dimensions preserves the box's rigid frame;
 U/V/N dimensions follow its orientation while position fields remain world X/Y/Z.
 
-Use **Parts → Checks → Run checks** to inspect the current document. Reserved
+Use **Object → Checks → Run checks** to inspect the current document. Reserved
 volumes automatically check all design objects, including hidden objects. Other
 reserved volumes and Reference objects are excluded from these automatic checks.
 The declared owner, or all descendants of a declared owner assembly, is exempt.

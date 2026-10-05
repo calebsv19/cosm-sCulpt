@@ -300,6 +300,9 @@ typedef struct {
     SDL_Rect rightPaneRect;
     SDL_Rect leftBodyRect;
     SDL_Rect rightBodyRect;
+    SDL_Rect contextRect;
+    bool contextMenuOpen;
+    bool sectionHelpOpen;
     struct {
         SDL_Rect summaryRect;
         SDL_Rect fileActionsRect;

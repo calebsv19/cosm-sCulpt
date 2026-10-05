@@ -9,6 +9,8 @@ void UIPanel_UpdateTabLayout(UIPanelState* ui,
                              const SDL_Rect* leftPaneRect,
                              const SDL_Rect* rightPaneRect,
                              const UIPanelLayoutMetrics* metrics);
+void UIPanel_RenderContext(SDL_Renderer* renderer, const UIPanelState* ui);
+bool UIPanel_ContextEvent(const SDL_Event* event);
 bool UIPanel_HandleTabClick(UIPanelState* ui, int mouseX, int mouseY);
 bool UIPanel_ShouldShowGroup(const UIPanelState* ui, UIPanelGroup group);
 bool UIPanel_ShouldRenderRootSummary(const UIPanelState* ui);

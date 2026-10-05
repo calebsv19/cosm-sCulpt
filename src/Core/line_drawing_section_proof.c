@@ -39,8 +39,8 @@ bool LineDrawingSection_StageProof(const char* mode) {
     if (!click_control(UI_SECTION_SELECTED))
         return false;
     if (strcmp(mode, "cabinet-solid")) {
-        if (!click_control(UI_SECTION_ALONG) ||
-            !click_control(!strcmp(mode, "cabinet-section") ? UI_SECTION_EXACT : UI_SECTION_CUTAWAY))
+        if (!click_control(!strcmp(mode, "cabinet-section") ? UI_SECTION_EXACT : UI_SECTION_CUTAWAY) ||
+            !click_control(UI_SECTION_ALONG))
             return false;
         state->sectionView.position_meters = -.7181;
         if (!strcmp(mode, "cabinet-cutaway"))

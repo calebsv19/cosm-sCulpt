@@ -14,6 +14,7 @@
 #include "Tools/shape_from_layout.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_shell.h"
+#include "UI/ui_panel_parts.h"
 #include "core_units.h"
 #include "cjson/cJSON.h"
 
@@ -125,4 +126,21 @@ static inline void ld_test_init_runtime(void) {
 
 static inline void ld_test_shutdown_runtime(void) {
     Global_Shutdown();
+}
+
+static inline bool ld_test_context_part(int action) {
+    int mode = action == PARTS_VOLUMES ? 4 : action == PARTS_CHECKS ? 5 : action - PARTS_OBJECTS;
+    if (mode < 0 || mode > 5) return false;
+    UIPanelState* ui = UIPanel_Get();
+    UIPanel_SetActiveRightTab(ui, mode == 2 ? UI_PANEL_RIGHT_TAB_VIEW : UI_PANEL_RIGHT_TAB_OBJECT);
+    UIPanel_OnWindowResized(Global_Get()->screenWidth, Global_Get()->screenHeight);
+    SDL_Rect rect = ui->contextRect;
+    SDL_Event event = {.type = SDL_MOUSEBUTTONDOWN};
+    event.button.button = SDL_BUTTON_LEFT;
+    event.button.x = rect.x + rect.w / 2;
+    event.button.y = rect.y + rect.h / 2;
+    if (!UIPanel_ContextEvent(&event) || !ui->contextMenuOpen) return false;
+    int index = mode == 2 ? 1 : (const int[]){1, 2, 0, 3, 4, 5}[mode];
+    event.button.y += (index + 1) * (rect.h + 2);
+    return UIPanel_ContextEvent(&event) && ui->activeRightTab == UI_PANEL_RIGHT_TAB_PARTS && ui->parts.mode == mode;
 }

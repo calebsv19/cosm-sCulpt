@@ -144,7 +144,8 @@ int UIPanel_ViewSummaryReservedHeight(const UIPanelState* ui) {
     int font_h = 0;
     int line_gap = 0;
     int pad = 0;
-    if (!ui || ui->activeRightTab != UI_PANEL_RIGHT_TAB_VIEW) return 0;
+    if (!ui || ui->activeRightTab != UI_PANEL_RIGHT_TAB_VIEW ||
+        Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_SCENE) return 0;
     font_h = UIPanelViewSummary_FontHeight();
     line_gap = UIPanelViewSummary_LineGap();
     pad = UIPanelViewSummary_PanelPad();

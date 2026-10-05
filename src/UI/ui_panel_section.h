@@ -16,7 +16,8 @@ enum {
     UI_SECTION_APPLY,
     UI_SECTION_CANCEL,
     UI_SECTION_SELECTED,
-    UI_SECTION_ALL
+    UI_SECTION_ALL,
+    UI_SECTION_HELP
 };
 void UIPanel_RenderSection(SDL_Renderer* renderer);
 bool UIPanel_SectionClick(int x, int y);

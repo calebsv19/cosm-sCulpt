@@ -5,14 +5,15 @@ Date: 2026-09-29. S2 introduced schema 15; current schema 17 includes
 [explicit relationships through Links](relationships.md) and
 [reserved volumes and checks](spatial_checks.md). Program VERSION remains 0.4.0.
 
-## Using Parts
+## Using semantic tools
 
-Open an existing scene and choose the right-hand **Parts** tab. Its six modes
-are Objects, Assemblies, Filters, Links, Volumes and Checks. The S2 workflow is below; the
+Open an existing scene and choose **Object**. The selector below the tabs offers
+Geometry, Details / tags, Assemblies, Connections, Volumes and Checks.
+Visibility and saved filters are under **View → Visibility / saved views**. The S2 workflow is below; the
 [Links guide](relationships.md) describes S3a. Inputs have separate labels and inset fields;
 selectors have arrows and actions have filled button faces. No new shortcuts are required.
 
-1. In **Objects**, select a part in the viewport/list or the object selector.
+1. In **Details / tags**, select a part in the viewport/list or the object selector.
    Enter a Name, choose a Type and Design/Reference role, and choose its Parent.
    **Apply details** commits these edits; **Reset details** restores saved details.
    A name is independent of the persistent ID shown below the form.
@@ -34,7 +35,7 @@ selectors have arrows and actions have filled button faces. No new shortcuts are
    **Back to details** returns to metadata and members. Staged details must first
    be applied or reset. **Delete empty assembly...** requires confirmation and
    refuses an assembly with children; detach/reparent them first.
-5. In **Filters**, choose Type, Role, Assembly and an optional Property/Equals,
+5. In **View → Visibility**, choose Type, Role, Assembly and an optional Property/Equals,
    then **Apply filter**. Criteria combine with AND; an empty Equals matches any
    value for that key. Assembly matches a subtree. **Show all** clears the query.
    Type/text values are case-sensitive exact matches; numeric equality uses a
@@ -128,7 +129,7 @@ reparent, history refusal, lock/bounds/rule conflicts, malformed loads, older sc
 compatibility, transient filtering and semantic authoring/runtime export.
 Producer smoke, shape tool build and Main Edit package self-test pass. Native
 Objects/Assemblies/Filters captures were inspected. Human acceptance of this new
-Parts tab is still separate from those automated/rendered checks.
+Object → Details is still separate from those automated/rendered checks.
 
 S2 here means the bounded semantic organization and assembly foundation. Types
 such as Panel/StructuralMember/KeepoutVolume label existing geometry; assigning

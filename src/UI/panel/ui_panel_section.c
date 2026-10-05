@@ -16,9 +16,16 @@ static bool contains(SDL_Rect r, int x, int y) {
 }
 static int row_height(void) {
     TTF_Font* f = FontManager_Get(FONT_DEFAULT);
-    return (f ? TTF_FontHeight(f) : 16) + 16;
+    return (f ? TTF_FontHeight(f) : 16) + 8;
 }
-int UIPanel_SectionHeight(void) { return row_height() * 11 + 16; }
+int UIPanel_SectionHeight(void) {
+    UIPanelState* ui = UIPanel_Get();
+    bool on = Global_Get() && Global_Get()->sectionView.mode != LAYOUT_SECTION_OFF;
+    int rows = on ? 7 : 3;
+    if (on && ui->sectionInput) ++rows;
+    if (ui->sectionHelpOpen || ui->sectionMessage[0]) rows += 3;
+    return row_height() * rows + 8;
+}
 static bool active(void) {
     return Global_Get() && Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_SCENE &&
            UIPanel_Get()->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW;
@@ -27,7 +34,11 @@ static SDL_Rect rect_for(int action) {
     UIPanelState* ui = UIPanel_Get();
     SDL_Rect body = ui->viewPane.workspaceRect;
     int h = row_height(), row = 0, col = 0, cols = 1;
+    bool on = Global_Get()->sectionView.mode != LAYOUT_SECTION_OFF;
     switch (action) {
+    case UI_SECTION_HELP:
+        row = 0;
+        break;
     case UI_SECTION_OFF:
     case UI_SECTION_EXACT:
     case UI_SECTION_CUTAWAY:
@@ -40,41 +51,44 @@ static SDL_Rect rect_for(int action) {
     case UI_SECTION_HEIGHT:
         row = 2;
         cols = 3;
-        col = action - UI_SECTION_ALONG;
+        col = action == UI_SECTION_ACROSS ? 0 : action == UI_SECTION_ALONG ? 1 : 2;
         break;
     case UI_SECTION_TRACK:
         row = 3;
         break;
     case UI_SECTION_POSITION:
-        row = 4;
-        break;
     case UI_SECTION_STEP:
-        row = 5;
+        row = 4;
+        cols = 2;
+        col = action - UI_SECTION_POSITION;
         break;
     case UI_SECTION_PREVIOUS:
     case UI_SECTION_NEXT:
     case UI_SECTION_FLIP:
-        row = 6;
+        row = 5;
         cols = 3;
         col = action - UI_SECTION_PREVIOUS;
         break;
     case UI_SECTION_APPLY:
     case UI_SECTION_CANCEL:
-        row = 7;
+        row = 6;
         cols = 2;
         col = action - UI_SECTION_APPLY;
         break;
     case UI_SECTION_SELECTED:
     case UI_SECTION_ALL:
-        row = 8;
+        row = on ? 6 + (ui->sectionInput != 0) : 2;
         cols = 2;
         col = action - UI_SECTION_SELECTED;
         break;
     default:
         return (SDL_Rect){0};
     }
-    int width = (body.w - 24 - 6 * (cols - 1)) / cols;
-    return (SDL_Rect){body.x + 6 + col * (width + 6), body.y + 8 + row * h, width, h - 6};
+    if (!on && action >= UI_SECTION_ALONG && action <= UI_SECTION_CANCEL) return (SDL_Rect){0};
+    if ((action == UI_SECTION_APPLY || action == UI_SECTION_CANCEL) && !ui->sectionInput) return (SDL_Rect){0};
+    if (action == UI_SECTION_FLIP && Global_Get()->sectionView.mode != LAYOUT_SECTION_CUTAWAY) return (SDL_Rect){0};
+    int width = (body.w - 16 - 4 * (cols - 1)) / cols;
+    return (SDL_Rect){body.x + 4 + col * (width + 4), body.y + 4 + row * h, width, h - 3};
 }
 bool UIPanel_SectionControlRect(int action, SDL_Rect* rect) {
     if (!active() || !rect)
@@ -88,6 +102,7 @@ static void format_length(double meters, char* text, size_t n) {
     snprintf(text, n, "%.6g %s", value, UIPanel_GetDisplayUnitSymbol());
 }
 static void paint(SDL_Renderer* r, SDL_Rect box, const char* text, bool button, bool selected, bool enabled) {
+    if (box.w <= 0 || box.h <= 0) return;
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     UIPanelVisualPalette p = {0};
     (void)UIPanelVisual_ResolvePalette(&p);
@@ -95,7 +110,7 @@ static void paint(SDL_Renderer* r, SDL_Rect box, const char* text, bool button, 
         UIPanelVisual_DrawFrame(r, box, selected ? p.button_fill_active : p.button_fill,
                                 selected ? p.accent : p.button_border, 0);
     if (font)
-        UIPanelSummary_DrawTextClipped(r, font, text, box.x + 6, box.y + 5, box.w - 12, box.h - 6,
+        UIPanelSummary_DrawTextClipped(r, font, text, box.x + 4, box.y + 3, box.w - 8, box.h - 4,
                                        enabled ? p.text_primary : p.text_muted);
 }
 void UIPanel_RenderSection(SDL_Renderer* renderer) {
@@ -105,9 +120,11 @@ void UIPanel_RenderSection(SDL_Renderer* renderer) {
     UIPanelState* ui = UIPanel_Get();
     LayoutSectionView* s = &state->sectionView;
     SDL_Rect body = ui->viewPane.workspaceRect;
-    paint(renderer, (SDL_Rect){body.x + 6, body.y + 8, body.w - 24, row_height()}, "Section", false, false,
-          true);
-    const char* names[] = {"Off", "Section", "Cutaway", "Along van", "Across van", "Height"};
+    char heading[96];
+    snprintf(heading, sizeof(heading), "Section%s  %s", ui->sectionHelpOpen ? " - help" : " + help",
+             s->mode == LAYOUT_SECTION_OFF ? "" : (const char*[]){"YZ / X", "XZ / Y", "XY / Z"}[s->axis]);
+    paint(renderer, rect_for(UI_SECTION_HELP), heading, true, ui->sectionHelpOpen, true);
+    const char* names[] = {"Off", "Slice", "Cutaway", "Y", "X", "Z"};
     for (int a = UI_SECTION_OFF; a <= UI_SECTION_HEIGHT; ++a) {
         bool selected = a <= UI_SECTION_CUTAWAY ? (int)s->mode == a - UI_SECTION_OFF
                                                 : s->axis == (a == UI_SECTION_ALONG    ? 1
@@ -120,14 +137,16 @@ void UIPanel_RenderSection(SDL_Renderer* renderer) {
     SDL_Rect track = rect_for(UI_SECTION_TRACK);
     UIPanelVisualPalette palette = {0};
     (void)UIPanelVisual_ResolvePalette(&palette);
-    UIPanelVisual_DrawFrame(renderer, track, palette.workspace_fill, palette.button_border, 0);
-    SDL_Rect rail = {track.x + 10, track.y + track.h / 2 - 2, track.w - 20, 4};
-    SDL_SetRenderDrawColor(renderer, 110, 125, 145, 255);
-    SDL_RenderFillRect(renderer, &rail);
-    double t = range ? fmax(0, fmin(1, (s->position_meters - lo) / (hi - lo))) : 0;
-    SDL_Rect thumb = {rail.x + (int)(t * rail.w) - 5, track.y + 4, 10, track.h - 8};
-    SDL_SetRenderDrawColor(renderer, 100, 195, 235, 255);
-    SDL_RenderFillRect(renderer, &thumb);
+    if (track.w > 0) {
+        UIPanelVisual_DrawFrame(renderer, track, palette.workspace_fill, palette.button_border, 0);
+        SDL_Rect rail = {track.x + 10, track.y + track.h / 2 - 2, track.w - 20, 4};
+        SDL_SetRenderDrawColor(renderer, 110, 125, 145, 255);
+        SDL_RenderFillRect(renderer, &rail);
+        double t = range ? fmax(0, fmin(1, (s->position_meters - lo) / (hi - lo))) : 0;
+        SDL_Rect thumb = {rail.x + (int)(t * rail.w) - 5, track.y + 4, 10, track.h - 8};
+        SDL_SetRenderDrawColor(renderer, 100, 195, 235, 255);
+        SDL_RenderFillRect(renderer, &thumb);
+    }
     char value[96], label[160];
     for (int a = UI_SECTION_POSITION; a <= UI_SECTION_STEP; ++a) {
         int field = a == UI_SECTION_POSITION ? 1 : 2;
@@ -143,28 +162,30 @@ void UIPanel_RenderSection(SDL_Renderer* renderer) {
     if (ui->sectionInput) {
         paint(renderer, rect_for(UI_SECTION_APPLY), "Apply", true, true, true);
         paint(renderer, rect_for(UI_SECTION_CANCEL), "Cancel", true, false, true);
-    } else {
-        char left[64], right[64];
-        format_length(lo, left, sizeof(left));
-        format_length(hi, right, sizeof(right));
-        snprintf(label, sizeof(label), "Range: %s to %s", left, right);
-        SDL_Rect r = rect_for(UI_SECTION_APPLY);
-        r.w = body.w - 24;
-        paint(renderer, r, label, false, false, range);
     }
     const Object3D* selected =
         Layout_ObjectStore_FindConst(&state->layout.objectStore, state->editor.selectedObject3DId);
-    paint(renderer, rect_for(UI_SECTION_SELECTED), "Focus selected unit", true, false, selected != NULL);
+    paint(renderer, rect_for(UI_SECTION_SELECTED), "Focus assembly", true, false, selected != NULL);
     paint(renderer, rect_for(UI_SECTION_ALL), "Show all / fit", true, false, true);
-    SDL_Rect note = {body.x + 6, body.y + 8 + 9 * row_height(), body.w - 24, row_height() * 2 - 6};
-    TTF_Font* font = FontManager_Get(FONT_DEFAULT);
-    if (font)
-        UIPanelSummary_DrawWrappedText(
-            renderer, font,
-            ui->sectionMessage[0]
-                ? ui->sectionMessage
-                : "Sections: native solids only. Mesh cutaways are uncapped. Viewing does not edit geometry.",
-            note.x + 6, note.y + 5, note.w - 12, TTF_FontHeight(font), 2, 2, palette.text_muted);
+    if (ui->sectionHelpOpen || ui->sectionMessage[0]) {
+        int row = (s->mode == LAYOUT_SECTION_OFF ? 3 : 7 + (ui->sectionInput != 0));
+        SDL_Rect note = {body.x + 4, body.y + 4 + row * row_height(), body.w - 16, row_height() * 2};
+        TTF_Font* font = FontManager_Get(FONT_DEFAULT);
+        if (font) {
+            char left[48], right[48], limits[128];
+            format_length(lo, left, sizeof(left));
+            format_length(hi, right, sizeof(right));
+            snprintf(limits, sizeof(limits), "Range: %s to %s", left, right);
+            UIPanelSummary_DrawTextClipped(renderer, font, limits, note.x + 4, note.y + 2,
+                                           note.w - 8, TTF_FontHeight(font), palette.text_muted);
+            UIPanelSummary_DrawWrappedText(renderer, font,
+                ui->sectionMessage[0] ? ui->sectionMessage :
+                "X/Y/Z: travel direction. Native solids; mesh cuts uncapped. View only.",
+                note.x + 4, note.y + row_height(), note.w - 8, TTF_FontHeight(font), 2, 2,
+                palette.text_muted);
+        }
+    }
+
 }
 static void refresh(void) {
     Global_FlagGridChanged();
@@ -194,6 +215,11 @@ bool UIPanel_SectionClick(int x, int y) {
         return false;
     UIPanelState* ui = UIPanel_Get();
     GlobalState* state = Global_Get();
+    if (contains(rect_for(UI_SECTION_HELP), x, y)) {
+        ui->sectionHelpOpen = !ui->sectionHelpOpen;
+        UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+        return true;
+    }
     LayoutSectionView* s = &state->sectionView;
     int action = 0;
     for (int a = 1; a <= UI_SECTION_ALL; ++a)
@@ -279,6 +305,7 @@ bool UIPanel_SectionClick(int x, int y) {
     if (!ui->sectionInput)
         SDL_StopTextInput();
     refresh();
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
     return true;
 }
 bool UIPanel_SectionEvent(const SDL_Event* event) {

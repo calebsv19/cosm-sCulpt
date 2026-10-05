@@ -39,8 +39,8 @@ static bool dropdown_action(int action) {
         action==MEASURE_FEATURE_A || action==MEASURE_FEATURE_B || action==MEASURE_RULES;
 }
 static void cell(MeasurePane* p,int action,const char* label,int column,int columns,bool enabled,bool selected) {
-    int gap=6,w=(p->body.w-24-(columns-1)*gap)/columns;
-    SDL_Rect rect={p->body.x+6+column*(w+gap),p->y,w,p->h-5};
+    int gap=4,w=(p->body.w-24-(columns-1)*gap)/columns;
+    SDL_Rect rect={p->body.x+6+column*(w+gap),p->y,w,p->h-3};
     bool field=field_action(action);
     const char* value=field ? strstr(label,": ") : NULL;
     SDL_Color text=enabled ? p->palette.text_primary : p->palette.text_muted;
@@ -48,7 +48,7 @@ static void cell(MeasurePane* p,int action,const char* label,int column,int colu
         int label_width=w/3;
         if(p->renderer && p->font) {
             char title[48];snprintf(title,sizeof(title),"%.*s",(int)(value-label),label);
-            UIPanelSummary_DrawTextClipped(p->renderer,p->font,title,rect.x+2,rect.y+5,label_width-4,rect.h-4,text);
+            UIPanelSummary_DrawTextClipped(p->renderer,p->font,title,rect.x+2,rect.y+3,label_width-4,rect.h-4,text);
         }
         rect.x+=label_width;rect.w-=label_width;label=value+2;
     }
@@ -82,9 +82,9 @@ static void cell(MeasurePane* p,int action,const char* label,int column,int colu
     if (enabled && action==MEASURE_OBJECT_B) text=(SDL_Color){255,190,90,255};
     int arrow=dropdown_action(action) ? 18 : 0;
     if (p->font && p->wrap)
-        UIPanelSummary_DrawWrappedText(p->renderer,p->font,label,rect.x+7,rect.y+5,
+        UIPanelSummary_DrawWrappedText(p->renderer,p->font,label,rect.x+7,rect.y+3,
             rect.w-14-arrow,TTF_FontHeight(p->font),2,p->wrap_lines,text);
-    else if (p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,label,rect.x+7,rect.y+5,rect.w-14-arrow,rect.h-6,text);
+    else if (p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,label,rect.x+7,rect.y+3,rect.w-14-arrow,rect.h-4,text);
     if(arrow) {
         int cx=rect.x+rect.w-12,cy=rect.y+rect.h/2;
         SDL_SetRenderDrawColor(p->renderer,text.r,text.g,text.b,255);
@@ -192,7 +192,7 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     UIPanelState* ui=UIPanel_Get();
     MeasurePane p={.renderer=renderer,.font=FontManager_Get(FONT_DEFAULT),.body=ui->rightBodyRect,.click_x=x,.click_y=y,.wanted=wanted};
     (void)UIPanelVisual_ResolvePalette(&p.palette);
-    p.h=p.font ? TTF_FontHeight(p.font)+12 : 30;
+    p.h=p.font ? TTF_FontHeight(p.font)+8 : 30;
     p.y=p.body.y+6-(int)UIPanel_RightScrollOffset(ui);
     bool has_primitive=false;
     const LayoutObjectStore* store=&Global_Get()->layout.objectStore;

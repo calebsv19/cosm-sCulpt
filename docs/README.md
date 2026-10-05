@@ -111,18 +111,12 @@ Current verification contract:
 - `line_drawing` remains the canonical upstream authoring/export source for the current primitive scope.
 - public product-facing docs should treat `Sculpt` as the primary app name and
   use `line_drawing` where repo/runtime identifiers need to stay exact
-- the editor pane system is now structurally unified into five durable tabs:
-  - left:
-    - `Scene`
-    - `File`
-  - right:
-    - `View`
-    - `Create`
-    - `Object`
-  - each pane now follows the same ownership model:
-    - compact top summary
-    - primary middle working surface
-    - anchored lower actions/controls where needed
+- the editor has Scene/File on the left and five primary tasks on the right:
+  View, Create, Object, Measure and Routes. Contextual selectors under View and
+  Object provide visibility, details, assemblies, connections, volumes and checks.
+  Object asset editing retains Geometry and Edit tools under Properties.
+- [Compact editor controls](compact_editor_ui.md) documents navigation and density.
+- View and Object controls flow from the top, with overflow only when needed.
 - the scene-editor usability pass now keeps creation and scene-record editing
   usable at constrained pane heights:
   - `Create` is context-switched by Geometry, Paths, Lighting, Materials, and

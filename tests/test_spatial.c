@@ -123,6 +123,9 @@ static bool test_schema17_migration_export_atomic(void) {
     cJSON_Delete(scene);Layout_FreeString(before);ld_test_shutdown_runtime();return true;
 }
 static bool click(int action) {
+    if ((action >= PARTS_OBJECTS && action <= PARTS_LINKS) || action == PARTS_VOLUMES || action == PARTS_CHECKS)
+        return ld_test_context_part(action);
+
     SDL_Rect r;TEST_ASSERT(UIPanel_PartsControlRect(action,&r));TEST_ASSERT(r.y>=UIPanel_Get()->rightBodyRect.y && r.y+r.h<=UIPanel_Get()->rightBodyRect.y+UIPanel_Get()->rightBodyRect.h);
     AppContext c={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};e.button.button=SDL_BUTTON_LEFT;e.button.x=r.x+r.w/2;e.button.y=r.y+r.h/2;Input_Handle(&c,&e);return true;
 }

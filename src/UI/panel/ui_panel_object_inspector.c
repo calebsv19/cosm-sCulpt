@@ -215,6 +215,8 @@ int UIPanel_ObjectInspectorReservedHeight(const UIPanelState* ui) {
     int line_gap = 0;
     int pad = 0;
     if (!ui || ui->activeRightTab != UI_PANEL_RIGHT_TAB_OBJECT || !Global_Get()) return 0;
+    if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_SCENE)
+        return 2 * (UIPanelObjectInspector_FontHeight() + 4) + 6;
     font_h = UIPanelObjectInspector_FontHeight();
     line_gap = UIPanelObjectInspector_LineGap();
     pad = UIPanelObjectInspector_PanelPad();
@@ -228,6 +230,8 @@ int UIPanel_ObjectInspectorDetailsHeight(const UIPanelState* ui) {
     int line_gap = 0;
     int pad = 0;
     if (!ui || ui->activeRightTab != UI_PANEL_RIGHT_TAB_OBJECT || !Global_Get()) return 0;
+    if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_SCENE)
+        return 6 * (UIPanelObjectInspector_FontHeight() + 2) + 6;
     font_h = UIPanelObjectInspector_FontHeight();
     line_gap = UIPanelObjectInspector_LineGap();
     pad = UIPanelObjectInspector_PanelPad();
@@ -682,6 +686,44 @@ void Render_UIPanelObjectInspector(const UIPanelState* ui, SDL_Renderer* rendere
     border_color = palette.pane_border;
     border_color.a = 210;
 
+    if (Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_SCENE) {
+        SDL_Rect summary = ui->objectPane.summaryRect, details = ui->objectPane.detailsRect;
+        char lines[8][192] = {{0}};
+        snprintf(lines[0], sizeof(lines[0]), "%s", object ? (object->info.label[0] ? object->info.label : object->coreMeta.object_id) : "Select an object");
+        snprintf(lines[1], sizeof(lines[1]), "#%u  %s  %s", object ? object->objectId : 0,
+            object ? UIPanelObjectInspector_KindLabel(object->kind) : "", object ? UIPanelObjectInspector_DimensionalModeLabel(object->coreMeta.dimensional_mode) : "");
+        if (object) {
+            char pos[3][32], dims[3][32];
+            Vec3 p = object->transform.position;
+            UIPanelObjectInspector_FormatDimension(p.x, pos[0], sizeof(pos[0]));
+            UIPanelObjectInspector_FormatDimension(p.y, pos[1], sizeof(pos[1]));
+            UIPanelObjectInspector_FormatDimension(p.z, pos[2], sizeof(pos[2]));
+            float w = object->kind == OBJECT3D_KIND_RECT_PRISM ? object->rectPrism.width : object->plane.width;
+            float h = object->kind == OBJECT3D_KIND_RECT_PRISM ? object->rectPrism.height : object->plane.height;
+            float d = object->kind == OBJECT3D_KIND_RECT_PRISM ? object->rectPrism.depth : 0;
+            if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+                Vec3 span = Vec3_Sub(object->meshInstance.localBoundsMax, object->meshInstance.localBoundsMin);
+                w = span.x * object->transform.scale.x; h = span.y * object->transform.scale.y; d = span.z * object->transform.scale.z;
+            }
+            UIPanelObjectInspector_FormatDimension(w, dims[0], sizeof(dims[0]));
+            UIPanelObjectInspector_FormatDimension(h, dims[1], sizeof(dims[1]));
+            UIPanelObjectInspector_FormatDimension(d, dims[2], sizeof(dims[2]));
+            snprintf(lines[2], sizeof(lines[2]), "Position  %s  %s  %s", pos[0], pos[1], pos[2]);
+            snprintf(lines[3], sizeof(lines[3]), "W/H/D  %s  %s  %s", dims[0], dims[1], dims[2]);
+            snprintf(lines[4], sizeof(lines[4]), "Rotation  %.1f / %.1f / %.1f deg", object->transform.rotationDeg.x, object->transform.rotationDeg.y, object->transform.rotationDeg.z);
+            snprintf(lines[5], sizeof(lines[5]), "Visible %s  Locked %s  Pick %s", object->coreMeta.flags.visible ? "on" : "off", object->coreMeta.flags.locked ? "on" : "off", object->coreMeta.flags.selectable ? "on" : "off");
+            snprintf(lines[6], sizeof(lines[6]), "Plane %s  Locks P:%s B:%s", UIPanelObjectInspector_CorePlaneLabel(object->coreMeta.locked_plane),
+                (object->kind == OBJECT3D_KIND_RECT_PRISM ? object->rectPrism.lockToConstructionPlane : object->kind == OBJECT3D_KIND_PLANE && object->plane.lockToConstructionPlane) ? "on" : "off",
+                (object->kind == OBJECT3D_KIND_RECT_PRISM ? object->rectPrism.lockToBounds : object->kind == OBJECT3D_KIND_PLANE && object->plane.lockToBounds) ? "on" : "off");
+            snprintf(lines[7], sizeof(lines[7]), "ID  %s", object->coreMeta.object_id);
+        }
+        for (int i = 0; i < 8; ++i) {
+            SDL_Rect box = i < 2 ? summary : details;
+            int y = box.y + 3 + (i < 2 ? i : i - 2) * (TTF_FontHeight(font) + (i < 2 ? 4 : 2));
+            UIPanelSummary_DrawTextClipped(renderer, font, lines[i], box.x + 4, y, box.w - 8, TTF_FontHeight(font), i == 0 ? accent_color : value_color);
+        }
+        return;
+    }
     UIPanelObjectInspector_DrawSummaryCard(ui,
                                            renderer,
                                            font,

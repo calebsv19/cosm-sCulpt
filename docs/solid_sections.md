@@ -8,21 +8,21 @@ not certify the van dimensions or cabinet construction.
 Scene → View contains a bordered **Section** group:
 
 - **Off** restores whole-object drawing.
-- **Section** shows the exact intersection of the plane with native solid prisms.
+- **Slice** shows the exact intersection of the plane with native solid prisms.
 - **Cutaway** clips one half of native solids and closes each cut panel with a cap.
-- **Along van** moves the plane along world Y; **Across van** along X;
-  **Height** along Z. Vertical orthographic sections show +Z upward.
+- **X**, **Y** and **Z** select the axis along which the section moves.
+  The section header shows the perpendicular plane (YZ, XZ or XY). Vertical orthographic sections show +Z upward.
 - The visible slider spans currently shown physical objects. **Position** accepts
   a number with an optional unit suffix; **Step** controls **Previous / Next**.
   Click a field, type, then **Apply**, Return or **Cancel**.
 - **Keep + side / Keep - side** switches the retained cutaway half. Cutaway
   initially removes the near half of the orthographic view. Use **Orbit** below
   to inspect the same clipped solids in 3D; Section stays orthographic.
-- **Focus selected unit** filters to the selected object's parent assembly and
+- **Focus assembly** filters to the selected object's parent assembly and
   fits it. **Show all / fit** clears active semantic filters and fits the scene.
 
 The pane scrolls when the controls do not fit. Solid / Material / Wire / Bounds
-remain in the View group below Section. Wire or Bounds turns section clipping off.
+remain in Camera / appearance above Section. Wire or Bounds turns section clipping off.
 Section direction overrides viewing only: it does not change the construction
 plane, dimensions, transforms, document dirty state or Undo history.
 
@@ -74,7 +74,7 @@ and bed motion are excluded from this study. Missing panel material is labeled
 `plywood_tentative` for appearance. The full original van fixture is unchanged.
 
 1. Open **cabinet_view_v1.layout.json**, choose View → Material, then Fit scene.
-2. Choose Along van → Section. The middle slice shows two vertical panel edges,
+2. Choose Slice, then Y. The middle slice shows two vertical panel edges,
    top, bottom and shelf, with empty space between them.
 3. Drag the slider or use Position, Previous and Next. At an end panel the section
    becomes filled, representing that panel's real solid thickness.
@@ -87,7 +87,7 @@ geometry, not a measured plywood specification or a finished construction plan.
 
 ## Evidence and boundaries
 
-Five Sections tests cover outward faces, exact and boundary intersections,
+Six Sections tests cover outward faces, exact and boundary intersections,
 cutaway cap winding, physical unit conversion, rotated anchored thickness,
 failed-edit atomicity, save/reload, Undo/Redo, a visible thickness form, depth
 order independence and actual cabinet pixels. Section controls include drag,
