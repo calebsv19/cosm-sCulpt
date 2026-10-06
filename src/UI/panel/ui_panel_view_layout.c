@@ -1,4 +1,5 @@
 #include "UI/ui_panel_section.h"
+#include "UI/ui_panel_camera.h"
 #include "UI/ui_panel_right_scroll.h"
 #include "Core/global_state.h"
 #include "UI/ui_panel_view_layout.h"
@@ -28,14 +29,17 @@ void UIPanel_UpdateViewPaneLayout(UIPanelState* ui) {
     if (ui->rightBodyRect.w <= 0 || ui->rightBodyRect.h <= 0) return;
 
     UIPanel_GetLayoutMetrics(&metrics);
-    summary_height = UIPanel_ViewSummaryReservedHeight(ui);
+    summary_height = Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_SCENE ?
+        UIPanel_CameraHeight() : UIPanel_ViewSummaryReservedHeight(ui);
     view_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_VIEW);
     modes_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_MODES);
 
     int content_height = summary_height + view_height + modes_height + 12;
     int section_height = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_SCENE
                              ? UIPanel_SectionHeight() : 120;
-    content_height += section_height;
+    if (Global_Get() && Global_Get()->cameraView.active) {
+        view_height=0; modes_height=0; section_height=0; content_height=summary_height;
+    } else content_height += section_height;
     UIPanel_RightScrollSetContentHeight(ui, (float)content_height);
     int y = ui->rightBodyRect.y - (int)UIPanel_RightScrollOffset(ui);
     ui->viewPane.summaryRect = (SDL_Rect){ui->rightBodyRect.x, y, ui->rightBodyRect.w, summary_height};

@@ -218,6 +218,7 @@ static LayoutMeshSolidPreviewAssetCache* LayoutMeshSolid_AssetForPath(const char
 
 // Resolve view depth in the same orthographic basis used by the viewport projection.
 static float LayoutMeshSolid_ViewDepth(Vec3 point, const SpaceViewContext* viewContext) {
+    if (viewContext->perspective.enabled) return PerspectiveView_Depth(&viewContext->perspective,point);
     if (SpaceAdapter_IsFreeViewEnabled(viewContext)) {
         return Vec3_Dot(Vec3_Sub(point, viewContext->camera.target),
                         FreeView_Forward(&viewContext->camera));
@@ -258,7 +259,7 @@ static uint8_t LayoutMeshSolid_Channel(float value) {
 }
 
 // Native primitives and runtime meshes share one color/depth/owner pass.
-static void LayoutMeshSolid_RasterizeTriangle(Vec3 worldA, Vec3 worldB, Vec3 worldC,
+static void LayoutMeshSolid_RasterizeClippedTriangle(Vec3 worldA, Vec3 worldB, Vec3 worldC,
     const SpaceViewContext* viewContext, const Grid* grid, SDL_Rect clip, float rasterScale,
     int width, int height, int32_t ownerId, SDL_Color color, bool cap,
     uint8_t* rgba, float* depth, int32_t* owner, LayoutMeshSolidPreviewFrameStats* stats) {
@@ -297,7 +298,9 @@ static void LayoutMeshSolid_RasterizeTriangle(Vec3 worldA, Vec3 worldB, Vec3 wor
                 const size_t pixel = (size_t)y * (size_t)width + (size_t)x;
                 float pixelDepth = 0.0f;
                 if (w0 < -1e-4f || w1 < -1e-4f || w2 < -1e-4f) continue;
-                pixelDepth = (w0 * a.depth) + (w1 * b.depth) + (w2 * c.depth);
+                pixelDepth = viewContext->perspective.enabled ?
+                    1.0f/(w0/a.depth+w1/b.depth+w2/c.depth) :
+                    (w0 * a.depth) + (w1 * b.depth) + (w2 * c.depth);
                 if (!isfinite(pixelDepth) || pixelDepth >= depth[pixel]) continue;
                 depth[pixel] = pixelDepth;
                 owner[pixel] = ownerId;
@@ -308,6 +311,21 @@ static void LayoutMeshSolid_RasterizeTriangle(Vec3 worldA, Vec3 worldB, Vec3 wor
             }
         }
     stats->rasterizedTriangles++;
+}
+static void LayoutMeshSolid_RasterizeTriangle(Vec3 a, Vec3 b, Vec3 c,
+    const SpaceViewContext* view, const Grid* grid, SDL_Rect clip, float scale,
+    int width, int height, int32_t id, SDL_Color color, bool cap,
+    uint8_t* rgba, float* depth, int32_t* owner, LayoutMeshSolidPreviewFrameStats* stats) {
+    if(!view->perspective.enabled) {
+        LayoutMeshSolid_RasterizeClippedTriangle(a,b,c,view,grid,clip,scale,width,height,
+            id,color,cap,rgba,depth,owner,stats);
+        return;
+    }
+    Vec3 clipped[12];
+    size_t count=PerspectiveView_ClipTriangle(&view->perspective,a,b,c,clipped);
+    for(size_t i=1;i+1<count;++i)
+        LayoutMeshSolid_RasterizeClippedTriangle(clipped[0],clipped[i],clipped[i+1],view,grid,
+            clip,scale,width,height,id,color,cap,rgba,depth,owner,stats);
 }
 static SDL_Color LayoutMeshSolid_Color(const Object3D* object, bool material) {
     if (!material) return (SDL_Color){164,185,202,255};
@@ -523,6 +541,8 @@ bool Layout_MeshSolidPreviewViewChangeResetsQuality(
     const SpaceViewContext* previous,
     const SpaceViewContext* current) {
     if (!previous || !current) return true;
+    if (previous->perspective.enabled != current->perspective.enabled) return true;
+    if(current->perspective.enabled) return memcmp(&previous->perspective,&current->perspective,sizeof(current->perspective))!=0;
     if (previous->camera.enabled != current->camera.enabled) return true;
     if (current->camera.enabled) {
         return previous->camera.yawDeg != current->camera.yawDeg ||
@@ -618,7 +638,7 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
         if (!LayoutMeshSolid_PrepareBuffers(rasterWidth, rasterHeight)) return false;
         stats.interactiveQuality = interactive;
 
-        if(!outlineOnly && Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_SCENE) {
+        if((!outlineOnly || viewContext->perspective.enabled) && Global_GetWorkspaceMode()==LINE_DRAWING_WORKSPACE_MODE_SCENE) {
             const GlobalState* state=Global_Get();
             (void)Layout_RasterNativeSurfaces(layout,state?&state->sectionView:NULL,viewContext,grid,
                 clip,rasterScale,rasterWidth,rasterHeight,materialMode,g_solidPreview.rgba,

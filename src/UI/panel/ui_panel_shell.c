@@ -1,3 +1,4 @@
+#include "UI/ui_panel_camera.h"
 #include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_shell.h"
@@ -45,6 +46,8 @@ void UIPanel_SetActiveRightTab(UIPanelState* ui, UIPanelRightTab tab) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     if (!ui || !UIPanel_IsValidRightTab(tab)) return;
     if (ui->activeRightTab != tab) {
+        UIPanel_CameraReset();
+        if(tab!=UI_PANEL_RIGHT_TAB_VIEW)CameraView_Exit(Global_Get());
         UIPanel_MeasurementStopInput();
         UIPanel_PartsStopInput();
         UIPanel_RoutesStopInput();

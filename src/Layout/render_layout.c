@@ -899,6 +899,14 @@ void Layout_Render(const Layout* layout, AppContext* ctx) {
     SDL_Renderer* renderer = ctx->renderer;
     GlobalState* state = Global_Get();
 
+    if (state && state->cameraView.active) {
+        SpaceViewContext view=SpaceAdapter_BuildViewContext(state);
+        (void)Layout_RenderMeshSolidPreview(renderer,layout,&view,&state->grid,
+            state->screenWidth,state->screenHeight,
+            state->previewMode==LINE_DRAWING_PREVIEW_MODE_WIREFRAME ? LAYOUT_MESH_SOLID_STYLE_WIRE_OUTLINE :
+            state->previewMode==LINE_DRAWING_PREVIEW_MODE_FLAT ? LAYOUT_MESH_SOLID_STYLE_FLAT : LAYOUT_MESH_SOLID_STYLE_MATERIAL,NULL);
+        return;
+    }
     if (state &&
         state->spaceMode == SPACE_MODE_3D &&
         (state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME ||

@@ -7,6 +7,7 @@
 #include "Layout/Grid/grid.h"
 #include "Layout/layout.h"
 #include "Layout/layout_section.h"
+#include "Core/camera_view.h"
 #include "Editor/editor.h"
 #include "ObjectAuthoring/object_authoring_session.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_types.h"
@@ -57,6 +58,7 @@ typedef struct GlobalState {
     SpaceMode spaceMode;
     LineDrawingWorkspaceMode workspaceMode;
     LineDrawingPreviewMode previewMode;
+    CameraViewSession cameraView; /* Observer pose; commits are explicit and undoable. */
     LayoutSectionView sectionView; /* Runtime viewing state; never document geometry. */
     ViewPlane activePlane;
     FreeViewCamera freeViewCamera;

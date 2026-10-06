@@ -1,3 +1,7 @@
+# C1 camera viewing update - 2026-10-06
+
+Perspective interior navigation is implemented in persistent Main Edit with Alt mouse look without clicking, roll, visible movement controls, unit-aware pose fields and undoable standalone camera commits. See [camera viewing](camera_view.md). C2 directional inspection and C3/C4 path-shot/render matching remain subsequent work.
+
 # Sculpt Current Truth
 
 ## V1 / V2 solid panels and movable sections (2026-10-05)

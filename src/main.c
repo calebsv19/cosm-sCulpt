@@ -1,3 +1,5 @@
+#include "Layout/layout_saved_views.h"
+#include "UI/ui_panel_shell.h"
 #include "Core/editor_preferences.h"
 #include <sys/stat.h>
 #include "Core/line_drawing_engineering_proof.h"
@@ -281,6 +283,7 @@ static void LineDrawingRunInputRoutingFrame(AppContext* ctx, const SDL_Event* ev
 
 static void LineDrawingHostEnterMenu(void) {
     GlobalState* state = Global_Get();
+    CameraView_ResetInput(state);
     if (state && LineDrawingWorkspaceAuthoringHost_Active(state)) {
         (void)LineDrawingWorkspaceAuthoringHost_Cancel(state);
     }
@@ -324,6 +327,10 @@ static void handleInput(AppContext *ctx, SDL_Event* event) {
         return;
     }
 
+    if (Global_Get() && Global_Get()->cameraView.active && event->type==SDL_KEYDOWN &&
+        event->key.keysym.sym==SDLK_ESCAPE && !UIPanel_IsCapturingKeyboard()) {
+        CameraView_Exit(Global_Get()); return;
+    }
     if (!UIPanel_IsCapturingKeyboard() &&
         !LineDrawingWorkspaceAuthoringHost_Active(Global_Get()) &&
         LineDrawingHostReturnToMenuRequested(event)) {
@@ -359,10 +366,11 @@ static int nextUpdateDelayMs(AppContext* ctx) {
     if (g_startup_frame_presented && !g_startup_session_restored) return 0;
     if (g_line_drawing_host_mode == LINE_DRAWING_HOST_MODE_MENU) return -1;
     GlobalState* state = Global_Get();
+    if (CameraView_NextUpdateDelayMs(state)>=0) return 16;
     if (state) for (size_t i = 0; i < state->layout.sceneAuthoring.path_count; ++i)
         if (state->layout.sceneAuthoring.paths[i].playing) return 16;
     int delay = state && state->spaceMode == SPACE_MODE_3D &&
-        Global_GetPreviewMode() != LINE_DRAWING_PREVIEW_MODE_BOUNDS ?
+        (state->cameraView.active || Global_GetPreviewMode() != LINE_DRAWING_PREVIEW_MODE_BOUNDS) ?
         Layout_MeshSolidPreviewNextUpdateDelayMs() : -1;
     const int pending[] = {UIPanel_LoadProgressNextUpdateDelayMs(), UIPanel_FileStatusNextUpdateDelayMs()};
     for (size_t i = 0; i < sizeof(pending) / sizeof(pending[0]); ++i)
@@ -548,6 +556,7 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         return 1;
     }
 
+    const bool camera_proof=proof_mode && !strcmp(proof_mode,"camera-interior");
     const bool cabinet_proof = proof_mode && !strncmp(proof_mode, "cabinet-", 8);
     const bool parts_proof=proof_mode && !strncmp(proof_mode,"parts-",6);
     const bool hinge_proof=proof_mode && !strncmp(proof_mode,"constraint-hinge",16);
@@ -558,7 +567,7 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
     const bool constraint_angle = pivot_feedback || (proof_mode && strcmp(proof_mode, "constraint-angle") == 0);
     const bool placement_proof = parts_proof || hinge_proof || travel_proof || constraint_distance || constraint_angle || (proof_mode && strcmp(proof_mode, "placement") == 0);
     const bool measurement_proof = placement_proof || (proof_mode && strcmp(proof_mode, "measurement") == 0);
-    if (cabinet_proof || measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
+    if (camera_proof || cabinet_proof || measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
         LineDrawingHostEnterEditor();
         if (visualMeshPath && visualMeshPath[0] &&
             !LineDrawingVisualArtifactStageMesh(visualMeshPath)) {
@@ -692,8 +701,21 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         }
     }
 
+    if(camera_proof) {
+        GlobalState* state=Global_Get();
+        const char* path=getenv("LINE_DRAWING_PROOF_LAYOUT_PATH");
+        if(!Layout_LoadFromFile(&state->layout,path && path[0]?path:"config/examples/van_construction_f4.layout.json"))return 1;
+        Layout_ShowAllViews(&state->layout.objectStore);
+        memset(&state->layout.objectStore.view_query,0,sizeof(state->layout.objectStore.view_query));
+        if(!CameraView_Enter(state,false))return 1;
+        state->cameraView.eye=(Vec3){0,.8f,1.6f};
+        state->cameraView.pitch=-8;
+        state->previewMode=LINE_DRAWING_PREVIEW_MODE_MATERIAL;
+        UIPanel_SetActiveRightTab(UIPanel_Get(),UI_PANEL_RIGHT_TAB_VIEW);
+        UIPanel_OnWindowResized(state->screenWidth,state->screenHeight);
+    }
     if (cabinet_proof && !LineDrawingSection_StageProof(proof_mode)) return 1;
-    if (cabinet_proof || (visualMeshPath && visualMeshPath[0])) {
+    if (camera_proof || cabinet_proof || (visualMeshPath && visualMeshPath[0])) {
         if (!App_RenderOnce(app, handleRender)) {
             fprintf(stderr, "line_drawing: visual-artifact mesh warmup render failed\n");
             return 1;

@@ -19,6 +19,8 @@ static bool UIPanel_RightControlButtonVisible(int button_id) {
         scene_authoring_selected && state
             ? state->layout.sceneAuthoring.selected_kind
             : LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE;
+    if (state && state->cameraView.active &&
+        (UIPanel_Get()->activeRightTab==UI_PANEL_RIGHT_TAB_VIEW)) return false;
     switch (button_id) {
         case UI_BTN_PANEL_THICKNESS:
         case UI_BTN_PANEL_KEEP_FACE:

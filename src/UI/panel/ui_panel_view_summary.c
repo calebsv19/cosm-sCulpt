@@ -184,7 +184,7 @@ void Render_UIPanelViewSummary(const UIPanelState* ui, SDL_Renderer* renderer) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
 
     if (!ui || !renderer || !font || !state) return;
-    if (ui->activeRightTab != UI_PANEL_RIGHT_TAB_VIEW) return;
+    if (ui->activeRightTab != UI_PANEL_RIGHT_TAB_VIEW || !object_mode) return;
     if (ui->rightBodyRect.w <= 0 || ui->rightBodyRect.h <= 0) return;
 
     summary_rect = ui->viewPane.summaryRect;

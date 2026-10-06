@@ -150,7 +150,7 @@ bool Layout_SceneCamera_EvaluatePose(const LineDrawingSceneCamera* camera,
                                      const LineDrawingScenePath* path,
                                      LineDrawingSceneCameraPose* out_pose) {
     LineDrawingSceneCameraPose pose = {0};
-    Vec3 world_up = {0.0f, 0.0f, 1.0f};
+
     Vec3 right;
     if (!camera || !out_pose) return false;
     pose.position = path && path->control_point_count > 0u ? path->control_points[0]
@@ -163,8 +163,9 @@ bool Layout_SceneCamera_EvaluatePose(const LineDrawingSceneCamera* camera,
         pose.forward = CameraPathForward(path, pose.position);
     }
     if (Vec3_Length(pose.forward) < 0.0001f) pose.forward = (Vec3){0.0f, 1.0f, 0.0f};
-    if (fabsf(Vec3_Dot(pose.forward, world_up)) > 0.98f) world_up = (Vec3){0.0f, 1.0f, 0.0f};
-    right = Vec3_Normalize(Vec3_Cross(pose.forward, world_up));
+    /* Z-up heading basis stays continuous near vertical viewpoints. */
+    right=Vec3_Normalize((Vec3){pose.forward.y,-pose.forward.x,0});
+    if(Vec3_Length(right)<.0001f)right=(Vec3){0,-1,0};
     pose.up = Vec3_Normalize(Vec3_Cross(right, pose.forward));
     if (fabsf(camera->roll_degrees) > 0.001f) {
         const float radians = camera->roll_degrees * 0.01745329251994329577f;
@@ -183,6 +184,7 @@ bool Layout_SceneCamera_EvaluatePoseAtNormalizedDistance(
     LineDrawingScenePathTraversalTable table = {0};
     LineDrawingScenePathTraversalSample sample = {0};
     LineDrawingSceneCamera sampled_camera;
+    if(camera && !path && out_pose) return Layout_SceneCamera_EvaluatePose(camera,NULL,out_pose);
     if (!camera || !path || !out_pose ||
         !Layout_ScenePathTraversal_Build(path, &table) ||
         !Layout_ScenePathTraversal_EvaluateNormalized(&table,

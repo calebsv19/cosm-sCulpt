@@ -403,6 +403,7 @@ bool Global_SetWorkspaceMode(LineDrawingWorkspaceMode mode) {
         return true;
     }
 
+    CameraView_Exit(global);
     if (!LineDrawingWorkspaceModeHandoff_Apply(global, mode)) {
         return false;
     }
@@ -616,6 +617,7 @@ void Global_TickSystems(AppContext* ctx) {
     if (!state) return;
 
     if (ctx) {
+        if (CameraView_Step(state,ctx->deltaTime)) ctx->redraw_requested=true;
         bool traversal_changed = false;
         for (size_t i = 0u; i < state->layout.sceneAuthoring.path_count; ++i) {
             traversal_changed = Layout_ScenePathTraversal_Advance(
@@ -714,6 +716,7 @@ void Global_RebuildHitboxesIfDirty(void) {
     Global_ProcessLayoutChanges(state);
 
     if (!state->hitboxDirty) return;
+    if (state->cameraView.active) { state->hitboxDirty=false; return; }
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     bool gizmoEnabled = (state->spaceMode == SPACE_MODE_3D) &&
                         SpaceAdapter_IsFreeViewEnabled(&viewCtx);
@@ -791,6 +794,7 @@ void Global_OnLayoutSaved(const char* path) {
 void Global_OnLayoutLoaded(const char* path) {
     GlobalState* state = Global_Get();
     if (!state) return;
+    CameraView_Exit(state);
     state->sectionView.mode=LAYOUT_SECTION_OFF;
     if (path && *path) {
         strncpy(state->currentConfigPath, path, sizeof(state->currentConfigPath) - 1);
@@ -810,6 +814,7 @@ void Global_OnLayoutLoaded(const char* path) {
 void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_path_hint) {
     GlobalState* state = Global_Get();
     if (!state) return;
+    CameraView_Exit(state);
     if (scene_authoring_path && *scene_authoring_path) {
         strncpy(state->currentSceneAuthoringPath,
                 scene_authoring_path,

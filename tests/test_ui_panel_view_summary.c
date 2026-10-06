@@ -3,6 +3,7 @@
 #include "UI/font_manager.h"
 #include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_view_layout.h"
+#include "UI/ui_panel_camera.h"
 #include "UI/ui_panel_view_summary.h"
 #include "UI/input_ui_panel.h"
 #include "UI/ui_panel_right_scroll.h"
@@ -33,7 +34,7 @@ static bool test_view_summary_reserves_space_for_view_controls(void) {
                                          &workspace_rect,
                                          &view_rect,
                                          &modes_rect));
-    TEST_ASSERT(summary_rect.h == reserved_height);
+    TEST_ASSERT(summary_rect.h == UIPanel_CameraHeight());
     TEST_ASSERT(workspace_rect.y >= summary_rect.y + summary_rect.h);
     TEST_ASSERT(workspace_rect.y >= view_rect.y + view_rect.h);
     TEST_ASSERT(modes_rect.y >= workspace_rect.y + workspace_rect.h);

@@ -5,6 +5,7 @@ bool demand_loop_run_tests(void);
 #include <stdio.h>
 #include <string.h>
 
+bool camera_view_run_tests(void);
 bool furniture_run_tests(void);
 bool sections_run_tests(void);
 bool layout_run_tests(void);
@@ -66,6 +67,7 @@ typedef struct TestGroup {
 } TestGroup;
 
 static const TestGroup kTestGroups[] = {
+    {"CameraView", camera_view_run_tests, true},
     {"Furniture", furniture_run_tests, true},
     {"Sections", sections_run_tests, true},
     {"Layout", layout_run_tests, true},

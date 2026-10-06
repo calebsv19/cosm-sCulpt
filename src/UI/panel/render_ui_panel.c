@@ -1,4 +1,5 @@
 #include "UI/ui_panel_section.h"
+#include "UI/ui_panel_camera.h"
 #include "UI/ui_panel_furniture.h"
 #include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_parts.h"
@@ -991,7 +992,8 @@ void Render_UIPanel(const UIPanelState* ui, SDL_Renderer* renderer) {
         if (had_clip) (void)SDL_RenderGetClipRect(renderer, &previous_clip);
         (void)SDL_RenderSetClipRect(renderer, &ui->rightBodyRect);
         Render_UIPanelRightTabSummary(ui, renderer);
-        UIPanel_RenderSection(renderer);
+        UIPanel_RenderCamera(renderer);
+        if (!Global_Get()->cameraView.active) UIPanel_RenderSection(renderer);
         UIPanel_RenderFurniture(renderer);
         UIPanel_RenderMeasurement(renderer);
         UIPanel_RenderParts(renderer);
