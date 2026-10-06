@@ -66,18 +66,31 @@ Two user preferences are pending at drafting time:
 1. Continuous kitchen-to-pantry and bench-to-wardrobe runs, with intentional seams,
    rather than unexplained gaps.
 2. Continuous upper storage toward the front, shallower above the passenger door,
-   stopping before the bed's movement region.
+   ending at the tall-storage section immediately before the bed.
 
 Use those as proposed defaults until refined by the user. Do not merge all
 furniture into a single rigid block. Upper and lower units may share alignment
 planes or mount to the same structure without moving together. The kitchen and
 pantry remain independently identifiable modules joined at an explicit boundary.
 
+User clarification (2026-10-05): the large opposite-side cabinet near the rear
+axle, in the middle section immediately ahead of the bed, runs from the finished
+floor to the finished ceiling. This explicitly applies to the driver-side tall
+wardrobe. The upper cabinet runs extend to the tall cabinets and terminate there;
+they do not continue above them. This gives the rear bed a tucked-away, enclosed
+feel. The corresponding passenger pantry should meet the same longitudinal
+transition; its final construction height can be refined with the paired layout.
+
+This supersedes the earlier proposal to end tall storage at the underside of an
+overhead cabinet. Resolve the current upper/tall overlap by shortening the upper
+run to the tall unit's front boundary, preserving the tall cabinet's full height.
+Treat that boundary as an explicit end-panel/joint, not overlapping cabinet shells.
+Ceiling fit follows a declared finished-ceiling reference and installation
+allowance; the maximum OEM box height is not a measured finished ceiling.
+
 The first dimensional draft should share floor/base datums, front-facing planes,
-wall-side setbacks and zone boundaries. Tentatively terminate the tall pantry at
-the underside of the upper run, with an explicit fit allowance, rather than leave
-both shells overlapping. Select actual values during the dimensional review.
-Stepped depths above the sliding door need end/filler panels and a documented
+wall-side setbacks and zone boundaries. Select actual values during the dimensional
+review. Stepped depths above the sliding door need end/filler panels and a documented
 transition; continuity does not require uniform depth everywhere.
 
 Preserve the accepted rear bed width limit of 914.4 mm fore/aft, current 820 mm
@@ -133,7 +146,7 @@ manual customization; it must report affected fit rules before committing.
 Distinguish transform parenting, physical attachment intent and driving fit rules.
 Start with simple directed rules: named unit face meets named neighboring face
 with an explicit gap; align front planes; align worktop heights; fit tall-unit top
-to upper underside. Users choose which unit drives and which follows. Ordinary
+to the finished ceiling; terminate the upper run at the tall-unit front boundary. Users choose which unit drives and which follows. Ordinary
 attachment links alone must not create these resize dependencies.
 
 Separate cabinet end panels may meet at a seam. A shared partition is a different
@@ -190,7 +203,7 @@ recipe, panels and connections. Both human and agent edits use the same operatio
 | --- | --- | --- |
 | F0 - fit map | Full-van dimensional/contact audit; chosen run boundaries and intentional gaps | Every unexplained gap/overlap in the example has a proposed remedy; protected entry/bed/aisle boundaries remain explicit |
 | F1 - unit resize | Typed construction record and compact UI for the existing kitchen shell | Change length/depth/height and thickness; all case panels fit, thickness is retained, stable IDs and undo/reopen work |
-| F2 - connected run | Kitchen/pantry and corresponding uppers aligned by explicit directed face rules; counter and sink placement follow declared anchors | Units meet without accidental overlap; upper/tall boundary fits; a conflicting edit rejects atomically |
+| F2 - connected run | Kitchen/pantry and corresponding uppers aligned by explicit directed face rules; counter and sink placement follow declared anchors | Units meet without accidental overlap; full-height wardrobe fits the ceiling and uppers end at tall storage; a conflicting edit rejects atomically |
 | F3 - usable sink | Actual worktop opening and compatible support construction | Solid and slice show empty cutout/bowl space; picking, checks and export agree with the removed material |
 | F4 - whole-van rollout | Driver bench/wardrobe and rear desk units use the proven contract; upper continuity/fillers refined | Full van reads as coherent furniture; protected motion/service space remains checked; the same editor works for each unit |
 
