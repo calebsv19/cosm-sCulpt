@@ -197,7 +197,7 @@ bool Layout_SectionRange(const Layout* layout, int axis, double* minimum, double
         const Object3D* o = &layout->objectStore.items[i];
         Vec3 p[8];
         size_t n = 0;
-        if (!Layout_ObjectShown(&layout->objectStore, o) || o->info.volume_role != LAYOUT_VOLUME_NONE)
+        if (!Layout_ObjectShown(&layout->objectStore, o) || Layout_EntityIsSpatialGuide(&o->info))
             continue;
         if (o->kind == OBJECT3D_KIND_RECT_PRISM && Layout_Object3D_ComputeRectPrismCorners(o, p))
             n = 8;

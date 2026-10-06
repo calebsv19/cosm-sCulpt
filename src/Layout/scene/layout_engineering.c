@@ -42,6 +42,13 @@ const LayoutEntityInfo* Layout_EntityInfo(const LayoutObjectStore* store, const 
 const char* Layout_EntityType(const LayoutEntityInfo* info) {
     return info && info->entity_type[0] ? info->entity_type : "PhysicalObject";
 }
+bool Layout_EntityIsSpatialGuide(const LayoutEntityInfo* info) {
+    if (!info) return false;
+    const char* type = Layout_EntityType(info);
+    return info->volume_role != LAYOUT_VOLUME_NONE ||
+           !strcmp(type, "RoutingCorridor") || !strcmp(type, "ServiceVolume") ||
+           !strcmp(type, "KeepoutVolume") || !strcmp(type, "MotionEnvelope");
+}
 bool Layout_IsDescendant(const LayoutObjectStore* store, const char* parent, const char* assembly) {
     if (!store || !parent || !assembly || !assembly[0]) return false;
     for (int depth=0;parent[0] && depth<=LAYOUT_MAX_ASSEMBLIES;++depth) {

@@ -102,7 +102,7 @@ static uint64_t LayoutMeshSolid_ObjectSignature(const Layout* layout) {
     for (size_t i = 0u; i < layout->objectStore.count; ++i) {
         const Object3D* object = &layout->objectStore.items[i];
         char resolvedPath[LINE_DRAWING_PATH_CAP];
-        if (!Layout_ObjectShown(&layout->objectStore,object) || object->info.volume_role != LAYOUT_VOLUME_NONE) continue;
+        if (!Layout_ObjectShown(&layout->objectStore,object) || Layout_EntityIsSpatialGuide(&object->info)) continue;
         hash = LayoutMeshSolid_HashBytes(hash, &object->kind, sizeof(object->kind));
         hash = LayoutMeshSolid_HashBytes(hash, &object->plane, sizeof(object->plane));
         hash = LayoutMeshSolid_HashBytes(hash, &object->rectPrism, sizeof(object->rectPrism));
@@ -346,7 +346,7 @@ bool Layout_RasterNativeSurfaces(const Layout* layout, const LayoutSectionView* 
         width<=0 || height<=0 || !isfinite(raster_scale) || raster_scale<=0) return false;
     for(size_t i=0;i<layout->objectStore.count;++i) {
         const Object3D* object=&layout->objectStore.items[i];
-        if(!Layout_ObjectShown(&layout->objectStore,object) || object->info.volume_role!=LAYOUT_VOLUME_NONE ||
+        if(!Layout_ObjectShown(&layout->objectStore,object) || Layout_EntityIsSpatialGuide(&object->info) ||
             object->kind==OBJECT3D_KIND_MESH_ASSET_INSTANCE)continue;
         LayoutSurfaceTriangle triangles[LAYOUT_SURFACE_MAX_TRIANGLES];
         size_t n=Layout_BuildNativeSurface(object,section,Layout_WorldScale(layout),triangles);
@@ -649,7 +649,7 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
             LayoutMeshSolidPreviewAssetCache* asset = NULL;
             const LayoutMeshSolidPreviewLod* lod = NULL;
             if (!Layout_ObjectShown(&layout->objectStore,object) || object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE ||
-                !object->meshInstance.runtimePath[0] || object->info.volume_role != LAYOUT_VOLUME_NONE) {
+                !object->meshInstance.runtimePath[0] || Layout_EntityIsSpatialGuide(&object->info)) {
                 continue;
             }
             char resolvedPath[LINE_DRAWING_PATH_CAP];

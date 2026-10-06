@@ -4,6 +4,9 @@
 const LayoutAssembly* Layout_FindAssembly(const LayoutObjectStore* store, const char* id);
 const LayoutEntityInfo* Layout_EntityInfo(const LayoutObjectStore* store, const char* id);
 const char* Layout_EntityType(const LayoutEntityInfo* info);
+/* Presentation only: guide volumes have no opaque surface or depth ownership.
+ * Keep their geometry and explicit reserved roles intact for queries/checks. */
+bool Layout_EntityIsSpatialGuide(const LayoutEntityInfo* info);
 bool Layout_IsDescendant(const LayoutObjectStore* store, const char* parent, const char* assembly);
 bool Layout_ValidateEngineering(const Layout* layout, char* message, size_t capacity);
 bool Layout_HasEngineeringData(const Layout* layout);

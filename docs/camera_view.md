@@ -41,6 +41,14 @@ leaving the window/canvas, text entry and pane clicks clear held movement.
 Camera mode uses depth-tested physical surfaces and rendered-surface selection;
 it suppresses engineering cages, routes, measurement overlays and edit gizmos.
 Standalone saved cameras have constant-screen-size symbols in the editor view.
+Routing corridors and semantic service/keep-out/motion volumes are presentation
+only: they never enter the opaque surface, depth, or surface-picking pass, even
+when older scenes lack an explicit reserved-space role. They remain thin outlines
+in ordinary engineering views and are omitted in the physical camera. Their
+geometry, route references, queries and validation roles are unchanged.
+The guide classification is app-local presentation policy (reuse-deferred);
+existing core_scene metadata and core_mesh_preview raster composition remain
+adopted without any shared API/version changes.
 
 ## Projection and ownership
 

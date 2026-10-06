@@ -2,6 +2,7 @@
 #include "Core/camera_view.h"
 #include "Core/space_mode_adapter.h"
 #include "Layout/scene/layout_mesh_solid_preview.h"
+#include "Layout/layout_engineering.h"
 #include "UI/ui_panel_camera.h"
 #include "UI/ui_panel_shell.h"
 #include "Input/input_handler.h"
@@ -250,6 +251,66 @@ static bool camera_native_depth_order_and_near_clip(void) {
     ld_test_shutdown_runtime();
     return true;
 }
+static bool camera_guide_volumes_do_not_occlude_physical_panels(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Layout_Free(&state->layout);
+    Layout_Init(&state->layout, 1);
+    uint32_t ids[2];
+    for (int i = 0; i < 2; ++i) {
+        RectPrismPrimitiveCreateParams p = {
+            .width = 1, .height = 1, .depth = .2f, .useExplicitFrame = true,
+            .explicitFrame = {.origin = {0, i ? 4 : 2, 0}, .axisU = {1, 0, 0},
+                              .axisV = {0, 0, 1}, .normal = {0, 1, 0}}};
+        TEST_ASSERT(Layout_CreateRectPrismPrimitive(&state->layout, &p, &ids[i], NULL));
+    }
+    Object3D* guide = Layout_ObjectStore_Find(&state->layout.objectStore, ids[0]);
+    Object3D* physical = Layout_ObjectStore_Find(&state->layout.objectStore, ids[1]);
+    snprintf(physical->info.entity_type, sizeof(physical->info.entity_type), "Panel");
+    /* Reference physical walls still occlude; reference is not a guide flag. */
+    physical->info.reference = true;
+    SpaceViewContext view = {0};
+    view.perspective = (PerspectiveView){
+        .enabled = true, .eye = {0}, .forward = {0, 1, 0}, .right = {1, 0, 0},
+        .up = {0, 0, 1}, .center = {0}, .focal = 1, .tan_half_fov = 1,
+        .aspect = 1, .near_clip = .01f, .far_clip = 10};
+    Grid grid = {.gridSize = 1, .scale = 32, .offsetX = -1, .offsetY = -1};
+    uint8_t rgba[64 * 64 * 4];
+    float depth[64 * 64];
+    int32_t owner[64 * 64];
+    const char* types[] = {"RoutingCorridor", "ServiceVolume", "KeepoutVolume", "MotionEnvelope",
+                           "Panel", "Panel"};
+    for (size_t type = 0; type < sizeof(types) / sizeof(types[0]); ++type) {
+        snprintf(guide->info.entity_type, sizeof(guide->info.entity_type), "%s", types[type]);
+        guide->info.volume_role = type == 4 ? LAYOUT_VOLUME_KEEPOUT
+                                 : type == 5 ? LAYOUT_VOLUME_SERVICE : LAYOUT_VOLUME_NONE;
+        double lo, hi;
+        TEST_ASSERT(Layout_SectionRange(&state->layout, 1, &lo, &hi));
+        TEST_ASSERT(fabs(lo - 3.9) < 1e-6 && fabs(hi - 4.1) < 1e-6);
+        LayoutEntityQuery query = {0};
+        snprintf(query.entity_type, sizeof(query.entity_type), "%s", types[type]);
+        char found[4][64];
+        TEST_ASSERT(Layout_QueryEntities(&state->layout.objectStore, &query, found, 4) > 0);
+        char* before = Layout_SaveToString(&state->layout);
+        for (int mode = LAYOUT_SECTION_OFF; mode <= LAYOUT_SECTION_CUTAWAY; ++mode) {
+            memset(rgba, 0, sizeof(rgba));
+            for (size_t i = 0; i < 64 * 64; ++i) { depth[i] = INFINITY; owner[i] = -1; }
+            LayoutSectionView section = {.mode = mode, .axis = 1, .position_meters = 4};
+            LayoutMeshSolidPreviewFrameStats stats = {0};
+            TEST_ASSERT(Layout_RasterNativeSurfaces(&state->layout, &section, &view, &grid,
+                (SDL_Rect){0, 0, 64, 64}, 1, 64, 64, true, rgba, depth, owner, &stats));
+            size_t pixel = 32 * 64 + 32;
+            TEST_ASSERT(owner[pixel] >= 0 &&
+                        state->layout.objectStore.items[owner[pixel]].objectId == ids[1]);
+            TEST_ASSERT(stats.meshCount == 1 && rgba[pixel * 4 + 3] == 255);
+        }
+        char* after = Layout_SaveToString(&state->layout);
+        TEST_ASSERT(before && after && !strcmp(before, after));
+        free(before); free(after);
+    }
+    ld_test_shutdown_runtime();
+    return true;
+}
 static bool camera_path_sample_and_editor_restore(void) {
     ld_test_init_runtime();
     GlobalState *s = Global_Get();
@@ -286,6 +347,7 @@ static bool camera_path_sample_and_editor_restore(void) {
 }
 bool camera_view_run_tests(void) {
     const TestCase cases[] = {
+        {"guides_never_occlude_physical_panels", camera_guide_volumes_do_not_occlude_physical_panels},
         {"native_perspective_depth_near_clipping", camera_native_depth_order_and_near_clip},
         {"path_sample_pause_editor_restore", camera_path_sample_and_editor_restore},
         {"perspective_rays_clipping", camera_projection_roundtrip_and_clipping},

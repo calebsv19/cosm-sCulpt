@@ -455,7 +455,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                 } else {
                     if (Layout_FindMotionEnvelope(&layout->objectStore,object->objectId)) {
                         SDL_SetRenderDrawColor(renderer,175,125,250,255);
-                    } else if (object->info.volume_role!=LAYOUT_VOLUME_NONE) {
+                    } else if (Layout_EntityIsSpatialGuide(&object->info)) {
                         SDL_SetRenderDrawColor(renderer, object->info.volume_role==LAYOUT_VOLUME_SERVICE?80:245,
                             object->info.volume_role==LAYOUT_VOLUME_SERVICE?210:105, 175, 255);
                     } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
@@ -485,7 +485,8 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                 }
                 if ((object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
                      (state->previewMode == LINE_DRAWING_PREVIEW_MODE_BOUNDS ||
-                      state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME || isSelected || isHovered)) ||
+                      state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME ||
+                      Layout_EntityIsSpatialGuide(&object->info) || isSelected || isHovered)) ||
                     (meshBoundsMode ||
                      (!meshPreviewDrawn && (isSelected || isHovered)))) {
                     for (int e = 0; e < 12; ++e) {
