@@ -1,9 +1,13 @@
 # Engineering Document Foundation (S0)
 
 Status: S0/S1 CAD foundation, S2 semantics/assemblies and S3A relationships and S3B/S3C spatial records and S4 scoped envelopes, transient interval checks and bounded range inspection implemented.
-Date: 2026-10-03
+Date: 2026-10-06
 
-Current schema is **19**, adding explicit rigid movement assembly scope and relative
+Current schema is **21**, adding saved view definitions and their route membership.
+Schema 20 introduced stable physical routes, endpoint references and centerline
+metadata. See [physical routes](physical_routes.md) and
+[routing views](routing_views_and_electrical.md). Active visibility remains transient.
+Schema 19 added explicit rigid movement assembly scope and relative
 member snapshots for derived envelopes. Schema 18 single-object envelopes migrate
 as B-only with their geometry and freshness retained; malformed/downgraded scope
 data is rejected atomically. See [motion envelopes](motion_envelopes.md).
@@ -16,8 +20,10 @@ endpoint deletion guards and export. Schema 15 semantic records and assembly fra
 remain part of the document.
 See [S2 semantics and assemblies](semantic_assemblies.md) for fields, migration,
 queries, transactions and export. Schema 14 hinge rules and schema 13 linear travel
-remain supported; references retain schema 12 physical offsets. Schemas 0–18 remain
-readable under their contracts. Older readers reject 19 rather than dropping assembly motion or provenance. See [geometric constraints](geometric_constraints.md) and the
+remain supported; references retain schema 12 physical offsets. Schemas 0–20 remain
+readable under their contracts. Older readers reject newer schema versions rather
+than dropping routes, saved views, assembly motion or provenance. Saving with this
+writer emits schema 21; it does not provide a downgrade export. See [geometric constraints](geometric_constraints.md) and the
 [S1 audit](s1_engineering_audit.md) for the earlier mechanical baseline.
 The schema 10 account below records the original physical-context migration.
 

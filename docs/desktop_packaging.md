@@ -131,6 +131,32 @@ Failure diagnostics:
   self-test failure, so failed make logs include the runtime dir, log file, ICD
   file, shader root, shape asset root, and bundled MoltenVK path
 
+## Contained release preparation
+
+`RELEASE_ROOT` binds both the application and every release ZIP, checksum,
+manifest, audit and notary output. Release Control may select either a contained
+`build/release-authenticated/<job-id>` source slot or an absolute slot beneath the
+configured Registry data root's `line_drawing/build/release-authenticated/` lane.
+The slot must be absent; symlink ancestors, ambiguous paths, other programs and
+existing output slots are refused before packaging. Bound `rapt_<digest>` target
+subslots are also supported. Unbound ordinary desktop builds retain `dist/`.
+
+Both disposable input creation and authenticated release builds reserve their
+own create-only slot. A failed slot remains evidence; continuation uses the
+Release Control owner's exact retained attempt and disjoint destination rules.
+Do not overwrite a failed slot or change `RELEASE_ROOT` to retry an uncertain job.
+
+Package `--self-test`, package `--print-config`, bundle audits and final ZIP
+round-trip checks use temporary runtime/log directories and clear inherited
+shader/ICD/asset overrides. They do not initialize the user's Application Support
+or Logs directories. Temporary diagnostic lanes are removed on exit. Invoking
+the installed launcher directly retains its normal user-runtime defaults.
+
+`make test-package-release` verifies positive local/data-root slot creation,
+collision preservation, traversal/symlink rejection, Make output-root rebinding
+and diagnostic cleanup without signing. It is included in `make test`; it does
+not replace the real package, signature, notarization or archive round-trip gates.
+
 ## Release Readiness Targets
 - `make -C line_drawing release-contract`
 - `make -C line_drawing release-bundle-audit`
@@ -163,3 +189,8 @@ Note:
 ## Ordinary macOS release input
 
 `make RELEASE_ROOT=build/release-authenticated/<job-id> release-artifact-disposable` produces a create-only pre-authentication sCulpt.app, ZIP, checksum and source-bound manifest. The job root and its ancestors must be contained and non-symlink; existing roots are rejected. The package self-test runs against that isolated app. Developer ID signing/notarization is a later approved stage. This target does not refresh Desktop or produce a Linux artifact; Linux packaging remains a separately selected release scope.
+
+The release linkage audit checks indented `otool -L` dependency entries. The
+absolute inspected-file headers are retained as diagnostics and do not count as
+nonportable dependencies. Homebrew, user-local and unresolved `@rpath` dependency
+entries still fail the audit, including for absolute Registry output roots.

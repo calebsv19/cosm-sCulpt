@@ -88,11 +88,15 @@ suspension/retry scheduling, unchanged scene-list cache reuse and visibility
 invalidation, and unchanged-size picking stability. Existing geometry, undo,
 saved-view, section and preview-quality suites pass.
 
-`make illustrative-van-smoke` still fails its exact fixture-byte assertion. The
+At the performance checkpoint, `make illustrative-van-smoke` failed its exact
+fixture-byte assertion. The
 pre-change canonical generator and candidate generator produce identical bytes;
 both differ from the checked-in illustrative fixture in `file` and `engineering`.
-The fixture/source mismatch is pre-existing and is retained separately from this
-performance change. It is not reported as a passing check.
+The fixture/source mismatch was pre-existing and retained separately from this
+performance change. During bounded release preparation on 2026-10-06, the fixture
+was regenerated at schema 21. Only schema metadata and empty route/view fields
+changed; geometry, constraints and existing engineering records are unchanged.
+Fresh `make illustrative-van-smoke` now passes.
 
 Machine-readable measurements are in
 [evidence/demand_rendering_2026-10-05.json](evidence/demand_rendering_2026-10-05.json).

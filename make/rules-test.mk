@@ -7,8 +7,12 @@ run-ide-theme: $(APP_TARGET)
 run-daw-theme: $(APP_TARGET)
 	LINE_DRAWING3D_USE_SHARED_THEME_FONT=1 LINE_DRAWING3D_USE_SHARED_THEME=1 LINE_DRAWING3D_USE_SHARED_FONT=1 LINE_DRAWING3D_THEME_PRESET=daw_default LINE_DRAWING3D_FONT_PRESET=daw_default $(APP_TARGET)
 
-test: $(TEST_TARGET) test-folder-picker
+test: $(TEST_TARGET) test-folder-picker test-package-release
 	$(TEST_TARGET) $(ARGS)
+
+.PHONY: test-package-release
+test-package-release:
+	@python3 -B tests/test_package_release.py
 
 run-headless-smoke:
 	@$(MAKE) test-stable

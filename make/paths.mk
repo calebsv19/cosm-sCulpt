@@ -16,7 +16,11 @@ APP_TARGET := $(PROGRAM_BIN_DIR)/LineDrawing
 TEST_TARGET := $(HOST_TEST_BIN_DIR)/run_tests
 FOLDER_PICKER_TEST_BIN := $(HOST_TEST_BIN_DIR)/line_drawing_folder_picker_test
 PACKAGE_SOURCE_BIN := $(call program_bin_for,$(PACKAGE_TOOLCHAIN))
+RELEASE_ROOT ?=
 DIST_DIR := dist
+ifneq ($(strip $(RELEASE_ROOT)),)
+override DIST_DIR := $(RELEASE_ROOT)
+endif
 
 PACKAGE_APP_DIR := $(DIST_DIR)/$(PACKAGE_APP_NAME)
 PACKAGE_CONTENTS_DIR := $(PACKAGE_APP_DIR)/Contents
@@ -28,6 +32,8 @@ PACKAGE_LAUNCHER_SCRIPT_SRC := tools/packaging/macos/line-drawing-launcher
 PACKAGE_LAUNCHER_NATIVE_SRC := tools/packaging/macos/line-drawing-launcher.c
 PACKAGE_LAUNCHER_SCRIPT_PATH := $(PACKAGE_RESOURCES_DIR)/line-drawing-launcher.sh
 PACKAGE_RELEASE_ZIP_VERIFIER := tools/packaging/macos/verify-release-zip.sh
+PACKAGE_SELF_TEST := tools/packaging/macos/package-self-test.sh
+PACKAGE_RELEASE_ROOT_HELPER := tools/packaging/macos/package_release_root.py
 PACKAGE_DYLIB_BUNDLER := tools/packaging/macos/bundle-dylibs.sh
 PACKAGE_LOCAL_ICON_DIR := tools/packaging/macos/local_app_icon
 PACKAGE_APP_ICON_SRC ?= $(PACKAGE_LOCAL_ICON_DIR)/$(PACKAGE_APP_ICON_FILE)
@@ -51,6 +57,9 @@ MAIN_EDIT_SELF_TEST_DIR := $(BUILD_DIR)/package-main-edit-self-test
 
 RELEASE_ARTIFACT_BASENAME := $(RELEASE_PRODUCT_NAME)-$(RELEASE_VERSION)-$(RELEASE_PLATFORM)-$(RELEASE_ARCH)-$(RELEASE_CHANNEL)
 RELEASE_DIR := build/release
+ifneq ($(strip $(RELEASE_ROOT)),)
+override RELEASE_DIR := $(RELEASE_ROOT)
+endif
 RELEASE_SOURCE_COMMIT := $(shell git rev-parse HEAD 2>/dev/null)
 RELEASE_APP_ZIP := $(RELEASE_DIR)/$(RELEASE_ARTIFACT_BASENAME).zip
 RELEASE_NOTARY_ZIP := $(RELEASE_DIR)/$(RELEASE_ARTIFACT_BASENAME)-notary-submit.zip

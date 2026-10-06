@@ -86,15 +86,10 @@ package-desktop-smoke: package-desktop
 	@echo "package-desktop-smoke passed."
 
 package-desktop-print-config: package-desktop
-	@"$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --print-config
+	@sh "$(PACKAGE_SELF_TEST)" "$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --print-config
 
 package-desktop-self-test: package-desktop-smoke
-	@"$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --self-test || { \
-		status=$$?; \
-		echo "package-desktop self-test failed; launcher config follows:"; \
-		"$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --print-config || true; \
-		exit $$status; \
-	}
+	@sh "$(PACKAGE_SELF_TEST)" "$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --self-test
 	@echo "package-desktop-self-test passed."
 
 package-desktop-copy-desktop: package-desktop
