@@ -1,4 +1,5 @@
 #include "Layout/layout_furniture.h"
+#include "Layout/layout_section.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -84,6 +85,11 @@ bool Layout_FurniturePartGeometry(const Layout* layout, const LayoutFurnitureUni
         pos[1] = (u->overhang_m[3] - u->overhang_m[2]) / 2;
         pos[2] = (h + span[2]) / 2;
         break;
+    case LAYOUT_FURNITURE_CUSHION:
+        if (!isfinite(part->span_m[2]) || part->span_m[2] <= 1e-6 || part->span_m[2] > 1) return false;
+        span[0] = d; span[1] = l; span[2] = part->span_m[2];
+        pos[0] = 0; pos[2] = (h + span[2]) / 2;
+        break;
     case LAYOUT_FURNITURE_RUN_RAIL:
         for (int k = 0; k < 3; ++k) {
             if (!isfinite(part->offset_m[k]) || !isfinite(part->span_m[k])) return false;
@@ -101,6 +107,11 @@ bool Layout_FurniturePartGeometry(const Layout* layout, const LayoutFurnitureUni
         pos[0] = u->back_sign * (d / 2 - part->offset_m[0]);
         pos[1] = l / 2 - part->offset_m[1];
         pos[2] = h / 2 + part->offset_m[2];
+        if (u->sink_opening) {
+            const LayoutFurniturePart* first = NULL;
+            for (size_t j=0;j<u->part_count;++j) if (u->parts[j].role==LAYOUT_FURNITURE_FIXTURE) { first=&u->parts[j]; break; }
+            if (first==part && fabs(part->offset_m[2]-(u->thickness_m[3]-span[2]/2))>1e-9) return false;
+        }
         /* Fixed-size fixtures fit the usable footprint; their top may cross a worktop.
          * A real worktop cutout is a separate feature, not inferred from this anchor. */
         if (u->back_sign * pos[0] + span[0] / 2 > d / 2 - back + 1e-6 ||
@@ -121,9 +132,34 @@ bool Layout_FurniturePartGeometry(const Layout* layout, const LayoutFurnitureUni
     result->rectPrism.width = (float)(span[0] / scale);
     result->rectPrism.height = (float)(span[1] / scale);
     result->rectPrism.depth = (float)(span[2] / scale);
+    if (u->sink_opening && (part->role == LAYOUT_FURNITURE_TOP || part->role == LAYOUT_FURNITURE_WORKTOP || part->role == LAYOUT_FURNITURE_FIXTURE)) {
+        const LayoutFurniturePart* sink = NULL;
+        for (size_t j = 0; j < u->part_count; ++j)
+            if (u->parts[j].role == LAYOUT_FURNITURE_FIXTURE) { sink = &u->parts[j]; break; }
+        if (!sink) return false;
+        /* Provisional 2 mm bowl wall and 2 mm installation clearance. */
+        double sx = u->back_sign * (d / 2 - sink->offset_m[0]), sy = l / 2 - sink->offset_m[1];
+        LayoutPanelOpening f = {.enabled=true};
+        if (part->role == LAYOUT_FURNITURE_FIXTURE) {
+            if (part != sink) return Layout_ObjectStore_ValidateObject(result);
+            f.width = (float)((span[0] - .004) / scale);
+            f.height = (float)((span[1] - .004) / scale); f.floor = (float)(.002 / scale);
+        } else {
+            f.u = (float)((sx - pos[0]) / scale); f.v = (float)((sy - pos[1]) / scale);
+            f.width = (float)((sink->span_m[0] + .004) / scale);
+            f.height = (float)((sink->span_m[1] + .004) / scale);
+        }
+        result->rectPrism.opening = f;
+    }
     return Layout_ObjectStore_ValidateObject(result);
 }
 static bool same_geometry(const Object3D* a, const Object3D* b, double scale) {
+    if (a->rectPrism.opening.enabled != b->rectPrism.opening.enabled) return false;
+    if (a->rectPrism.opening.enabled) {
+        const LayoutPanelOpening* x = &a->rectPrism.opening; const LayoutPanelOpening* y = &b->rectPrism.opening;
+        const float av[] = {x->u,x->v,x->width,x->height,x->floor}, bv[] = {y->u,y->v,y->width,y->height,y->floor};
+        for (int k = 0; k < 5; ++k) if (fabs((double)av[k]-bv[k])*scale > 2e-6) return false;
+    }
     float pa[] = {a->transform.position.x, a->transform.position.y, a->transform.position.z};
     float pb[] = {b->transform.position.x, b->transform.position.y, b->transform.position.z};
     for (int k = 0; k < 3; ++k) if (fabs((double)pa[k] - pb[k]) * scale > 2e-6) return false;
@@ -148,7 +184,7 @@ bool Layout_ValidateFurniture(const Layout* layout, char* message, size_t capaci
         for (size_t j = 0; j < u->part_count; ++j) {
             const LayoutFurniturePart* p = &u->parts[j]; Object3D expected;
             if (!p->entity_id[0] || !memchr(p->entity_id, 0, sizeof(p->entity_id)) ||
-                p->role < LAYOUT_FURNITURE_BACK || p->role > LAYOUT_FURNITURE_RUN_RAIL ||
+                p->role < LAYOUT_FURNITURE_BACK || p->role > LAYOUT_FURNITURE_CUSHION ||
                 (p->role != LAYOUT_FURNITURE_FIXTURE && (roles & (1u << p->role))))
                 return fail(message, capacity, "Invalid or duplicate furniture part role.");
             roles |= 1u << p->role;
@@ -180,13 +216,26 @@ static bool edit(Layout* layout, void* context) {
     Edit* e = context;
     LayoutFurnitureUnit* old = (LayoutFurnitureUnit*)Layout_FindFurnitureUnit(&layout->objectStore, e->unit.assembly_id);
     if (!old || e->keep < -1 || e->keep > 1 || e->unit.part_count != old->part_count ||
-        memcmp(e->unit.parts, old->parts, sizeof(old->parts)) || e->unit.back_sign != old->back_sign)
+        e->unit.sink_opening != old->sink_opening || e->unit.back_sign != old->back_sign)
         return fail(layout->geometryMessage, sizeof(layout->geometryMessage), "Unit identity and part roles cannot change during resizing.");
+    for (size_t j = 0; j < old->part_count; ++j) {
+        LayoutFurniturePart a = old->parts[j], b = e->unit.parts[j];
+        if (old->sink_opening && a.role == LAYOUT_FURNITURE_FIXTURE) {
+            memset(a.offset_m, 0, sizeof(a.offset_m)); memset(b.offset_m, 0, sizeof(b.offset_m));
+            memset(a.span_m, 0, sizeof(a.span_m)); memset(b.span_m, 0, sizeof(b.span_m));
+        }
+        if (memcmp(&a, &b, sizeof(a))) return false;
+    }
     LayoutFurnitureUnit next = e->unit;
     memcpy(next.center_m, old->center_m, sizeof(next.center_m));
     next.center_m[0] += old->back_sign * (old->size_m[0] - next.size_m[0]) / 2;
     next.center_m[1] += e->keep * (old->size_m[1] - next.size_m[1]) / 2;
     next.center_m[2] += (next.size_m[2] - old->size_m[2]) / 2;
+    if (next.sink_opening) for (size_t j=0;j<next.part_count;++j)
+        if (next.parts[j].role == LAYOUT_FURNITURE_FIXTURE) {
+            next.parts[j].offset_m[2] = next.thickness_m[3]-next.parts[j].span_m[2]/2;
+            break;
+        }
     if (!parameters(&next)) return fail(layout->geometryMessage, sizeof(layout->geometryMessage), "Enter positive dimensions and smaller panel thicknesses.");
     *old = next;
     return Layout_FurnitureRegenerateCandidate(layout, old) &&

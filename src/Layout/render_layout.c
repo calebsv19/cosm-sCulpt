@@ -1,5 +1,6 @@
 #include "Editor/viewport_gizmo.h"
 #include "Layout/layout_motion.h"
+#include "Layout/layout_section.h"
 #include "Layout/layout_engineering.h"
 // src/Layout/layout_render.c
 #include "Layout/render_layout.h"
@@ -473,6 +474,15 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                     thickness = 1;
                 }
 
+                if (object->kind == OBJECT3D_KIND_RECT_PRISM && object->rectPrism.opening.enabled &&
+                    state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME) {
+                    Vec3 inner[8]; Layout_PanelOpeningCorners(object,inner);
+                    for (int e = 0; e < 12; ++e) {
+                        Vec2 a = WorldToScreen(SpaceAdapter_ProjectToView(inner[kRectEdges[e][0]],&viewCtx),grid);
+                        Vec2 b = WorldToScreen(SpaceAdapter_ProjectToView(inner[kRectEdges[e][1]],&viewCtx),grid);
+                        DrawLineWithThickness(renderer,(int)a.x,(int)a.y,(int)b.x,(int)b.y,1);
+                    }
+                }
                 if ((object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
                      (state->previewMode == LINE_DRAWING_PREVIEW_MODE_BOUNDS ||
                       state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME || isSelected || isHovered)) ||

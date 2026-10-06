@@ -1,5 +1,8 @@
 # Furniture contacts: F2 connected runs
 
+The F4 draft extends these same controls to five run links and nine units. See
+[F3 / F4 editability](furniture_editability.md) for the current full-van handoff.
+
 Implemented 2026-10-05 in persistent Main Edit. The native geometry transaction,
 assembly frames, core units and math, existing history, theme, scroll/pane and
 render invalidation are reused. Directed cabinet construction policy stays

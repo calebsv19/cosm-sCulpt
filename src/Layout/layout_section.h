@@ -14,10 +14,16 @@ typedef struct {
     Vec3 a, b, c;
     bool cap;
 } LayoutSurfaceTriangle;
-#define LAYOUT_SURFACE_MAX_TRIANGLES 64
+#define LAYOUT_SURFACE_MAX_TRIANGLES 128
 
-/* Convex native surfaces in world coordinates. Exact sections contain only the
- * intersection polygon; clipping caps are display geometry, never saved meshes. */
+/* Derived cells are query geometry of ONE board, never independent scene entities. */
+size_t Layout_NativeSolidCells(const Object3D* object, Object3D cells[5]);
+bool Layout_PanelOpeningValid(const RectPrismPrimitive3D* prism);
+void Layout_PanelOpeningCorners(const Object3D* object, Vec3 corners[8]);
+cJSON* Layout_PanelRuntimeMesh(const Object3D* object);
+
+/* Evaluated native surfaces in world coordinates, including removed material.
+ * Exact sections contain only occupied section triangles; clipping caps are display geometry, never saved meshes. */
 size_t Layout_BuildNativeSurface(const Object3D* object, const LayoutSectionView* section,
                                  double meters_per_world,
                                  LayoutSurfaceTriangle out[LAYOUT_SURFACE_MAX_TRIANGLES]);

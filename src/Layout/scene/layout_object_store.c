@@ -1,4 +1,5 @@
 #include "Layout/layout.h"
+#include "Layout/layout_section.h"
 #include "Core/global_state.h"
 #include "Layout/layout_constraints.h"
 #include <string.h>
@@ -174,7 +175,7 @@ bool Layout_ObjectStore_ValidateObject(const Object3D* object) {
             object->rectPrism.depth < 0.0f) {
             return false;
         }
-        if (!PlaneFrame_IsValid(&object->rectPrism.frame)) return false;
+        if (!PlaneFrame_IsValid(&object->rectPrism.frame) || !Layout_PanelOpeningValid(&object->rectPrism)) return false;
         if (Vec3_Distance(object->rectPrism.frame.origin, object->transform.position) > 1e-3f) {
             return false;
         }

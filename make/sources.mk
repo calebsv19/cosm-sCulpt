@@ -67,6 +67,7 @@ SHAPE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_constraints.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering_json.c \
+	$(SRC_DIR)/Layout/scene/layout_section.c \
 	$(SRC_DIR)/Layout/scene/layout_furniture.c \
 	$(SRC_DIR)/Layout/scene/layout_furniture_json.c \
 	$(SRC_DIR)/Layout/scene/layout_furniture_contacts.c \
@@ -136,6 +137,7 @@ AGENT_SCENE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_constraints.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering_json.c \
+	$(SRC_DIR)/Layout/scene/layout_section.c \
 	$(SRC_DIR)/Layout/scene/layout_furniture.c \
 	$(SRC_DIR)/Layout/scene/layout_furniture_json.c \
 	$(SRC_DIR)/Layout/scene/layout_furniture_contacts.c \

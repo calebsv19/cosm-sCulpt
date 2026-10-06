@@ -789,6 +789,15 @@ static cJSON* Layout_CreateJson(const Layout* layout) {
             cJSON_AddNumberToObject(rectPrism, "width", object->rectPrism.width);
             cJSON_AddNumberToObject(rectPrism, "height", object->rectPrism.height);
             cJSON_AddNumberToObject(rectPrism, "depth", object->rectPrism.depth);
+            if (object->rectPrism.opening.enabled) {
+                const LayoutPanelOpening* f = &object->rectPrism.opening;
+                cJSON* opening = cJSON_AddObjectToObject(rectPrism, "opening");
+                cJSON_AddNumberToObject(opening, "u", f->u);
+                cJSON_AddNumberToObject(opening, "v", f->v);
+                cJSON_AddNumberToObject(opening, "width", f->width);
+                cJSON_AddNumberToObject(opening, "height", f->height);
+                cJSON_AddNumberToObject(opening, "floor", f->floor);
+            }
             cJSON_AddBoolToObject(rectPrism, "lockToConstructionPlane", object->rectPrism.lockToConstructionPlane);
             cJSON_AddBoolToObject(rectPrism, "lockToBounds", object->rectPrism.lockToBounds);
             cJSON* frame = cJSON_CreateObject();
@@ -1181,6 +1190,19 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
                         }
                     }
                     object->rectPrism.frame.origin = object->transform.position;
+                    const cJSON* opening = cJSON_GetObjectItemCaseSensitive(rectPrism, "opening");
+                    if (opening) {
+                        if (schemaVersion < LAYOUT_JSON_SCHEMA_VERSION_PANEL_OPENINGS || !cJSON_IsObject(opening)) { Layout_Free(&temp); return false; }
+                        const char* keys[] = {"u", "v", "width", "height", "floor"};
+                        float* values[] = {&object->rectPrism.opening.u, &object->rectPrism.opening.v,
+                            &object->rectPrism.opening.width, &object->rectPrism.opening.height, &object->rectPrism.opening.floor};
+                        for (int k = 0; k < 5; ++k) {
+                            const cJSON* value = cJSON_GetObjectItemCaseSensitive(opening, keys[k]);
+                            if (!cJSON_IsNumber(value) || !isfinite(value->valuedouble) || fabs(value->valuedouble) > FLT_MAX) { Layout_Free(&temp); return false; }
+                            *values[k] = (float)value->valuedouble;
+                        }
+                        object->rectPrism.opening.enabled = true;
+                    }
                 } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
                     const cJSON* mesh = cJSON_GetObjectItem(node, "meshAssetInstance");
                     if (cJSON_IsObject(mesh)) {

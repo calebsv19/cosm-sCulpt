@@ -1,7 +1,14 @@
+#include <unistd.h>
 #include "test_layout_internal.h"
 #include "Layout/layout_furniture.h"
 #include "UI/ui_panel_furniture.h"
 #include "Input/input_handler.h"
+#include "Layout/layout_section.h"
+#include "Layout/layout_spatial.h"
+#include "Tools/scene_export.h"
+#include "Tools/scene_export_dependencies.h"
+#include "core_mesh_asset.h"
+#include "Layout/scene/layout_mesh_solid_preview.h"
 #include "Input/input_mouse.h"
 #include "Editor/editor_numeric_edit.h"
 
@@ -323,8 +330,143 @@ static bool test_full_van_connected_run_acceptance(void) {
     TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && unchanged(&s->layout,before));
     Layout_FreeString(before);ld_test_shutdown_runtime();return true;
 }
+static bool test_sink_removed_material_sections_checks_export(void) {
+    ld_test_init_runtime(); GlobalState* s=Global_Get();
+    TEST_ASSERT(Layout_LoadFromFile(&s->layout,"config/examples/van_construction_f4.layout.json"));
+    const Object3D* board=NULL;
+    for (size_t i=0;i<s->layout.objectStore.count;++i)
+        if (!strcmp(s->layout.objectStore.items[i].coreMeta.object_id,"kitchen_worktop")) board=&s->layout.objectStore.items[i];
+    TEST_ASSERT(board && board->rectPrism.opening.enabled);
+    LayoutSurfaceTriangle triangles[LAYOUT_SURFACE_MAX_TRIANGLES];
+    LayoutSectionView v={.mode=LAYOUT_SECTION_EXACT,.axis=2,.position_meters=board->transform.position.z};
+    size_t n=Layout_BuildNativeSurface(board,&v,1,triangles); double area=0;
+    for (size_t i=0;i<n;++i) area += .5*Vec3_Length(Vec3_Cross(Vec3_Sub(triangles[i].b,triangles[i].a),Vec3_Sub(triangles[i].c,triangles[i].a)));
+    const LayoutPanelOpening* f=&board->rectPrism.opening;
+    TEST_ASSERT(fabs(area-(board->rectPrism.width*board->rectPrism.height-f->width*f->height))<1e-6);
+    Object3D probe=*board; probe.rectPrism.opening=(LayoutPanelOpening){0};
+    probe.rectPrism.width=.01f;probe.rectPrism.height=.01f;probe.rectPrism.depth=.10f;
+    probe.transform.position=Vec3_Add(board->transform.position,(Vec3){f->u,f->v,0});probe.rectPrism.frame.origin=probe.transform.position;
+    double distance; bool overlap,approx;
+    TEST_ASSERT(Layout_SpatialDistance(&s->layout,board,&probe,&distance,&overlap,&approx) && !overlap && !approx && distance>.14);
+    double a[]={probe.transform.position.x,probe.transform.position.y,.5},b[]={a[0],a[1],1.2},lo,hi;
+    TEST_ASSERT(Layout_SpatialSegmentInterval(&s->layout,board,a,b,0,&lo,&hi,&approx) && lo>hi);
+    probe.transform.position.x=board->transform.position.x-board->rectPrism.width/2+.02f;probe.rectPrism.frame.origin=probe.transform.position;
+    TEST_ASSERT(Layout_SpatialDistance(&s->layout,board,&probe,&distance,&overlap,&approx) && overlap);
+    /* Material raster ownership/picking sees the void rather than the old box. */
+    Layout only; Layout_Init(&only,1);
+    uint32_t only_id=Layout_ObjectStore_Create(&only.objectStore,board->kind,&board->transform,board->coreMeta.object_type,board->coreMeta.dimensional_mode,board->coreMeta.locked_plane);
+    TEST_ASSERT(only_id);
+    *Layout_ObjectStore_Find(&only.objectStore,only_id)=*board;
+    enum {W=128,H=128}; uint8_t rgba[W*H*4]={0}; float depth[W*H]; int32_t owner[W*H];
+    for (int i=0;i<W*H;++i) { depth[i]=INFINITY; owner[i]=-1; }
+    SpaceViewContext view={.plane={.axis=VIEW_PLANE_XY}};
+    Grid grid={.gridSize=1,.scale=100,.offsetX=a[0]-.64f,.offsetY=a[1]-.64f};
+    LayoutMeshSolidPreviewFrameStats stats={0};
+    TEST_ASSERT(Layout_RasterNativeSurfaces(&only,NULL,&view,&grid,(SDL_Rect){0,0,W,H},1,W,H,true,rgba,depth,owner,&stats));
+    TEST_ASSERT(owner[64*W+64]==-1 && rgba[(64*W+64)*4+3]==0);
+    Layout_Free(&only);
+    /* One board ID exports as one mesh dependency with the same evaluated surface. */
+    char root[]="/tmp/ld_f34_export_XXXXXX";TEST_ASSERT(mkdtemp(root));
+    LineDrawingSceneExportPaths paths; char diagnostics[256]={0};
+    TEST_ASSERT(LineDrawingSceneExport_ExportLayoutToOutputRoot(&s->layout,"f34.layout.json",root,&paths,diagnostics,sizeof(diagnostics)));
+    TEST_ASSERT(paths.dependency_count==3);
+    Layout imported;Layout_Init(&imported,1);
+    TEST_ASSERT(LineDrawingSceneImport_LoadLayoutFromAuthoringFile(&imported,paths.authoring_path,diagnostics,sizeof(diagnostics)));
+    TEST_ASSERT(imported.objectStore.furniture_count==9 && imported.objectStore.furniture[0].sink_opening);
+    TEST_ASSERT(Layout_ValidateFurniture(&imported,NULL,0));Layout_Free(&imported);
+    LineDrawingSceneExportDependencies dependencies;
+    TEST_ASSERT(LineDrawingSceneExportDependencies_Collect(&s->layout,paths.authoring_path,&dependencies,diagnostics,sizeof(diagnostics)));
+    TEST_ASSERT(dependencies.count==3);
+    for (size_t i=0;i<dependencies.count;++i) {
+        cJSON* mesh=cJSON_Parse(dependencies.entries[i].payload_data);TEST_ASSERT(mesh);
+        const cJSON* payload=cJSON_GetObjectItem(mesh,"mesh");
+        TEST_ASSERT(cJSON_GetArraySize(cJSON_GetObjectItem(payload,"triangles"))>12);
+        const cJSON* vertices=cJSON_GetObjectItem(payload,"vertices"),*faces=cJSON_GetObjectItem(payload,"triangles");
+        double signed_volume=0;
+        for (int j=0;j<cJSON_GetArraySize(faces);++j) {
+            const cJSON* face=cJSON_GetArrayItem(faces,j);Vec3 p[3];const char* keys[]={"a","b","c"};
+            for (int k=0;k<3;++k) {
+                const cJSON* vertex=cJSON_GetArrayItem(vertices,cJSON_GetObjectItem(face,keys[k])->valueint);
+                p[k]=(Vec3){(float)cJSON_GetObjectItem(vertex,"x")->valuedouble,(float)cJSON_GetObjectItem(vertex,"y")->valuedouble,(float)cJSON_GetObjectItem(vertex,"z")->valuedouble};
+            }
+            signed_volume+=Vec3_Dot(p[0],Vec3_Cross(p[1],p[2]))/6.0;
+        }
+        const Object3D* object=NULL;
+        for (size_t j=0;j<s->layout.objectStore.count;++j) if (!strcmp(dependencies.entries[i].identity,s->layout.objectStore.items[j].coreMeta.object_id)) object=&s->layout.objectStore.items[j];
+        TEST_ASSERT(object);const RectPrismPrimitive3D* prism=&object->rectPrism;
+        double expected=prism->width*prism->height*prism->depth-prism->opening.width*prism->opening.height*(prism->depth-prism->opening.floor);
+        TEST_ASSERT(fabs(signed_volume-expected)<1e-6);
+        char mesh_path[256];snprintf(mesh_path,sizeof(mesh_path),"%s/mesh%zu.runtime.json",root,i);
+        FILE* file=fopen(mesh_path,"wb");TEST_ASSERT(file);
+        TEST_ASSERT(fwrite(dependencies.entries[i].payload_data,1,dependencies.entries[i].content_bytes,file)==dependencies.entries[i].content_bytes);
+        TEST_ASSERT(fclose(file)==0);
+        CoreMeshAssetRuntimeDocument document;core_mesh_asset_runtime_document_init(&document);
+        TEST_ASSERT(core_mesh_asset_runtime_document_load_file(mesh_path,&document).code==CORE_OK);
+        core_mesh_asset_runtime_document_free(&document);
+        cJSON_Delete(mesh);
+    }
+    LineDrawingSceneExportDependencies_Destroy(&dependencies);
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_sink_form_atomic_undo_reopen(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    TEST_ASSERT(Layout_LoadFromFile(&s->layout,"config/examples/van_construction_f4.layout.json"));
+    Editor_ClearHistory(&s->editor);
+    s->editor.selectedObject3DId=s->layout.objectStore.items[0].objectId;
+    for (size_t i=0;i<s->layout.objectStore.count;++i) if (!strcmp(s->layout.objectStore.items[i].coreMeta.object_id,"sink")) s->editor.selectedObject3DId=s->layout.objectStore.items[i].objectId;
+    UIPanel_SetActiveRightTab(UIPanel_Get(),UI_PANEL_RIGHT_TAB_OBJECT);UIPanel_OnWindowResized(1600,1200);
+    TEST_ASSERT(click(UI_FURNITURE_OPEN) && click(UI_FURNITURE_SINK));
+    TEST_ASSERT(click(UI_FURNITURE_SINK_WIDTH));
+    SDL_Event text={.type=SDL_TEXTINPUT};snprintf(text.text.text,sizeof(text.text.text),"340 mm");Input_Handle(NULL,&text);
+    TEST_ASSERT(click(UI_FURNITURE_APPLY));
+    TEST_ASSERT(fabs(s->layout.objectStore.furniture[0].parts[6].span_m[0]-.34)<1e-9);
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==1 && Editor_Undo(&s->editor,&s->layout));
+    TEST_ASSERT(fabs(s->layout.objectStore.furniture[0].parts[6].span_m[0]-.36)<1e-6);
+    TEST_ASSERT(Editor_Redo(&s->editor,&s->layout));
+    char* before=Layout_SaveToString(&s->layout);TEST_ASSERT(before);
+    LayoutFurnitureUnit u=s->layout.objectStore.furniture[0];u.parts[6].span_m[0]=.6;
+    TEST_ASSERT(!Layout_EditFurnitureUnit(&s->layout,&u,1,Editor_ReserveGeometryHistory,&s->editor) && unchanged(&s->layout,before));
+    u=s->layout.objectStore.furniture[0];u.thickness_m[3]=.025;
+    TEST_ASSERT(Layout_EditFurnitureUnit(&s->layout,&u,1,Editor_ReserveGeometryHistory,&s->editor));
+    TEST_ASSERT(Layout_ValidateFurniture(&s->layout,NULL,0));
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && unchanged(&s->layout,before));
+    Layout reopened;Layout_Init(&reopened,1);TEST_ASSERT(Layout_LoadFromString(&reopened,before));
+    TEST_ASSERT(reopened.objectStore.furniture[0].sink_opening && Layout_ValidateFurniture(&reopened,NULL,0));
+    cJSON* json=cJSON_Parse(before);cJSON_SetNumberValue(cJSON_GetObjectItem(cJSON_GetObjectItem(json,"file"),"schemaVersion"),23);
+    char* downgrade=cJSON_Print(json);TEST_ASSERT(!Layout_LoadFromString(&s->layout,downgrade) && unchanged(&s->layout,before));
+    cJSON_Delete(json);free(downgrade);Layout_FreeString(before);Layout_Free(&reopened);ld_test_shutdown_runtime();return true;
+}
+static bool test_whole_van_managed_units_ui_and_resize(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    TEST_ASSERT(Layout_LoadFromFile(&s->layout,"config/examples/van_construction_f4.layout.json"));
+    TEST_ASSERT(s->layout.objectStore.furniture_count==9 && s->layout.objectStore.furniture_contact_count==5);
+    Editor_ClearHistory(&s->editor);
+    char* before=Layout_SaveToString(&s->layout);TEST_ASSERT(before);
+    for (size_t i=0;i<9;++i) {
+        LayoutFurnitureUnit u=s->layout.objectStore.furniture[i];
+        s->editor.selectedObject3DId=0;
+        for (size_t j=0;j<s->layout.objectStore.count;++j) if (!strcmp(s->layout.objectStore.items[j].coreMeta.object_id,u.parts[0].entity_id)) s->editor.selectedObject3DId=s->layout.objectStore.items[j].objectId;
+        UIPanel_FurnitureReset();UIPanel_SetActiveRightTab(UIPanel_Get(),UI_PANEL_RIGHT_TAB_OBJECT);UIPanel_OnWindowResized(1600,1200);
+        TEST_ASSERT(click(UI_FURNITURE_OPEN) && click(UI_FURNITURE_PANELS));
+        SDL_Rect rect;TEST_ASSERT(UIPanel_FurnitureControlRect(UI_FURNITURE_CASE,&rect));
+        if (i>=7) TEST_ASSERT(UIPanel_FurnitureControlRect(UI_FURNITURE_OVERHANG_FRONT,&rect));
+        u.size_m[0]+=.01;u.size_m[2]+=.01;
+        TEST_ASSERT(Layout_EditFurnitureUnit(&s->layout,&u,1,Editor_ReserveGeometryHistory,&s->editor));
+        TEST_ASSERT(Layout_ValidateFurniture(&s->layout,NULL,0));
+        TEST_ASSERT(s->layout.objectStore.route_count==22 && s->layout.objectStore.saved_view_count==13);
+        TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && unchanged(&s->layout,before));
+    }
+    LayoutFurnitureUnit bench=s->layout.objectStore.furniture[3];bench.size_m[1]+=.05;
+    TEST_ASSERT(Layout_EditFurnitureUnit(&s->layout,&bench,1,Editor_ReserveGeometryHistory,&s->editor));
+    TEST_ASSERT(Layout_ValidateFurnitureContacts(&s->layout,true,NULL,0));
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && unchanged(&s->layout,before));
+    Layout_FreeString(before);ld_test_shutdown_runtime();return true;
+}
 bool furniture_run_tests(void) {
     const TestCase cases[] = {
+        {"sink_geometry_sections_checks_export", test_sink_removed_material_sections_checks_export},
+        {"sink_form_history_strict_reopen", test_sink_form_atomic_undo_reopen},
+        {"whole_van_unit_controls_resize", test_whole_van_managed_units_ui_and_resize},
         {"rotated_connected_group", test_rotated_contact_group},
         {"full_van_connected_run", test_full_van_connected_run_acceptance},
         {"contact_chain_history_reopen", test_contact_chain_history_and_strict_reopen},

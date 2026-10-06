@@ -1,0 +1,32 @@
+{
+  "status": "provisional_editable_construction",
+  "source": "/Users/calebsv/Desktop/CodeWork/_worktrees/line_drawing_main_edit/config/examples/van_construction_f2.layout.json",
+  "source_sha256": "09a8cdc1449231b5a1bca033e56270a4b66ac6a49b09e3351455e23703467c76",
+  "managed_units": [
+    "kitchen_base_unit",
+    "storage_passenger_unit",
+    "upper_cabinet_passenger_unit",
+    "driver_bench_unit",
+    "storage_driver_unit",
+    "upper_cabinet_driver_unit",
+    "upper_door_header_cabinet_unit",
+    "drawers_driver_unit",
+    "drawers_passenger_unit"
+  ],
+  "changed_ids": [
+    "desk_driver",
+    "desk_passenger",
+    "kitchen_base_top",
+    "kitchen_worktop",
+    "sink"
+  ],
+  "contact_count": 5,
+  "preserved_object_count": 130,
+  "preserved_route_count": 22,
+  "limitations": [
+    "sink rectangle, 2 mm bowl walls and 2 mm installation gap are provisional",
+    "desk worktop overhangs are editable; support cabinet size is the unit size",
+    "contacts preserve run faces, not vehicle-fit or structural certification",
+    "wheel wells, fasteners, doors and physical hardware need measured construction details"
+  ]
+}

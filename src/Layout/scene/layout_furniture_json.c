@@ -35,6 +35,7 @@ bool Layout_FurnitureWriteJson(const Layout* layout, cJSON* engineering) {
         if (!item) return false;
         cJSON_AddItemToArray(units, item);
         if (!cJSON_AddStringToObject(item, "assembly", u->assembly_id) ||
+            !cJSON_AddBoolToObject(item, "sinkOpening", u->sink_opening) ||
             !cJSON_AddNumberToObject(item, "backSign", u->back_sign) ||
             !add_array(item, "centerMeters", u->center_m, 3) || !add_array(item, "sizeMeters", u->size_m, 3) ||
             !add_array(item, "thicknessMeters", u->thickness_m, 4) ||
@@ -74,6 +75,9 @@ bool Layout_FurnitureReadJson(Layout* layout, const cJSON* engineering, int sche
             !array(item, "thicknessMeters", u->thickness_m, 4) || !array(item, "overhangMeters", u->overhang_m, 4) ||
             !cJSON_IsNumber(shelf) || !isfinite(shelf->valuedouble) || !cJSON_IsArray(parts) ||
             cJSON_GetArraySize(parts) > LAYOUT_MAX_FURNITURE_PARTS) return false;
+        const cJSON* sink = cJSON_GetObjectItemCaseSensitive(item, "sinkOpening");
+        if (sink && (!cJSON_IsBool(sink) || (schema < LAYOUT_JSON_SCHEMA_VERSION_PANEL_OPENINGS && cJSON_IsTrue(sink)))) return false;
+        u->sink_opening = cJSON_IsTrue(sink);
         u->back_sign = sign->valueint; u->shelf_fraction = shelf->valuedouble;
         u->part_count = (size_t)cJSON_GetArraySize(parts);
         for (size_t j = 0; j < u->part_count; ++j) {
@@ -81,8 +85,9 @@ bool Layout_FurnitureReadJson(Layout* layout, const cJSON* engineering, int sche
             const cJSON* role = cJSON_GetObjectItemCaseSensitive(part, "role");
             LayoutFurniturePart* p = &u->parts[j];
             if (!string(part, "entity", p->entity_id, sizeof(p->entity_id)) || !cJSON_IsNumber(role) ||
-                role->valuedouble < LAYOUT_FURNITURE_BACK || role->valuedouble > LAYOUT_FURNITURE_RUN_RAIL ||
+                role->valuedouble < LAYOUT_FURNITURE_BACK || role->valuedouble > LAYOUT_FURNITURE_CUSHION ||
                 (schema < LAYOUT_JSON_SCHEMA_VERSION_FURNITURE_CONTACTS && role->valuedouble == LAYOUT_FURNITURE_RUN_RAIL) ||
+                (schema < LAYOUT_JSON_SCHEMA_VERSION_PANEL_OPENINGS && role->valuedouble == LAYOUT_FURNITURE_CUSHION) ||
                 floor(role->valuedouble) != role->valuedouble ||
                 !array(part, "offsetMeters", p->offset_m, 3) || !array(part, "spanMeters", p->span_m, 3)) return false;
             p->role = (LayoutFurnitureRole)role->valueint;

@@ -1,6 +1,6 @@
-# Furniture units: F0 / F1 / F2
+# Furniture units: F0 through F4
 
-Implemented 2026-10-05 in the persistent Main Edit lane. This is a bounded
+Implemented 2026-10-05, extended through F4 on 2026-10-06 in the persistent Main Edit lane. See [F3 / F4 editability](furniture_editability.md) for the current full-van controls and opening contract. This is a bounded
 construction editor, using the existing units, assemblies, geometry transaction,
 history, scene export and solid/section renderer. No recurring rebuild is added.
 
@@ -22,8 +22,9 @@ transverse by 820 mm fore/aft, with its existing travel unchanged.
 
 These are contact corrections between provisional rectangular furniture. Ceiling,
 wall contours, ribs and installation allowance are unmeasured. Wheel-well cutouts,
-ceiling scribing, door hardware and real sink openings are unfinished. The sink
-placeholder still crosses uncut top panels. Contact is not a mounting or structural
+ceiling scribing and door hardware remain unfinished. The historical F1/F2 sink
+placeholder crosses uncut top panels; the F4 draft replaces that with real removed
+material and a provisional hollow bowl. Contact is not a mounting or structural
 certification. Existing checks remain available and still include hidden objects.
 
 ## Human controls
@@ -53,9 +54,9 @@ the existing numerical edit controls.
 ## Document and transaction contract
 
 Schema 22 added `engineering.furnitureUnits`; schema 23 adds
-`engineering.furnitureContacts` and `nextFurnitureContactId`. New saves use 23,
+`engineering.furnitureContacts` and `nextFurnitureContactId`. Schema 24 adds native openings and the cushion role; new saves use 24,
 including empty arrays when unused. Earlier documents still load; readers older
-than schema 23 reject new saves. Recipes are bounded to 16 units and 16 named parts per unit and
+than schema 24 reject new saves. Recipes are bounded to 16 units and 16 named parts per unit and
 refer to stable assembly/entity IDs. Size order is local depth, run length, height;
 all recipe dimensions are meters, relative to the assembly's rigid frame.
 
@@ -84,6 +85,5 @@ native input events for Apply, Cancel and actual pane splitter resizing.
 committed full-van fit draft against its baseline, preserved protected geometry
 and topology, native loading and create-only generator behavior.
 
-F2 is implemented for the passenger-side acceptance chain. Next: F3 actual sink
-opening/support construction, then F4 driver-side and desk rollout, measured
-fitting, fillers and broader face rules. See [Furniture contacts](furniture_contacts.md).
+F3 and F4 are implemented in the full-van draft. Next: the viewing/immersion pass,
+then measured fitting, wheel-well cutouts, hardware and broader construction rules. See [Furniture contacts](furniture_contacts.md).

@@ -1,5 +1,6 @@
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
+#include "Layout/layout_section.h"
 #include <float.h>
 #include <math.h>
 #include <stdio.h>
@@ -81,13 +82,25 @@ static bool box_distance(const Box* x, const Box* y, double* meters, bool* overl
 }
 bool Layout_SpatialDistance(const Layout* l,const Object3D* a,const Object3D* b,double* meters,bool* overlap,bool* approximate) {
     if(!l||!a||!b||!meters||!overlap||!approximate)return false;
-    Box x,y;if(!box(l,a,&x)||!box(l,b,&y))return false;
-    *approximate=x.approximate||y.approximate;return box_distance(&x,&y,meters,overlap);
+    if (!(a->kind==OBJECT3D_KIND_RECT_PRISM && a->rectPrism.opening.enabled) &&
+        !(b->kind==OBJECT3D_KIND_RECT_PRISM && b->rectPrism.opening.enabled)) {
+        Box x,y; if (!box(l,a,&x)||!box(l,b,&y)) return false;
+        *approximate=x.approximate||y.approximate; return box_distance(&x,&y,meters,overlap);
+    }
+    Object3D ac[5],bc[5]; size_t na=Layout_NativeSolidCells(a,ac),nb=Layout_NativeSolidCells(b,bc);
+    if (!na || !nb) return false;
+    *meters=DBL_MAX; *overlap=false; *approximate=false;
+    for (size_t i=0;i<na;++i) for (size_t j=0;j<nb;++j) {
+        Box x,y; double d; bool hit;
+        if (!box(l,&ac[i],&x) || !box(l,&bc[j],&y) || !box_distance(&x,&y,&d,&hit)) return false;
+        *meters=fmin(*meters,d); *overlap|=hit; *approximate|=x.approximate||y.approximate;
+    }
+    return true;
 }
 bool Layout_SpatialBoundsDistance(const Layout* l, const double min[3], const double max[3],
     const Object3D* target, double* meters, bool* overlap) {
     if (!l || !min || !max || !target || !meters || !overlap) return false;
-    Box x={.axis={{1,0,0},{0,1,0},{0,0,1}}},y;
+    Box x={.axis={{1,0,0},{0,1,0},{0,0,1}}};
     double center[3];
     for (int k=0;k<3;++k) {
         if (!isfinite(min[k]) || !isfinite(max[k]) || min[k]>max[k]) return false;
@@ -97,7 +110,14 @@ bool Layout_SpatialBoundsDistance(const Layout* l, const double min[3], const do
     x.center=(D3){center[0],center[1],center[2]};
     const int ends[8][3]={{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}};
     for (int i=0;i<8;++i) x.corner[i]=(D3){ends[i][0]?max[0]:min[0],ends[i][1]?max[1]:min[1],ends[i][2]?max[2]:min[2]};
-    return box(l,target,&y) && box_distance(&x,&y,meters,overlap);
+    Object3D cells[5]; size_t n=Layout_NativeSolidCells(target,cells);
+    *meters=DBL_MAX; *overlap=false;
+    for (size_t i=0;i<n;++i) {
+        Box y; double d; bool hit;
+        if (!box(l,&cells[i],&y) || !box_distance(&x,&y,&d,&hit)) return false;
+        *meters=fmin(*meters,d); *overlap|=hit;
+    }
+    return n>0;
 }
 static bool member(const LayoutObjectStore* s,const Object3D* o,const char* id) {
     return !strcmp(o->coreMeta.object_id,id)||Layout_IsDescendant(s,o->info.parent_id,id);
@@ -218,6 +238,16 @@ cJSON* Layout_SpatialReportJson(const Layout* l) {
 
 bool Layout_SpatialSegmentInterval(const Layout* layout, const Object3D* object,
     const double a[3], const double b[3], double padding, double* start, double* end, bool* approximate) {
+    if (object && object->kind==OBJECT3D_KIND_RECT_PRISM && object->rectPrism.opening.enabled) {
+        Object3D cells[5]; size_t n=Layout_NativeSolidCells(object,cells);
+        *start=1; *end=0; *approximate=false;
+        for (size_t i=0;i<n;++i) {
+            double lo,hi; bool proxy;
+            if (!Layout_SpatialSegmentInterval(layout,&cells[i],a,b,padding,&lo,&hi,&proxy)) return false;
+            if (lo<=hi+1e-9 && (*start>*end || lo<*start)) { *start=lo; *end=hi; }
+        }
+        return n>0;
+    }
     Box volume;
     if (!box(layout,object,&volume)) return false;
     *approximate=volume.approximate;

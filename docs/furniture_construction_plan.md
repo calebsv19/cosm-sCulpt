@@ -2,10 +2,10 @@
 
 Status: F0 fit corrections, F1 kitchen resize and F2 directed connected-run rules
 implemented in Main Edit on 2026-10-05. See [Furniture units](furniture_units.md) for the actual controls,
-persistence contract and limitations. F3 sink openings and F4 remaining unit editors are still planned. The F2 draft
+persistence contract and limitations. F3 sink openings and F4 remaining unit editors are implemented on 2026-10-06; see [F3 / F4 editability](furniture_editability.md). The F2 draft
 manages the kitchen, passenger pantry and passenger upper run, with explicit
-kitchen-to-pantry movement and pantry-to-upper length fitting. Driver furniture
-retains its F0 geometry and existing individual controls.
+kitchen-to-pantry movement and pantry-to-upper length fitting. The separately named F4 draft extends the managed controls to the driver furniture
+and both rear desks/support cabinets.
 
 ## Intended outcome
 

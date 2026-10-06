@@ -130,10 +130,17 @@ typedef struct {
     bool lockToBounds;
 } PlanePrimitive3D;
 
+/* One local U/V rectangular opening, through N or a top-open pocket.
+ * floor is retained material at -N; zero removes material through the board. */
+typedef struct {
+    bool enabled;
+    float u, v, width, height, floor;
+} LayoutPanelOpening;
 typedef struct {
     float width;
     float height;
     float depth;
+    LayoutPanelOpening opening;
     PlaneFrame3 frame;
     bool lockToConstructionPlane;
     bool lockToBounds;
@@ -387,7 +394,7 @@ typedef enum {
     LAYOUT_FURNITURE_BACK, LAYOUT_FURNITURE_END_REAR, LAYOUT_FURNITURE_END_FRONT,
     LAYOUT_FURNITURE_BOTTOM, LAYOUT_FURNITURE_TOP, LAYOUT_FURNITURE_DOOR,
     LAYOUT_FURNITURE_SHELF, LAYOUT_FURNITURE_WORKTOP, LAYOUT_FURNITURE_FIXTURE,
-    LAYOUT_FURNITURE_RUN_RAIL
+    LAYOUT_FURNITURE_RUN_RAIL, LAYOUT_FURNITURE_CUSHION
 } LayoutFurnitureRole;
 typedef struct {
     char entity_id[64];
@@ -399,6 +406,7 @@ typedef struct {
     double center_m[3], size_m[3]; /* Local depth U, run V, height N. */
     double thickness_m[4]; /* Case, back, door, worktop. */
     double overhang_m[4]; /* Wall, aisle, rear end, front end. */
+    bool sink_opening; /* First fixture is the provisional sink; top/worktop share its cutout. */
     double shelf_fraction;
     int back_sign;
     size_t part_count;
