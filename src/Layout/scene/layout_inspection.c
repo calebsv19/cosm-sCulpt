@@ -97,5 +97,7 @@ bool Layout_InspectionOutlined(const LayoutObjectStore *store, const Object3D *o
                    : view->plane.axis == VIEW_PLANE_YZ    ? (Vec3){1, 0, 0}
                    : view->plane.axis == VIEW_PLANE_XZ    ? (Vec3){0, 1, 0}
                                                           : (Vec3){0, 0, 1};
-    return Vec3_Dot(inward, forward) > .02f;
+    /* Keep units solid through 15 degrees beyond tangent (210-degree span). */
+    const float outlineThreshold = 0.2588190451f; /* sin(15 degrees). */
+    return Vec3_Dot(inward, forward) > outlineThreshold;
 }

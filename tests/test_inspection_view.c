@@ -36,6 +36,21 @@ static bool inspection_full_van_inheritance_rotation_and_defaults(void) {
     v.camera.yawDeg = 90;
     TEST_ASSERT(
         !Layout_InspectionOutlined(&layout.objectStore, driver, &v)); /* Tangent stays physical. */
+    /* Both camera projections retain slight backside views on either wall. */
+    for (int perspective = 0; perspective < 2; ++perspective) {
+        v.perspective.enabled = perspective != 0;
+        const float yaw[] = {76, 74, 104, 106};
+        Object3D *units[] = {driver, driver, passenger, passenger};
+        for (int i = 0; i < 4; ++i) {
+            v.camera.yawDeg = yaw[i];
+            float radians = yaw[i] * 0.01745329252f;
+            v.perspective.forward = (Vec3){cosf(radians), sinf(radians), 0};
+            TEST_ASSERT(Layout_InspectionOutlined(&layout.objectStore, units[i], &v) ==
+                        (i % 2 != 0)); /* 14 degrees stays solid; 16 becomes outline. */
+        }
+    }
+    v.perspective.enabled = false;
+    v.camera.yawDeg = 90;
     LayoutAssembly *a =
         (LayoutAssembly *)Layout_FindAssembly(&layout.objectStore, "storage_driver_unit");
     a->frame.axisU = (Vec3){0, 1, 0};

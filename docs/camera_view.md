@@ -77,7 +77,10 @@ those six directions; missing/`inherit` follows the nearest declaring ancestor.
 An invalid reserved value is rejected by native engineering validation. Assembly
 frames supply world direction, so rotation and nesting are respected. All members
 inherit one viewing-heading classification rather than switching independently
-by their distance from the camera; dot(inward, view-forward) > 0.02 selects outline.
+by their distance from the camera. Units stay solid up to 15 degrees beyond
+side-on, giving a 210-degree solid span in angular cross-section;
+dot(inward, view-forward) > sin(15 degrees), approximately 0.259, selects outline.
+The threshold is fixed and independent of camera FOV; it adds no periodic work.
 This is a directional inspection aid, not automatic proximity removal or triangle
 back-face culling. The F4 acceptance fixture declares directions on wall-side
 units and shell proxies; only metadata changed. Routes, contacts, motion ranges,
