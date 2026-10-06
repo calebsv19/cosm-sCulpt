@@ -38,7 +38,7 @@ certification. Existing checks remain available and still include hidden objects
    **Length anchor** cycles Front end, Center and Rear end. The wall-side outer face
    and floor remain fixed. Untouched fields keep their exact stored numbers.
 4. Open **Panels +** for Case, Back, Door and Worktop thickness. Only applicable
-   roles have geometry: the kitchen's open-front shell currently has no door.
+   roles appear: the kitchen's open-front shell has no Door field.
 5. **Apply unit** updates all members in one validated Undo step. Return also
    applies the form. **Cancel / back** discards the draft. Undo/Redo restore the
    whole recipe and all panel geometry. Invalid sizes or locks reject the edit

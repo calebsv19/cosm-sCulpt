@@ -43,12 +43,24 @@ static void sync(void) {
     length(unit->size_m[2], form.fields[2], 64);
     for (int k = 0; k < 4; ++k) length(unit->thickness_m[k], form.fields[k + 3], 64);
 }
+static bool has_role(LayoutFurnitureRole role) {
+    for (size_t i = 0; i < form.observed.part_count; ++i)
+        if (form.observed.parts[i].role == role) return true;
+    return false;
+}
+static bool thickness_present(int field_index) {
+    return field_index != 5 && field_index != 6 ? true :
+        has_role(field_index == 5 ? LAYOUT_FURNITURE_DOOR : LAYOUT_FURNITURE_WORKTOP);
+}
+static int thickness_count(void) {
+    return 2 + (int)thickness_present(5) + (int)thickness_present(6);
+}
 bool UIPanel_FurnitureEditing(void) { sync(); return form.valid && form.open; }
 static int h(void) { TTF_Font* f = FontManager_Get(FONT_DEFAULT); return (f ? TTF_FontHeight(f) : 16) + 10; }
 int UIPanel_FurnitureHeight(void) {
     sync();
     if (!form.valid) return 0;
-    return h() * (form.open ? 10 + (form.panels ? 4 : 0) : 1) + 12;
+    return h() * (form.open ? 10 + (form.panels ? thickness_count() : 0) : 1) + 12;
 }
 static SDL_Rect rectangle(int action) {
     sync();
@@ -64,9 +76,15 @@ static SDL_Rect rectangle(int action) {
     case UI_FURNITURE_PANELS: row = 7; break;
     case UI_FURNITURE_CASE: case UI_FURNITURE_BACK: case UI_FURNITURE_DOOR: case UI_FURNITURE_WORKTOP:
         if (!form.panels) return (SDL_Rect){0};
-        row = 8 + action - UI_FURNITURE_CASE; break;
+        {
+            int k = 3 + action - UI_FURNITURE_CASE;
+            if (!thickness_present(k)) return (SDL_Rect){0};
+            row = 8;
+            for (int i = 3; i < k; ++i) row += (int)thickness_present(i);
+        }
+        break;
     case UI_FURNITURE_APPLY: case UI_FURNITURE_CANCEL:
-        row = 8 + (form.panels ? 4 : 0); cols = 2; col = action - UI_FURNITURE_APPLY; break;
+        row = 8 + (form.panels ? thickness_count() : 0); cols = 2; col = action - UI_FURNITURE_APPLY; break;
     default: return (SDL_Rect){0};
     }
     int width = (b.w - 16 - 4 * (cols - 1)) / cols;
@@ -125,7 +143,7 @@ void UIPanel_RenderFurniture(SDL_Renderer* renderer) {
     paint(renderer, rectangle(UI_FURNITURE_PANELS), form.panels ? "Panels -" : "Panels +", true, form.panels);
     paint(renderer, rectangle(UI_FURNITURE_APPLY), "Apply unit", true, false);
     paint(renderer, rectangle(UI_FURNITURE_CANCEL), "Cancel / back", true, false);
-    note.y = body.y + 5 + (9 + (form.panels ? 4 : 0)) * h();
+    note.y = body.y + 5 + (9 + (form.panels ? thickness_count() : 0)) * h();
     paint(renderer, note, form.message[0] ? form.message : "One edit; fixed-size sink; adjoining units stay put", false, false);
 }
 static bool contains(SDL_Rect r, int x, int y) {

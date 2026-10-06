@@ -124,6 +124,8 @@ static bool test_visible_form_apply_cancel_resize_and_history(void) {
     TEST_ASSERT(Editor_UndoCount(&s->editor)==1);
     TEST_ASSERT(click(UI_FURNITURE_PANELS));
     TEST_ASSERT(UIPanel_FurnitureControlRect(UI_FURNITURE_CASE,&wide));
+    TEST_ASSERT(!UIPanel_FurnitureControlRect(UI_FURNITURE_DOOR,&wide));
+    TEST_ASSERT(UIPanel_FurnitureControlRect(UI_FURNITURE_WORKTOP,&wide));
     TEST_ASSERT(click(UI_FURNITURE_CASE));snprintf(text.text.text,sizeof(text.text.text),"25 mm");Input_Handle(NULL,&text);
     TEST_ASSERT(click(UI_FURNITURE_CANCEL));
     TEST_ASSERT(fabs(s->layout.objectStore.furniture[0].thickness_m[0]-.018)<1e-9);
