@@ -84,6 +84,14 @@ bool Layout_FurniturePartGeometry(const Layout* layout, const LayoutFurnitureUni
         pos[1] = (u->overhang_m[3] - u->overhang_m[2]) / 2;
         pos[2] = (h + span[2]) / 2;
         break;
+    case LAYOUT_FURNITURE_RUN_RAIL:
+        for (int k = 0; k < 3; ++k) {
+            if (!isfinite(part->offset_m[k]) || !isfinite(part->span_m[k])) return false;
+            pos[k] = part->offset_m[k]; span[k] = part->span_m[k];
+        }
+        if (span[0] <= 1e-6 || span[2] <= 1e-6 || span[0] > 1 || span[2] > 1) return false;
+        span[1] = l;
+        break;
     case LAYOUT_FURNITURE_FIXTURE:
         for (int k = 0; k < 3; ++k) {
             if (!isfinite(part->offset_m[k]) || !isfinite(part->span_m[k]) ||
@@ -140,7 +148,7 @@ bool Layout_ValidateFurniture(const Layout* layout, char* message, size_t capaci
         for (size_t j = 0; j < u->part_count; ++j) {
             const LayoutFurniturePart* p = &u->parts[j]; Object3D expected;
             if (!p->entity_id[0] || !memchr(p->entity_id, 0, sizeof(p->entity_id)) ||
-                p->role < LAYOUT_FURNITURE_BACK || p->role > LAYOUT_FURNITURE_FIXTURE ||
+                p->role < LAYOUT_FURNITURE_BACK || p->role > LAYOUT_FURNITURE_RUN_RAIL ||
                 (p->role != LAYOUT_FURNITURE_FIXTURE && (roles & (1u << p->role))))
                 return fail(message, capacity, "Invalid or duplicate furniture part role.");
             roles |= 1u << p->role;
@@ -154,7 +162,7 @@ bool Layout_ValidateFurniture(const Layout* layout, char* message, size_t capaci
         }
         if ((roles & 31u) != 31u) return fail(message, capacity, "Furniture needs back, two ends, bottom and top.");
     }
-    return true;
+    return Layout_ValidateFurnitureContacts(layout, !layout->geometryEditActive, message, capacity);
 }
 typedef struct { LayoutFurnitureUnit unit; int keep; } Edit;
 static bool fits_bounds(const Layout* layout, const Object3D* o) {
@@ -181,9 +189,14 @@ static bool edit(Layout* layout, void* context) {
     next.center_m[2] += (next.size_m[2] - old->size_m[2]) / 2;
     if (!parameters(&next)) return fail(layout->geometryMessage, sizeof(layout->geometryMessage), "Enter positive dimensions and smaller panel thicknesses.");
     *old = next;
-    for (size_t i = 0; i < next.part_count; ++i) {
+    return Layout_FurnitureRegenerateCandidate(layout, old) &&
+        Layout_SolveFurnitureContacts(layout, old->assembly_id);
+}
+bool Layout_FurnitureRegenerateCandidate(Layout* layout, const LayoutFurnitureUnit* unit) {
+    if (!layout || !layout->geometryEditActive || !unit) return false;
+    for (size_t i = 0; i < unit->part_count; ++i) {
         Object3D expected;
-        if (!Layout_FurniturePartGeometry(layout, &next, i, &expected))
+        if (!Layout_FurniturePartGeometry(layout, unit, i, &expected))
             return fail(layout->geometryMessage, sizeof(layout->geometryMessage), "Unit is too small for its panels, shelf or fixed-size sink.");
         Object3D* live = Layout_ObjectStore_Find(&layout->objectStore, expected.objectId);
         if (same_geometry(live, &expected, Layout_WorldScale(layout))) continue;

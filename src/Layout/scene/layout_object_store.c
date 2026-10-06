@@ -80,6 +80,9 @@ void Layout_ObjectStore_Init(LayoutObjectStore* store) {
     memset(&store->view_query, 0, sizeof(store->view_query));
     memset(store->furniture, 0, sizeof(store->furniture));
     store->furniture_count=0;
+    memset(store->furniture_contacts, 0, sizeof(store->furniture_contacts));
+    store->furniture_contact_count=0;
+    store->next_furniture_contact_id=1;
     store->assembly_count=0;
     store->next_assembly_id=1;
     memset(store->relationships,0,sizeof(store->relationships));
@@ -106,6 +109,9 @@ void Layout_ObjectStore_Free(LayoutObjectStore* store) {
     memset(&store->view_query, 0, sizeof(store->view_query));
     memset(store->furniture, 0, sizeof(store->furniture));
     store->furniture_count=0;
+    memset(store->furniture_contacts, 0, sizeof(store->furniture_contacts));
+    store->furniture_contact_count=0;
+    store->next_furniture_contact_id=1;
     store->assembly_count=0;
     store->next_assembly_id=1;
     memset(store->relationships,0,sizeof(store->relationships));

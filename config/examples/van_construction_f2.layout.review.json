@@ -1,0 +1,20 @@
+{
+  "status": "provisional_connected_run_draft",
+  "source": "/Users/calebsv/Desktop/CodeWork/_worktrees/line_drawing_main_edit/config/examples/van_construction_f1.layout.json",
+  "source_sha256": "1fc946396352abfa4bcd49ced834667a1ea6c7d60b68c1de3104dfc25768cbea",
+  "geometry_changed": false,
+  "managed_units": [
+    "kitchen_base_unit",
+    "storage_passenger_unit",
+    "upper_cabinet_passenger_unit"
+  ],
+  "contact_count": 2,
+  "preserved_routes": 22,
+  "limitations": [
+    "contact planes only, not structural attachment",
+    "pantry follows kitchen and may move into reserved bed or wheel-well areas; run Checks",
+    "sink opening and wheel-well cutouts remain unfinished",
+    "driver-side run is not yet managed",
+    "measure actual vehicle before construction"
+  ]
+}

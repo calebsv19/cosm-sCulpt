@@ -52,11 +52,11 @@ bool Layout_FurnitureWriteJson(const Layout* layout, cJSON* engineering) {
                 !add_array(part, "spanMeters", p->span_m, 3)) return false;
         }
     }
-    return true;
+    return Layout_FurnitureContactsWriteJson(layout, engineering);
 }
 bool Layout_FurnitureReadJson(Layout* layout, const cJSON* engineering, int schema) {
     const cJSON* units = cJSON_GetObjectItemCaseSensitive(engineering, "furnitureUnits");
-    if (!units) return schema < LAYOUT_JSON_SCHEMA_VERSION_FURNITURE;
+    if (!units) return schema < LAYOUT_JSON_SCHEMA_VERSION_FURNITURE && Layout_FurnitureContactsReadJson(layout, engineering, schema);
     if (!cJSON_IsArray(units) || cJSON_GetArraySize(units) > LAYOUT_MAX_FURNITURE_UNITS ||
         (schema < LAYOUT_JSON_SCHEMA_VERSION_FURNITURE && cJSON_GetArraySize(units))) return false;
     LayoutObjectStore* s = &layout->objectStore;
@@ -81,11 +81,12 @@ bool Layout_FurnitureReadJson(Layout* layout, const cJSON* engineering, int sche
             const cJSON* role = cJSON_GetObjectItemCaseSensitive(part, "role");
             LayoutFurniturePart* p = &u->parts[j];
             if (!string(part, "entity", p->entity_id, sizeof(p->entity_id)) || !cJSON_IsNumber(role) ||
-                role->valuedouble < LAYOUT_FURNITURE_BACK || role->valuedouble > LAYOUT_FURNITURE_FIXTURE ||
+                role->valuedouble < LAYOUT_FURNITURE_BACK || role->valuedouble > LAYOUT_FURNITURE_RUN_RAIL ||
+                (schema < LAYOUT_JSON_SCHEMA_VERSION_FURNITURE_CONTACTS && role->valuedouble == LAYOUT_FURNITURE_RUN_RAIL) ||
                 floor(role->valuedouble) != role->valuedouble ||
                 !array(part, "offsetMeters", p->offset_m, 3) || !array(part, "spanMeters", p->span_m, 3)) return false;
             p->role = (LayoutFurnitureRole)role->valueint;
         }
     }
-    return Layout_ValidateFurniture(layout, NULL, 0);
+    return Layout_FurnitureContactsReadJson(layout, engineering, schema) && Layout_ValidateFurniture(layout, NULL, 0);
 }

@@ -171,7 +171,7 @@ static Vec3 rotate(Vec3 v, Vec3 angles) {
     }
     return v;
 }
-typedef struct { const char* id; const double* translation; Vec3 rotation; } AssemblyMove;
+typedef struct { const char* id; const double* translation; Vec3 rotation; bool skip_solve; } AssemblyMove;
 static bool move_assembly(Layout* layout, void* context) {
     AssemblyMove* edit=context;LayoutObjectStore* store=&layout->objectStore;
     const LayoutAssembly* selected=Layout_FindAssembly(store,edit->id);
@@ -206,6 +206,7 @@ static bool move_assembly(Layout* layout, void* context) {
         a->frame.origin=Vec3_Add(Vec3_Add(origin,rotate(Vec3_Sub(a->frame.origin,origin),edit->rotation)),delta);
         a->frame.axisU=rotate(a->frame.axisU,edit->rotation);a->frame.axisV=rotate(a->frame.axisV,edit->rotation);a->frame.normal=rotate(a->frame.normal,edit->rotation);
     }
+    if (edit->skip_solve) return true;
     /* External dependents may follow, but the solver must not distort any member's
      * requested rigid pose. Conflicting cross-boundary rules reject the entire move. */
     size_t bytes=store->count*sizeof(Object3D);Object3D* expected=bytes ? malloc(bytes) : NULL;
@@ -222,8 +223,13 @@ static bool move_assembly(Layout* layout, void* context) {
 bool Layout_MoveAssembly(Layout* layout, const char* id, const double translation_m[3],
     Vec3 rotation_deg, LayoutGeometryBeforePublish history, void* context) {
     if (!id || !translation_m) return false;
-    AssemblyMove move={id,translation_m,rotation_deg};
+    AssemblyMove move={.id=id,.translation=translation_m,.rotation=rotation_deg};
     return Layout_RunGeometryEdit(layout,0,move_assembly,&move,history,context);
+}
+bool Layout_TranslateAssemblyCandidate(Layout* layout, const char* id, const double translation_m[3]) {
+    if (!layout || !layout->geometryEditActive || !id || !translation_m) return false;
+    AssemblyMove move={.id=id,.translation=translation_m,.skip_solve=true};
+    return move_assembly(layout,&move);
 }
 static Vec3 inverse_vector(PlaneFrame3 parent, Vec3 v) {
     return (Vec3){Vec3_Dot(v,parent.axisU),Vec3_Dot(v,parent.axisV),Vec3_Dot(v,parent.normal)};

@@ -150,8 +150,186 @@ static bool test_visible_form_apply_cancel_resize_and_history(void) {
     TEST_ASSERT(fabs(s->layout.objectStore.furniture[0].size_m[1]-1)<1e-9);
     ld_test_shutdown_runtime();return true;
 }
+
+static bool add_unit(GlobalState* s, double center, bool rail) {
+    LayoutAssembly a = {.frame = {.axisU={1,0,0},.axisV={0,1,0},.normal={0,0,1}}};
+    snprintf(a.info.entity_type,64,"Assembly"); snprintf(a.info.label,64,"Following cabinet");
+    if (!Layout_EditAssembly(&s->layout,&a,NULL,NULL,NULL)) return false;
+    a=s->layout.objectStore.assemblies[s->layout.objectStore.assembly_count-1];
+    LayoutFurnitureUnit u=s->layout.objectStore.furniture[0];
+    snprintf(u.assembly_id,64,"%s",a.id); u.center_m[1]=center; u.part_count=rail?6:5;
+    memset(u.parts,0,sizeof(u.parts));
+    for (size_t i=0;i<u.part_count;++i) {
+        RectPrismPrimitiveCreateParams params={.width=.5f,.height=1,.depth=.018f,.useExplicitFrame=true,
+            .explicitFrame={.axisU={1,0,0},.axisV={0,1,0},.normal={0,0,1}}}; uint32_t id;
+        if (!Layout_CreateRectPrismPrimitive(&s->layout,&params,&id,NULL)) return false;
+        Object3D* o=Layout_ObjectStore_Find(&s->layout.objectStore,id); snprintf(o->info.parent_id,64,"%s",a.id);
+        snprintf(u.parts[i].entity_id,64,"%s",o->coreMeta.object_id);
+        u.parts[i].role=i<5?(LayoutFurnitureRole)i:LAYOUT_FURNITURE_RUN_RAIL;
+        if (i==5) {u.parts[i].span_m[0]=.04;u.parts[i].span_m[2]=.03;u.parts[i].offset_m[0]=.26;}
+    }
+    s->layout.objectStore.furniture[s->layout.objectStore.furniture_count++]=u;
+    for (size_t i=0;i<u.part_count;++i) {
+        Object3D expected;if (!Layout_FurniturePartGeometry(&s->layout,&u,i,&expected)) return false;
+        *Layout_ObjectStore_Find(&s->layout.objectStore,expected.objectId)=expected;
+    }
+    return Layout_ValidateFurniture(&s->layout,NULL,0);
+}
+static bool chain(GlobalState* s) {
+    if (!setup(s,1,.1) || !add_unit(s,-.5,false) || !add_unit(s,.5,true)) return false;
+    LayoutFurnitureContact c={.driver_end=-1,.follower_end=1,.enabled=true};
+    snprintf(c.driver,64,"assembly_1");snprintf(c.follower,64,"assembly_2");
+    if (!Layout_EditFurnitureContact(&s->layout,&c,NULL,NULL,NULL)) return false;
+    c=(LayoutFurnitureContact){.driver_end=1,.follower_end=-1,.enabled=true,.behavior=LAYOUT_FURNITURE_FOLLOW_FIT_RUN};
+    snprintf(c.driver,64,"assembly_2");snprintf(c.follower,64,"assembly_3");
+    return Layout_EditFurnitureContact(&s->layout,&c,NULL,NULL,NULL);
+}
+static bool test_contact_chain_history_and_strict_reopen(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();TEST_ASSERT(chain(s));Editor_ClearHistory(&s->editor);
+    char* before=Layout_SaveToString(&s->layout);TEST_ASSERT(before);
+    LayoutFurnitureUnit u=s->layout.objectStore.furniture[0];u.size_m[1]=1.2;
+    TEST_ASSERT(Layout_EditFurnitureUnit(&s->layout,&u,1,Editor_ReserveGeometryHistory,&s->editor));
+    TEST_ASSERT(fabs(s->layout.objectStore.assemblies[1].frame.origin.y*.1+.2)<1e-6);
+    TEST_ASSERT(fabs(s->layout.objectStore.furniture[2].size_m[1]-1.2)<1e-6);
+    TEST_ASSERT(fabs(s->layout.objectStore.furniture[2].center_m[1]-.4)<1e-6);
+    Object3D* rail=Layout_ObjectStore_Find(&s->layout.objectStore,s->layout.objectStore.items[17].objectId);
+    TEST_ASSERT(fabs(rail->rectPrism.height*.1-1.2)<1e-6);
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==1);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && unchanged(&s->layout,before));
+    TEST_ASSERT(Editor_Redo(&s->editor,&s->layout));
+    char* text=Layout_SaveToString(&s->layout);TEST_ASSERT(text);
+    Layout reopened;Layout_Init(&reopened,.05f);TEST_ASSERT(Layout_LoadFromString(&reopened,text));
+    TEST_ASSERT(Layout_ValidateFurnitureContacts(&reopened,true,NULL,0));Layout_Free(&reopened);
+    cJSON* root=cJSON_Parse(text);TEST_ASSERT(root);
+    cJSON* e=cJSON_GetObjectItem(root,"engineering");
+    cJSON* contact=cJSON_GetArrayItem(cJSON_GetObjectItem(e,"furnitureContacts"),0);
+    cJSON_SetNumberValue(cJSON_GetObjectItem(contact,"gapMeters"),.05);
+    char* drift=cJSON_Print(root);TEST_ASSERT(!Layout_LoadFromString(&s->layout,drift) && unchanged(&s->layout,text));
+    free(drift);cJSON_SetNumberValue(cJSON_GetObjectItem(contact,"gapMeters"),0);
+    cJSON_SetNumberValue(cJSON_GetObjectItem(cJSON_GetObjectItem(root,"file"),"schemaVersion"),22);
+    drift=cJSON_Print(root);TEST_ASSERT(!Layout_LoadFromString(&s->layout,drift) && unchanged(&s->layout,text));
+    free(drift);cJSON_Delete(root);Layout_FreeString(text);Layout_FreeString(before);ld_test_shutdown_runtime();return true;
+}
+static bool test_contact_conflicts_locks_rotation_and_disable(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();TEST_ASSERT(chain(s));Editor_ClearHistory(&s->editor);
+    char* before=Layout_SaveToString(&s->layout);TEST_ASSERT(before);
+    LayoutFurnitureContact c={.driver_end=1,.follower_end=-1,.enabled=true};
+    snprintf(c.driver,64,"assembly_2");snprintf(c.follower,64,"assembly_1");
+    TEST_ASSERT(!Layout_EditFurnitureContact(&s->layout,&c,NULL,NULL,NULL) && unchanged(&s->layout,before));
+    snprintf(c.driver,64,"assembly_3");snprintf(c.follower,64,"assembly_2");c.driver_end=-1;c.follower_end=1;
+    TEST_ASSERT(!Layout_EditFurnitureContact(&s->layout,&c,NULL,NULL,NULL) && unchanged(&s->layout,before));
+    LayoutFurnitureUnit follower=s->layout.objectStore.furniture[1];follower.size_m[1]=1.2;
+    TEST_ASSERT(!Layout_EditFurnitureUnit(&s->layout,&follower,-1,NULL,NULL) && unchanged(&s->layout,before));
+    TEST_ASSERT(!Layout_MoveAssembly(&s->layout,"assembly_2",(double[]){0,-.1,0},(Vec3){0},NULL,NULL) && unchanged(&s->layout,before));
+    TEST_ASSERT(!Layout_MoveAssembly(&s->layout,"assembly_1",(double[]){0},(Vec3){0,0,30},NULL,NULL) && unchanged(&s->layout,before));
+    s->layout.objectStore.items[7].coreMeta.flags.locked=true;Layout_FreeString(before);before=Layout_SaveToString(&s->layout);
+    LayoutFurnitureUnit u=s->layout.objectStore.furniture[0];u.size_m[1]=1.2;
+    TEST_ASSERT(!Layout_EditFurnitureUnit(&s->layout,&u,1,Editor_ReserveGeometryHistory,&s->editor) && unchanged(&s->layout,before));
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==0);s->layout.objectStore.items[7].coreMeta.flags.locked=false;
+    s->layout.objectStore.items[17].coreMeta.flags.locked=true;
+    Layout_FreeString(before);before=Layout_SaveToString(&s->layout);
+    /* A failure in the final rail rolls back the already-evaluated kitchen and pantry. */
+    TEST_ASSERT(!Layout_EditFurnitureUnit(&s->layout,&u,1,Editor_ReserveGeometryHistory,&s->editor) && unchanged(&s->layout,before));
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==0);s->layout.objectStore.items[17].coreMeta.flags.locked=false;
+    c=s->layout.objectStore.furniture_contacts[0];c.enabled=false;
+    TEST_ASSERT(Layout_EditFurnitureContact(&s->layout,&c,NULL,NULL,NULL));
+    TEST_ASSERT(Layout_EditFurnitureUnit(&s->layout,&u,1,NULL,NULL));
+    TEST_ASSERT(fabs(s->layout.objectStore.assemblies[1].frame.origin.y)<1e-8);
+    c.enabled=true;TEST_ASSERT(Layout_EditFurnitureContact(&s->layout,&c,NULL,NULL,NULL));
+    TEST_ASSERT(fabs(s->layout.objectStore.assemblies[1].frame.origin.y*.1+.2)<1e-6);
+    c=s->layout.objectStore.furniture_contacts[0];c.gap_m=.01;
+    TEST_ASSERT(!Layout_EditFurnitureContact(&s->layout,&c,NULL,deny,NULL));
+    TEST_ASSERT(Layout_EditFurnitureContact(&s->layout,&c,NULL,Editor_ReserveGeometryHistory,&s->editor));
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==1);
+    TEST_ASSERT(fabs(s->layout.objectStore.assemblies[1].frame.origin.y*.1+.21)<1e-6);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout));
+    TEST_ASSERT(Layout_EditFurnitureContact(&s->layout,NULL,c.id,NULL,NULL));
+    TEST_ASSERT(s->layout.objectStore.furniture_contact_count==1);
+    Layout_FreeString(before);ld_test_shutdown_runtime();return true;
+}
+static bool test_native_connection_controls(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();TEST_ASSERT(chain(s));Editor_ClearHistory(&s->editor);
+    s->editor.selectedObject3DId=s->layout.objectStore.items[0].objectId;
+    UIPanel_SetActiveRightTab(UIPanel_Get(),UI_PANEL_RIGHT_TAB_OBJECT);UIPanel_OnWindowResized(1400,1200);
+    TEST_ASSERT(click(UI_FURNITURE_OPEN));TEST_ASSERT(click(UI_FURNITURE_CONNECTIONS));
+    TEST_ASSERT(click(UI_FURNITURE_ENABLED));TEST_ASSERT(click(UI_FURNITURE_SAVE_LINK));
+    TEST_ASSERT(!s->layout.objectStore.furniture_contacts[0].enabled && Editor_UndoCount(&s->editor)==1);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout));
+    /* Undo refreshes the saved Enabled state without reopening/resetting the form. */
+    TEST_ASSERT(click(UI_FURNITURE_ENABLED));TEST_ASSERT(click(UI_FURNITURE_SAVE_LINK));
+    TEST_ASSERT(!s->layout.objectStore.furniture_contacts[0].enabled);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout));
+    TEST_ASSERT(click(UI_FURNITURE_GAP));SDL_Event text={.type=SDL_TEXTINPUT};snprintf(text.text.text,sizeof(text.text.text),"15 mm");Input_Handle(NULL,&text);
+    TEST_ASSERT(click(UI_FURNITURE_SAVE_LINK));
+    TEST_ASSERT(fabs(s->layout.objectStore.furniture_contacts[0].gap_m-.015)<1e-9);
+    TEST_ASSERT(Layout_ValidateFurnitureContacts(&s->layout,true,NULL,0));
+    TEST_ASSERT(click(UI_FURNITURE_GAP));snprintf(text.text.text,sizeof(text.text.text),"-1 mm");Input_Handle(NULL,&text);
+    size_t count=Editor_UndoCount(&s->editor);TEST_ASSERT(click(UI_FURNITURE_SAVE_LINK));TEST_ASSERT(Editor_UndoCount(&s->editor)==count);
+    TEST_ASSERT(click(UI_FURNITURE_CANCEL));
+    s->editor.selectedObject3DId=s->layout.objectStore.items[7].objectId;
+    TEST_ASSERT(click(UI_FURNITURE_OPEN));TEST_ASSERT(click(UI_FURNITURE_CONNECTIONS));
+    TEST_ASSERT(click(UI_FURNITURE_LINK));TEST_ASSERT(click(UI_FURNITURE_GAP));
+    snprintf(text.text.text,sizeof(text.text.text),"0.0123456789 m");Input_Handle(NULL,&text);
+    TEST_ASSERT(click(UI_FURNITURE_SAVE_LINK));
+    TEST_ASSERT(fabs(s->layout.objectStore.furniture_contacts[1].gap_m-.0123456789)<1e-12);
+    count=Editor_UndoCount(&s->editor);TEST_ASSERT(click(UI_FURNITURE_SAVE_LINK));
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==count); /* Unedited gap retains full saved precision. */
+    TEST_ASSERT(click(UI_FURNITURE_ENABLED));TEST_ASSERT(click(UI_FURNITURE_SAVE_LINK));
+    TEST_ASSERT(!s->layout.objectStore.furniture_contacts[1].enabled && s->layout.objectStore.furniture_contacts[0].enabled);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout));
+    TEST_ASSERT(click(UI_FURNITURE_ENABLED));TEST_ASSERT(click(UI_FURNITURE_SAVE_LINK));
+    TEST_ASSERT(!s->layout.objectStore.furniture_contacts[1].enabled); /* Second link survives Undo refresh. */
+    ld_test_shutdown_runtime();return true;
+}
+
+static bool test_rotated_contact_group(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();TEST_ASSERT(chain(s));
+    LayoutAssembly group={.frame={.axisU={1,0,0},.axisV={0,1,0},.normal={0,0,1}}};
+    snprintf(group.info.entity_type,64,"Assembly");snprintf(group.info.label,64,"Connected group");
+    TEST_ASSERT(Layout_EditAssembly(&s->layout,&group,NULL,NULL,NULL));
+    for (size_t i=0;i<3;++i) {
+        LayoutEntityInfo info=s->layout.objectStore.assemblies[i].info;snprintf(info.parent_id,64,"assembly_4");
+        TEST_ASSERT(Layout_SetEntityInfo(&s->layout,s->layout.objectStore.assemblies[i].id,&info,NULL,NULL));
+    }
+    TEST_ASSERT(Layout_MoveAssembly(&s->layout,"assembly_4",(double[]){1,2,0},(Vec3){0,0,30},NULL,NULL));
+    LayoutFurnitureUnit u=s->layout.objectStore.furniture[0];u.size_m[1]=1.1;
+    TEST_ASSERT(Layout_EditFurnitureUnit(&s->layout,&u,1,NULL,NULL));
+    TEST_ASSERT(Layout_ValidateFurnitureContacts(&s->layout,true,NULL,0));
+    TEST_ASSERT(fabs(s->layout.objectStore.furniture[2].size_m[1]-1.1)<2e-6);
+    ld_test_shutdown_runtime();return true;
+}
+static bool test_full_van_connected_run_acceptance(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();
+    TEST_ASSERT(Layout_LoadFromFile(&s->layout,"config/examples/van_construction_f2.layout.json"));
+    TEST_ASSERT(s->layout.objectStore.furniture_count==3 && s->layout.objectStore.furniture_contact_count==2);
+    Object3D* bed=NULL;Object3D* rail=NULL;
+    for (size_t i=0;i<s->layout.objectStore.count;++i) {
+        Object3D* o=&s->layout.objectStore.items[i];
+        if (!strcmp(o->coreMeta.object_id,"bed_deck")) bed=o;
+        if (!strcmp(o->coreMeta.object_id,"upper_cabinet_passenger_mount_rail")) rail=o;
+    }
+    TEST_ASSERT(rail);Object3D rail_before=*rail;
+    char* before=Layout_SaveToString(&s->layout);TEST_ASSERT(before);Editor_ClearHistory(&s->editor);
+    LayoutFurnitureUnit u=s->layout.objectStore.furniture[0];double length=u.size_m[1];u.size_m[1]+=.05;
+    TEST_ASSERT(Layout_EditFurnitureUnit(&s->layout,&u,1,Editor_ReserveGeometryHistory,&s->editor));
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==1);
+    const LayoutAssembly* pantry=Layout_FindAssembly(&s->layout.objectStore,"storage_passenger_unit");TEST_ASSERT(pantry);
+    TEST_ASSERT(fabs(pantry->frame.origin.y+.05)<1e-6);
+    TEST_ASSERT(fabs(s->layout.objectStore.furniture[2].size_m[1]-length-.05)<2e-6);
+    TEST_ASSERT(fabs(rail->rectPrism.height-rail_before.rectPrism.height-.05)<2e-6);
+    TEST_ASSERT(s->layout.objectStore.route_count==22 && s->layout.objectStore.saved_view_count==13);
+    TEST_ASSERT(Layout_ValidateFurnitureContacts(&s->layout,true,NULL,0));
+    if (bed) TEST_ASSERT(bed->rectPrism.height<=.9144f);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && unchanged(&s->layout,before));
+    Layout_FreeString(before);ld_test_shutdown_runtime();return true;
+}
 bool furniture_run_tests(void) {
     const TestCase cases[] = {
+        {"rotated_connected_group", test_rotated_contact_group},
+        {"full_van_connected_run", test_full_van_connected_run_acceptance},
+        {"contact_chain_history_reopen", test_contact_chain_history_and_strict_reopen},
+        {"contact_conflicts_locks_disable", test_contact_conflicts_locks_rotation_and_disable},
+        {"native_connection_controls", test_native_connection_controls},
         {"resize_anchor_thickness_ids_history", test_resize_fixed_thickness_identity_anchor_history},
         {"atomic_failure_managed_parts", test_failures_are_atomic_and_parts_cannot_drift},
         {"rotation_strict_loading", test_rotated_unit_and_strict_recipe_loading},

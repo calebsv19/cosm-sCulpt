@@ -11,5 +11,13 @@ bool Layout_EditFurnitureUnit(Layout* layout, const LayoutFurnitureUnit* unit, i
 bool Layout_ValidateFurniture(const Layout* layout, char* message, size_t capacity);
 bool Layout_FurniturePartGeometry(const Layout* layout, const LayoutFurnitureUnit* unit,
                                   size_t part_index, Object3D* result);
+/* Candidate helpers require geometryEditActive; publication remains transactional. */
+bool Layout_FurnitureRegenerateCandidate(Layout* layout, const LayoutFurnitureUnit* unit);
+bool Layout_ValidateFurnitureContacts(const Layout* layout, bool require_contact, char* message, size_t capacity);
+bool Layout_SolveFurnitureContacts(Layout* layout, const char* protected_unit);
+bool Layout_EditFurnitureContact(Layout* layout, const LayoutFurnitureContact* contact, const char* remove_id,
+                                  LayoutGeometryBeforePublish history, void* context);
+bool Layout_FurnitureContactsWriteJson(const Layout* layout, cJSON* engineering);
+bool Layout_FurnitureContactsReadJson(Layout* layout, const cJSON* engineering, int schema_version);
 bool Layout_FurnitureWriteJson(const Layout* layout, cJSON* engineering);
 bool Layout_FurnitureReadJson(Layout* layout, const cJSON* engineering, int schema_version);

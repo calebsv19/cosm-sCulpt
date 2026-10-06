@@ -1,10 +1,11 @@
 # Connected furniture and editable construction plan
 
-Status: F0 fit corrections and F1 kitchen resize implemented in Main Edit on
-2026-10-05. See [Furniture units](furniture_units.md) for the actual controls,
-persistence contract and limitations. F2 neighbor-follow, F3 sink openings and
-F4 remaining unit editors are still planned. The full-van draft has corrected
-run boundaries; only the kitchen has a managed resize recipe so far.
+Status: F0 fit corrections, F1 kitchen resize and F2 directed connected-run rules
+implemented in Main Edit on 2026-10-05. See [Furniture units](furniture_units.md) for the actual controls,
+persistence contract and limitations. F3 sink openings and F4 remaining unit editors are still planned. The F2 draft
+manages the kitchen, passenger pantry and passenger upper run, with explicit
+kitchen-to-pantry movement and pantry-to-upper length fitting. Driver furniture
+retains its F0 geometry and existing individual controls.
 
 ## Intended outcome
 

@@ -1,4 +1,4 @@
-# Furniture units: F0 / F1
+# Furniture units: F0 / F1 / F2
 
 Implemented 2026-10-05 in the persistent Main Edit lane. This is a bounded
 construction editor, using the existing units, assemblies, geometry transaction,
@@ -39,27 +39,28 @@ certification. Existing checks remain available and still include hidden objects
    and floor remain fixed. Untouched fields keep their exact stored numbers.
 4. Open **Panels +** for Case, Back, Door and Worktop thickness. Only applicable
    roles appear: the kitchen's open-front shell has no Door field.
-5. **Apply unit** updates all members in one validated Undo step. Return also
+5. **Apply unit** updates all members in one validated Undo step, including enabled followers. Return also
    applies the form. **Cancel / back** discards the draft. Undo/Redo restore the
    whole recipe and all panel geometry. Invalid sizes or locks reject the edit
    before any partial changes are published.
 
 The displayed Current inside L/D/H describes the applied unit, not the uncommitted
 form. The fixed-size sink follows its declared wall/front/top anchor without being
-scaled. A unit too small for the sink is rejected. Adjoining furniture stays put;
-there is no automatic neighbor-follow rule yet. The kitchen is the only managed
-unit in this draft. Other panels retain the existing numerical edit controls.
+scaled. A unit too small for the sink is rejected. The F1 draft has only the kitchen managed. In the F2 draft, passenger pantry and
+upper run are also managed and follow their enabled links. Other panels retain
+the existing numerical edit controls.
 
 ## Document and transaction contract
 
-Schema 22 adds `engineering.furnitureUnits`; older documents load without recipes.
-New saves include an empty array when no units exist. Older app versions cannot
-read schema 22. Recipes are bounded to 16 units and 16 named parts per unit and
+Schema 22 added `engineering.furnitureUnits`; schema 23 adds
+`engineering.furnitureContacts` and `nextFurnitureContactId`. New saves use 23,
+including empty arrays when unused. Earlier documents still load; readers older
+than schema 23 reject new saves. Recipes are bounded to 16 units and 16 named parts per unit and
 refer to stable assembly/entity IDs. Size order is local depth, run length, height;
 all recipe dimensions are meters, relative to the assembly's rigid frame.
 
 Role equations derive native unit-scale prisms: back, two ends, bottom, top,
-optional door/shelf/worktop and fixed-size fixture. Panel thickness is independent
+optional door/shelf/worktop, fixed-size fixture and length-following mounting rail. Panel thickness is independent
 of unit size. Back/door thickness determines clear depth; case thickness determines
 clear run length and height. Worktop overhangs are separate recipe dimensions.
 The recipe supports rigid assembly movement and rotation. Assembly IDs and member
@@ -83,6 +84,6 @@ native input events for Apply, Cancel and actual pane splitter resizing.
 committed full-van fit draft against its baseline, preserved protected geometry
 and topology, native loading and create-only generator behavior.
 
-Next: F2 directed contact rules for the kitchen/pantry and upper end boundaries;
-F3 actual sink opening/support construction; F4 managed editors for bench, tall
-units, upper units and desks. Do not claim these from the provisional contact map.
+F2 is implemented for the passenger-side acceptance chain. Next: F3 actual sink
+opening/support construction, then F4 driver-side and desk rollout, measured
+fitting, fillers and broader face rules. See [Furniture contacts](furniture_contacts.md).
