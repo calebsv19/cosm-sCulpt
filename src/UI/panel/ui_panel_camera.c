@@ -260,7 +260,8 @@ bool UIPanel_CameraClick(int x, int y) {
         const char* id=facing_target();
         bool ok=id && Layout_SetInspectionFacing(&s->layout,id,
             (LayoutInspectionFacing)(action-UI_CAMERA_FACING_INHERIT),Layout_GeometryHistory,NULL);
-        snprintf(facing_message,sizeof(facing_message),"%s",ok ? "Facing saved; save file to persist." :
+        /* The Saved/Dirty and Undo header remains authoritative after history changes. */
+        snprintf(facing_message,sizeof(facing_message),"%s",ok ? "" :
             id ? s->layout.geometryMessage : "Select an object first.");
     } else if (action == UI_CAMERA_PREVIOUS || action == UI_CAMERA_NEXT) {
         size_t n = s->layout.sceneAuthoring.camera_count;
