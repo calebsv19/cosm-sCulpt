@@ -54,6 +54,7 @@ bool startup_config_run_tests(void);
 bool app_wrapper_diagnostics_run_tests(void);
 bool shutdown_lifetime_run_tests(void);
 bool viewport_navigation_input_run_tests(void);
+bool ui_panel_resize_run_tests(void);
 bool viewport_navigation_parity_run_tests(void);
 bool viewport3d_bridge_run_tests(void);
 
@@ -114,6 +115,7 @@ static const TestGroup kTestGroups[] = {
     {"AppWrapperDiagnostics", app_wrapper_diagnostics_run_tests, true},
     {"ShutdownLifetime", shutdown_lifetime_run_tests, true},
     {"ViewportNavigationInput", viewport_navigation_input_run_tests, true},
+    {"UIPanelResize", ui_panel_resize_run_tests, true},
     {"ViewportNavigationParity", viewport_navigation_parity_run_tests, true},
     {"Viewport3DBridge", viewport3d_bridge_run_tests, true},
 };

@@ -127,17 +127,9 @@ static void UIPanel_ResolveButtonLaneLayout(int screenW,
 
     if (has_pane) {
         const int available = pane.w - padding * 2;
-        int clamped_w = default_w;
-        if (available > 0 && available < clamped_w) {
-            clamped_w = available;
-        }
-        if (clamped_w < 72) {
-            clamped_w = available > 0 ? available : 72;
-        }
-        if (clamped_w < 24) clamped_w = 24;
-        w = clamped_w;
+        w = available > 0 ? available : 0;
         y = pane.y + padding;
-        x = pane.x + (pane.w - w) / 2;
+        x = pane.x + padding;
     } else if (side == UI_PANEL_RIGHT) {
         x = screenW - default_w - padding;
     }

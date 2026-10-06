@@ -863,9 +863,14 @@ void Input_MouseHandle(AppContext *ctx, SDL_Event* event) {
         case SDL_MOUSEMOTION:
             if (pane_host) {
                 if (LineDrawingPaneHost_IsSplitterDragActive(pane_host)) {
-                    (void)LineDrawingPaneHost_UpdateSplitterDrag(pane_host,
-                                                                 (float)event->motion.x,
-                                                                 (float)event->motion.y);
+                    CorePaneRect old_viewport = {0};
+                    bool had_viewport = LineDrawingPaneHost_GetViewportRect(pane_host, &old_viewport);
+                    if (LineDrawingPaneHost_UpdateSplitterDrag(pane_host,
+                                                               (float)event->motion.x,
+                                                               (float)event->motion.y)) {
+                        /* Update drawing and hit targets together, before hover. */
+                        Global_RefreshPaneLayout(had_viewport ? &old_viewport : NULL);
+                    }
                     UpdateHover(event->motion.x, event->motion.y);
                     break;
                 }

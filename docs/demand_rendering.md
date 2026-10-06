@@ -58,6 +58,10 @@ validation for untrusted inputs. Overlapping-view, unclassified-entity and
 isolation behavior is preserved. Unchanged window dimensions also no longer
 trigger pane relayout and picking invalidation on every presented frame.
 
+Pane-divider and font metric changes explicitly notify child controls through
+`Global_RefreshPaneLayout`; they do not rely on an idle relayout heartbeat.
+See [responsive editor panes](responsive_panes.md).
+
 ## Evidence and practical limits
 
 The installed Main Edit app was measured with the user's saved 130-object

@@ -155,6 +155,7 @@ static CoreResult line_drawing_authoring_restore_baseline(GlobalState* state) {
     if (authoring->baseline_font_preset[0]) {
         (void)FontManager_SetSharedFontPresetName(authoring->baseline_font_preset);
     }
+    Global_RefreshPaneLayout(NULL);
     return core_result_ok();
 }
 
@@ -443,7 +444,9 @@ int LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(GlobalState* state, const S
                         &layout,
                         (float)event->button.x,
                         (float)event->button.y);
-                    (void)line_drawing_authoring_apply_font_theme_button(state, font_hit);
+                    if (line_drawing_authoring_apply_font_theme_button(state, font_hit)) {
+                        Global_RefreshPaneLayout(NULL);
+                    }
                 }
             }
             line_drawing_authoring_note_consumed(state);

@@ -199,6 +199,9 @@ static void UIPanel_UpdateSideTabs(UIPanelTabButton* tabs,
         total += width + 8;
     }
     int available = contentW - spacing * (visible - 1);
+    if (available < 0) available = 0;
+    int remaining = available;
+    int remaining_tabs = visible;
     int cursor = contentX;
     int tabY = contentY;
     for (int i = 0; i < tabCount; ++i) {
@@ -208,7 +211,9 @@ static void UIPanel_UpdateSideTabs(UIPanelTabButton* tabs,
         int width = (int)strlen(tabs[i].label) * 8;
         if (font) (void)TTF_SizeUTF8(font, tabs[i].label, &width, NULL);
         width += 8;
-        if (total > available && total > 0) width = width * available / total;
+        width = total > 0 ? width * available / total : 0;
+        if (--remaining_tabs == 0) width = remaining;
+        remaining -= width;
         tabs[i].bounds = (SDL_Rect){cursor, tabY, width, tabHeight};
         tabs[i].active = i == activeIndex;
         cursor += width + spacing;

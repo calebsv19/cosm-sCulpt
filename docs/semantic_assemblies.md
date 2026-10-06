@@ -9,7 +9,8 @@ Date: 2026-09-29. S2 introduced schema 15; current schema 17 includes
 
 Open an existing scene and choose **Object**. The selector below the tabs offers
 Geometry, Details / tags, Assemblies, Connections, Volumes and Checks.
-Visibility and saved filters are under **View → Visibility / saved views**. The S2 workflow is below; the
+Visibility and saved filters are under **View → Visibility / saved views**. Each view has a name toggle and compact **Only** action.
+Expand **Manage views** for undoable query removal. See [responsive panes](responsive_panes.md). The S2 workflow is below; the
 [Links guide](relationships.md) describes S3a. Inputs have separate labels and inset fields;
 selectors have arrows and actions have filled button faces. No new shortcuts are required.
 

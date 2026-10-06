@@ -155,8 +155,7 @@ static void Input_SetActivePlane(GlobalState* state, ViewPlane plane) {
 static void Input_RefreshUILayoutAfterFontStep(void) {
     GlobalState* state = Global_Get();
     if (!state) return;
-    Global_SetWindowSize(state->screenWidth, state->screenHeight);
-    Global_FlagGridChanged();
+    Global_RefreshPaneLayout(NULL);
 }
 
 // 		Public keyboard input dispatcher

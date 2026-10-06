@@ -96,6 +96,9 @@ void Global_Shutdown(void);
 
 void Global_TickSystems(AppContext* ctx);
 void Global_SetWindowSize(int w, int h);
+/* Refresh child controls after solved pane bounds or font metrics change.
+ * Supply the previous viewport to preserve camera framing during pane resizing. */
+void Global_RefreshPaneLayout(const CorePaneRect* previous_viewport);
 
 void Global_FlagLayoutChanged(void);
 void Global_FlagGridChanged(void);
