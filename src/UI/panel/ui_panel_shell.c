@@ -1,6 +1,7 @@
 #include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_shell.h"
+#include "UI/ui_panel_furniture.h"
 #include "UI/ui_panel_measurement.h"
 #include "Core/global_state.h"
 #include "UI/font_manager.h"
@@ -301,6 +302,10 @@ bool UIPanel_HandleTabClick(UIPanelState* ui, int mouseX, int mouseY) {
 bool UIPanel_ShouldShowGroup(const UIPanelState* ui, UIPanelGroup group) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     if (!ui) return true;
+    if (!object_mode && ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT &&
+        (group == UI_PANEL_GROUP_RIGHT_PRISM || group == UI_PANEL_GROUP_RIGHT_GIZMO ||
+         group == UI_PANEL_GROUP_RIGHT_TRANSFORM || group == UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS) &&
+        UIPanel_FurnitureEditing()) return false;
     if (object_mode) {
         switch (group) {
             case UI_PANEL_GROUP_LEFT_FILE_IO:

@@ -1,6 +1,7 @@
 #include "Layout/layout_routes.h"
 #include "Layout/layout_saved_views.h"
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_furniture.h"
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
@@ -1261,6 +1262,9 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
     }
     if (!Layout_SavedViewsReadJson(&temp,cJSON_GetObjectItemCaseSensitive(root,"engineering"),schemaVersion>=LAYOUT_JSON_SCHEMA_VERSION_SAVED_VIEWS)) {
         Layout_Free(&temp);return false;
+    }
+    if (!Layout_FurnitureReadJson(&temp, cJSON_GetObjectItemCaseSensitive(root,"engineering"), schemaVersion)) {
+        Layout_Free(&temp); return false;
     }
     temp.objectStore.view_query=layout->objectStore.view_query;
     Layout_RestoreViewVisibility(&temp.objectStore,&layout->objectStore);

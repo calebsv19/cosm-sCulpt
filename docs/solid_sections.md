@@ -64,6 +64,11 @@ This slice does not automatically resize neighboring panels or prove joinery.
 Material cycles tentative plywood, steel, foam and unknown using existing metadata
 and Undo; it does not select construction-grade product specifications.
 
+Managed construction panels use **Edit unit** instead of individual geometry
+changes: see [Furniture units](furniture_units.md). Their thickness updates the
+whole shell in one transaction; individual edits that conflict with its recipe
+are rejected. Unmanaged panels retain the controls above.
+
 ## Existing cabinet acceptance example
 
 `config/examples/cabinet_view_v1.layout.json` is an isolated study extracted from

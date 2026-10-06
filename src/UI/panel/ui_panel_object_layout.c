@@ -1,4 +1,5 @@
 #include "UI/ui_panel_object_layout.h"
+#include "UI/ui_panel_furniture.h"
 
 #include "UI/ui_panel_right_controls.h"
 #include "UI/ui_panel_object_inspector.h"
@@ -25,6 +26,7 @@ void UIPanel_UpdateObjectPaneLayout(UIPanelState* ui) {
 
     if (!ui) return;
 
+    ui->objectPane.furnitureRect = zero;
     ui->objectPane.summaryRect = zero;
     ui->objectPane.detailsRect = zero;
     ui->objectPane.actionsRect = zero;
@@ -50,6 +52,10 @@ void UIPanel_UpdateObjectPaneLayout(UIPanelState* ui) {
     gizmo_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_GIZMO);
     transform_height = UIPanel_RightControlsSectionHeight(&metrics, UI_PANEL_GROUP_RIGHT_TRANSFORM);
 
+    int furniture_height = UIPanel_FurnitureHeight();
+    if (UIPanel_FurnitureEditing()) {
+        summary_height = details_height = actions_height = prism_height = gizmo_height = transform_height = 0;
+    }
     cursor_y = content_rect.y;
 #define UI_OBJECT_PLACE(rect_field, height_value) \
     do { \
@@ -58,6 +64,7 @@ void UIPanel_UpdateObjectPaneLayout(UIPanelState* ui) {
             cursor_y += (height_value) + UI_OBJECT_PANE_SECTION_GAP; \
         } \
     } while (0)
+    UI_OBJECT_PLACE(furnitureRect, furniture_height);
     UI_OBJECT_PLACE(summaryRect, summary_height);
     UI_OBJECT_PLACE(detailsRect, details_height);
     UI_OBJECT_PLACE(actionsRect, actions_height);
@@ -69,6 +76,7 @@ void UIPanel_UpdateObjectPaneLayout(UIPanelState* ui) {
     content_height = cursor_y - content_rect.y;
     UIPanel_RightScrollSetContentHeight(ui, (float)content_height);
     scroll_offset = (int)UIPanel_RightScrollOffset(ui);
+    ui->objectPane.furnitureRect.y -= scroll_offset;
     ui->objectPane.summaryRect.y -= scroll_offset;
     ui->objectPane.detailsRect.y -= scroll_offset;
     ui->objectPane.actionsRect.y -= scroll_offset;

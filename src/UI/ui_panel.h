@@ -329,6 +329,7 @@ typedef struct {
         float operationScrollbarDragStartOffsetPx;
     } objectModelTree;
     struct {
+        SDL_Rect furnitureRect;
         SDL_Rect summaryRect;
         SDL_Rect detailsRect;
         SDL_Rect actionsRect;

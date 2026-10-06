@@ -1,8 +1,10 @@
 # Connected furniture and editable construction plan
 
-Status: proposed, not implemented. Prepared 2026-10-05 after the responsive-pane
-cleanup. The user's request is planning first; this document does not authorize
-or describe changes already made to furniture or the running app.
+Status: F0 fit corrections and F1 kitchen resize implemented in Main Edit on
+2026-10-05. See [Furniture units](furniture_units.md) for the actual controls,
+persistence contract and limitations. F2 neighbor-follow, F3 sink openings and
+F4 remaining unit editors are still planned. The full-van draft has corrected
+run boundaries; only the kitchen has a managed resize recipe so far.
 
 ## Intended outcome
 
@@ -61,14 +63,14 @@ The kitchen worktop's 40 mm proxy needs its own thickness specification.
 
 ## Proposed layout decisions
 
-Two user preferences are pending at drafting time:
+The accepted first-draft layout preferences are:
 
 1. Continuous kitchen-to-pantry and bench-to-wardrobe runs, with intentional seams,
    rather than unexplained gaps.
 2. Continuous upper storage toward the front, shallower above the passenger door,
    ending at the tall-storage section immediately before the bed.
 
-Use those as proposed defaults until refined by the user. Do not merge all
+Use those as draft defaults until refined by the user. Do not merge all
 furniture into a single rigid block. Upper and lower units may share alignment
 planes or mount to the same structure without moving together. The kitchen and
 pantry remain independently identifiable modules joined at an explicit boundary.
