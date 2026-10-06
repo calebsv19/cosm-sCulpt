@@ -182,11 +182,11 @@ Hitbox Editor_ResolveObject3DBodyPick(const Layout* layout,
     if (!layout || !grid || !viewCtx) return (Hitbox){.type = HITBOX_NONE, .index = -1};
     const GlobalState* state=Global_Get();
     bool section_active = state && state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_SCENE &&
-        state->sectionView.mode != LAYOUT_SECTION_OFF;
+        (state->sectionView.mode != LAYOUT_SECTION_OFF || viewCtx->inspection);
     /* Section views hide manipulation overlays; their old hitboxes must not remain clickable. */
     if (!section_active && baseHit.type != HITBOX_NONE && baseHit.type != HITBOX_OBJECT3D) return baseHit;
     if(state && state->workspaceMode==LINE_DRAWING_WORKSPACE_MODE_SCENE &&
-       (state->previewMode==LINE_DRAWING_PREVIEW_MODE_FLAT || state->previewMode==LINE_DRAWING_PREVIEW_MODE_MATERIAL) &&
+       (viewCtx->inspection || state->previewMode==LINE_DRAWING_PREVIEW_MODE_FLAT || state->previewMode==LINE_DRAWING_PREVIEW_MODE_MATERIAL) &&
        Layout_SolidPreviewPick(layout,viewCtx,grid,mouseX,mouseY,&object_id))
         return object_id ? (Hitbox){.type=HITBOX_OBJECT3D,.index=(int)object_id,.subIndex=-1} :
                            (Hitbox){.type=HITBOX_NONE,.index=-1,.subIndex=-1};

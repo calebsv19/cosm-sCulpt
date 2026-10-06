@@ -1,5 +1,7 @@
 #include "UI/ui_panel_camera.h"
 #include "Core/global_state.h"
+#include "Layout/layout_inspection.h"
+#include "Layout/layout_furniture.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_visual_style.h"
 #include "UI/ui_panel_summary_surface.h"
@@ -10,6 +12,19 @@
 #include <string.h>
 
 static bool details;
+static bool facing_details;
+static bool facing_part;
+static char facing_message[128];
+static int camera_rows(void) {
+    return Global_Get() && Global_Get()->cameraView.active ? 10 + (details ? 4 : 0) : 3;
+}
+static const char* facing_target(void) {
+    const GlobalState* s=Global_Get();
+    const Object3D* o=Layout_ObjectStore_FindConst(&s->layout.objectStore,s->editor.selectedObject3DId);
+    if(!o) return NULL;
+    const LayoutFurnitureUnit* unit=Layout_FurnitureForObject(&s->layout.objectStore,o->objectId);
+    return unit && !facing_part ? unit->assembly_id : o->coreMeta.object_id;
+}
 static int input;
 static bool replace;
 static char text[96];
@@ -23,14 +38,25 @@ static bool active(void) {
 }
 int UIPanel_CameraHeight(void) {
     const GlobalState *s = Global_Get();
-    int rows = s && s->cameraView.active ? 10 + (details ? 4 : 0) : 3;
+    (void)s;
+    int rows = camera_rows() + 1 + (facing_details ? 6 : 0);
     return rows * height() + 8;
 }
 static SDL_Rect rect(int action) {
     SDL_Rect body = UIPanel_Get()->viewPane.summaryRect;
     int row = 0, col = 0, cols = 1;
     bool on = Global_Get()->cameraView.active;
-    if (action == UI_CAMERA_PREVIOUS || action == UI_CAMERA_NEXT) {
+    if (action >= UI_CAMERA_INSPECTION) {
+        row=camera_rows();
+        cols=3;
+        if(action==UI_CAMERA_INSPECTION) cols=1;
+        else if(action==UI_CAMERA_FACING_DETAILS) col=2;
+        else {
+            if(!facing_details) return (SDL_Rect){0};
+            if(action==UI_CAMERA_FACING_SCOPE) { row+=1; col=2; }
+            else { row+=2+(action-UI_CAMERA_FACING_INHERIT)/2; cols=2; col=(action-UI_CAMERA_FACING_INHERIT)%2; }
+        }
+    } else if (action == UI_CAMERA_PREVIOUS || action == UI_CAMERA_NEXT) {
         row = 0;
         cols = 6;
         col = action == UI_CAMERA_PREVIOUS ? 4 : 5;
@@ -58,9 +84,10 @@ static SDL_Rect rect(int action) {
             return (SDL_Rect){0};
     } else
         return (SDL_Rect){0};
-    if (!on && action >= UI_CAMERA_SAVE)
+    if (!on && action >= UI_CAMERA_SAVE && action <= UI_CAMERA_FAR)
         return (SDL_Rect){0};
     int w = (body.w - 12 - 4 * (cols - 1)) / cols;
+    if(action==UI_CAMERA_INSPECTION) w=(body.w-12)*2/3-4;
     return (SDL_Rect){body.x + 4 + col * (w + 4), body.y + 4 + row * height(), w, height() - 3};
 }
 bool UIPanel_CameraControlRect(int action, SDL_Rect *out) {
@@ -133,6 +160,27 @@ static bool update_allowed(void) {
         &s->layout.sceneAuthoring, s->cameraView.source_id);
     return c && !c->path_id[0];
 }
+static void render_inspection(SDL_Renderer* renderer) {
+    const GlobalState* s=Global_Get();
+    paint(renderer,rect(UI_CAMERA_INSPECTION),s->inspectionView ? "Inspection: on" : "Inspection: off",
+        true,s->inspectionView,true);
+    paint(renderer,rect(UI_CAMERA_FACING_DETAILS),"Facing",true,facing_details,true);
+    if(!facing_details) return;
+    const char* id=facing_target();
+    const LayoutEntityInfo* info=id ? Layout_EntityInfo(&s->layout.objectStore,id) : NULL;
+    SDL_Rect r=line(camera_rows()+1); r.w=r.w*2/3-4;
+    char label[192];
+    snprintf(label,sizeof(label),"%s",info ? info->label[0] ? info->label : id : "Select an object");
+    paint(renderer,r,label,false,false,true);
+    const LayoutFurnitureUnit* unit=Layout_FurnitureForObject(&s->layout.objectStore,s->editor.selectedObject3DId);
+    paint(renderer,rect(UI_CAMERA_FACING_SCOPE),unit && !facing_part ? "Unit" : "Part",true,facing_part,unit!=NULL);
+    const char* names[]={"Inherit","Solid","+X","-X","+Y","-Y","+Z","-Z"};
+    LayoutInspectionFacing facing=Layout_InspectionFacing(info);
+    for(int a=UI_CAMERA_FACING_INHERIT;a<=UI_CAMERA_FACING_NEG_Z;++a)
+        paint(renderer,rect(a),names[a-UI_CAMERA_FACING_INHERIT],true,
+            info && facing==(LayoutInspectionFacing)(a-UI_CAMERA_FACING_INHERIT),info!=NULL);
+    paint(renderer,line(camera_rows()+6),facing_message[0] ? facing_message : "Local axes; Undo restores facing.",false,false,true);
+}
 void UIPanel_RenderCamera(SDL_Renderer *renderer) {
     if (!renderer || !active())
         return;
@@ -162,6 +210,7 @@ void UIPanel_RenderCamera(SDL_Renderer *renderer) {
                   (a == UI_CAMERA_ROLL && c->roll_mouse),
               enabled);
     }
+    render_inspection(renderer);
     if (!c->active) {
         paint(renderer, line(2), "Explore from origin; Enter uses saved camera.", false, false,
               true);
@@ -192,7 +241,7 @@ bool UIPanel_CameraClick(int x, int y) {
     GlobalState *s = Global_Get();
     CameraViewSession *c = &s->cameraView;
     int action = 0;
-    for (int a = UI_CAMERA_PREVIOUS; a <= UI_CAMERA_FAR; ++a)
+    for (int a = UI_CAMERA_PREVIOUS; a <= UI_CAMERA_FACING_NEG_Z; ++a)
         if (contains(rect(a), x, y)) {
             action = a;
             break;
@@ -201,7 +250,19 @@ bool UIPanel_CameraClick(int x, int y) {
         return false;
     stop_input();
     CameraView_ResetInput(s);
-    if (action == UI_CAMERA_PREVIOUS || action == UI_CAMERA_NEXT) {
+    if(action==UI_CAMERA_INSPECTION) {
+        s->inspectionView=!s->inspectionView;
+        if(s->inspectionView) { s->spaceMode=SPACE_MODE_3D; s->previewMode=LINE_DRAWING_PREVIEW_MODE_MATERIAL; }
+        Global_FlagGridChanged();
+    } else if(action==UI_CAMERA_FACING_DETAILS) facing_details=!facing_details;
+    else if(action==UI_CAMERA_FACING_SCOPE) { facing_part=!facing_part; facing_message[0]=0; }
+    else if(action>=UI_CAMERA_FACING_INHERIT) {
+        const char* id=facing_target();
+        bool ok=id && Layout_SetInspectionFacing(&s->layout,id,
+            (LayoutInspectionFacing)(action-UI_CAMERA_FACING_INHERIT),Layout_GeometryHistory,NULL);
+        snprintf(facing_message,sizeof(facing_message),"%s",ok ? "Facing saved; save file to persist." :
+            id ? s->layout.geometryMessage : "Select an object first.");
+    } else if (action == UI_CAMERA_PREVIOUS || action == UI_CAMERA_NEXT) {
         size_t n = s->layout.sceneAuthoring.camera_count;
         if (n)
             c->selected = (c->selected + n + (action == UI_CAMERA_NEXT ? 1 : n - 1)) % n;
@@ -234,7 +295,7 @@ bool UIPanel_CameraClick(int x, int y) {
         (void)CameraView_Step(s, .05f);
         c->speed_mps = speed;
         CameraView_ResetInput(s);
-    } else if (action >= UI_CAMERA_X) {
+    } else if (action >= UI_CAMERA_X && action <= UI_CAMERA_FAR) {
         input = action;
         replace = true;
         snprintf(text, sizeof(text), "%.8g", value(action));

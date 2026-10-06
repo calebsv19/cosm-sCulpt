@@ -58,6 +58,7 @@ typedef struct GlobalState {
     SpaceMode spaceMode;
     LineDrawingWorkspaceMode workspaceMode;
     LineDrawingPreviewMode previewMode;
+    bool inspectionView; /* Optional directional preview; never document geometry. */
     CameraViewSession cameraView; /* Observer pose; commits are explicit and undoable. */
     LayoutSectionView sectionView; /* Runtime viewing state; never document geometry. */
     ViewPlane activePlane;

@@ -111,3 +111,12 @@ bool Layout_RasterNativeSurfaces(const Layout* layout, const LayoutSectionView* 
 
 /* One final refinement wake, then no periodic work for a settled preview. */
 int Layout_MeshSolidPreviewNextUpdateDelayMs(void);
+
+/* Separate coverage for the outlined side, sharing clipping and native geometry. */
+bool Layout_RasterNativeSurfacePass(const Layout* layout, const LayoutSectionView* section,
+    const SpaceViewContext* view, const Grid* grid, SDL_Rect clip, float raster_scale,
+    int width, int height, bool material, bool outlines, uint8_t* rgba, float* depth,
+    int32_t* owner, LayoutMeshSolidPreviewFrameStats* stats);
+size_t Layout_ComposeInspectionOutlines(uint8_t* rgba, float* depth, int32_t* owner,
+    uint8_t* near_rgba, const float* near_depth, const int32_t* near_owner,
+    int width, int height, int selected, int hovered);

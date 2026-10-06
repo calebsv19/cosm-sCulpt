@@ -1,4 +1,4 @@
-# C1 perspective camera and interior navigation
+# C1 / C2 camera navigation and directional inspection
 
 Implemented in persistent Main Edit on 2026-10-06. The full F4 van is the
 acceptance scene; camera navigation is generic and does not rebuild furniture.
@@ -50,6 +50,59 @@ The guide classification is app-local presentation policy (reuse-deferred);
 existing core_scene metadata and core_mesh_preview raster composition remain
 adopted without any shared API/version changes.
 
+## C2 directional inspection
+
+**Inspection: off / on** is a visible button in View > Camera / section, usable
+from the ordinary 3D editor or a perspective camera. Turning it on chooses Material
+preview. Off restores ordinary physical occlusion; this is a transient viewing
+choice and creates no undo entry or document change. Scene load/workspace change
+resets it to off. Wire/Solid/Material remain available independently in the editor.
+
+Near-side wall and furniture units with an inward-facing direction become subdued
+outlines; opposite-facing units stay depth-tested solid. Direction is deliberately
+explicit: the viewer does not guess it from a display name, van side, bounds, or a
+triangle normal. Unassigned objects, explicit Solid overrides and tangent views
+stay solid. The free-standing bed stays solid in the full van example.
+
+**Facing** expands a compact editor for the selected object. **Unit / Part** chooses
+its furniture assembly or just the selected member; the target name is shown.
+**+X/-X, +Y/-Y, +Z/-Z** declare the inward direction in that target's rigid local
+frame. **Inherit** removes its override; **Solid** stops ancestor inheritance.
+Each edit uses the existing validated metadata/undo transaction. Save the file
+normally to persist it. If all eight metadata slots are occupied, the edit refuses
+without dropping other fields; use a parent assembly instead.
+
+The existing optional text property `inspection_facing` stores `solid` or one of
+those six directions; missing/`inherit` follows the nearest declaring ancestor.
+An invalid reserved value is rejected by native engineering validation. Assembly
+frames supply world direction, so rotation and nesting are respected. All members
+inherit one viewing-heading classification rather than switching independently
+by their distance from the camera; dot(inward, view-forward) > 0.02 selects outline.
+This is a directional inspection aid, not automatic proximity removal or triangle
+back-face culling. The F4 acceptance fixture declares directions on wall-side
+units and shell proxies; only metadata changed. Routes, contacts, motion ranges,
+object IDs and dimensions are retained.
+
+Native panels and imported meshes use separate near-side coverage through the
+same clipping/rasterizer and existing `kit_viewport3d` outline composition. Reference shell and construction use two bounded outline groups with one reused
+temporary target, so shell interiors cannot mask construction edges. Near
+coverage contributes only subdued one-raster-pixel edges (88/255 alpha), brighter
+when selected/hovered. Transparent interiors retain the far surface's pick owner;
+visible near edges remain selectable. Edges behind a solid surface are omitted.
+Guide volumes remain queryable and are omitted here, as in the physical camera. Inspection
+suppresses engineering cages/manipulation overlays; turn it off to manipulate.
+Exact sections/cutaways still apply and no view operation changes their geometry.
+
+The extra coverage buffers are lazy, bounded to the existing reduced viewport
+size and reused. View direction/mode or inherited assembly metadata invalidate
+the cached surface once, then the normal final quality refinement settles back
+to sleep. No new periodic wake or scene mutation is introduced.
+
+Reuse decision: `core_scene` metadata, `core_math`, `core_time`, `core_mesh_preview`
+and `kit_viewport3d` owner/depth outlines stay adopted. Direction inheritance and
+near/far presentation are app-local purpose policy (reuse-deferred); no shared
+API/version or minimum-adoption changes are needed.
+
 ## Projection and ownership
 
 The app adapter adds an explicit PerspectiveView to SpaceViewContext; existing
@@ -84,7 +137,14 @@ LINE_DRAWING_VISUAL_ARTIFACT_MODE=camera-interior \
 build/toolchains/clang/bin/LineDrawing
 ```
 
-C2 directional near-side outlining is not implemented by C1. Per-anchor camera
+C2 tests cover both van sides, inheritance, rotated declaring frames, Solid overrides,
+view-only serialization, visible responsive controls, undo/redo, metadata roundtrip,
+and two-sided raster/pick ownership. `camera-inspection-left` and
+`camera-inspection-right` native artifact modes render the full F4 scene, verify
+far-surface picking plus near construction-edge picking, and check that the
+preview has no remaining scheduled refinement.
+
+Per-anchor camera
 orientation editing, path-point preview controls and renderer image/frame parity
 remain subsequent C3/C4 work. Preview colors retain existing material heuristics;
 this is a construction preview, not a photorealistic render or fit certification.

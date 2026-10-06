@@ -407,6 +407,7 @@ bool Global_SetWorkspaceMode(LineDrawingWorkspaceMode mode) {
     if (!LineDrawingWorkspaceModeHandoff_Apply(global, mode)) {
         return false;
     }
+    global->inspectionView = false;
     global->sectionView.mode = LAYOUT_SECTION_OFF;
     UIPanel_OnWindowResized(global->screenWidth, global->screenHeight);
     Global_FlagGridChanged();
@@ -716,7 +717,8 @@ void Global_RebuildHitboxesIfDirty(void) {
     Global_ProcessLayoutChanges(state);
 
     if (!state->hitboxDirty) return;
-    if (state->cameraView.active) { state->hitboxDirty=false; return; }
+    if (state->cameraView.active || (state->inspectionView && state->spaceMode==SPACE_MODE_3D &&
+        state->workspaceMode==LINE_DRAWING_WORKSPACE_MODE_SCENE)) { state->hitboxDirty=false; return; }
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     bool gizmoEnabled = (state->spaceMode == SPACE_MODE_3D) &&
                         SpaceAdapter_IsFreeViewEnabled(&viewCtx);
@@ -795,6 +797,7 @@ void Global_OnLayoutLoaded(const char* path) {
     GlobalState* state = Global_Get();
     if (!state) return;
     CameraView_Exit(state);
+    state->inspectionView = false;
     state->sectionView.mode=LAYOUT_SECTION_OFF;
     if (path && *path) {
         strncpy(state->currentConfigPath, path, sizeof(state->currentConfigPath) - 1);
@@ -815,6 +818,7 @@ void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_p
     GlobalState* state = Global_Get();
     if (!state) return;
     CameraView_Exit(state);
+    state->inspectionView = false;
     if (scene_authoring_path && *scene_authoring_path) {
         strncpy(state->currentSceneAuthoringPath,
                 scene_authoring_path,

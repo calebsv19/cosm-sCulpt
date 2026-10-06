@@ -900,7 +900,8 @@ void Layout_Render(const Layout* layout, AppContext* ctx) {
     SDL_Renderer* renderer = ctx->renderer;
     GlobalState* state = Global_Get();
 
-    if (state && state->cameraView.active) {
+    if (state && (state->cameraView.active ||
+        (state->inspectionView && state->spaceMode==SPACE_MODE_3D && state->workspaceMode==LINE_DRAWING_WORKSPACE_MODE_SCENE))) {
         SpaceViewContext view=SpaceAdapter_BuildViewContext(state);
         (void)Layout_RenderMeshSolidPreview(renderer,layout,&view,&state->grid,
             state->screenWidth,state->screenHeight,

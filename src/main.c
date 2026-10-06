@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include "Core/line_drawing_engineering_proof.h"
 #include "Core/line_drawing_section_proof.h"
+#include "Core/line_drawing_inspection_proof.h"
 // src/main.c
 #include "line_drawing/line_drawing_app_main.h"
 #include "Core/SDLApp/sdl_app_framework.h"
@@ -370,7 +371,7 @@ static int nextUpdateDelayMs(AppContext* ctx) {
     if (state) for (size_t i = 0; i < state->layout.sceneAuthoring.path_count; ++i)
         if (state->layout.sceneAuthoring.paths[i].playing) return 16;
     int delay = state && state->spaceMode == SPACE_MODE_3D &&
-        (state->cameraView.active || Global_GetPreviewMode() != LINE_DRAWING_PREVIEW_MODE_BOUNDS) ?
+        (state->cameraView.active || state->inspectionView || Global_GetPreviewMode() != LINE_DRAWING_PREVIEW_MODE_BOUNDS) ?
         Layout_MeshSolidPreviewNextUpdateDelayMs() : -1;
     const int pending[] = {UIPanel_LoadProgressNextUpdateDelayMs(), UIPanel_FileStatusNextUpdateDelayMs()};
     for (size_t i = 0; i < sizeof(pending) / sizeof(pending[0]); ++i)
@@ -556,7 +557,9 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         return 1;
     }
 
-    const bool camera_proof=proof_mode && !strcmp(proof_mode,"camera-interior");
+    const bool inspection_proof=proof_mode && (!strcmp(proof_mode,"camera-inspection-left") ||
+        !strcmp(proof_mode,"camera-inspection-right"));
+    const bool camera_proof=inspection_proof || (proof_mode && !strcmp(proof_mode,"camera-interior"));
     const bool cabinet_proof = proof_mode && !strncmp(proof_mode, "cabinet-", 8);
     const bool parts_proof=proof_mode && !strncmp(proof_mode,"parts-",6);
     const bool hinge_proof=proof_mode && !strncmp(proof_mode,"constraint-hinge",16);
@@ -710,6 +713,12 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         if(!CameraView_Enter(state,false))return 1;
         state->cameraView.eye=(Vec3){0,.8f,1.6f};
         state->cameraView.pitch=-8;
+        if(inspection_proof) {
+            state->inspectionView=true;
+            state->cameraView.eye=(Vec3){!strcmp(proof_mode,"camera-inspection-left") ? -4.1f : 4.1f,0,2.05f};
+            state->cameraView.yaw=state->cameraView.eye.x<0 ? 0 : 180;
+            state->cameraView.pitch=-12;
+        }
         state->previewMode=LINE_DRAWING_PREVIEW_MODE_MATERIAL;
         UIPanel_SetActiveRightTab(UIPanel_Get(),UI_PANEL_RIGHT_TAB_VIEW);
         UIPanel_OnWindowResized(state->screenWidth,state->screenHeight);
@@ -742,6 +751,7 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         fprintf(stderr, "line_drawing: visual-artifact render failed path=%s\n", artifact_path);
         return 1;
     }
+    if(inspection_proof && !LineDrawingInspection_CheckProof(proof_mode)) return 1;
     if (draw_calls == 0u) {
         fprintf(stderr, "line_drawing: visual-artifact produced zero draw calls path=%s\n",
                 artifact_path);

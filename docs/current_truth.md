@@ -1,6 +1,6 @@
-# C1 camera viewing update - 2026-10-06
+# C1 / C2 camera viewing update - 2026-10-06
 
-Perspective interior navigation is implemented in persistent Main Edit with Alt mouse look without clicking, roll, visible movement controls, unit-aware pose fields and undoable standalone camera commits. See [camera viewing](camera_view.md). C2 directional inspection and C3/C4 path-shot/render matching remain subsequent work.
+Perspective interior navigation and optional directional inspection are implemented in persistent Main Edit. View exposes Inspection on/off plus collapsed local facing controls for a selected unit or part. Near-side units become subdued outlines; far-side units remain solid, and transparent interiors pick the physical surface behind them. Metadata directions inherit through rotated assembly frames, persist/undo, and leave geometry and checks intact. The full F4 van declares wall-side directions; unassigned items including the bed remain physical. Cached near-side coverage settles with the existing demand loop. See [controls and precise limits](camera_view.md). C3/C4 path-shot/render matching remain subsequent work.
 
 # Sculpt Current Truth
 

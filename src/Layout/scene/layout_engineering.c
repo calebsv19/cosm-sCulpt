@@ -1,4 +1,5 @@
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_inspection.h"
 #include "Layout/layout_furniture.h"
 #include "Layout/layout_saved_views.h"
 #include "Layout/layout_relationships.h"
@@ -68,6 +69,7 @@ bool Layout_EntityInfoValid(const LayoutEntityInfo* info) {
         if (!key_valid(p->key,sizeof(p->key)) || !bounded(p->text,sizeof(p->text)) ||
             p->kind<LAYOUT_PROPERTY_TEXT || p->kind>LAYOUT_PROPERTY_LENGTH || !isfinite(p->number) ||
             (p->kind==LAYOUT_PROPERTY_BOOL && p->number!=0 && p->number!=1)) return false;
+        if (!strcmp(p->key,"inspection_facing") && Layout_InspectionFacing(info)==LAYOUT_INSPECTION_INVALID) return false;
         for (size_t j=0;j<i;++j) if (!strcmp(p->key,info->properties[j].key)) return false;
     }
     return true;

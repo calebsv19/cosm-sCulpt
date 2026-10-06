@@ -39,6 +39,11 @@
             "key": "geometry_note",
             "kind": 0,
             "value": "Rectangular outline and 40 mm drawing thickness are proxies; Z=0 nominal bare cargo floor"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "+Z"
           }
         ],
         "id": "oem_floor"
@@ -75,6 +80,11 @@
             "key": "geometry_note",
             "kind": 0,
             "value": "Upright wall, thickness and width above floor unmeasured"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "+X"
           }
         ],
         "id": "oem_driver_wall"
@@ -111,6 +121,11 @@
             "key": "geometry_note",
             "kind": 0,
             "value": "Side opening placed at front end by assumption; width above floor unmeasured"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "id": "oem_passenger_wall"
@@ -147,6 +162,11 @@
             "key": "geometry_note",
             "kind": 0,
             "value": "1250 x 1755 mm opening; location and threshold Z assumed, header contour/thickness proxy"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "id": "oem_door_header"
@@ -183,6 +203,11 @@
             "key": "geometry_note",
             "kind": 0,
             "value": "Floor limit only; seatback/beltline intrusion not represented by this wall"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-Y"
           }
         ],
         "id": "oem_front_boundary"
@@ -219,6 +244,11 @@
             "key": "geometry_note",
             "kind": 0,
             "value": "Hidden opening-size marker; floor/threshold datum alignment assumed"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "+Y"
           }
         ],
         "id": "oem_rear_boundary"
@@ -255,6 +285,11 @@
             "key": "geometry_note",
             "kind": 0,
             "value": "Inboard X=+/-711 mm; depth=(1920-1422)/2. Length/height/rear offset from upfitter, datum alignment assumed"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "+X"
           }
         ],
         "id": "wheel_well_driver"
@@ -291,6 +326,11 @@
             "key": "geometry_note",
             "kind": 0,
             "value": "Inboard X=+/-711 mm; depth=(1920-1422)/2. Length/height/rear offset from upfitter, datum alignment assumed"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "id": "wheel_well_passenger"
@@ -486,6 +526,11 @@
             "key": "zone",
             "kind": 0,
             "value": "work_bed"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "+X"
           }
         ],
         "id": "fixed_guide_driver_rear"
@@ -522,6 +567,11 @@
             "key": "zone",
             "kind": 0,
             "value": "work_bed"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "+X"
           }
         ],
         "id": "fixed_guide_driver_front"
@@ -594,6 +644,11 @@
             "key": "zone",
             "kind": 0,
             "value": "work_bed"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "id": "fixed_guide_passenger_rear"
@@ -630,6 +685,11 @@
             "key": "zone",
             "kind": 0,
             "value": "work_bed"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "id": "fixed_guide_passenger_front"
@@ -1913,6 +1973,11 @@
             "key": "geometry_note",
             "kind": 0,
             "value": "Only longitudinal length sourced; shared rear datum, width and display height assumed"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-Y"
           }
         ],
         "id": "oem_beltline_front_limit"
@@ -1949,6 +2014,11 @@
             "key": "geometry_note",
             "kind": 0,
             "value": "Hidden size reference; longitudinal placement and threshold Z assumed"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "id": "oem_side_opening_size"
@@ -4445,6 +4515,11 @@
             "key": "source",
             "kind": 0,
             "value": "user_ai_concept_reinterpreted"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "worldFrame": [
@@ -4525,6 +4600,11 @@
             "key": "source",
             "kind": 0,
             "value": "user_ai_concept_reinterpreted"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "+X"
           }
         ],
         "worldFrame": [
@@ -4680,6 +4760,11 @@
             "key": "status",
             "kind": 0,
             "value": "concept_not_measured"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "+X"
           }
         ],
         "worldFrame": [
@@ -4715,6 +4800,11 @@
             "key": "status",
             "kind": 0,
             "value": "concept_not_measured"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "worldFrame": [
@@ -4820,6 +4910,11 @@
             "key": "status",
             "kind": 0,
             "value": "concept_not_measured"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "+X"
           }
         ],
         "worldFrame": [
@@ -4855,6 +4950,11 @@
             "key": "status",
             "kind": 0,
             "value": "concept_not_measured"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "worldFrame": [
@@ -4890,6 +4990,11 @@
             "key": "status",
             "kind": 0,
             "value": "concept_not_measured"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "+X"
           }
         ],
         "worldFrame": [
@@ -4925,6 +5030,11 @@
             "key": "status",
             "kind": 0,
             "value": "concept_not_measured"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "worldFrame": [
@@ -4960,6 +5070,11 @@
             "key": "status",
             "kind": 0,
             "value": "concept_not_measured"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "worldFrame": [
@@ -4995,6 +5110,11 @@
             "key": "status",
             "kind": 0,
             "value": "concept_not_measured"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "+X"
           }
         ],
         "worldFrame": [
@@ -5030,6 +5150,11 @@
             "key": "status",
             "kind": 0,
             "value": "concept_not_measured"
+          },
+          {
+            "key": "inspection_facing",
+            "kind": 0,
+            "value": "-X"
           }
         ],
         "worldFrame": [

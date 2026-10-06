@@ -285,7 +285,7 @@ bool CameraView_HandleEvent(GlobalState *state, const SDL_Event *e) {
 }
 
 void CameraView_RenderMarkers(SDL_Renderer *renderer, const GlobalState *state) {
-    if (!renderer || !state || state->cameraView.active ||
+    if (!renderer || !state || state->cameraView.active || state->inspectionView ||
         state->workspaceMode != LINE_DRAWING_WORKSPACE_MODE_SCENE ||
         state->sectionView.mode != LAYOUT_SECTION_OFF)
         return;

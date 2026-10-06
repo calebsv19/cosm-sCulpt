@@ -23,6 +23,8 @@ SpaceViewContext SpaceAdapter_BuildViewContext(const GlobalState* state) {
     ViewPlane resolvedPlane = ctx.plane;
     if (!state) return ctx;
 
+    ctx.inspection = state->inspectionView && SpaceAdapter_Is3DMode(state) &&
+        state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_SCENE;
     ctx.camera = state->freeViewCamera;
     if (Layout_ConstructionPlane3D_IsValid(&state->layout.scene3d.constructionPlane)) {
         resolvedPlane = Layout_ConstructionPlane3D_ToViewPlane(&state->layout.scene3d.constructionPlane);

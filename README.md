@@ -279,4 +279,4 @@ The spatial engineering workflow now includes [connected route sections, native 
 
 The full-van construction editor now includes [F3 sink openings and F4 furniture unit controls](docs/furniture_editability.md), with nine managed units, five connected-run rules and real removed-material geometry shared by the viewport and scene export.
 
-Perspective camera navigation and saved viewpoints are documented in [C1 camera view](docs/camera_view.md).
+Perspective camera navigation, saved viewpoints and optional directional inspection with unit/part facing controls are documented in [C1 / C2 camera viewing](docs/camera_view.md).

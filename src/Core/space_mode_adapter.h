@@ -10,6 +10,7 @@ typedef struct {
     ViewPlane plane;
     FreeViewCamera camera;
     PerspectiveView perspective;
+    bool inspection;
 } SpaceViewContext;
 
 SpaceViewContext SpaceAdapter_BuildViewContext(const GlobalState* state);
