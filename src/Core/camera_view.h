@@ -20,6 +20,8 @@ bool CameraView_Enter(GlobalState *state, bool from_saved);
 void CameraView_Exit(GlobalState *state);
 void CameraView_RefreshViewport(GlobalState *state);
 void CameraView_ResetInput(GlobalState *state);
+/* History can remove a saved source without changing the temporary observer pose. */
+void CameraView_ReconcileHistory(GlobalState *state);
 bool CameraView_Save(GlobalState *state, bool update);
 void CameraView_Basis(const CameraViewSession *view, Vec3 *forward, Vec3 *right, Vec3 *up);
 bool CameraView_Step(GlobalState *state, float seconds);

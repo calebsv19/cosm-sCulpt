@@ -31,7 +31,8 @@ including pane resizing. The default near distance is 10 mm and is editable.
 a standalone camera, with one undo entry. Bound path cameras cannot be updated
 through this control; Save new preserves their authored path. Save the document
 normally to persist the committed camera. Temporary navigation itself creates no
-undo entries and does not dirty the document.
+undo entries and does not dirty the document. Undo/redo reconciles the camera
+selector and clears stale save notices while preserving the temporary observer pose.
 
 **Exit**, Escape, or the top-bar Camera chip restores the previous orthographic
 editor camera/grid and section state. Choosing another authoring tab exits

@@ -140,8 +140,13 @@ static bool camera_saved_pose_undo_persistence_and_path_guard(void) {
     free(exported);
     TEST_ASSERT(Editor_Undo(&s->editor, &s->layout));
     TEST_ASSERT(s->layout.sceneAuthoring.camera_count == count);
+    TEST_ASSERT(s->cameraView.active && !s->cameraView.source_id[0] && !s->cameraView.message[0]);
+    TEST_ASSERT(s->cameraView.selected < count || count == 0);
+    TEST_ASSERT(fabs(s->cameraView.eye.z - 1.5) < 1e-6);
     TEST_ASSERT(Editor_Redo(&s->editor, &s->layout));
     TEST_ASSERT(s->layout.sceneAuthoring.camera_count == count + 1);
+    s->cameraView.selected = count;
+    TEST_ASSERT(CameraView_Enter(s, true));
     snprintf(s->layout.sceneAuthoring.cameras[count].path_id, 64, "protected_path");
     size_t history = Editor_UndoCount(&s->editor);
     TEST_ASSERT(!CameraView_Save(s, true));

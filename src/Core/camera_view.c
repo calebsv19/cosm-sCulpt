@@ -36,6 +36,19 @@ void CameraView_ResetInput(GlobalState *state) {
     state->cameraView.held = 0;
     state->cameraView.focused = false;
 }
+void CameraView_ReconcileHistory(GlobalState *state) {
+    if (!state)
+        return;
+    CameraViewSession *c = &state->cameraView;
+    size_t count = state->layout.sceneAuthoring.camera_count;
+    if (c->selected >= count)
+        c->selected = count ? count - 1 : 0;
+    if (c->source_id[0] && !Layout_SceneAuthoringState_FindCameraByIdConst(
+                               &state->layout.sceneAuthoring, c->source_id))
+        c->source_id[0] = 0;
+    c->message[0] = 0;
+    CameraView_ResetInput(state);
+}
 bool CameraView_Enter(GlobalState *state, bool from_saved) {
     if (!state || state->workspaceMode != LINE_DRAWING_WORKSPACE_MODE_SCENE ||
         LineDrawingWorkspaceAuthoringHost_Active(state))
@@ -137,7 +150,7 @@ bool CameraView_Save(GlobalState *state, bool update) {
     camera->near_clip = c->near_clip;
     camera->far_clip = c->far_clip;
     snprintf(c->source_id, sizeof(c->source_id), "%s", camera->camera_id);
-    snprintf(c->message, sizeof(c->message), "Viewpoint saved; save the scene to keep it on disk.");
+    snprintf(c->message, sizeof(c->message), "Viewpoint added. Save scene to keep it.");
     Global_FlagLayoutChanged();
     return true;
 }
