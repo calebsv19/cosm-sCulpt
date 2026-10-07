@@ -1,3 +1,4 @@
+#include "Core/camera_path.h"
 #include "Core/viewport_zoom.h"
 #include "Layout/layout_constraints.h"
 // src/Core/global_state.c
@@ -618,6 +619,7 @@ void Global_TickSystems(AppContext* ctx) {
     if (!state) return;
 
     if (ctx) {
+        if(CameraPath_Tick(state,ctx->deltaTime)) ctx->redraw_requested=true;
         if (CameraView_Step(state,ctx->deltaTime)) ctx->redraw_requested=true;
         bool traversal_changed = false;
         for (size_t i = 0u; i < state->layout.sceneAuthoring.path_count; ++i) {

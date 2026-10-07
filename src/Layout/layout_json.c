@@ -1,3 +1,4 @@
+#include "Layout/scene/layout_camera_poses.h"
 #include "Layout/layout_routes.h"
 #include "Layout/layout_saved_views.h"
 #include "Layout/layout_engineering.h"
@@ -278,7 +279,9 @@ static cJSON* SceneAuthoring_ToJsonObject(const LineDrawingSceneAuthoringState* 
                                 Layout_ScenePathPlaybackMode_Name(path->playback_mode));
         cJSON_AddNumberToObject(node, "durationSeconds", path->duration_seconds);
         cJSON_AddNumberToObject(node, "normalizedDistance", path->normalized_distance);
-        cJSON_AddBoolToObject(node, "playing", path->playing);
+        cJSON_AddBoolToObject(node, "playing", path->key_count ? false : path->playing);
+        cJSON *poses=CameraPoses_ToJson(path);
+        if(poses) cJSON_AddItemToObject(node,"cameraPoses",poses);
         cJSON_AddItemToObject(node, "controlPoints", control_points);
         for (size_t point_index = 0u; point_index < path->control_point_count; ++point_index) {
             cJSON_AddItemToArray(control_points, Vec3_ToJsonObject(path->control_points[point_index]));
@@ -321,14 +324,14 @@ static cJSON* SceneAuthoring_ToJsonObject(const LineDrawingSceneAuthoringState* 
     return root;
 }
 
-static void SceneAuthoring_FromJsonObject(const cJSON* node,
+static bool SceneAuthoring_FromJsonObject(const cJSON* node,
                                           LineDrawingSceneAuthoringState* authoring) {
     LineDrawingSceneAuthoringState parsed;
     const cJSON* lights = NULL;
     const cJSON* cameras = NULL;
     const cJSON* paths = NULL;
     const cJSON* materials = NULL;
-    if (!cJSON_IsObject(node) || !authoring) return;
+    if (!cJSON_IsObject(node) || !authoring) return true;
 
     memset(&parsed, 0, sizeof(parsed));
 
@@ -525,6 +528,9 @@ static void SceneAuthoring_FromJsonObject(const cJSON* node,
                     }
                 }
             }
+            if(!CameraPoses_FromJson(path,cJSON_GetObjectItemCaseSensitive(item,"cameraPoses"))) {
+                return false;
+            }
             ++parsed.path_count;
         }
     }
@@ -560,7 +566,7 @@ static void SceneAuthoring_FromJsonObject(const cJSON* node,
             value = cJSON_GetObjectItem(item, "rollDegrees");
             if (cJSON_IsNumber(value)) camera->roll_degrees = (float)value->valuedouble;
             value = cJSON_GetObjectItem(item, "verticalFovDegrees");
-            if (cJSON_IsNumber(value) && value->valuedouble > 1.0 && value->valuedouble < 179.0) {
+            if (cJSON_IsNumber(value) && value->valuedouble >= 1.0 && value->valuedouble <= 179.0) {
                 camera->vertical_fov_degrees = (float)value->valuedouble;
             }
             value = cJSON_GetObjectItem(item, "nearClip");
@@ -669,6 +675,7 @@ static void SceneAuthoring_FromJsonObject(const cJSON* node,
     }
 
     *authoring = parsed;
+    return true;
 }
 
 static cJSON* Transform3D_ToJsonObject(Transform3D t) {
@@ -948,7 +955,9 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
         }
     }
 
-    SceneAuthoring_FromJsonObject(cJSON_GetObjectItem(root, "sceneAuthoring"), &temp.sceneAuthoring);
+    if(!SceneAuthoring_FromJsonObject(cJSON_GetObjectItem(root, "sceneAuthoring"), &temp.sceneAuthoring)) {
+        Layout_Free(&temp); return false;
+    }
 
     const cJSON* anchors = cJSON_GetObjectItem(root, "anchors");
     if (!anchors || !cJSON_IsArray(anchors)) {

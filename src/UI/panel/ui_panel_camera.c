@@ -1,3 +1,5 @@
+#include "Core/camera_path.h"
+#include "UI/ui_panel_camera_path.h"
 #include "UI/ui_panel_camera.h"
 #include "Core/global_state.h"
 #include "Layout/layout_inspection.h"
@@ -40,7 +42,11 @@ int UIPanel_CameraHeight(void) {
     const GlobalState *s = Global_Get();
     (void)s;
     int rows = camera_rows() + 1 + (facing_details ? 6 : 0);
-    return rows * height() + 8;
+    return rows * height() + 8 + UIPanel_CameraPathHeight();
+}
+static int path_y(void) {
+    return UIPanel_Get()->viewPane.summaryRect.y +
+        (camera_rows()+1+(facing_details ? 6 : 0))*height()+8;
 }
 static SDL_Rect rect(int action) {
     SDL_Rect body = UIPanel_Get()->viewPane.summaryRect;
@@ -93,6 +99,7 @@ static SDL_Rect rect(int action) {
 bool UIPanel_CameraControlRect(int action, SDL_Rect *out) {
     if (!active() || !out)
         return false;
+    if(action>=UI_PATH_SHOW) return UIPanel_CameraPathRect(action,out,path_y());
     *out = rect(action);
     return out->w > 0 && out->h > 0;
 }
@@ -192,10 +199,12 @@ void UIPanel_RenderCamera(SDL_Renderer *renderer) {
     const LineDrawingSceneCamera *selected = c->selected < s->layout.sceneAuthoring.camera_count
                                                  ? &s->layout.sceneAuthoring.cameras[c->selected]
                                                  : NULL;
-    snprintf(label, sizeof(label), "%s: %s", c->active ? "Viewing" : "Camera",
+    const LineDrawingSceneCamera *source=Layout_SceneAuthoringState_FindCameraByIdConst(&s->layout.sceneAuthoring,c->source_id);
+    snprintf(label, sizeof(label), "%s: %s%s", c->active ? "Viewing" : "Camera",
              c->active && !c->source_id[0] ? "temporary"
+             : c->active && source         ? source->label
              : selected                    ? selected->label
-                                           : "none saved");
+                                           : "none saved", c->path_modified ? " *" : "");
     paint(renderer, r, label, false, false, true);
     const char *names[] = {"<",      ">",       "Explore",   "Enter",     "Exit",  "Save new",
                            "Update", "Details", "Alt: Look", "Alt: Roll", "Level", "Forward W",
@@ -211,9 +220,9 @@ void UIPanel_RenderCamera(SDL_Renderer *renderer) {
               enabled);
     }
     render_inspection(renderer);
+    UIPanel_CameraPathRender(renderer,path_y());
     if (!c->active) {
-        paint(renderer, line(2), "Explore from origin; Enter uses saved camera.", false, false,
-              true);
+        if(!CameraPath_Selected(s)) paint(renderer, line(2), "Explore from origin; Enter uses saved camera.", false, false, true);
         return;
     }
     paint(renderer, line(6), "Alt + mouse: look; Alt + Shift: roll", false, false, true);
@@ -240,6 +249,8 @@ bool UIPanel_CameraClick(int x, int y) {
         return false;
     GlobalState *s = Global_Get();
     CameraViewSession *c = &s->cameraView;
+    if(UIPanel_CameraPathClick(x,y,path_y())) { stop_input(); return true; }
+    UIPanel_CameraPathReset();
     int action = 0;
     for (int a = UI_CAMERA_PREVIOUS; a <= UI_CAMERA_FACING_NEG_Z; ++a)
         if (contains(rect(a), x, y)) {
@@ -265,6 +276,7 @@ bool UIPanel_CameraClick(int x, int y) {
             id ? s->layout.geometryMessage : "Select an object first.");
     } else if (action == UI_CAMERA_PREVIOUS || action == UI_CAMERA_NEXT) {
         size_t n = s->layout.sceneAuthoring.camera_count;
+        s->layout.sceneAuthoring.selected_kind=LINE_DRAWING_SCENE_AUTHORING_SELECTION_NONE;
         if (n)
             c->selected = (c->selected + n + (action == UI_CAMERA_NEXT ? 1 : n - 1)) % n;
     } else if (action == UI_CAMERA_EXPLORE)
@@ -285,8 +297,9 @@ bool UIPanel_CameraClick(int x, int y) {
         c->roll_mouse = false;
     else if (action == UI_CAMERA_ROLL)
         c->roll_mouse = true;
-    else if (action == UI_CAMERA_LEVEL)
-        c->roll = 0;
+    else if (action == UI_CAMERA_LEVEL) {
+        CameraPath_NavigationChanged(s); c->roll = 0;
+    }
     else if (action >= UI_CAMERA_FORWARD && action <= UI_CAMERA_UP) {
         const unsigned bits[] = {1, 2, 4, 8, 16, 32};
         c->held = bits[action - UI_CAMERA_FORWARD];
@@ -310,8 +323,8 @@ bool UIPanel_CameraClick(int x, int y) {
     refresh();
     return true;
 }
-bool UIPanel_CameraCapturingKeyboard(void) { return active() && input != 0; }
-void UIPanel_CameraReset(void) { stop_input(); }
+bool UIPanel_CameraCapturingKeyboard(void) { return active() && (input != 0 || UIPanel_CameraPathCapturing()); }
+void UIPanel_CameraReset(void) { stop_input(); UIPanel_CameraPathReset(); }
 static void apply_input(void) {
     GlobalState *s = Global_Get();
     CameraViewSession *c = &s->cameraView;
@@ -325,14 +338,15 @@ static void apply_input(void) {
                  "Enter a finite value; XYZ accepts unit suffixes.");
         return;
     }
-    if ((input == UI_CAMERA_FOV && (n < 10 || n > 140)) ||
+    if ((input == UI_CAMERA_FOV && (n < 1 || n > 179)) ||
         (input == UI_CAMERA_SPEED && (n <= 0 || n > 20)) ||
-        (input == UI_CAMERA_NEAR && (n < .001 || n >= c->far_clip)) ||
+        (input == UI_CAMERA_NEAR && (n <= 0 || n >= c->far_clip)) ||
         (input == UI_CAMERA_FAR && n <= c->near_clip) ||
         (input == UI_CAMERA_PITCH && fabs(n) > 89.5) || fabs(n) > 1e6) {
         snprintf(c->message, sizeof(c->message), "Value outside camera range.");
         return;
     }
+    if(input!=UI_CAMERA_SPEED) CameraPath_NavigationChanged(s);
     switch (input) {
     case UI_CAMERA_X:
         c->eye.x = (float)(n / s->layout.metersPerWorldUnit);
@@ -379,6 +393,7 @@ bool UIPanel_CameraEvent(const SDL_Event *e) {
             stop_input();
         return false;
     }
+    if(UIPanel_CameraPathEvent(e,path_y())) return true;
     if (input)
         CameraView_ResetInput(Global_Get());
     if (input && e->type == SDL_TEXTINPUT) {

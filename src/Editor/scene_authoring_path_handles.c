@@ -1,3 +1,4 @@
+#include "Layout/scene/layout_camera_poses.h"
 #include "Editor/scene_authoring_path_handles.h"
 
 #include "Core/space_mode_adapter.h"
@@ -1079,7 +1080,7 @@ static void SceneAuthoringPathHandles_DrawCamera(SDL_Renderer* renderer,
     Vec3 far_center;
     Vec3 near_corners[4];
     Vec3 far_corners[4];
-    const float aspect = 16.0f / 9.0f;
+    const float aspect = state->cameraView.viewport[3]>0 ? state->cameraView.viewport[2]/state->cameraView.viewport[3] : 16.f/9;
     float half_angle;
     float near_height;
     float far_height;
@@ -1104,7 +1105,9 @@ static void SceneAuthoringPathHandles_DrawCamera(SDL_Renderer* renderer,
         Vec3_Add(pose.position, Vec3_Add(body_right, body_up)),
         Vec3_Add(pose.position, Vec3_Sub(body_up, body_right)), camera_color);
 
-    half_angle = camera->vertical_fov_degrees * 0.00872664625997164788f;
+    float fov=camera->vertical_fov_degrees;
+    if(path->key_count) (void)CameraPoses_DistanceSample(path,path->normalized_distance,&pose,&fov);
+    half_angle = fov * 0.00872664625997164788f;
     near_center = Vec3_Add(pose.position, Vec3_Scale(pose.forward, 1.0f));
     far_center = Vec3_Add(pose.position, Vec3_Scale(pose.forward, 4.0f));
     near_height = tanf(half_angle);

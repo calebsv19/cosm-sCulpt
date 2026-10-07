@@ -91,6 +91,8 @@ SHAPE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_object_faces.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_authoring.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_camera_authoring.c \
+	$(SRC_DIR)/Layout/scene/layout_camera_poses.c \
+	$(SRC_DIR)/Layout/scene/layout_camera_poses_json.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_light_authoring.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_path_geometry.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_path_traversal.c \
@@ -162,6 +164,8 @@ AGENT_SCENE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_object_faces.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_authoring.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_camera_authoring.c \
+	$(SRC_DIR)/Layout/scene/layout_camera_poses.c \
+	$(SRC_DIR)/Layout/scene/layout_camera_poses_json.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_light_authoring.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_path_geometry.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_path_traversal.c \

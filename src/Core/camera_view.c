@@ -1,3 +1,4 @@
+#include "Core/camera_path.h"
 #include "Core/camera_view.h"
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
@@ -47,6 +48,7 @@ void CameraView_ReconcileHistory(GlobalState *state) {
                                &state->layout.sceneAuthoring, c->source_id))
         c->source_id[0] = 0;
     c->message[0] = 0;
+    CameraPath_Reconcile(state);
     CameraView_ResetInput(state);
 }
 bool CameraView_Enter(GlobalState *state, bool from_saved) {
@@ -54,6 +56,10 @@ bool CameraView_Enter(GlobalState *state, bool from_saved) {
         LineDrawingWorkspaceAuthoringHost_Active(state))
         return false;
     CameraViewSession *c = &state->cameraView;
+    if(c->active && c->path_modified) {
+        snprintf(c->message,sizeof(c->message),"Apply or Revert the draft first."); return false;
+    }
+    c->path_source[0]=0; c->anchor_source[0]=0; c->path_playing=false; c->path_modified=false;
     if (!c->active) {
         c->previous_section = state->sectionView;
         c->previous_2d = state->spaceMode == SPACE_MODE_2D;
@@ -89,9 +95,9 @@ bool CameraView_Enter(GlobalState *state, bool from_saved) {
             FreeViewCamera basis = {.enabled = true, .yawDeg = c->yaw, .pitchDeg = c->pitch};
             c->roll = RadToDeg(atan2f(Vec3_Dot(pose.up, FreeView_Right(&basis)),
                                       Vec3_Dot(pose.up, FreeView_Up(&basis))));
-            c->fov = fmaxf(10, fminf(140, camera->vertical_fov_degrees));
-            c->near_clip = fmaxf(.001f, camera->near_clip);
-            c->far_clip = fmaxf(c->near_clip + .01f, camera->far_clip);
+            c->fov = camera->vertical_fov_degrees;
+            c->near_clip = camera->near_clip;
+            c->far_clip = camera->far_clip;
             snprintf(c->source_id, sizeof(c->source_id), "%s", camera->camera_id);
         }
     }
@@ -109,6 +115,9 @@ void CameraView_Exit(GlobalState *state) {
     state->sectionView = state->cameraView.previous_section;
     state->spaceMode = state->cameraView.previous_2d ? SPACE_MODE_2D : SPACE_MODE_3D;
     state->cameraView.active = false;
+    CameraPath_Stop(state);
+    state->cameraView.path_source[0]=0; state->cameraView.anchor_source[0]=0;
+    state->cameraView.path_modified=false; state->cameraView.path_signature=0;
     CameraView_ResetInput(state);
     Global_FlagHitboxesDirty();
 }
@@ -177,6 +186,7 @@ bool CameraView_Step(GlobalState *state, float seconds) {
         d.z += 1;
     if (Vec3_Length(d) < 1e-6f)
         return false;
+    CameraPath_NavigationChanged(state);
     c->eye =
         Vec3_Add(c->eye, Vec3_Scale(Vec3_Normalize(d), (float)(c->speed_mps * seconds /
                                                                state->layout.metersPerWorldUnit)));
@@ -184,7 +194,7 @@ bool CameraView_Step(GlobalState *state, float seconds) {
     return true;
 }
 int CameraView_NextUpdateDelayMs(const GlobalState *state) {
-    return state && state->cameraView.active && state->cameraView.focused && state->cameraView.held
+    return state && state->cameraView.active && ((state->cameraView.focused && state->cameraView.held) || state->cameraView.path_playing)
                ? 16
                : -1;
 }
@@ -217,7 +227,7 @@ bool CameraView_HandleEvent(GlobalState *state, const SDL_Event *e) {
     }
     if (e->type == SDL_WINDOWEVENT &&
         (e->window.event == SDL_WINDOWEVENT_FOCUS_LOST || e->window.event == SDL_WINDOWEVENT_LEAVE))
-        CameraView_ResetInput(state);
+        { CameraView_ResetInput(state); CameraPath_Stop(state); }
     /* Release is always handled, including after moving over a text field. */
     if (e->type == SDL_KEYUP && key_bit(e->key.keysym.sym)) {
         c->held &= ~key_bit(e->key.keysym.sym);
@@ -251,6 +261,7 @@ bool CameraView_HandleEvent(GlobalState *state, const SDL_Event *e) {
             return false;
         }
         if (SDL_GetModState() & KMOD_ALT) {
+            CameraPath_NavigationChanged(state);
             if (c->roll_mouse || (SDL_GetModState() & KMOD_SHIFT))
                 c->roll = Angle_NormalizeSignedDeg(c->roll + e->motion.xrel * .25f);
             else {

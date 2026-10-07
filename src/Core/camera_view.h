@@ -2,6 +2,7 @@
 #include "Layout/scene/layout_scene_camera_authoring.h"
 #include "Layout/layout_section.h"
 #include <SDL2/SDL.h>
+#include <stdint.h>
 
 typedef struct GlobalState GlobalState;
 typedef struct {
@@ -14,6 +15,13 @@ typedef struct {
     float yaw, pitch, roll, fov, near_clip, far_clip, speed_mps;
     LayoutSectionView previous_section;
     char message[128];
+    /* Path session is declared separately to keep scene tools independent of UI. */
+    char path_source[LINE_DRAWING_SCENE_AUTHORING_ID_SIZE];
+    char anchor_source[LINE_DRAWING_SCENE_AUTHORING_ID_SIZE];
+    size_t path_anchor;
+    uint64_t path_signature;
+    bool path_playing, path_modified;
+    float path_time;
 } CameraViewSession;
 
 bool CameraView_Enter(GlobalState *state, bool from_saved);

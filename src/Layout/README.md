@@ -32,3 +32,5 @@ The layout module stores the floor-plan geometry as anchors connected by walls, 
 - New 3D migration paths can call `Layout_AddAnchor3` / `Layout_AddWall3` directly, while existing 2D flows continue using compatibility wrappers.
 - `Global_RebuildHitboxesIfDirty` schedules compaction and hitbox regeneration after layout mutations so selection stays accurate.
 - UI buttons for saving/loading and origin reset call into this module's JSON and origin helpers (raising the appropriate dirty flags along the way).
+
+- `scene/layout_camera_poses.*` and `scene/layout_camera_poses_json.c` own optional path-anchor pose IDs, quaternion/FOV/leg-time evaluation, topology ownership and strict atomic persistence.

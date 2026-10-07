@@ -176,3 +176,5 @@ Current verification contract:
 - [Van layout concept v1](van_layout_concept_v1.md) — corrected render interpretation, provisional dimensions, editable bed assembly and upper wiring intent.
 
 - [Connected sections, inventory and furniture](routing_sections_and_furniture.md) — S5 native/UI contracts and revised van.
+
+- [C1–C3 camera navigation, inspection and path poses](camera_view.md): Main Edit controls, persistence, proof and C4 limits.

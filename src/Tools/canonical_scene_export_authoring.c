@@ -1,3 +1,4 @@
+#include "Layout/scene/layout_camera_poses.h"
 #include "Tools/canonical_scene_export_authoring.h"
 #include "Layout/scene/layout_scene_camera_authoring.h"
 #include "Layout/scene/layout_scene_light_authoring.h"
@@ -196,7 +197,9 @@ static bool scene_authoring_append_camera(cJSON* cameras,
     cJSON_AddStringToObject(orientation, "mode",
                             Layout_SceneCameraOrientationMode_Name(camera->orientation_mode));
     cJSON_AddNumberToObject(orientation, "roll_degrees", camera->roll_degrees);
-    cJSON_AddNumberToObject(node, "vertical_fov_degrees", camera->vertical_fov_degrees);
+    float fov=camera->vertical_fov_degrees;
+    if(path && path->key_count) (void)CameraPoses_DistanceSample(path,path->normalized_distance,&pose,&fov);
+    cJSON_AddNumberToObject(node, "vertical_fov_degrees", fov);
     cJSON_AddNumberToObject(node, "near_clip", camera->near_clip);
     cJSON_AddNumberToObject(node, "far_clip", camera->far_clip);
     if (!scene_authoring_add_vec3(transform, "position", pose.position) ||
@@ -242,7 +245,9 @@ static bool scene_authoring_append_path(cJSON* paths,
                             Layout_ScenePathPlaybackMode_Name(path->playback_mode));
     cJSON_AddNumberToObject(node, "duration_seconds", path->duration_seconds);
     cJSON_AddNumberToObject(node, "normalized_distance", path->normalized_distance);
-    cJSON_AddBoolToObject(node, "playing", path->playing);
+    cJSON_AddBoolToObject(node, "playing", path->key_count ? false : path->playing);
+    cJSON *poses=CameraPoses_ToJson(path);
+    if(poses) cJSON_AddItemToObject(node,"camera_poses",poses);
     cJSON_AddItemToObject(node, "control_points", control_points);
     for (size_t i = 0u; i < path->control_point_count; ++i) {
         cJSON* point = cJSON_CreateObject();

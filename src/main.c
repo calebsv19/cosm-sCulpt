@@ -5,6 +5,7 @@
 #include "Core/line_drawing_engineering_proof.h"
 #include "Core/line_drawing_section_proof.h"
 #include "Core/line_drawing_inspection_proof.h"
+#include "Core/camera_path_proof.h"
 // src/main.c
 #include "line_drawing/line_drawing_app_main.h"
 #include "Core/SDLApp/sdl_app_framework.h"
@@ -559,7 +560,8 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
 
     const bool inspection_proof=proof_mode && (!strcmp(proof_mode,"camera-inspection-left") ||
         !strcmp(proof_mode,"camera-inspection-right"));
-    const bool camera_proof=inspection_proof || (proof_mode && !strcmp(proof_mode,"camera-interior"));
+    const bool path_proof=proof_mode && !strncmp(proof_mode,"camera-path",11);
+    const bool camera_proof=path_proof || inspection_proof || (proof_mode && !strcmp(proof_mode,"camera-interior"));
     const bool cabinet_proof = proof_mode && !strncmp(proof_mode, "cabinet-", 8);
     const bool parts_proof=proof_mode && !strncmp(proof_mode,"parts-",6);
     const bool hinge_proof=proof_mode && !strncmp(proof_mode,"constraint-hinge",16);
@@ -722,6 +724,7 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         state->previewMode=LINE_DRAWING_PREVIEW_MODE_MATERIAL;
         UIPanel_SetActiveRightTab(UIPanel_Get(),UI_PANEL_RIGHT_TAB_VIEW);
         UIPanel_OnWindowResized(state->screenWidth,state->screenHeight);
+        if(path_proof && !CameraPathProof_Prepare(proof_mode))return 1;
     }
     if (cabinet_proof && !LineDrawingSection_StageProof(proof_mode)) return 1;
     if (camera_proof || cabinet_proof || (visualMeshPath && visualMeshPath[0])) {
@@ -752,6 +755,7 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         return 1;
     }
     if(inspection_proof && !LineDrawingInspection_CheckProof(proof_mode)) return 1;
+    if(path_proof && !CameraPathProof_Check())return 1;
     if (draw_calls == 0u) {
         fprintf(stderr, "line_drawing: visual-artifact produced zero draw calls path=%s\n",
                 artifact_path);
@@ -802,8 +806,10 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
         return proof_result;
     }
     if (visual_artifact_path && visual_artifact_path[0]) {
-        const int proof_result =
+        int proof_result =
             LineDrawingRunVisualArtifactProof(&app, visual_artifact_path, visual_artifact_mode);
+        if(!proof_result && visual_artifact_mode && !strcmp(visual_artifact_mode,"camera-path-idle") &&
+           !CameraPathProof_Idle(&app,&cbs)) proof_result=1;
         LineDrawingRuntimeShutdown(&app);
         return proof_result;
     }

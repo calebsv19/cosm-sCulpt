@@ -1,3 +1,4 @@
+#include "Layout/scene/layout_camera_poses.h"
 #include "Layout/scene/layout_scene_authoring.h"
 #include "Layout/scene/layout_scene_camera_authoring.h"
 #include "Layout/scene/layout_scene_light_authoring.h"
@@ -452,6 +453,7 @@ bool Layout_SceneAuthoringState_CycleSelectedPathCurveType(LineDrawingSceneAutho
         return false;
     }
     path = &state->paths[state->selected_index];
+    if(path->key_count) return false; /* keyed anchors require explicit topology conversion */
     if (strncmp(path->curve_type, "bezier", sizeof(path->curve_type)) == 0) {
         ld_scene_authoring_copy_text(path->curve_type, sizeof(path->curve_type), "linear");
     } else {
@@ -540,10 +542,12 @@ bool Layout_SceneAuthoringState_InsertPathControlPoint(
     path = &state->paths[path_index];
     capacity = sizeof(path->control_points) / sizeof(path->control_points[0]);
     if (path->control_point_count >= capacity) return false;
+    if(path->key_count && !strcmp(path->curve_type,"bezier")) return false;
     if (insert_index > path->control_point_count) insert_index = path->control_point_count;
     for (size_t i = path->control_point_count; i > insert_index; --i) {
         path->control_points[i] = path->control_points[i - 1u];
     }
+    CameraPoses_InsertKey(path,insert_index);
     path->control_points[insert_index] = point;
     path->control_point_count++;
     return true;
@@ -560,6 +564,8 @@ bool Layout_SceneAuthoringState_DeletePathControlPoint(
         control_index >= path->control_point_count) {
         return false;
     }
+    if(path->key_count && !strcmp(path->curve_type,"bezier")) return false;
+    CameraPoses_RemoveKey(path,control_index);
     for (size_t i = control_index + 1u; i < path->control_point_count; ++i) {
         path->control_points[i - 1u] = path->control_points[i];
     }

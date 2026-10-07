@@ -11,7 +11,7 @@ static Vec3 ld_path_lerp(Vec3 a, Vec3 b, float t) {
 }
 
 bool Layout_ScenePathGeometry_IsCompleteCubic(const LineDrawingScenePath* path) {
-    return path && path->control_point_count >= 4u &&
+    return path && strcmp(path->curve_type,"bezier")==0 && path->control_point_count >= 4u &&
            ((path->control_point_count - 1u) % 3u) == 0u;
 }
 

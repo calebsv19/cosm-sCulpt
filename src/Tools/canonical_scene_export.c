@@ -1123,6 +1123,11 @@ static cJSON* build_scene_json(const Layout* layout,
             cJSON_Delete(root);
             return NULL;
         }
+        /* Compiler carries extensions unchanged; preserve authored paths there too. */
+        cJSON *preserved=cJSON_Duplicate(paths,1);
+        if(!preserved || !upsert_object_item(line_drawing_ext,"camera_paths_v1",preserved)) {
+            cJSON_Delete(root); return NULL;
+        }
     } else {
         cJSON* material = cJSON_CreateObject();
         cJSON* material_extensions = cJSON_CreateObject();

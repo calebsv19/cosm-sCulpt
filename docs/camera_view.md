@@ -1,4 +1,4 @@
-# C1 / C2 camera navigation and directional inspection
+# C1–C3 camera navigation, path poses and directional inspection
 
 Implemented in persistent Main Edit on 2026-10-06. The full F4 van is the
 acceptance scene; camera navigation is generic and does not rebuild furniture.
@@ -147,7 +147,76 @@ and two-sided raster/pick ownership. `camera-inspection-left` and
 far-surface picking plus near construction-edge picking, and check that the
 preview has no remaining scheduled refinement.
 
-Per-anchor camera
-orientation editing, path-point preview controls and renderer image/frame parity
-remain subsequent C3/C4 work. Preview colors retain existing material heuristics;
+Renderer image/frame parity remains subsequent C4 work. Preview colors retain existing material heuristics;
 this is a construction preview, not a photorealistic render or fit certification.
+
+
+## C3 path poses (C3.1–C3.5, 2026-10-06)
+
+**Path poses** expands the selected camera path in View > Camera / section.
+Entering a camera view or selecting a camera path also exposes it. Choose a
+**Point**, then **View** to look through that exact positional anchor. Bézier
+handles remain curve controls and are not camera poses. **< Point / Point >**
+reach the whole bounded point list; four rows are shown at a time. Buttons use
+two columns when their measured text fits and one column in narrower panes;
+the existing right-pane scrolling keeps the controls reachable.
+
+Navigate and edit Details as usual, then **Apply** commits position, heading,
+pitch, roll and vertical FOV to the viewed point in one Undo transaction. Moving
+a Bézier anchor carries its adjacent handles. Near/far clipping remains owned
+by the bound camera and is committed by Apply. Selection alone does not change
+the observer. Apply refuses a different selected point or a source changed by
+another edit/Undo; **Revert** reads the selected point again and discards the
+navigation draft. Play, Scrub and View refuse to replace a modified draft until
+it is applied or reverted. Navigation during playback pauses it and starts a
+draft. Focus loss and exit pause playback.
+
+**New path from view** creates a separate one-point linear camera path and bound
+camera, preserving existing exterior paths. Navigate, then **Add after** inserts
+the current pose after the selected point, with one Undo entry. **Point actions**
+exposes positive **Leg seconds**, **Earlier / Later**, **Remove point**, and
+**Open / Closed**. Pose IDs, orientation, FOV and outgoing duration travel with
+the anchor when reordered. Automatic Bézier handles are recalculated by their
+existing tangent policy; other handle offsets travel with their anchors. The
+last point is retained. The existing capacity remains 16 linear points or six
+complete cubic anchors (16 curve controls); capacity refusal leaves the path
+unchanged. Keyed paths require explicit topology editing and do not use the old
+curve-type cycle to discard their poses.
+
+**Play / Pause** and the seconds **Scrub** control evaluate authored paths without
+creating history or modifying the document. Position follows the existing sampled
+arc-distance geometry inside each timed leg; orientation uses shortest-arc
+quaternion interpolation, with linear FOV interpolation. Positive leg times also
+support a stationary turn between coincident anchors. Once ends at the final pose;
+Loop repeats. Closed paths use the existing straight closing leg. An open loop
+can jump at its seam; C3 does not add a smoothing algorithm. A paused preview
+returns to the demand loop after the existing mesh refinement settles.
+
+The additive version-1 `cameraPoses` native payload is owned by the path. It
+contains stable pose IDs, quaternion w/x/y/z orientation in the X-forward/Z-up
+frame, vertical FOV and outgoing seconds; position stays in the existing anchor
+array. Old files with no payload retain fixed/path-facing/look-at behavior and
+receive keys only through an explicit pose/topology/time edit. Unsupported or
+invalid pose payloads reject the load atomically. Playback state is transient
+for keyed paths and reloads paused. Generic and light paths keep their existing
+behavior.
+
+Canonical export emits `camera_poses` and the evaluated camera frame/FOV. A copy
+of the authored path records in
+`extensions.line_drawing.camera_paths_v1` survives shared runtime compilation,
+and the app importer uses it when top-level paths were compiled away. Static
+export evaluates the authored normalized distance, not the transient preview
+cursor. Full keys and durations remain in the extension. RayTracing consuming
+that full frame/FOV and matching rendered images remains C4; C3 makes no renderer
+parity claim.
+
+`make test ARGS=CameraPath` covers legacy final-anchor direction/roll, quaternion
+wrap and stationary turns, strict JSON refusal, Bézier handle ownership,
+capacity refusal, full-van transactions/Undo, save/reopen, compiled export/import,
+stale Apply targets, responsive controls, focus pause and idle scheduling.
+Native `camera-path-idle`, `camera-path-narrow` and `camera-path-actions` artifact
+modes read the existing 130-object van into an isolated proof session and do not
+save it. The idle mode runs the real demand loop for 3.5 seconds and requires
+at most two renders after its first settling second, with no remaining scheduled
+camera or mesh refinement. These checks establish automated/native evidence;
+human path-shot acceptance remains a separate review.
