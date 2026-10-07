@@ -1,4 +1,5 @@
 #include "Layout/layout.h"
+#include "Layout/layout_section.h"
 #include "Core/global_state.h"
 #include "Layout/layout_constraints.h"
 #include <string.h>
@@ -78,6 +79,11 @@ void Layout_ObjectStore_Init(LayoutObjectStore* store) {
     memset(store->constraints, 0, sizeof(store->constraints));
     memset(store->assemblies, 0, sizeof(store->assemblies));
     memset(&store->view_query, 0, sizeof(store->view_query));
+    memset(store->furniture, 0, sizeof(store->furniture));
+    store->furniture_count=0;
+    memset(store->furniture_contacts, 0, sizeof(store->furniture_contacts));
+    store->furniture_contact_count=0;
+    store->next_furniture_contact_id=1;
     store->assembly_count=0;
     store->next_assembly_id=1;
     memset(store->relationships,0,sizeof(store->relationships));
@@ -102,6 +108,11 @@ void Layout_ObjectStore_Free(LayoutObjectStore* store) {
     memset(store->constraints, 0, sizeof(store->constraints));
     memset(store->assemblies, 0, sizeof(store->assemblies));
     memset(&store->view_query, 0, sizeof(store->view_query));
+    memset(store->furniture, 0, sizeof(store->furniture));
+    store->furniture_count=0;
+    memset(store->furniture_contacts, 0, sizeof(store->furniture_contacts));
+    store->furniture_contact_count=0;
+    store->next_furniture_contact_id=1;
     store->assembly_count=0;
     store->next_assembly_id=1;
     memset(store->relationships,0,sizeof(store->relationships));
@@ -164,7 +175,7 @@ bool Layout_ObjectStore_ValidateObject(const Object3D* object) {
             object->rectPrism.depth < 0.0f) {
             return false;
         }
-        if (!PlaneFrame_IsValid(&object->rectPrism.frame)) return false;
+        if (!PlaneFrame_IsValid(&object->rectPrism.frame) || !Layout_PanelOpeningValid(&object->rectPrism)) return false;
         if (Vec3_Distance(object->rectPrism.frame.origin, object->transform.position) > 1e-3f) {
             return false;
         }

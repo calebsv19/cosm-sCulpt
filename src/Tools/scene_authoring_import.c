@@ -1,3 +1,4 @@
+#include "Layout/scene/layout_camera_poses.h"
 #include "Tools/scene_authoring_import.h"
 
 #include "Layout/scene/layout_scene_camera_authoring.h"
@@ -33,9 +34,14 @@ static LineDrawingSceneLightKind read_light_kind(const cJSON* node) {
     return LINE_DRAWING_SCENE_LIGHT_POINT;
 }
 
-static void parse_paths(const cJSON* root, LineDrawingSceneAuthoringState* state) {
+static bool parse_paths(const cJSON* root, LineDrawingSceneAuthoringState* state) {
     const cJSON* paths = cJSON_GetObjectItemCaseSensitive(root, "paths");
-    if (!cJSON_IsArray(paths)) return;
+    if (!cJSON_IsArray(paths)) {
+        const cJSON *ext=cJSON_GetObjectItemCaseSensitive(root,"extensions");
+        const cJSON *ld=cJSON_GetObjectItemCaseSensitive(ext,"line_drawing");
+        paths=cJSON_GetObjectItemCaseSensitive(ld,"camera_paths_v1");
+    }
+    if (!cJSON_IsArray(paths)) return true;
     for (int i = 0; i < cJSON_GetArraySize(paths) &&
                     state->path_count < LINE_DRAWING_SCENE_AUTHORING_MAX_PATHS; ++i) {
         const cJSON* node = cJSON_GetArrayItem(paths, i);
@@ -104,8 +110,12 @@ static void parse_paths(const cJSON* root, LineDrawingSceneAuthoringState* state
             }
             if (cJSON_IsBool(playing)) path->playing = cJSON_IsTrue(playing);
         }
+        if(!CameraPoses_FromJson(path,cJSON_GetObjectItemCaseSensitive(node,"camera_poses"))) {
+            return false;
+        }
         state->path_count++;
     }
+    return true;
 }
 
 static void parse_cameras(const cJSON* root, LineDrawingSceneAuthoringState* state) {
@@ -277,7 +287,7 @@ bool LineDrawingSceneAuthoringImport_ParseCanonical(
     if (out_has_records) *out_has_records = false;
     if (!cJSON_IsObject(root) || !out_authoring) return false;
     memset(&parsed, 0, sizeof(parsed));
-    parse_paths(root, &parsed);
+    if(!parse_paths(root, &parsed)) return false;
     parse_cameras(root, &parsed);
     parse_lights(root, &parsed);
     parse_materials(root, &parsed);

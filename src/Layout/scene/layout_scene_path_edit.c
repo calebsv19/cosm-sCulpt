@@ -1,3 +1,4 @@
+#include "Layout/scene/layout_camera_poses.h"
 #include "Layout/scene/layout_scene_path_edit.h"
 
 #include "Layout/scene/layout_scene_path_geometry.h"
@@ -236,6 +237,7 @@ bool Layout_ScenePathEdit_SplitSegment(LineDrawingScenePath* path,
     for (size_t i = old_anchor_count; i > segment_index + 1u; --i) {
         path->tangent_modes[i] = old_modes[i - 1u];
     }
+    CameraPoses_InsertKey(path,segment_index+1);
     path->tangent_modes[segment_index + 1u] = LINE_DRAWING_SCENE_PATH_TANGENT_SMOOTH;
     if (out_anchor) {
         *out_anchor = Layout_ScenePathEdit_ElementForControl(path, control_index);
@@ -263,6 +265,7 @@ bool Layout_ScenePathEdit_DeleteElement(LineDrawingScenePath* path,
             path->control_point_count <= 2u || element.control_index >= path->control_point_count) {
             return false;
         }
+        CameraPoses_RemoveKey(path,element.control_index);
         ld_path_remove_controls(path, element.control_index, 1u);
         if (out_selection && path->control_point_count > 0u) {
             *out_selection = Layout_ScenePathEdit_ElementForControl(
@@ -289,6 +292,7 @@ bool Layout_ScenePathEdit_DeleteElement(LineDrawingScenePath* path,
     remove_first = anchor_index == 0u ? 0u :
                    anchor_index + 1u == anchor_count ? path->control_point_count - 3u :
                    anchor_index * 3u - 1u;
+    CameraPoses_RemoveKey(path,anchor_index);
     ld_path_remove_controls(path, remove_first, 3u);
     for (size_t i = anchor_index; i + 1u < anchor_count; ++i) {
         path->tangent_modes[i] = path->tangent_modes[i + 1u];
@@ -304,7 +308,7 @@ bool Layout_ScenePathEdit_DeleteElement(LineDrawingScenePath* path,
 void Layout_ScenePathEdit_NormalizeModes(LineDrawingScenePath* path) {
     const size_t anchor_count = Layout_ScenePathEdit_AnchorCount(path);
     if (!path) return;
-    for (size_t i = 0u; i < anchor_count; ++i) {
+    for (size_t i = 0u; i < anchor_count && i < LINE_DRAWING_SCENE_AUTHORING_MAX_PATH_ANCHORS; ++i) {
         if (path->tangent_modes[i] < LINE_DRAWING_SCENE_PATH_TANGENT_LINKED ||
             path->tangent_modes[i] > LINE_DRAWING_SCENE_PATH_TANGENT_CORNER) {
             path->tangent_modes[i] = LINE_DRAWING_SCENE_PATH_TANGENT_SMOOTH;

@@ -497,7 +497,10 @@ bool Editor_Undo(EditorState* editor, Layout* layout) {
 
     if (ok) {
         Editor_RestoreHistorySelection(editor, layout, entity_id);
-        if (Global_Get() && layout == &Global_Get()->layout) Global_ReconcileSavedState();
+        if (Global_Get() && layout == &Global_Get()->layout) {
+            Global_ReconcileSavedState();
+            CameraView_ReconcileHistory(Global_Get());
+        }
         Global_FlagHitboxesDirty();
     }
     return ok;
@@ -521,7 +524,10 @@ bool Editor_Redo(EditorState* editor, Layout* layout) {
 
     if (ok) {
         Editor_RestoreHistorySelection(editor, layout, entity_id);
-        if (Global_Get() && layout == &Global_Get()->layout) Global_ReconcileSavedState();
+        if (Global_Get() && layout == &Global_Get()->layout) {
+            Global_ReconcileSavedState();
+            CameraView_ReconcileHistory(Global_Get());
+        }
         Global_FlagHitboxesDirty();
     }
     return ok;

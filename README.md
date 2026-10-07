@@ -276,3 +276,7 @@ now expose route checks and explicit voltage-drop assumptions. The
 provisional van draft.
 
 The spatial engineering workflow now includes [connected route sections, native subsystem inventory and panel furniture](docs/routing_sections_and_furniture.md).
+
+The full-van construction editor now includes [F3 sink openings and F4 furniture unit controls](docs/furniture_editability.md), with nine managed units, five connected-run rules and real removed-material geometry shared by the viewport and scene export.
+
+Perspective camera navigation, saved viewpoints and optional directional inspection with unit/part facing controls are documented in [C1–C3 camera viewing and path poses](docs/camera_view.md).

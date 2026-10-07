@@ -11,6 +11,7 @@
 #include "Tools/canonical_scene_export_authoring.h"
 #include "Tools/canonical_scene_export_materials.h"
 #include "Tools/canonical_scene_export_primitives.h"
+#include "Layout/layout_section.h"
 #include "cjson/cJSON.h"
 
 #include <math.h>
@@ -606,6 +607,12 @@ static bool append_primitive_scene_objects(cJSON* objects,
             continue;
         }
         export_core_meta = object->coreMeta;
+        const bool perforated = object->kind == OBJECT3D_KIND_RECT_PRISM && object->rectPrism.opening.enabled;
+        if (perforated) {
+            snprintf(export_core_meta.object_type,sizeof(export_core_meta.object_type),"mesh_asset_instance");
+            export_core_meta.transform.rotation_deg = (CoreObjectVec3){0};
+            export_core_meta.transform.scale = (CoreObjectVec3){1,1,1};
+        }
         if (object->kind == OBJECT3D_KIND_PLANE) {
             export_core_meta.dimensional_mode = CORE_OBJECT_DIMENSIONAL_MODE_PLANE_LOCKED;
             export_core_meta.locked_plane = object->coreMeta.locked_plane;
@@ -650,7 +657,22 @@ static bool append_primitive_scene_objects(cJSON* objects,
             return false;
         }
 
-        if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+        if (perforated) {
+            cJSON* ref = cJSON_GetObjectItemCaseSensitive(object_json,"geometry_ref");
+            cJSON_ReplaceItemInObjectCaseSensitive(ref,"kind",cJSON_CreateString("mesh_asset"));
+            cJSON_ReplaceItemInObjectCaseSensitive(ref,"id",cJSON_CreateString(object->coreMeta.object_id));
+            object_extensions = duplicate_or_empty_object(find_existing_object_extensions_by_id(existing_root,object->coreMeta.object_id));
+            if (!object_extensions) return false;
+            cJSON_AddItemToObject(object_json,"extensions",object_extensions);
+            if (!LineDrawingCanonicalScene_AddPrimitiveExtensionPayload(object_extensions,object)) return false;
+            cJSON* line = cJSON_GetObjectItemCaseSensitive(object_extensions,"line_drawing");
+            cJSON_AddStringToObject(line,"evaluated_geometry","panel_opening_mesh");
+            cJSON* f = cJSON_AddObjectToObject(line,"opening");
+            const LayoutPanelOpening* opening = &object->rectPrism.opening;
+            cJSON_AddNumberToObject(f,"u",opening->u); cJSON_AddNumberToObject(f,"v",opening->v);
+            cJSON_AddNumberToObject(f,"width",opening->width); cJSON_AddNumberToObject(f,"height",opening->height);
+            cJSON_AddNumberToObject(f,"floor",opening->floor);
+        } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
             cJSON* geometry_ref = cJSON_GetObjectItemCaseSensitive(object_json, "geometry_ref");
             cJSON* mesh_extensions = NULL;
             cJSON* line_ext = NULL;
@@ -1100,6 +1122,11 @@ static cJSON* build_scene_json(const Layout* layout,
                                                                        resolved_camera_type)) {
             cJSON_Delete(root);
             return NULL;
+        }
+        /* Compiler carries extensions unchanged; preserve authored paths there too. */
+        cJSON *preserved=cJSON_Duplicate(paths,1);
+        if(!preserved || !upsert_object_item(line_drawing_ext,"camera_paths_v1",preserved)) {
+            cJSON_Delete(root); return NULL;
         }
     } else {
         cJSON* material = cJSON_CreateObject();

@@ -1,4 +1,5 @@
 #include "Layout/layout_routes.h"
+#include "Layout/layout_furniture.h"
 #include "Layout/layout_constraints.h"
 #include "Layout/layout_saved_views.h"
 #include "Layout/layout_engineering.h"
@@ -52,6 +53,11 @@ bool Layout_HasConstraintParticipant(const LayoutObjectStore* store, uint32_t id
 }
 bool Layout_CanDeleteObject(const LayoutObjectStore* store, uint32_t id) {
     const Object3D* object=Layout_ObjectStore_FindConst(store,id);
+    if (object && Layout_FurnitureForObject(store,id)) {
+        if (store == &Global_Get()->layout.objectStore)
+            snprintf(Global_Get()->layout.geometryMessage,sizeof(Global_Get()->layout.geometryMessage),"Managed cabinet part: use Edit unit before removing its geometry.");
+        return false;
+    }
     if (object && Layout_RouteEntityReferenced(store,object->coreMeta.object_id)) {
         if (store==&Global_Get()->layout.objectStore)
             snprintf(Global_Get()->layout.geometryMessage,sizeof(Global_Get()->layout.geometryMessage),"Remove or reassign the object's route endpoints in Routes first.");
@@ -312,12 +318,14 @@ static bool solve(Layout* layout, uint32_t edited, char* message, size_t size) {
 }
 bool Layout_SolveGeometryCandidate(Layout* candidate) {
     return candidate && candidate->geometryEditActive &&
-        solve(candidate,0,candidate->geometryMessage,sizeof(candidate->geometryMessage));
+        solve(candidate,0,candidate->geometryMessage,sizeof(candidate->geometryMessage)) &&
+        Layout_SolveFurnitureContacts(candidate,NULL) &&
+        Layout_ValidateConstraints(candidate,candidate->geometryMessage,sizeof(candidate->geometryMessage));
 }
 bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutation mutate, void* context,
     LayoutGeometryBeforePublish before_publish, void* history_context) {
     if (!layout || !mutate || layout->geometryEditActive || layout->objectStore.constraintCount > LAYOUT_MAX_CONSTRAINTS ||
-        layout->objectStore.assembly_count>LAYOUT_MAX_ASSEMBLIES || layout->objectStore.relationship_count>LAYOUT_MAX_RELATIONSHIPS || layout->objectStore.spatial_rule_count>LAYOUT_MAX_SPATIAL_RULES || layout->objectStore.motion_envelope_count>LAYOUT_MAX_MOTION_ENVELOPES || layout->objectStore.route_count>LAYOUT_MAX_ROUTES || layout->objectStore.saved_view_count>LAYOUT_MAX_SAVED_VIEWS) return false;
+        layout->objectStore.assembly_count>LAYOUT_MAX_ASSEMBLIES || layout->objectStore.relationship_count>LAYOUT_MAX_RELATIONSHIPS || layout->objectStore.spatial_rule_count>LAYOUT_MAX_SPATIAL_RULES || layout->objectStore.motion_envelope_count>LAYOUT_MAX_MOTION_ENVELOPES || layout->objectStore.route_count>LAYOUT_MAX_ROUTES || layout->objectStore.saved_view_count>LAYOUT_MAX_SAVED_VIEWS || layout->objectStore.furniture_count>LAYOUT_MAX_FURNITURE_UNITS || layout->objectStore.furniture_contact_count>LAYOUT_MAX_FURNITURE_CONTACTS) return false;
     layout->geometryMessage[0]=0;
     const Object3D* object=Layout_ObjectStore_FindConst(&layout->objectStore,edited);
     if (object && object->coreMeta.flags.locked) return fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Object is locked.");
@@ -359,8 +367,18 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
     }
     if (ok) ok=Layout_ValidateEngineering(&candidate,layout->geometryMessage,sizeof(layout->geometryMessage));
     if (ok) ok=solve(&candidate,edited,layout->geometryMessage,sizeof(layout->geometryMessage));
+    if (ok) ok=Layout_SolveFurnitureContacts(&candidate,NULL);
+    if (!ok && candidate.geometryMessage[0]) snprintf(layout->geometryMessage,sizeof(layout->geometryMessage),"%s",candidate.geometryMessage);
+    if (ok) ok=Layout_ValidateConstraints(&candidate,layout->geometryMessage,sizeof(layout->geometryMessage));
+    if (ok) ok=Layout_ValidateFurniture(&candidate,layout->geometryMessage,sizeof(layout->geometryMessage));
+    if (ok) ok=Layout_ValidateFurnitureContacts(&candidate,true,layout->geometryMessage,sizeof(layout->geometryMessage));
     if (!ok && !layout->geometryMessage[0]) fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Geometry edit rejected.");
-    bool changed=ok && (candidate.objectStore.saved_view_count!=layout->objectStore.saved_view_count ||
+    bool changed=ok && (candidate.objectStore.furniture_contact_count!=layout->objectStore.furniture_contact_count ||
+        candidate.objectStore.next_furniture_contact_id!=layout->objectStore.next_furniture_contact_id ||
+        memcmp(candidate.objectStore.furniture_contacts,layout->objectStore.furniture_contacts,sizeof(layout->objectStore.furniture_contacts)) ||
+        candidate.objectStore.furniture_count!=layout->objectStore.furniture_count ||
+        memcmp(candidate.objectStore.furniture,layout->objectStore.furniture,sizeof(layout->objectStore.furniture)) ||
+        candidate.objectStore.saved_view_count!=layout->objectStore.saved_view_count ||
         memcmp(candidate.objectStore.saved_views,layout->objectStore.saved_views,sizeof(layout->objectStore.saved_views)) ||
         candidate.objectStore.route_count!=layout->objectStore.route_count ||
         candidate.objectStore.next_route_id!=layout->objectStore.next_route_id ||
@@ -390,6 +408,11 @@ bool Layout_RunGeometryEdit(Layout* layout, uint32_t edited, LayoutGeometryMutat
             candidate.objectStore.items=NULL;
             layout->objectStore.count=candidate.objectStore.count;
         } else if (bytes) memcpy(layout->objectStore.items,candidate.objectStore.items,bytes);
+        memcpy(layout->objectStore.furniture_contacts,candidate.objectStore.furniture_contacts,sizeof(layout->objectStore.furniture_contacts));
+        layout->objectStore.furniture_contact_count=candidate.objectStore.furniture_contact_count;
+        layout->objectStore.next_furniture_contact_id=candidate.objectStore.next_furniture_contact_id;
+        memcpy(layout->objectStore.furniture,candidate.objectStore.furniture,sizeof(layout->objectStore.furniture));
+        layout->objectStore.furniture_count=candidate.objectStore.furniture_count;
         memcpy(layout->objectStore.saved_views,candidate.objectStore.saved_views,sizeof(layout->objectStore.saved_views));
         layout->objectStore.saved_view_count=candidate.objectStore.saved_view_count;
         Layout_RestoreViewVisibility(&layout->objectStore,&candidate.objectStore);

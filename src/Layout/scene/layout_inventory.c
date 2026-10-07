@@ -47,6 +47,15 @@ cJSON* Layout_InventoryJson(const Layout* l) {
             double dims[]={o->rectPrism.width*o->transform.scale.x*scale,
                 o->rectPrism.height*o->transform.scale.y*scale,o->rectPrism.depth*o->transform.scale.z*scale};
             cJSON_AddItemToObject(row,"dimensions_m",cJSON_CreateDoubleArray(dims,3));
+            double volume = dims[0]*dims[1]*dims[2];
+            if (o->rectPrism.opening.enabled) {
+                const LayoutPanelOpening* f=&o->rectPrism.opening;
+                double removed=f->width*f->height*(o->rectPrism.depth-f->floor)*scale*scale*scale*
+                    o->transform.scale.x*o->transform.scale.y*o->transform.scale.z;
+                volume-=removed;
+                cJSON_AddNumberToObject(row,"opening_removed_volume_m3",removed);
+            }
+            cJSON_AddNumberToObject(row,"material_volume_m3",volume);
         }
         cJSON_AddStringToObject(row,"power_domain",text_value(&o->info,"power_domain"));
         number(row,"nominal_volts",number_value(&o->info,"nominal_volts"));

@@ -144,11 +144,18 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         for (size_t i=0;i<store->saved_view_count;++i) {
             const LayoutSavedView* v=&store->saved_views[i];
             snprintf(text,sizeof(text),"%s %s",Layout_ViewHidden(store,v->id)?"[ ]":"[x]",v->name);
-            cell(&p,8000+(int)i,text,NULL,0,3,true,!Layout_ViewHidden(store,v->id));
-            cell(&p,8100+(int)i,"Only",NULL,1,3,true,!strcmp(store->isolated_view_id,v->id));
-            cell(&p,8200+(int)i,"Remove",NULL,2,3,true,false);p.y+=p.h;
+            cell(&p,8000+(int)i,text,NULL,0,2,true,!Layout_ViewHidden(store,v->id));
+            cell(&p,8100+(int)i,"Only",NULL,1,2,true,!strcmp(store->isolated_view_id,v->id));p.y+=p.h;
         }
-        note(&p,"Toggle groups or use Only. Multiple groups combine; unclassified objects stay visible. Checks still include hidden geometry.");
+        note(&p,"Toggle groups or use Only. Checks include hidden objects.");
+        row(&p,PARTS_MANAGE_VIEWS,ui->parts.views_manage_open?"- Manage views":"+ Manage views",true);
+        if (ui->parts.views_manage_open) {
+            for (size_t i=0;i<store->saved_view_count;++i) {
+                snprintf(text,sizeof(text),"Remove view: %s",store->saved_views[i].name);
+                row(&p,8200+(int)i,text,true);
+            }
+            note(&p,"Remove deletes a saved query; Undo restores it.");
+        }
         row(&p,PARTS_CUSTOM_FILTER,ui->parts.custom_filter_open?"- Custom query":"+ Custom query / save view",true);
         if (ui->parts.custom_filter_open) {
         snprintf(text,sizeof(text),"Type: %s",ui->parts.filter.entity_type[0]?ui->parts.filter.entity_type:"All");row(&p,PARTS_TYPE,text,true);
@@ -412,6 +419,7 @@ bool UIPanel_PartsClick(int x,int y) {
     else if(action==PARTS_PROPERTY_KIND)ui->parts.chooser=chooser==4?0:4;
     else if(action==PARTS_ROLE) {if(ui->parts.mode==2)ui->parts.filter.designation=(ui->parts.filter.designation+1)%3;else ui->parts.draft.reference=!ui->parts.draft.reference;}
     else if(action==PARTS_CUSTOM_FILTER)ui->parts.custom_filter_open=!ui->parts.custom_filter_open;
+    else if(action==PARTS_MANAGE_VIEWS)ui->parts.views_manage_open=!ui->parts.views_manage_open;
     else if(action==PARTS_VIEW_DEFAULTS) {
         bool ok=Layout_InstallDefaultViews(layout(),Layout_GeometryHistory,NULL);
         snprintf(ui->parts.message,160,"%s",ok?"Standard view queries added; Save Layout keeps the definitions.":layout()->geometryMessage);

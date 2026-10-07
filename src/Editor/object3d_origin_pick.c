@@ -3,6 +3,7 @@
 #include "Editor/object3d_origin_pick.h"
 
 #include "Layout/layout.h"
+#include "Layout/layout_section.h"
 #include "Layout/layout_engineering.h"
 #include "Layout/scene/layout_object_faces.h"
 #include "Math/math_util.h"
@@ -128,16 +129,18 @@ static float Object3DOriginPick_EdgeDistanceSquared(Vec2 point, Vec2 a, Vec2 b) 
  * screen bounding rectangle. Centers retain the existing shared pick-index path. */
 static Hitbox Object3DOriginPick_PickEdge(const Layout* layout, const Grid* grid,
                                          const SpaceViewContext* view, int x, int y) {
-    static const int edges[12][2] = {
+    static const int edges[24][2] = {
         {0,1}, {1,2}, {2,3}, {3,0}, {4,5}, {5,6},
-        {6,7}, {7,4}, {0,4}, {1,5}, {2,6}, {3,7}
+        {6,7}, {7,4}, {0,4}, {1,5}, {2,6}, {3,7},
+        {8,9}, {9,10}, {10,11}, {11,8}, {12,13}, {13,14},
+        {14,15}, {15,12}, {8,12}, {9,13}, {10,14}, {11,15}
     };
     Hitbox best = {.type = HITBOX_NONE, .index = -1, .subIndex = -1};
     float best_distance = 64; /* Eight screen pixels of edge tolerance. */
     float best_depth = -INFINITY;
     for (size_t i = 0; i < layout->objectStore.count; ++i) {
         const Object3D* object = &layout->objectStore.items[i];
-        Vec3 corners[8];
+        Vec3 corners[16];
         int edge_count = 0;
         if (!Layout_ObjectStore_ValidateObject(object) ||
             !Layout_ObjectShown(&layout->objectStore, object) ||
@@ -148,6 +151,9 @@ static Hitbox Object3DOriginPick_PickEdge(const Layout* layout, const Grid* grid
                  Layout_Object3D_ComputeRectPrismCorners(object, corners)) edge_count = 12;
         else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
                  Layout_Object3D_ComputeMeshInstanceCorners(object, corners)) edge_count = 12;
+        if (edge_count == 12 && object->kind == OBJECT3D_KIND_RECT_PRISM && object->rectPrism.opening.enabled) {
+            Layout_PanelOpeningCorners(object,corners+8); edge_count=24;
+        }
         float depth = Object3DOriginPick_SignedDepth(view, object->transform.position);
         for (int e = 0; e < edge_count; ++e) {
             Vec2 a = WorldToScreen(SpaceAdapter_ProjectToView(corners[edges[e][0]], view), grid);
@@ -176,11 +182,11 @@ Hitbox Editor_ResolveObject3DBodyPick(const Layout* layout,
     if (!layout || !grid || !viewCtx) return (Hitbox){.type = HITBOX_NONE, .index = -1};
     const GlobalState* state=Global_Get();
     bool section_active = state && state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_SCENE &&
-        state->sectionView.mode != LAYOUT_SECTION_OFF;
+        (state->sectionView.mode != LAYOUT_SECTION_OFF || viewCtx->inspection);
     /* Section views hide manipulation overlays; their old hitboxes must not remain clickable. */
     if (!section_active && baseHit.type != HITBOX_NONE && baseHit.type != HITBOX_OBJECT3D) return baseHit;
     if(state && state->workspaceMode==LINE_DRAWING_WORKSPACE_MODE_SCENE &&
-       (state->previewMode==LINE_DRAWING_PREVIEW_MODE_FLAT || state->previewMode==LINE_DRAWING_PREVIEW_MODE_MATERIAL) &&
+       (viewCtx->inspection || state->previewMode==LINE_DRAWING_PREVIEW_MODE_FLAT || state->previewMode==LINE_DRAWING_PREVIEW_MODE_MATERIAL) &&
        Layout_SolidPreviewPick(layout,viewCtx,grid,mouseX,mouseY,&object_id))
         return object_id ? (Hitbox){.type=HITBOX_OBJECT3D,.index=(int)object_id,.subIndex=-1} :
                            (Hitbox){.type=HITBOX_NONE,.index=-1,.subIndex=-1};

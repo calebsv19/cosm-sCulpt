@@ -330,7 +330,7 @@ void Layout_RenderObjectSurfaces(const Layout* layout, SDL_Renderer* renderer) {
             alpha = (Uint8)(alpha + 32u);
         }
 
-        if (object->info.volume_role!=LAYOUT_VOLUME_NONE) continue;
+        if (Layout_EntityIsSpatialGuide(&object->info)) continue;
         if (object->kind == OBJECT3D_KIND_PLANE) {
             LayoutSurface_FillPlane(object,
                                     &view_ctx,

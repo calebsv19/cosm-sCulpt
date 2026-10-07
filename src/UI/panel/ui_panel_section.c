@@ -27,7 +27,7 @@ int UIPanel_SectionHeight(void) {
     return row_height() * rows + 8;
 }
 static bool active(void) {
-    return Global_Get() && Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_SCENE &&
+    return Global_Get() && !Global_Get()->cameraView.active && Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_SCENE &&
            UIPanel_Get()->activeRightTab == UI_PANEL_RIGHT_TAB_VIEW;
 }
 static SDL_Rect rect_for(int action) {

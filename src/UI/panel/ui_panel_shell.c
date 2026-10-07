@@ -1,6 +1,8 @@
+#include "UI/ui_panel_camera.h"
 #include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_shell.h"
+#include "UI/ui_panel_furniture.h"
 #include "UI/ui_panel_measurement.h"
 #include "Core/global_state.h"
 #include "UI/font_manager.h"
@@ -44,6 +46,8 @@ void UIPanel_SetActiveRightTab(UIPanelState* ui, UIPanelRightTab tab) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     if (!ui || !UIPanel_IsValidRightTab(tab)) return;
     if (ui->activeRightTab != tab) {
+        UIPanel_CameraReset();
+        if(tab!=UI_PANEL_RIGHT_TAB_VIEW)CameraView_Exit(Global_Get());
         UIPanel_MeasurementStopInput();
         UIPanel_PartsStopInput();
         UIPanel_RoutesStopInput();
@@ -199,6 +203,9 @@ static void UIPanel_UpdateSideTabs(UIPanelTabButton* tabs,
         total += width + 8;
     }
     int available = contentW - spacing * (visible - 1);
+    if (available < 0) available = 0;
+    int remaining = available;
+    int remaining_tabs = visible;
     int cursor = contentX;
     int tabY = contentY;
     for (int i = 0; i < tabCount; ++i) {
@@ -208,7 +215,9 @@ static void UIPanel_UpdateSideTabs(UIPanelTabButton* tabs,
         int width = (int)strlen(tabs[i].label) * 8;
         if (font) (void)TTF_SizeUTF8(font, tabs[i].label, &width, NULL);
         width += 8;
-        if (total > available && total > 0) width = width * available / total;
+        width = total > 0 ? width * available / total : 0;
+        if (--remaining_tabs == 0) width = remaining;
+        remaining -= width;
         tabs[i].bounds = (SDL_Rect){cursor, tabY, width, tabHeight};
         tabs[i].active = i == activeIndex;
         cursor += width + spacing;
@@ -296,6 +305,10 @@ bool UIPanel_HandleTabClick(UIPanelState* ui, int mouseX, int mouseY) {
 bool UIPanel_ShouldShowGroup(const UIPanelState* ui, UIPanelGroup group) {
     const bool object_mode = Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     if (!ui) return true;
+    if (!object_mode && ui->activeRightTab == UI_PANEL_RIGHT_TAB_OBJECT &&
+        (group == UI_PANEL_GROUP_RIGHT_PRISM || group == UI_PANEL_GROUP_RIGHT_GIZMO ||
+         group == UI_PANEL_GROUP_RIGHT_TRANSFORM || group == UI_PANEL_GROUP_RIGHT_OBJECT_ACTIONS) &&
+        UIPanel_FurnitureEditing()) return false;
     if (object_mode) {
         switch (group) {
             case UI_PANEL_GROUP_LEFT_FILE_IO:

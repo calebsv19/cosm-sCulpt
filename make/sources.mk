@@ -66,7 +66,13 @@ SHAPE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_reference.c \
 	$(SRC_DIR)/Layout/scene/layout_constraints.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering.c \
+	$(SRC_DIR)/Layout/scene/layout_inspection.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering_json.c \
+	$(SRC_DIR)/Layout/scene/layout_section.c \
+	$(SRC_DIR)/Layout/scene/layout_furniture.c \
+	$(SRC_DIR)/Layout/scene/layout_furniture_json.c \
+	$(SRC_DIR)/Layout/scene/layout_furniture_contacts.c \
+	$(SRC_DIR)/Layout/scene/layout_furniture_contacts_json.c \
 	$(SRC_DIR)/Layout/scene/layout_relationships.c \
 	$(SRC_DIR)/Layout/scene/layout_spatial.c \
 	$(SRC_DIR)/Layout/scene/layout_saved_views.c \
@@ -85,6 +91,8 @@ SHAPE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_object_faces.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_authoring.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_camera_authoring.c \
+	$(SRC_DIR)/Layout/scene/layout_camera_poses.c \
+	$(SRC_DIR)/Layout/scene/layout_camera_poses_json.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_light_authoring.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_path_geometry.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_path_traversal.c \
@@ -131,7 +139,13 @@ AGENT_SCENE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_reference.c \
 	$(SRC_DIR)/Layout/scene/layout_constraints.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering.c \
+	$(SRC_DIR)/Layout/scene/layout_inspection.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering_json.c \
+	$(SRC_DIR)/Layout/scene/layout_section.c \
+	$(SRC_DIR)/Layout/scene/layout_furniture.c \
+	$(SRC_DIR)/Layout/scene/layout_furniture_json.c \
+	$(SRC_DIR)/Layout/scene/layout_furniture_contacts.c \
+	$(SRC_DIR)/Layout/scene/layout_furniture_contacts_json.c \
 	$(SRC_DIR)/Layout/scene/layout_relationships.c \
 	$(SRC_DIR)/Layout/scene/layout_spatial.c \
 	$(SRC_DIR)/Layout/scene/layout_saved_views.c \
@@ -150,6 +164,8 @@ AGENT_SCENE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/scene/layout_object_faces.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_authoring.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_camera_authoring.c \
+	$(SRC_DIR)/Layout/scene/layout_camera_poses.c \
+	$(SRC_DIR)/Layout/scene/layout_camera_poses_json.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_light_authoring.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_path_geometry.c \
 	$(SRC_DIR)/Layout/scene/layout_scene_path_traversal.c \

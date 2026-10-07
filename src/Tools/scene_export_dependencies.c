@@ -2,6 +2,7 @@
 
 #include "Layout/scene/layout_mesh_asset_path_resolver.h"
 #include "core_io.h"
+#include "Layout/layout_section.h"
 #include "core_scene_compile.h"
 
 #include <stdio.h>
@@ -30,7 +31,8 @@ bool LineDrawingSceneExportDependencies_Collect(
 
     for (size_t i = 0u; i < layout->objectStore.count; ++i) {
         const Object3D* object = &layout->objectStore.items[i];
-        if (!object->isDeleted && object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
+        if (!object->isDeleted && (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE ||
+            (object->kind == OBJECT3D_KIND_RECT_PRISM && object->rectPrism.opening.enabled)) &&
             Layout_ObjectStore_ValidateObject(object)) {
             ++capacity;
         }
@@ -55,6 +57,21 @@ bool LineDrawingSceneExportDependencies_Collect(
         CoreBuffer contents = {0};
         CoreResult read_result;
         size_t existing = count;
+        if (!object->isDeleted && object->kind == OBJECT3D_KIND_RECT_PRISM && object->rectPrism.opening.enabled) {
+            cJSON* mesh = Layout_PanelRuntimeMesh(object);
+            char* json = mesh ? cJSON_PrintUnformatted(mesh) : NULL; cJSON_Delete(mesh);
+            if (!json) { LineDrawingSceneExportDependencies_Destroy(out_dependencies); return false; }
+            out_dependencies->payload_buffers[count].data = (unsigned char*)json;
+            out_dependencies->payload_buffers[count].size = strlen(json);
+            out_dependencies->entries[count].kind = "mesh_asset_runtime";
+            out_dependencies->entries[count].identity = object->coreMeta.object_id;
+            out_dependencies->entries[count].content_bytes = strlen(json);
+            out_dependencies->entries[count].payload_data = json;
+            (void)core_scene_compile_sha256(json,strlen(json),out_dependencies->content_digests[count]);
+            out_dependencies->entries[count].content_sha256 = out_dependencies->content_digests[count];
+            out_dependencies->count = ++count;
+            continue;
+        }
         if (object->isDeleted || object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE ||
             !Layout_ObjectStore_ValidateObject(object)) {
             continue;

@@ -1,3 +1,16 @@
+# C3 camera path pose update - 2026-10-06
+
+C3.1–C3.5 are implemented in persistent Main Edit: strict additive path-owned
+pose keys, exact-point View/Apply/Revert, create/add/reorder/remove and per-leg
+timing, transient Play/Pause/Scrub, and save/compiled-export roundtrip with
+full-van native and idle-loop proof. Existing exterior paths and the saved user
+van remain preserved. Camera orientation/FOV render parity remains C4. See
+[controls, persistence and precise limits](camera_view.md#c3-path-poses-c31c35-2026-10-06).
+
+# C1 / C2 camera viewing update - 2026-10-06
+
+Perspective interior navigation and optional directional inspection are implemented in persistent Main Edit. View exposes Inspection on/off plus collapsed local facing controls for a selected unit or part. Near-side units become subdued outlines; far-side units remain solid, and transparent interiors pick the physical surface behind them. Metadata directions inherit through rotated assembly frames, persist/undo, and leave geometry and checks intact. The full F4 van declares wall-side directions; unassigned items including the bed remain physical. Cached near-side coverage settles with the existing demand loop. See [controls and precise limits](camera_view.md). C4 renderer matching remains subsequent work; C3 is documented above.
+
 # Sculpt Current Truth
 
 ## V1 / V2 solid panels and movable sections (2026-10-05)

@@ -1,6 +1,8 @@
+#include "Layout/scene/layout_camera_poses.h"
 #include "Layout/layout_routes.h"
 #include "Layout/layout_saved_views.h"
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_furniture.h"
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
@@ -277,7 +279,9 @@ static cJSON* SceneAuthoring_ToJsonObject(const LineDrawingSceneAuthoringState* 
                                 Layout_ScenePathPlaybackMode_Name(path->playback_mode));
         cJSON_AddNumberToObject(node, "durationSeconds", path->duration_seconds);
         cJSON_AddNumberToObject(node, "normalizedDistance", path->normalized_distance);
-        cJSON_AddBoolToObject(node, "playing", path->playing);
+        cJSON_AddBoolToObject(node, "playing", path->key_count ? false : path->playing);
+        cJSON *poses=CameraPoses_ToJson(path);
+        if(poses) cJSON_AddItemToObject(node,"cameraPoses",poses);
         cJSON_AddItemToObject(node, "controlPoints", control_points);
         for (size_t point_index = 0u; point_index < path->control_point_count; ++point_index) {
             cJSON_AddItemToArray(control_points, Vec3_ToJsonObject(path->control_points[point_index]));
@@ -320,14 +324,14 @@ static cJSON* SceneAuthoring_ToJsonObject(const LineDrawingSceneAuthoringState* 
     return root;
 }
 
-static void SceneAuthoring_FromJsonObject(const cJSON* node,
+static bool SceneAuthoring_FromJsonObject(const cJSON* node,
                                           LineDrawingSceneAuthoringState* authoring) {
     LineDrawingSceneAuthoringState parsed;
     const cJSON* lights = NULL;
     const cJSON* cameras = NULL;
     const cJSON* paths = NULL;
     const cJSON* materials = NULL;
-    if (!cJSON_IsObject(node) || !authoring) return;
+    if (!cJSON_IsObject(node) || !authoring) return true;
 
     memset(&parsed, 0, sizeof(parsed));
 
@@ -524,6 +528,9 @@ static void SceneAuthoring_FromJsonObject(const cJSON* node,
                     }
                 }
             }
+            if(!CameraPoses_FromJson(path,cJSON_GetObjectItemCaseSensitive(item,"cameraPoses"))) {
+                return false;
+            }
             ++parsed.path_count;
         }
     }
@@ -559,7 +566,7 @@ static void SceneAuthoring_FromJsonObject(const cJSON* node,
             value = cJSON_GetObjectItem(item, "rollDegrees");
             if (cJSON_IsNumber(value)) camera->roll_degrees = (float)value->valuedouble;
             value = cJSON_GetObjectItem(item, "verticalFovDegrees");
-            if (cJSON_IsNumber(value) && value->valuedouble > 1.0 && value->valuedouble < 179.0) {
+            if (cJSON_IsNumber(value) && value->valuedouble >= 1.0 && value->valuedouble <= 179.0) {
                 camera->vertical_fov_degrees = (float)value->valuedouble;
             }
             value = cJSON_GetObjectItem(item, "nearClip");
@@ -668,6 +675,7 @@ static void SceneAuthoring_FromJsonObject(const cJSON* node,
     }
 
     *authoring = parsed;
+    return true;
 }
 
 static cJSON* Transform3D_ToJsonObject(Transform3D t) {
@@ -788,6 +796,15 @@ static cJSON* Layout_CreateJson(const Layout* layout) {
             cJSON_AddNumberToObject(rectPrism, "width", object->rectPrism.width);
             cJSON_AddNumberToObject(rectPrism, "height", object->rectPrism.height);
             cJSON_AddNumberToObject(rectPrism, "depth", object->rectPrism.depth);
+            if (object->rectPrism.opening.enabled) {
+                const LayoutPanelOpening* f = &object->rectPrism.opening;
+                cJSON* opening = cJSON_AddObjectToObject(rectPrism, "opening");
+                cJSON_AddNumberToObject(opening, "u", f->u);
+                cJSON_AddNumberToObject(opening, "v", f->v);
+                cJSON_AddNumberToObject(opening, "width", f->width);
+                cJSON_AddNumberToObject(opening, "height", f->height);
+                cJSON_AddNumberToObject(opening, "floor", f->floor);
+            }
             cJSON_AddBoolToObject(rectPrism, "lockToConstructionPlane", object->rectPrism.lockToConstructionPlane);
             cJSON_AddBoolToObject(rectPrism, "lockToBounds", object->rectPrism.lockToBounds);
             cJSON* frame = cJSON_CreateObject();
@@ -938,7 +955,9 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
         }
     }
 
-    SceneAuthoring_FromJsonObject(cJSON_GetObjectItem(root, "sceneAuthoring"), &temp.sceneAuthoring);
+    if(!SceneAuthoring_FromJsonObject(cJSON_GetObjectItem(root, "sceneAuthoring"), &temp.sceneAuthoring)) {
+        Layout_Free(&temp); return false;
+    }
 
     const cJSON* anchors = cJSON_GetObjectItem(root, "anchors");
     if (!anchors || !cJSON_IsArray(anchors)) {
@@ -1180,6 +1199,19 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
                         }
                     }
                     object->rectPrism.frame.origin = object->transform.position;
+                    const cJSON* opening = cJSON_GetObjectItemCaseSensitive(rectPrism, "opening");
+                    if (opening) {
+                        if (schemaVersion < LAYOUT_JSON_SCHEMA_VERSION_PANEL_OPENINGS || !cJSON_IsObject(opening)) { Layout_Free(&temp); return false; }
+                        const char* keys[] = {"u", "v", "width", "height", "floor"};
+                        float* values[] = {&object->rectPrism.opening.u, &object->rectPrism.opening.v,
+                            &object->rectPrism.opening.width, &object->rectPrism.opening.height, &object->rectPrism.opening.floor};
+                        for (int k = 0; k < 5; ++k) {
+                            const cJSON* value = cJSON_GetObjectItemCaseSensitive(opening, keys[k]);
+                            if (!cJSON_IsNumber(value) || !isfinite(value->valuedouble) || fabs(value->valuedouble) > FLT_MAX) { Layout_Free(&temp); return false; }
+                            *values[k] = (float)value->valuedouble;
+                        }
+                        object->rectPrism.opening.enabled = true;
+                    }
                 } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
                     const cJSON* mesh = cJSON_GetObjectItem(node, "meshAssetInstance");
                     if (cJSON_IsObject(mesh)) {
@@ -1261,6 +1293,9 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
     }
     if (!Layout_SavedViewsReadJson(&temp,cJSON_GetObjectItemCaseSensitive(root,"engineering"),schemaVersion>=LAYOUT_JSON_SCHEMA_VERSION_SAVED_VIEWS)) {
         Layout_Free(&temp);return false;
+    }
+    if (!Layout_FurnitureReadJson(&temp, cJSON_GetObjectItemCaseSensitive(root,"engineering"), schemaVersion)) {
+        Layout_Free(&temp); return false;
     }
     temp.objectStore.view_query=layout->objectStore.view_query;
     Layout_RestoreViewVisibility(&temp.objectStore,&layout->objectStore);

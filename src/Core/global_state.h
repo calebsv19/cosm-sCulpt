@@ -7,6 +7,7 @@
 #include "Layout/Grid/grid.h"
 #include "Layout/layout.h"
 #include "Layout/layout_section.h"
+#include "Core/camera_view.h"
 #include "Editor/editor.h"
 #include "ObjectAuthoring/object_authoring_session.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_types.h"
@@ -57,6 +58,8 @@ typedef struct GlobalState {
     SpaceMode spaceMode;
     LineDrawingWorkspaceMode workspaceMode;
     LineDrawingPreviewMode previewMode;
+    bool inspectionView; /* Optional directional preview; never document geometry. */
+    CameraViewSession cameraView; /* Observer pose; commits are explicit and undoable. */
     LayoutSectionView sectionView; /* Runtime viewing state; never document geometry. */
     ViewPlane activePlane;
     FreeViewCamera freeViewCamera;
@@ -96,6 +99,9 @@ void Global_Shutdown(void);
 
 void Global_TickSystems(AppContext* ctx);
 void Global_SetWindowSize(int w, int h);
+/* Refresh child controls after solved pane bounds or font metrics change.
+ * Supply the previous viewport to preserve camera framing during pane resizing. */
+void Global_RefreshPaneLayout(const CorePaneRect* previous_viewport);
 
 void Global_FlagLayoutChanged(void);
 void Global_FlagGridChanged(void);

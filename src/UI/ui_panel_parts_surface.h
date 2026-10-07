@@ -18,20 +18,18 @@ static inline bool is_field(int action) {
 static inline void cell(PartsPane* p,int action,const char* title,const char* value,int column,int columns,bool enabled,bool selected) {
     int gap=4,w=(p->body.w-24-(columns-1)*gap)/columns;
     SDL_Rect rect={p->body.x+6+column*(w+gap),p->y,w,p->h-3};
-    if (UIPanel_Get()->parts.mode == 2 && action >= 8000 && action < 8300) {
+    if (UIPanel_Get()->parts.mode == 2 && action >= 8000 && action < 8200) {
         int total = p->body.w - 24;
-        int only_w = 48, remove_w = 68;
+        int only_w = 48;
         TTF_Font* font = p->font ? p->font : FontManager_Get(FONT_DEFAULT);
-        if (font) {
-            (void)TTF_SizeUTF8(font, "Only", &only_w, NULL);
-            (void)TTF_SizeUTF8(font, "Remove", &remove_w, NULL);
-        }
+        if (font) (void)TTF_SizeUTF8(font, "Only", &only_w, NULL);
         only_w += 18;
-        remove_w += 18;
-        int label_w = total - only_w - remove_w - 8;
-        int kind = (action - 8000) / 100;
-        rect.x = p->body.x + 6 + (kind ? label_w + 4 + (kind - 1) * (only_w + 4) : 0);
-        rect.w = kind == 1 ? only_w : kind == 2 ? remove_w : label_w;
+        /* The name absorbs spare width; Only remains a compact action. */
+        if (only_w > total / 2) only_w = total / 2;
+        int label_w = total - only_w - gap;
+        bool only = action >= 8100;
+        rect.x = p->body.x + 6 + (only ? label_w + gap : 0);
+        rect.w = only ? only_w : label_w;
     }
     if (value) {
         int label_width=w/3;

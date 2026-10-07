@@ -34,3 +34,5 @@ The core layer owns application-wide state and the SDL boilerplate so other syst
   editor, workspace document, and object-authoring resources. It is
   idempotent so partial lifecycle cleanup can call it safely.
 - `src/main.c` now composes this shared runtime state behind a host-level `MENU` vs `EDITOR` mode split rather than treating the editor as the only boot surface.
+
+- `camera_path.*` owns exact-point draft/Apply transactions and transient timed preview; `camera_path_proof.*` supplies bounded native full-van and real-demand-loop proof modes.

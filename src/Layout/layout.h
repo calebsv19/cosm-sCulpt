@@ -130,10 +130,17 @@ typedef struct {
     bool lockToBounds;
 } PlanePrimitive3D;
 
+/* One local U/V rectangular opening, through N or a top-open pocket.
+ * floor is retained material at -N; zero removes material through the board. */
+typedef struct {
+    bool enabled;
+    float u, v, width, height, floor;
+} LayoutPanelOpening;
 typedef struct {
     float width;
     float height;
     float depth;
+    LayoutPanelOpening opening;
     PlaneFrame3 frame;
     bool lockToConstructionPlane;
     bool lockToBounds;
@@ -380,6 +387,44 @@ typedef struct {
     LayoutRouteElectrical electrical;
 } LayoutPhysicalRoute;
 
+/* Bounded construction recipes; quantities are canonical meters in an assembly frame. */
+#define LAYOUT_MAX_FURNITURE_UNITS 16
+#define LAYOUT_MAX_FURNITURE_PARTS 16
+typedef enum {
+    LAYOUT_FURNITURE_BACK, LAYOUT_FURNITURE_END_REAR, LAYOUT_FURNITURE_END_FRONT,
+    LAYOUT_FURNITURE_BOTTOM, LAYOUT_FURNITURE_TOP, LAYOUT_FURNITURE_DOOR,
+    LAYOUT_FURNITURE_SHELF, LAYOUT_FURNITURE_WORKTOP, LAYOUT_FURNITURE_FIXTURE,
+    LAYOUT_FURNITURE_RUN_RAIL, LAYOUT_FURNITURE_CUSHION
+} LayoutFurnitureRole;
+typedef struct {
+    char entity_id[64];
+    LayoutFurnitureRole role;
+    double offset_m[3], span_m[3]; /* Fixed-size fixture anchor from wall/front/top. */
+} LayoutFurniturePart;
+typedef struct {
+    char assembly_id[64];
+    double center_m[3], size_m[3]; /* Local depth U, run V, height N. */
+    double thickness_m[4]; /* Case, back, door, worktop. */
+    double overhang_m[4]; /* Wall, aisle, rear end, front end. */
+    bool sink_opening; /* First fixture is the provisional sink; top/worktop share its cutout. */
+    double shelf_fraction;
+    int back_sign;
+    size_t part_count;
+    LayoutFurniturePart parts[LAYOUT_MAX_FURNITURE_PARTS];
+} LayoutFurnitureUnit;
+
+#define LAYOUT_MAX_FURNITURE_CONTACTS 32
+typedef enum { LAYOUT_FURNITURE_FOLLOW_MOVE, LAYOUT_FURNITURE_FOLLOW_FIT_RUN } LayoutFurnitureFollow;
+/* Directed run-end plane contact. Gap is along the driver's outward run normal.
+ * Units remain independent; this does not certify attachment or structural fit. */
+typedef struct {
+    char id[64], driver[64], follower[64];
+    int driver_end, follower_end; /* -1 rear, +1 front in each unit's local V. */
+    LayoutFurnitureFollow behavior;
+    double gap_m;
+    bool enabled;
+} LayoutFurnitureContact;
+
 typedef struct {
     Object3D* items;
     size_t count;
@@ -387,6 +432,11 @@ typedef struct {
     LayoutConstraint constraints[LAYOUT_MAX_CONSTRAINTS];
     size_t constraintCount;
     uint32_t nextConstraintId;
+    LayoutFurnitureUnit furniture[LAYOUT_MAX_FURNITURE_UNITS];
+    size_t furniture_count;
+    LayoutFurnitureContact furniture_contacts[LAYOUT_MAX_FURNITURE_CONTACTS];
+    size_t furniture_contact_count;
+    uint32_t next_furniture_contact_id;
     LayoutAssembly assemblies[LAYOUT_MAX_ASSEMBLIES];
     size_t assembly_count;
     uint32_t next_assembly_id;

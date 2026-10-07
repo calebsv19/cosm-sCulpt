@@ -620,7 +620,8 @@ static void Topbar_DrawStatusChips(SDL_Renderer* renderer,
     const bool object_mode =
         state && Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT;
     const SpaceViewContext view_ctx = state ? SpaceAdapter_BuildViewContext(state) : (SpaceViewContext){0};
-    const char* view_label = state && SpaceAdapter_IsFreeViewEnabled(&view_ctx) ? "Free" : "Plane";
+    const char* view_label = state && state->cameraView.active ? "Camera" :
+        state && SpaceAdapter_IsFreeViewEnabled(&view_ctx) ? "Free" : "Plane";
     const size_t undo_count = state ? Editor_UndoCount(&state->editor) : 0u;
     const size_t redo_count = state ? Editor_RedoCount(&state->editor) : 0u;
 
@@ -717,16 +718,19 @@ bool LineDrawingEditorTopbar_HandleClick(int mouse_x, int mouse_y) {
     }
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.mode_chip)) {
         Topbar_EndViewInput();
+        CameraView_Exit(Global_Get());
         (void)InputEditorAction_ToggleSpaceMode(true);
         return true;
     }
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.view_chip)) {
         Topbar_EndViewInput();
-        (void)InputEditorAction_ToggleFreeView();
+        if(Global_Get()->cameraView.active)CameraView_Exit(Global_Get());
+        else (void)InputEditorAction_ToggleFreeView();
         return true;
     }
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.plane_chip)) {
         Topbar_EndViewInput();
+        CameraView_Exit(Global_Get());
         (void)InputEditorAction_CycleActivePlane();
         return true;
     }

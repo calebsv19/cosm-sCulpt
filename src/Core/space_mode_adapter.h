@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Math/math_util.h"
+#include "Core/perspective_view.h"
 #include "Layout/Grid/grid.h"
 
 typedef struct GlobalState GlobalState;
@@ -8,6 +9,8 @@ typedef struct GlobalState GlobalState;
 typedef struct {
     ViewPlane plane;
     FreeViewCamera camera;
+    PerspectiveView perspective;
+    bool inspection;
 } SpaceViewContext;
 
 SpaceViewContext SpaceAdapter_BuildViewContext(const GlobalState* state);

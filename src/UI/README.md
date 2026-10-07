@@ -185,3 +185,5 @@ Viewport tool buttons highlight the current transient input tool. The left Delet
 action includes legacy points/lines with undo. Zero-sized hidden controls do not
 repaint section chrome over visible Create buttons. See the van workflow for
 the navigation/drawing/cancellation contract.
+
+- `panel/ui_panel_camera_path.c` exposes bounded point selection, View/Revert/Apply/Add, playback/scrub and collapsed point actions through the existing clipped View pane.

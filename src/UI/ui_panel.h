@@ -329,6 +329,7 @@ typedef struct {
         float operationScrollbarDragStartOffsetPx;
     } objectModelTree;
     struct {
+        SDL_Rect furnitureRect;
         SDL_Rect summaryRect;
         SDL_Rect detailsRect;
         SDL_Rect actionsRect;
@@ -485,7 +486,7 @@ typedef struct {
         int chooser, input, property_kind, rotation_axis;
         bool replace_text;
         char key[48], value[128], move[3][64], angle[64], message[160], view_name[96];
-        bool custom_filter_open;
+        bool custom_filter_open, views_manage_open;
         LayoutEntityQuery filter;
         LayoutRelationship link, observed_link;
         bool link_observed, link_remove_pending;

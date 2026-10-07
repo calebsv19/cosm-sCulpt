@@ -1,3 +1,4 @@
+#include "Core/camera_path.h"
 #include "Core/viewport_zoom.h"
 #include "Layout/layout_constraints.h"
 // src/Core/global_state.c
@@ -403,9 +404,11 @@ bool Global_SetWorkspaceMode(LineDrawingWorkspaceMode mode) {
         return true;
     }
 
+    CameraView_Exit(global);
     if (!LineDrawingWorkspaceModeHandoff_Apply(global, mode)) {
         return false;
     }
+    global->inspectionView = false;
     global->sectionView.mode = LAYOUT_SECTION_OFF;
     UIPanel_OnWindowResized(global->screenWidth, global->screenHeight);
     Global_FlagGridChanged();
@@ -616,6 +619,8 @@ void Global_TickSystems(AppContext* ctx) {
     if (!state) return;
 
     if (ctx) {
+        if(CameraPath_Tick(state,ctx->deltaTime)) ctx->redraw_requested=true;
+        if (CameraView_Step(state,ctx->deltaTime)) ctx->redraw_requested=true;
         bool traversal_changed = false;
         for (size_t i = 0u; i < state->layout.sceneAuthoring.path_count; ++i) {
             traversal_changed = Layout_ScenePathTraversal_Advance(
@@ -634,15 +639,39 @@ void Global_TickSystems(AppContext* ctx) {
 }
 
 
-void Global_SetWindowSize(int w, int h) {
-    CorePaneRect old_viewport = {0};
+void Global_RefreshPaneLayout(const CorePaneRect* previous_viewport) {
     CorePaneRect new_viewport = {0};
-    bool preserve_free_view_target = false;
     FreeViewCamera resized_camera;
     Grid resized_grid;
     if (!global) return;
+    if (previous_viewport && global->freeViewCamera.enabled &&
+        LineDrawingPaneHost_GetViewportRect(&global->paneHost, &new_viewport)) {
+        resized_camera = global->freeViewCamera;
+        resized_grid = global->grid;
+        if (LineDrawingViewport3DBridgeApplyResize(
+                &global->freeViewCamera,
+                &global->grid,
+                (double)previous_viewport->x + (double)previous_viewport->width * 0.5,
+                (double)previous_viewport->y + (double)previous_viewport->height * 0.5,
+                (double)new_viewport.x + (double)new_viewport.width * 0.5,
+                (double)new_viewport.y + (double)new_viewport.height * 0.5,
+                0.01,
+                (double)LineDrawingViewportZoom_MaxScale(global),
+                &resized_camera,
+                &resized_grid)) {
+            global->freeViewCamera = resized_camera;
+            global->grid = resized_grid;
+        }
+    }
+    UIPanel_OnWindowResized(global->screenWidth, global->screenHeight);
+    Global_FlagGridChanged();
+}
+
+void Global_SetWindowSize(int w, int h) {
+    CorePaneRect old_viewport = {0};
+    if (!global) return;
     if (global->screenWidth == w && global->screenHeight == h) return;
-    preserve_free_view_target = global->freeViewCamera.enabled &&
+    bool has_previous_viewport =
         LineDrawingPaneHost_GetViewportRect(&global->paneHost, &old_viewport);
     global->screenWidth = w;
     global->screenHeight = h;
@@ -656,27 +685,7 @@ void Global_SetWindowSize(int w, int h) {
         fprintf(stderr, "[Core] pane host rebuild failed: %s\n",
                 LineDrawingPaneHost_LastError(&global->paneHost));
     }
-    if (preserve_free_view_target &&
-        LineDrawingPaneHost_GetViewportRect(&global->paneHost, &new_viewport)) {
-        resized_camera = global->freeViewCamera;
-        resized_grid = global->grid;
-        if (LineDrawingViewport3DBridgeApplyResize(
-                &global->freeViewCamera,
-                &global->grid,
-                (double)old_viewport.x + (double)old_viewport.width * 0.5,
-                (double)old_viewport.y + (double)old_viewport.height * 0.5,
-                (double)new_viewport.x + (double)new_viewport.width * 0.5,
-                (double)new_viewport.y + (double)new_viewport.height * 0.5,
-                0.01,
-                (double)LineDrawingViewportZoom_MaxScale(global),
-                &resized_camera,
-                &resized_grid)) {
-            global->freeViewCamera = resized_camera;
-            global->grid = resized_grid;
-        }
-    }
-    UIPanel_OnWindowResized(w, h);
-    Global_FlagGridChanged();
+    Global_RefreshPaneLayout(has_previous_viewport ? &old_viewport : NULL);
 }
 
 int Global_GetScreenWidth(void) { return global->screenWidth; }
@@ -710,6 +719,8 @@ void Global_RebuildHitboxesIfDirty(void) {
     Global_ProcessLayoutChanges(state);
 
     if (!state->hitboxDirty) return;
+    if (state->cameraView.active || (state->inspectionView && state->spaceMode==SPACE_MODE_3D &&
+        state->workspaceMode==LINE_DRAWING_WORKSPACE_MODE_SCENE)) { state->hitboxDirty=false; return; }
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     bool gizmoEnabled = (state->spaceMode == SPACE_MODE_3D) &&
                         SpaceAdapter_IsFreeViewEnabled(&viewCtx);
@@ -787,6 +798,8 @@ void Global_OnLayoutSaved(const char* path) {
 void Global_OnLayoutLoaded(const char* path) {
     GlobalState* state = Global_Get();
     if (!state) return;
+    CameraView_Exit(state);
+    state->inspectionView = false;
     state->sectionView.mode=LAYOUT_SECTION_OFF;
     if (path && *path) {
         strncpy(state->currentConfigPath, path, sizeof(state->currentConfigPath) - 1);
@@ -806,6 +819,8 @@ void Global_OnLayoutLoaded(const char* path) {
 void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_path_hint) {
     GlobalState* state = Global_Get();
     if (!state) return;
+    CameraView_Exit(state);
+    state->inspectionView = false;
     if (scene_authoring_path && *scene_authoring_path) {
         strncpy(state->currentSceneAuthoringPath,
                 scene_authoring_path,

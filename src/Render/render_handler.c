@@ -223,7 +223,8 @@ static void DrawAxisArrow(SDL_Renderer* renderer,
 }
 
 static void Render_FreeViewAxisGizmo(SDL_Renderer* renderer, const GlobalState* state) {
-    if (!renderer || !state) return;
+    if (!renderer || !state || state->cameraView.active ||
+        (state->inspectionView && state->workspaceMode==LINE_DRAWING_WORKSPACE_MODE_SCENE)) return;
     SpaceViewContext viewCtx = SpaceAdapter_BuildViewContext(state);
     if (!SpaceAdapter_IsFreeViewEnabled(&viewCtx)) return;
 
@@ -388,10 +389,13 @@ void Render_SubmitFrame(AppContext* ctx,
 
     Layout_Render(derive_frame->layout, ctx);
     Render_FreeViewAxisGizmo(ctx->renderer, derive_frame->state);
+    CameraView_RenderMarkers(ctx->renderer,derive_frame->state);
     LogDrawCallDelta("Layout", should_log, vk, &before_draws);
 
-    Render_EditorOverlay(derive_frame->editor, ctx);
-    Render_Editor_SelectionBox(derive_frame->editor, ctx);
+    if (!derive_frame->state->cameraView.active && !derive_frame->view_ctx.inspection) {
+        Render_EditorOverlay(derive_frame->editor, ctx);
+        Render_Editor_SelectionBox(derive_frame->editor, ctx);
+    }
     Render_ViewCenterCrosshair(ctx->renderer, derive_frame->state);
     if (has_center_clip) {
         (void)SDL_RenderSetClipRect(ctx->renderer, NULL);

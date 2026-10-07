@@ -1,5 +1,6 @@
 #include "Editor/viewport_gizmo.h"
 #include "Layout/layout_motion.h"
+#include "Layout/layout_section.h"
 #include "Layout/layout_engineering.h"
 // src/Layout/layout_render.c
 #include "Layout/render_layout.h"
@@ -454,7 +455,7 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                 } else {
                     if (Layout_FindMotionEnvelope(&layout->objectStore,object->objectId)) {
                         SDL_SetRenderDrawColor(renderer,175,125,250,255);
-                    } else if (object->info.volume_role!=LAYOUT_VOLUME_NONE) {
+                    } else if (Layout_EntityIsSpatialGuide(&object->info)) {
                         SDL_SetRenderDrawColor(renderer, object->info.volume_role==LAYOUT_VOLUME_SERVICE?80:245,
                             object->info.volume_role==LAYOUT_VOLUME_SERVICE?210:105, 175, 255);
                     } else if (object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
@@ -473,9 +474,19 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                     thickness = 1;
                 }
 
+                if (object->kind == OBJECT3D_KIND_RECT_PRISM && object->rectPrism.opening.enabled &&
+                    state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME) {
+                    Vec3 inner[8]; Layout_PanelOpeningCorners(object,inner);
+                    for (int e = 0; e < 12; ++e) {
+                        Vec2 a = WorldToScreen(SpaceAdapter_ProjectToView(inner[kRectEdges[e][0]],&viewCtx),grid);
+                        Vec2 b = WorldToScreen(SpaceAdapter_ProjectToView(inner[kRectEdges[e][1]],&viewCtx),grid);
+                        DrawLineWithThickness(renderer,(int)a.x,(int)a.y,(int)b.x,(int)b.y,1);
+                    }
+                }
                 if ((object->kind != OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
                      (state->previewMode == LINE_DRAWING_PREVIEW_MODE_BOUNDS ||
-                      state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME || isSelected || isHovered)) ||
+                      state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME ||
+                      Layout_EntityIsSpatialGuide(&object->info) || isSelected || isHovered)) ||
                     (meshBoundsMode ||
                      (!meshPreviewDrawn && (isSelected || isHovered)))) {
                     for (int e = 0; e < 12; ++e) {
@@ -889,6 +900,15 @@ void Layout_Render(const Layout* layout, AppContext* ctx) {
     SDL_Renderer* renderer = ctx->renderer;
     GlobalState* state = Global_Get();
 
+    if (state && (state->cameraView.active ||
+        (state->inspectionView && state->spaceMode==SPACE_MODE_3D && state->workspaceMode==LINE_DRAWING_WORKSPACE_MODE_SCENE))) {
+        SpaceViewContext view=SpaceAdapter_BuildViewContext(state);
+        (void)Layout_RenderMeshSolidPreview(renderer,layout,&view,&state->grid,
+            state->screenWidth,state->screenHeight,
+            state->previewMode==LINE_DRAWING_PREVIEW_MODE_WIREFRAME ? LAYOUT_MESH_SOLID_STYLE_WIRE_OUTLINE :
+            state->previewMode==LINE_DRAWING_PREVIEW_MODE_FLAT ? LAYOUT_MESH_SOLID_STYLE_FLAT : LAYOUT_MESH_SOLID_STYLE_MATERIAL,NULL);
+        return;
+    }
     if (state &&
         state->spaceMode == SPACE_MODE_3D &&
         (state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME ||

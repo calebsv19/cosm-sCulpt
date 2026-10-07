@@ -86,6 +86,14 @@ typedef struct {
     LineDrawingSceneLightFalloff falloff;
 } LineDrawingSceneLight;
 
+/* Optional camera pose records travel with their positional anchors. */
+typedef struct {
+    char id[LINE_DRAWING_SCENE_AUTHORING_ID_SIZE];
+    float rotation[4]; /* unit quaternion: w,x,y,z; canonical X-forward, Z-up */
+    float fov;
+    float seconds; /* duration to next anchor, including a closed seam */
+} LineDrawingCameraKey;
+
 typedef struct {
     char path_id[LINE_DRAWING_SCENE_AUTHORING_ID_SIZE];
     char label[LINE_DRAWING_SCENE_AUTHORING_LABEL_SIZE];
@@ -102,6 +110,9 @@ typedef struct {
     float duration_seconds;
     float normalized_distance;
     bool playing;
+    LineDrawingCameraKey keys[LINE_DRAWING_SCENE_AUTHORING_MAX_PATH_POINTS];
+    size_t key_count; /* zero preserves all legacy camera modes */
+    unsigned next_key_id;
 } LineDrawingScenePath;
 
 typedef struct {

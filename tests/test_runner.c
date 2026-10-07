@@ -5,6 +5,10 @@ bool demand_loop_run_tests(void);
 #include <stdio.h>
 #include <string.h>
 
+bool camera_view_run_tests(void);
+bool camera_path_run_tests(void);
+bool inspection_view_run_tests(void);
+bool furniture_run_tests(void);
 bool sections_run_tests(void);
 bool layout_run_tests(void);
 bool physical_context_run_tests(void);
@@ -54,6 +58,7 @@ bool startup_config_run_tests(void);
 bool app_wrapper_diagnostics_run_tests(void);
 bool shutdown_lifetime_run_tests(void);
 bool viewport_navigation_input_run_tests(void);
+bool ui_panel_resize_run_tests(void);
 bool viewport_navigation_parity_run_tests(void);
 bool viewport3d_bridge_run_tests(void);
 
@@ -64,6 +69,10 @@ typedef struct TestGroup {
 } TestGroup;
 
 static const TestGroup kTestGroups[] = {
+    {"CameraView", camera_view_run_tests, true},
+    {"CameraPath", camera_path_run_tests, true},
+    {"InspectionView", inspection_view_run_tests, true},
+    {"Furniture", furniture_run_tests, true},
     {"Sections", sections_run_tests, true},
     {"Layout", layout_run_tests, true},
     {"PhysicalContext", physical_context_run_tests, true},
@@ -114,6 +123,7 @@ static const TestGroup kTestGroups[] = {
     {"AppWrapperDiagnostics", app_wrapper_diagnostics_run_tests, true},
     {"ShutdownLifetime", shutdown_lifetime_run_tests, true},
     {"ViewportNavigationInput", viewport_navigation_input_run_tests, true},
+    {"UIPanelResize", ui_panel_resize_run_tests, true},
     {"ViewportNavigationParity", viewport_navigation_parity_run_tests, true},
     {"Viewport3DBridge", viewport3d_bridge_run_tests, true},
 };

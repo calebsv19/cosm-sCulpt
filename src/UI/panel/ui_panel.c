@@ -1,3 +1,4 @@
+#include "UI/ui_panel_camera.h"
 #include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_spatial.h"
 #include "UI/ui_panel_motion.h"
@@ -127,17 +128,9 @@ static void UIPanel_ResolveButtonLaneLayout(int screenW,
 
     if (has_pane) {
         const int available = pane.w - padding * 2;
-        int clamped_w = default_w;
-        if (available > 0 && available < clamped_w) {
-            clamped_w = available;
-        }
-        if (clamped_w < 72) {
-            clamped_w = available > 0 ? available : 72;
-        }
-        if (clamped_w < 24) clamped_w = 24;
-        w = clamped_w;
+        w = available > 0 ? available : 0;
         y = pane.y + padding;
-        x = pane.x + (pane.w - w) / 2;
+        x = pane.x + padding;
     } else if (side == UI_PANEL_RIGHT) {
         x = screenW - default_w - padding;
     }
@@ -584,6 +577,7 @@ bool UIPanel_FitSceneBoundsToSelectedObject(void) {
 }
 
 void UIPanel_OnWindowResized(int screenW, int screenH) {
+    CameraView_RefreshViewport(Global_Get());
     UIPanelLayoutMetrics metrics;
     int padding = 10;
     int leftBtnW = 168;
@@ -1070,6 +1064,7 @@ bool UIPanel_IsObjectTransformDialogActive(void) {
 }
 
 bool UIPanel_IsCapturingKeyboard(void) {
+    if(UIPanel_CameraCapturingKeyboard())return true;
     if (g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_ROUTES && (g_uiPanel.routes.input || g_uiPanel.routes.chooser || g_uiPanel.routes.picking)) return true;
     if (g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_PARTS && (g_uiPanel.parts.input || g_uiPanel.parts.chooser)) return true;
     if (g_uiPanel.measurement.active && g_uiPanel.measurement.placing) return true;
@@ -1083,6 +1078,7 @@ bool UIPanel_IsCapturingKeyboard(void) {
 }
 
 void UIPanel_ResetTransientUiState(void) {
+    UIPanel_CameraReset();
     UIPanelState* ui = UIPanel_Get();
     if (!ui) return;
     UIPanel_CloseFileBrowser(ui);
@@ -1117,12 +1113,14 @@ void UIPanel_ResetTransientUiState(void) {
 }
 
 void UIPanel_RenderOverlays(SDL_Renderer* renderer) {
+    if(!Global_Get()->cameraView.active) {
     UIPanel_RenderRouteViewport(renderer);
     UIPanel_RenderConstraintViewport(renderer);
     UIPanel_RenderMotionViewport(renderer);
     UIPanel_RenderMotionPreview(renderer);
     if (g_uiPanel.measurement.active && g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE)
         UIPanel_RenderMeasurementViewport(renderer);
+    }
     UIPanel_RenderOverlayDialogs(renderer, &g_uiPanel);
     const char* message = Global_Get()->layout.geometryMessage;
     if (message[0]) {

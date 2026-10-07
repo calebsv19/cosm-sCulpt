@@ -4,6 +4,9 @@
 const LayoutAssembly* Layout_FindAssembly(const LayoutObjectStore* store, const char* id);
 const LayoutEntityInfo* Layout_EntityInfo(const LayoutObjectStore* store, const char* id);
 const char* Layout_EntityType(const LayoutEntityInfo* info);
+/* Presentation only: guide volumes have no opaque surface or depth ownership.
+ * Keep their geometry and explicit reserved roles intact for queries/checks. */
+bool Layout_EntityIsSpatialGuide(const LayoutEntityInfo* info);
 bool Layout_IsDescendant(const LayoutObjectStore* store, const char* parent, const char* assembly);
 bool Layout_ValidateEngineering(const Layout* layout, char* message, size_t capacity);
 bool Layout_HasEngineeringData(const Layout* layout);
@@ -17,6 +20,8 @@ bool Layout_EditAssembly(Layout* layout, const LayoutAssembly* assembly, const c
  * the assembly origin, each angle within [-180, 180]. Moves nested frames and geometry atomically, preserving IDs. */
 bool Layout_MoveAssembly(Layout* layout, const char* id, const double translation_m[3],
     Vec3 rotation_deg, LayoutGeometryBeforePublish history, void* context);
+/* Internal contact follower move: same rigid member/lock checks, no nested solve. */
+bool Layout_TranslateAssemblyCandidate(Layout* layout, const char* id, const double translation_m[3]);
 bool Layout_EntityLocalFrame(const Layout* layout, const char* id, PlaneFrame3* frame);
 bool Layout_QueryMatches(const LayoutObjectStore* store, const char* id, const LayoutEntityQuery* query);
 bool Layout_ObjectShown(const LayoutObjectStore* store, const Object3D* object);

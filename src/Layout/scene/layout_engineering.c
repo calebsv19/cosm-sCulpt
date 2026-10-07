@@ -1,4 +1,6 @@
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_inspection.h"
+#include "Layout/layout_furniture.h"
 #include "Layout/layout_saved_views.h"
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
@@ -41,6 +43,13 @@ const LayoutEntityInfo* Layout_EntityInfo(const LayoutObjectStore* store, const 
 const char* Layout_EntityType(const LayoutEntityInfo* info) {
     return info && info->entity_type[0] ? info->entity_type : "PhysicalObject";
 }
+bool Layout_EntityIsSpatialGuide(const LayoutEntityInfo* info) {
+    if (!info) return false;
+    const char* type = Layout_EntityType(info);
+    return info->volume_role != LAYOUT_VOLUME_NONE ||
+           !strcmp(type, "RoutingCorridor") || !strcmp(type, "ServiceVolume") ||
+           !strcmp(type, "KeepoutVolume") || !strcmp(type, "MotionEnvelope");
+}
 bool Layout_IsDescendant(const LayoutObjectStore* store, const char* parent, const char* assembly) {
     if (!store || !parent || !assembly || !assembly[0]) return false;
     for (int depth=0;parent[0] && depth<=LAYOUT_MAX_ASSEMBLIES;++depth) {
@@ -60,6 +69,7 @@ bool Layout_EntityInfoValid(const LayoutEntityInfo* info) {
         if (!key_valid(p->key,sizeof(p->key)) || !bounded(p->text,sizeof(p->text)) ||
             p->kind<LAYOUT_PROPERTY_TEXT || p->kind>LAYOUT_PROPERTY_LENGTH || !isfinite(p->number) ||
             (p->kind==LAYOUT_PROPERTY_BOOL && p->number!=0 && p->number!=1)) return false;
+        if (!strcmp(p->key,"inspection_facing") && Layout_InspectionFacing(info)==LAYOUT_INSPECTION_INVALID) return false;
         for (size_t j=0;j<i;++j) if (!strcmp(p->key,info->properties[j].key)) return false;
     }
     return true;
@@ -91,7 +101,7 @@ bool Layout_ValidateEngineering(const Layout* layout, char* message, size_t capa
         valid=Layout_EntityInfoValid(&o->info) && (!o->info.parent_id[0] || Layout_FindAssembly(store,o->info.parent_id));
     }
     if (!valid && message && capacity) snprintf(message,capacity,"Invalid metadata or assembly tree: check IDs, parent cycles, properties and rigid frames.");
-    return valid && Layout_ValidateSavedViews(layout) && Layout_ValidateMotionScopes(layout,message,capacity) && Layout_ValidateRelationships(layout,message,capacity) && Layout_ValidateSpatialRecords(layout,message,capacity) && Layout_ValidateRoutes(layout,message,capacity);
+    return valid && Layout_ValidateFurniture(layout,message,capacity) && Layout_ValidateSavedViews(layout) && Layout_ValidateMotionScopes(layout,message,capacity) && Layout_ValidateRelationships(layout,message,capacity) && Layout_ValidateSpatialRecords(layout,message,capacity) && Layout_ValidateRoutes(layout,message,capacity);
 }
 bool Layout_HasEngineeringData(const Layout* layout) {
     if (!layout) return false;
@@ -170,7 +180,7 @@ static Vec3 rotate(Vec3 v, Vec3 angles) {
     }
     return v;
 }
-typedef struct { const char* id; const double* translation; Vec3 rotation; } AssemblyMove;
+typedef struct { const char* id; const double* translation; Vec3 rotation; bool skip_solve; } AssemblyMove;
 static bool move_assembly(Layout* layout, void* context) {
     AssemblyMove* edit=context;LayoutObjectStore* store=&layout->objectStore;
     const LayoutAssembly* selected=Layout_FindAssembly(store,edit->id);
@@ -205,6 +215,7 @@ static bool move_assembly(Layout* layout, void* context) {
         a->frame.origin=Vec3_Add(Vec3_Add(origin,rotate(Vec3_Sub(a->frame.origin,origin),edit->rotation)),delta);
         a->frame.axisU=rotate(a->frame.axisU,edit->rotation);a->frame.axisV=rotate(a->frame.axisV,edit->rotation);a->frame.normal=rotate(a->frame.normal,edit->rotation);
     }
+    if (edit->skip_solve) return true;
     /* External dependents may follow, but the solver must not distort any member's
      * requested rigid pose. Conflicting cross-boundary rules reject the entire move. */
     size_t bytes=store->count*sizeof(Object3D);Object3D* expected=bytes ? malloc(bytes) : NULL;
@@ -221,8 +232,13 @@ static bool move_assembly(Layout* layout, void* context) {
 bool Layout_MoveAssembly(Layout* layout, const char* id, const double translation_m[3],
     Vec3 rotation_deg, LayoutGeometryBeforePublish history, void* context) {
     if (!id || !translation_m) return false;
-    AssemblyMove move={id,translation_m,rotation_deg};
+    AssemblyMove move={.id=id,.translation=translation_m,.rotation=rotation_deg};
     return Layout_RunGeometryEdit(layout,0,move_assembly,&move,history,context);
+}
+bool Layout_TranslateAssemblyCandidate(Layout* layout, const char* id, const double translation_m[3]) {
+    if (!layout || !layout->geometryEditActive || !id || !translation_m) return false;
+    AssemblyMove move={.id=id,.translation=translation_m,.skip_solve=true};
+    return move_assembly(layout,&move);
 }
 static Vec3 inverse_vector(PlaneFrame3 parent, Vec3 v) {
     return (Vec3){Vec3_Dot(v,parent.axisU),Vec3_Dot(v,parent.axisV),Vec3_Dot(v,parent.normal)};

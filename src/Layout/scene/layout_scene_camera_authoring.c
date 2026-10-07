@@ -1,3 +1,4 @@
+#include "Layout/scene/layout_camera_poses.h"
 #include "Layout/scene/layout_scene_camera_authoring.h"
 #include "Layout/scene/layout_scene_path_traversal.h"
 
@@ -150,7 +151,7 @@ bool Layout_SceneCamera_EvaluatePose(const LineDrawingSceneCamera* camera,
                                      const LineDrawingScenePath* path,
                                      LineDrawingSceneCameraPose* out_pose) {
     LineDrawingSceneCameraPose pose = {0};
-    Vec3 world_up = {0.0f, 0.0f, 1.0f};
+
     Vec3 right;
     if (!camera || !out_pose) return false;
     pose.position = path && path->control_point_count > 0u ? path->control_points[0]
@@ -163,8 +164,9 @@ bool Layout_SceneCamera_EvaluatePose(const LineDrawingSceneCamera* camera,
         pose.forward = CameraPathForward(path, pose.position);
     }
     if (Vec3_Length(pose.forward) < 0.0001f) pose.forward = (Vec3){0.0f, 1.0f, 0.0f};
-    if (fabsf(Vec3_Dot(pose.forward, world_up)) > 0.98f) world_up = (Vec3){0.0f, 1.0f, 0.0f};
-    right = Vec3_Normalize(Vec3_Cross(pose.forward, world_up));
+    /* Z-up heading basis stays continuous near vertical viewpoints. */
+    right=Vec3_Normalize((Vec3){pose.forward.y,-pose.forward.x,0});
+    if(Vec3_Length(right)<.0001f)right=(Vec3){0,-1,0};
     pose.up = Vec3_Normalize(Vec3_Cross(right, pose.forward));
     if (fabsf(camera->roll_degrees) > 0.001f) {
         const float radians = camera->roll_degrees * 0.01745329251994329577f;
@@ -183,6 +185,8 @@ bool Layout_SceneCamera_EvaluatePoseAtNormalizedDistance(
     LineDrawingScenePathTraversalTable table = {0};
     LineDrawingScenePathTraversalSample sample = {0};
     LineDrawingSceneCamera sampled_camera;
+    if(path && path->key_count) return CameraPoses_DistanceSample(path,normalized_distance,out_pose,NULL);
+    if(camera && !path && out_pose) return Layout_SceneCamera_EvaluatePose(camera,NULL,out_pose);
     if (!camera || !path || !out_pose ||
         !Layout_ScenePathTraversal_Build(path, &table) ||
         !Layout_ScenePathTraversal_EvaluateNormalized(&table,
@@ -199,17 +203,21 @@ bool Layout_SceneCamera_EvaluatePoseAtNormalizedDistance(
         const float epsilon = table.total_distance > 0.0f
             ? fmaxf(0.001f, 0.01f / table.total_distance) : 0.001f;
         if (Layout_ScenePathTraversal_EvaluateNormalized(&table,
-                                                         normalized_distance + epsilon,
+                                                         normalized_distance >= 1 && path->playback_mode == LINE_DRAWING_SCENE_PATH_PLAYBACK_ONCE
+                                                             ? normalized_distance-epsilon : normalized_distance+epsilon,
                                                          path->playback_mode,
                                                          &ahead) &&
             Vec3_Length(Vec3_Sub(ahead.world, sample.world)) > 0.0001f) {
             Vec3 world_up = {0.0f, 0.0f, 1.0f};
             Vec3 right;
-            out_pose->forward = Vec3_Normalize(Vec3_Sub(ahead.world, sample.world));
+            out_pose->forward = Vec3_Normalize(normalized_distance >= 1 && path->playback_mode == LINE_DRAWING_SCENE_PATH_PLAYBACK_ONCE
+                ? Vec3_Sub(sample.world,ahead.world) : Vec3_Sub(ahead.world,sample.world));
             if (fabsf(Vec3_Dot(out_pose->forward, world_up)) > 0.98f)
                 world_up = (Vec3){0.0f, 1.0f, 0.0f};
             right = Vec3_Normalize(Vec3_Cross(out_pose->forward, world_up));
             out_pose->up = Vec3_Normalize(Vec3_Cross(right, out_pose->forward));
+            float roll=DegToRad(camera->roll_degrees);
+            out_pose->up=Vec3_Add(Vec3_Scale(out_pose->up,cosf(roll)),Vec3_Scale(right,sinf(roll)));
         }
     }
     return true;
