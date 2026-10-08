@@ -252,6 +252,13 @@ bool LineDrawingSceneExport_ExportLayoutToOutputRoot(const Layout* layout,
         SculptScenePackage_FreeManifestJson(package_manifest_json);
         return false;
     }
+    if (!LineDrawingSceneExportDependencies_BindPaths(&authoring_json,&dependencies)) {
+        free(authoring_json);
+        SculptScenePackage_FreeManifestJson(package_manifest_json);
+        LineDrawingSceneExportDependencies_Destroy(&dependencies);
+        write_diagnostics(diagnostics,diagnostics_size,"failed to bind contained runtime mesh paths");
+        return false;
+    }
     compile_options.dependency_digest_sha256 = dependencies.digest_sha256;
     compile_options.dependency_count = dependencies.count;
     compile_options.dependency_manifest_json = dependencies.manifest_json;

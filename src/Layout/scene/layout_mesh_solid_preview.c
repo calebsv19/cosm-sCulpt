@@ -1,3 +1,4 @@
+#include "Layout/layout_surface_material.h"
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_inspection.h"
 #include "Layout/layout_section.h"
@@ -348,6 +349,8 @@ static void LayoutMeshSolid_RasterizeTriangle(Vec3 a, Vec3 b, Vec3 c,
 }
 static SDL_Color LayoutMeshSolid_Color(const Object3D* object, bool material) {
     if (!material) return (SDL_Color){164,185,202,255};
+    const LayoutSurfaceMaterial *finish=Layout_SurfaceMaterialFind(Layout_SurfaceMaterialId(&object->info));
+    if(finish) return (SDL_Color){(finish->rgb>>16)&255,(finish->rgb>>8)&255,finish->rgb&255,255};
     for (size_t i=0;i<object->info.property_count;++i) {
         const LayoutProperty* p=&object->info.properties[i];
         if (strcmp(p->key,"material") || p->kind!=LAYOUT_PROPERTY_TEXT) continue;

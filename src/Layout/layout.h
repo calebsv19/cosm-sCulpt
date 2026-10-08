@@ -242,6 +242,7 @@ typedef struct {
 typedef enum { LAYOUT_VOLUME_NONE, LAYOUT_VOLUME_KEEPOUT, LAYOUT_VOLUME_SERVICE } LayoutVolumeRole;
 typedef struct {
     char label[96]; /* display only; empty falls back to the existing primitive label */
+    char surface_material[32]; /* Render preset, independent of physical material. */
     char entity_type[64]; /* extensible category; empty means PhysicalObject */
     char parent_id[64]; /* assembly ID; transform hierarchy, never electrical/support connectivity */
     bool reference;

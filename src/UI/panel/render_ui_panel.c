@@ -1,3 +1,4 @@
+#include "Layout/layout_surface_material.h"
 #include "UI/ui_panel_section.h"
 #include "UI/ui_panel_camera.h"
 #include "UI/ui_panel_furniture.h"
@@ -545,6 +546,11 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
                  "%s",
                  UIPanel_GetDisplayUnitSymbol());
         label = dynamicLabel;
+    } else if (btn->id==UI_BTN_SURFACE_MATERIAL) {
+        const GlobalState *st=Global_Get();
+        const Object3D *o=st ? Layout_ObjectStore_FindConst(&st->layout.objectStore,st->editor.selectedObject3DId) : NULL;
+        const LayoutSurfaceMaterial *p=o ? Layout_SurfaceMaterialFind(Layout_SurfaceMaterialId(&o->info)) : NULL;
+        snprintf(dynamicLabel,sizeof(dynamicLabel),"Finish: %s >",p ? p->label : "Default");label=dynamicLabel;
     } else if (btn->id==UI_BTN_PANEL_THICKNESS || btn->id==UI_BTN_PANEL_KEEP_FACE || btn->id==UI_BTN_PANEL_MATERIAL) {
         const GlobalState* st=Global_Get();
         const Object3D* o=st?Layout_ObjectStore_FindConst(&st->layout.objectStore,st->editor.selectedObject3DId):NULL;

@@ -1,3 +1,4 @@
+#include "Tools/canonical_scene_export_surfaces.h"
 #include "Layout/layout_routes.h"
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_relationships.h"
@@ -597,7 +598,7 @@ static bool append_primitive_scene_objects(cJSON* objects,
         cJSON* object_extensions = NULL;
         cJSON* hierarchy_item = NULL;
 
-        if (object->isDeleted || object->info.volume_role!=LAYOUT_VOLUME_NONE) continue;
+        if (object->isDeleted || Layout_EntityIsSpatialGuide(&object->info)) continue;
         if (!object->coreMeta.object_id[0]) {
             if (debug_export) {
                 fprintf(stderr, "[scene_export] skip object index=%zu id=%u: missing core object_id\n",
@@ -1336,6 +1337,9 @@ static cJSON* build_scene_json(const Layout* layout,
         return NULL;
     }
 
+    if (!LineDrawingCanonicalScene_ApplySurfaceMaterials(root,layout)) {
+        cJSON_Delete(root); return NULL;
+    }
     return root;
 }
 

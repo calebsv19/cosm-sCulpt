@@ -6,6 +6,7 @@
 #include "core_scene_compile.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static void dependency_diagnostics(char* diagnostics, size_t size, const char* message) {
@@ -164,4 +165,36 @@ void LineDrawingSceneExportDependencies_Destroy(
     core_free(dependencies->payload_buffers);
     core_free(dependencies->entries);
     memset(dependencies, 0, sizeof(*dependencies));
+}
+
+bool LineDrawingSceneExportDependencies_BindPaths(char **authoring_json,
+    const LineDrawingSceneExportDependencies *dependencies) {
+    if(!authoring_json || !*authoring_json || !dependencies) return false;
+    cJSON *root=cJSON_Parse(*authoring_json);
+    cJSON *objects=cJSON_GetObjectItemCaseSensitive(root,"objects");
+    bool ok=cJSON_IsArray(objects);
+    cJSON *object=NULL;
+    cJSON_ArrayForEach(object,objects) {
+        cJSON *ref=cJSON_GetObjectItemCaseSensitive(object,"geometry_ref");
+        const cJSON *kind=cJSON_GetObjectItemCaseSensitive(ref,"kind");
+        const cJSON *id=cJSON_GetObjectItemCaseSensitive(ref,"id");
+        if(!cJSON_IsString(kind) || strcmp(kind->valuestring,"mesh_asset")) continue;
+        bool found=false;
+        for(size_t i=0;cJSON_IsString(id) && i<dependencies->count;++i) {
+            const CoreSceneCompileDependency *d=&dependencies->entries[i];
+            if(strcmp(d->kind,"mesh_asset_runtime") || strcmp(d->identity,id->valuestring)) continue;
+            char path[CORE_SCENE_COMPILE_DEPENDENCY_PATH_SIZE];
+            cJSON *extensions=cJSON_GetObjectItemCaseSensitive(object,"extensions");
+            cJSON *line=cJSON_GetObjectItemCaseSensitive(extensions,"line_drawing");
+            if(!cJSON_IsObject(line) || core_scene_compile_dependency_payload_path(d->kind,d->content_sha256,path).code!=CORE_OK) break;
+            cJSON_DeleteItemFromObjectCaseSensitive(line,"runtime_mesh_path");
+            found=cJSON_AddStringToObject(line,"runtime_mesh_path",path)!=NULL;
+            break;
+        }
+        if(!found) {ok=false;break;}
+    }
+    char *text=ok ? cJSON_PrintUnformatted(root) : NULL;
+    cJSON_Delete(root);
+    if(!text) return false;
+    free(*authoring_json);*authoring_json=text;return true;
 }

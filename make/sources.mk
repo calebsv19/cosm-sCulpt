@@ -17,7 +17,7 @@ ifeq ($(VK_RUNTIME_AVAILABLE),1)
 VK_RUNTIME_SRCS := $(shell find $(VK_RUNTIME_DIR)/src -name '*.c')
 endif
 SHAPE_LIB_SRCS := $(shell find $(TOOLS_DIR)/ShapeLib -name '*.c')
-SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c $(TOOLS_DIR)/canonical_scene_export.c $(TOOLS_DIR)/canonical_scene_export_authoring.c $(TOOLS_DIR)/canonical_scene_export_materials.c $(TOOLS_DIR)/canonical_scene_export_primitives.c $(TOOLS_DIR)/scene_export.c $(TOOLS_DIR)/scene_export_dependencies.c $(TOOLS_DIR)/scene_project_export.c $(TOOLS_DIR)/scene_import.c $(TOOLS_DIR)/scene_authoring_import.c
+SHAPE_BRIDGE_SRCS := $(TOOLS_DIR)/shape_from_layout.c $(TOOLS_DIR)/shape_export.c $(TOOLS_DIR)/shape_dataset.c $(TOOLS_DIR)/canonical_scene_export.c $(TOOLS_DIR)/canonical_scene_export_authoring.c $(TOOLS_DIR)/canonical_scene_export_surfaces.c $(TOOLS_DIR)/canonical_scene_export_materials.c $(TOOLS_DIR)/canonical_scene_export_primitives.c $(TOOLS_DIR)/scene_export.c $(TOOLS_DIR)/scene_export_dependencies.c $(TOOLS_DIR)/scene_project_export.c $(TOOLS_DIR)/scene_import.c $(TOOLS_DIR)/scene_authoring_import.c
 EXT_SRCS := $(EXT_DIR)/cjson/cJSON.c
 CORE_TIME_SRCS := $(CORE_TIME_DIR)/src/core_time.c
 ifeq ($(UNAME_S),Darwin)
@@ -52,7 +52,7 @@ SHAPE_TOOL_SRCS := \
 	$(TOOLS_DIR)/shape_export.c \
 	$(TOOLS_DIR)/canonical_scene_export.c \
 	$(TOOLS_DIR)/canonical_scene_export_authoring.c \
-	$(TOOLS_DIR)/canonical_scene_export_materials.c \
+	$(TOOLS_DIR)/canonical_scene_export_surfaces.c $(TOOLS_DIR)/canonical_scene_export_materials.c \
 	$(TOOLS_DIR)/canonical_scene_export_primitives.c \
 	$(TOOLS_DIR)/shape_dataset.c \
 	$(TOOLS_DIR)/global_state_stub.c \
@@ -65,6 +65,7 @@ SHAPE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/layout_json.c \
 	$(SRC_DIR)/Layout/scene/layout_reference.c \
 	$(SRC_DIR)/Layout/scene/layout_constraints.c \
+	$(SRC_DIR)/Layout/scene/layout_surface_material.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering.c \
 	$(SRC_DIR)/Layout/scene/layout_inspection.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering_json.c \
@@ -122,12 +123,13 @@ SHAPE_PACK_TOOL_SRCS := \
 	$(SHAPE_TOOL_SUPPORT_SRCS)
 
 AGENT_SCENE_TOOL_SRCS := \
+	$(TOOLS_DIR)/scene_export_dependencies.c \
 	$(TOOLS_DIR)/agent_scene_tool.c \
 	$(TOOLS_DIR)/illustrative_van.c \
 	$(TOOLS_DIR)/agent_scene_material_flow.c \
 	$(TOOLS_DIR)/canonical_scene_export.c \
 	$(TOOLS_DIR)/canonical_scene_export_authoring.c \
-	$(TOOLS_DIR)/canonical_scene_export_materials.c \
+	$(TOOLS_DIR)/canonical_scene_export_surfaces.c $(TOOLS_DIR)/canonical_scene_export_materials.c \
 	$(TOOLS_DIR)/canonical_scene_export_primitives.c \
 	$(TOOLS_DIR)/global_state_stub.c
 AGENT_SCENE_TOOL_SUPPORT_SRCS := \
@@ -138,6 +140,7 @@ AGENT_SCENE_TOOL_SUPPORT_SRCS := \
 	$(SRC_DIR)/Layout/layout_json.c \
 	$(SRC_DIR)/Layout/scene/layout_reference.c \
 	$(SRC_DIR)/Layout/scene/layout_constraints.c \
+	$(SRC_DIR)/Layout/scene/layout_surface_material.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering.c \
 	$(SRC_DIR)/Layout/scene/layout_inspection.c \
 	$(SRC_DIR)/Layout/scene/layout_engineering_json.c \

@@ -62,9 +62,9 @@ with tempfile.TemporaryDirectory(prefix="camera-export-test-") as tmp:
         f, u = frame["forward"], frame["up"]
         assert abs(sum(f[k]*u[k] for k in f)) < 1e-5
         assert abs(sum(f[k]**2 for k in f)-1) < 1e-5
-    before = {p.name: p.read_bytes() for p in a.iterdir()}
+    before = {str(p.relative_to(a)): p.read_bytes() for p in a.rglob("*") if p.is_file()}
     assert run(a).returncode != 0
-    assert before == {p.name: p.read_bytes() for p in a.iterdir()}
+    assert before == {str(p.relative_to(a)): p.read_bytes() for p in a.rglob("*") if p.is_file()}
     assert run(root / "bad_fps", "nan").returncode != 0
     assert run(root / "missing", path_id="unknown").returncode != 0
     assert not (root / "bad_fps").exists() and not (root / "missing").exists()

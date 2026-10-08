@@ -1,3 +1,4 @@
+#include "Tools/scene_export_dependencies.h"
 /* Deterministic offline camera sampling. Never writes the input layout. */
 #include "Layout/layout_json.h"
 #include "Layout/scene/layout_camera_poses.h"
@@ -86,15 +87,30 @@ int main(int argc,char **argv) {
     }
     text=LineDrawingCanonicalScene_ExportLayoutToString(&layout,argv[4]);
     scene=text ? cJSON_Parse(text) : NULL;
-    if(!scene || mkdir(argv[3],0700))goto done;
-    if(!write_json(argv[3],"scene_authoring.json",scene) ||
-       !write_json(argv[3],"camera_samples.json",manifest))goto done;
-    char authoring[4096],runtime[4096],diagnostics[512];
-    if(snprintf(authoring,sizeof(authoring),"%s/scene_authoring.json",argv[3])>=(int)sizeof(authoring) ||
-       snprintf(runtime,sizeof(runtime),"%s/scene_runtime.json",argv[3])>=(int)sizeof(runtime))goto done;
-    if(core_scene_compile_authoring_file_to_runtime_file(authoring,runtime,diagnostics,sizeof(diagnostics)).code!=CORE_OK) {
+    if(!scene)goto done;
+    LineDrawingSceneExportDependencies dependencies={0};
+    CoreSceneCompileOptions options={0};
+    CoreSceneCompileBundlePaths published={0};
+    CoreSceneCompileVerification verification={0};
+    char diagnostics[512];
+    if(!LineDrawingSceneExportDependencies_Collect(&layout,argv[1],&dependencies,diagnostics,sizeof(diagnostics))) {
         fprintf(stderr,"%s\n",diagnostics);goto done;
     }
+    if(!LineDrawingSceneExportDependencies_BindPaths(&text,&dependencies)) {
+        LineDrawingSceneExportDependencies_Destroy(&dependencies);goto done;
+    }
+    options.dependency_digest_sha256=dependencies.digest_sha256;
+    options.dependency_count=dependencies.count;
+    options.dependency_manifest_json=dependencies.manifest_json;
+    options.dependency_payloads=dependencies.entries;
+    options.dependency_payload_count=dependencies.count;
+    CoreResult publish=core_scene_compile_publish_bundle(text,&options,argv[3],&published,diagnostics,sizeof(diagnostics));
+    LineDrawingSceneExportDependencies_Destroy(&dependencies);
+    if(publish.code!=CORE_OK || core_scene_compile_verify_bundle(argv[3],published.bundle_sha256,
+        &verification,diagnostics,sizeof(diagnostics)).code!=CORE_OK) {
+        fprintf(stderr,"%s\n",diagnostics);goto done;
+    }
+    if(!write_json(argv[3],"camera_samples.json",manifest))goto done;
     printf("Exported %zu anchors and %d frames (%.6f seconds)\n",path->key_count,frames,duration);
     result=0;
 done:

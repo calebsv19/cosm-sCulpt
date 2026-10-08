@@ -178,3 +178,5 @@ Current verification contract:
 - [Connected sections, inventory and furniture](routing_sections_and_furniture.md) — S5 native/UI contracts and revised van.
 
 - [C1–C3 camera navigation, inspection and path poses](camera_view.md): Main Edit controls, persistence, proof and C4 limits.
+
+- [Per-object render finishes and optiC camera handoff](surface_materials.md)

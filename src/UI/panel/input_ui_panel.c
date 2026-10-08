@@ -1,3 +1,4 @@
+#include "Layout/layout_surface_material.h"
 #include "Layout/layout_engineering.h"
 #include <stdio.h>
 #include <string.h>
@@ -673,6 +674,14 @@ bool UIPanel_HandleClick(int mouseX, int mouseY) {
                 case UI_BTN_PANEL_KEEP_FACE:
                     ui->panelKeepFace=ui->panelKeepFace==0?-1:ui->panelKeepFace==-1?1:0;
                     break;
+                case UI_BTN_SURFACE_MATERIAL: {
+                    const Object3D *o=Layout_ObjectStore_FindConst(&state->layout.objectStore,editor->selectedObject3DId);
+                    if(o && Layout_SetSurfaceMaterial(&state->layout,o->coreMeta.object_id,
+                        Layout_SurfaceMaterialNext(&o->info),Layout_GeometryHistory,NULL)) {
+                        Global_FlagLayoutChanged();Global_FlagHitboxesDirty();
+                    }
+                    break;
+                }
                 case UI_BTN_PANEL_MATERIAL: {
                     const Object3D* o=Layout_ObjectStore_FindConst(&state->layout.objectStore,editor->selectedObject3DId);
                     if (!o) break;

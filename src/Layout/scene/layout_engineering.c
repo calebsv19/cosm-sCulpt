@@ -1,4 +1,5 @@
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_surface_material.h"
 #include "Layout/layout_inspection.h"
 #include "Layout/layout_furniture.h"
 #include "Layout/layout_saved_views.h"
@@ -61,7 +62,7 @@ bool Layout_IsDescendant(const LayoutObjectStore* store, const char* parent, con
     return false;
 }
 bool Layout_EntityInfoValid(const LayoutEntityInfo* info) {
-    if (!info) return false;
+    if (!info || !Layout_SurfaceMaterialValid(info)) return false;
     if (!bounded(info->label,sizeof(info->label)) || !bounded(info->entity_type,sizeof(info->entity_type)) ||
         !bounded(info->parent_id,sizeof(info->parent_id)) || info->property_count>LAYOUT_MAX_PROPERTIES) return false;
     for (size_t i=0;i<info->property_count;++i) {

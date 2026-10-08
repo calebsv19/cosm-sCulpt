@@ -144,3 +144,13 @@ camera_path_tool: $(PROGRAM_BIN_DIR)/camera_path_tool
 camera-path-export-smoke: camera_path_tool
 	python3 tests/test_camera_path_tool.py $(PROGRAM_BIN_DIR)/camera_path_tool
 -include $(PROGRAM_BUILD_DIR)/tools/camera_path_tool.d
+
+$(PROGRAM_BIN_DIR)/surface_material_tool: $(PROGRAM_BUILD_DIR)/tools/surface_material_tool.o $(VAN_CONCEPT_OBJS) $(AGENT_SCENE_TOOL_SHARED_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $^ -o $@ $(LDFLAGS)
+.PHONY: surface_material_tool surface-material-smoke
+surface_material_tool: $(PROGRAM_BIN_DIR)/surface_material_tool
+surface-material-smoke: surface_material_tool camera_path_tool
+	@python3 tests/test_surface_material_tool.py $(PROGRAM_BIN_DIR)/surface_material_tool $(PROGRAM_BIN_DIR)/camera_path_tool
+	@python3 tests/test_ray_camera_requests.py
+-include $(PROGRAM_BUILD_DIR)/tools/surface_material_tool.d

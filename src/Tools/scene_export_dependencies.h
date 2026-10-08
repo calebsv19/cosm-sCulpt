@@ -27,3 +27,8 @@ bool LineDrawingSceneExportDependencies_Collect(
 /* Release every manifest and retained payload allocation owned by a collection. */
 void LineDrawingSceneExportDependencies_Destroy(
     LineDrawingSceneExportDependencies* dependencies);
+
+/* Bind generated mesh references to the same contained payloads published by
+ * core_scene_compile. The consumer does not resolve identities from the manifest. */
+bool LineDrawingSceneExportDependencies_BindPaths(char **authoring_json,
+    const LineDrawingSceneExportDependencies *dependencies);

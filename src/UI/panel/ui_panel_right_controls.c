@@ -1,3 +1,4 @@
+#include "Layout/layout_engineering.h"
 #include "UI/ui_panel_right_controls.h"
 #include "Core/global_state.h"
 #include "UI/ui_panel_measurement.h"
@@ -22,6 +23,8 @@ static bool UIPanel_RightControlButtonVisible(int button_id) {
     if (state && state->cameraView.active &&
         (UIPanel_Get()->activeRightTab==UI_PANEL_RIGHT_TAB_VIEW)) return false;
     switch (button_id) {
+        case UI_BTN_SURFACE_MATERIAL:
+            return !object_mode && !scene_authoring_selected;
         case UI_BTN_PANEL_THICKNESS:
         case UI_BTN_PANEL_KEEP_FACE:
         case UI_BTN_PANEL_MATERIAL: {
@@ -196,6 +199,7 @@ static bool UIPanel_RightControlRowSpecForButton(int button_id, UIPanelRightCont
         case UI_BTN_SCENE_AUTHORING_LIGHT_ENABLED: spec = (UIPanelRightControlRowSpec){ 7, 3, 2 }; break;
         case UI_BTN_PANEL_THICKNESS: spec = (UIPanelRightControlRowSpec){ 9, 1, 0 }; break;
         case UI_BTN_PANEL_KEEP_FACE: spec = (UIPanelRightControlRowSpec){ 10, 1, 0 }; break;
+        case UI_BTN_SURFACE_MATERIAL: spec = (UIPanelRightControlRowSpec){ 12, 1, 0 }; break;
         case UI_BTN_PANEL_MATERIAL: spec = (UIPanelRightControlRowSpec){ 11, 1, 0 }; break;
         case UI_BTN_EDIT_PRISM_WIDTH: spec = (UIPanelRightControlRowSpec){ 8, 4, 0 }; break;
         case UI_BTN_EDIT_PRISM_HEIGHT: spec = (UIPanelRightControlRowSpec){ 8, 4, 1 }; break;

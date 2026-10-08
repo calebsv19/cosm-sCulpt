@@ -25,6 +25,7 @@ cJSON* Layout_EntityInfoToJson(const LayoutEntityInfo* info) {
         cJSON_Delete(o); return NULL;
     }
     if (!cJSON_AddNumberToObject(o,"volumeRole",info->volume_role) || !cJSON_AddStringToObject(o,"volumeOwner",info->volume_owner)) {cJSON_Delete(o);return NULL;}
+    if (info->surface_material[0] && !cJSON_AddStringToObject(o,"surfaceMaterial",info->surface_material)) {cJSON_Delete(o);return NULL;}
     cJSON* properties=cJSON_AddArrayToObject(o,"properties");
     if (!properties) {cJSON_Delete(o);return NULL;}
     for (size_t i=0;i<info->property_count;++i) {
@@ -41,6 +42,8 @@ cJSON* Layout_EntityInfoToJson(const LayoutEntityInfo* info) {
 bool Layout_EntityInfoFromJson(const cJSON* o, LayoutEntityInfo* info) {
     if (!cJSON_IsObject(o) || !string(o,"name",info->label,sizeof(info->label)) ||
         !string(o,"type",info->entity_type,sizeof(info->entity_type)) || !string(o,"parent",info->parent_id,sizeof(info->parent_id))) return false;
+    memset(info->surface_material,0,sizeof(info->surface_material));
+    if(cJSON_GetObjectItemCaseSensitive(o,"surfaceMaterial") && !string(o,"surfaceMaterial",info->surface_material,sizeof(info->surface_material))) return false;
     const cJSON* role=cJSON_GetObjectItemCaseSensitive(o,"volumeRole"),*owner=cJSON_GetObjectItemCaseSensitive(o,"volumeOwner");
     if (role || owner) {
         if (!cJSON_IsNumber(role) || !isfinite(role->valuedouble) || role->valuedouble<0 || role->valuedouble>LAYOUT_VOLUME_SERVICE || floor(role->valuedouble)!=role->valuedouble || !string(o,"volumeOwner",info->volume_owner,sizeof(info->volume_owner))) return false;

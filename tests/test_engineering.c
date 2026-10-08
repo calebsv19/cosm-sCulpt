@@ -1,3 +1,4 @@
+#include "Layout/layout_surface_material.h"
 #include "test_layout_internal.h"
 #include "Layout/layout_engineering.h"
 #include "UI/ui_panel_parts.h"
@@ -210,8 +211,36 @@ static bool test_mesh_rigid_nested_frame(void) {
     TEST_ASSERT(!Layout_MoveAssembly(&s->layout,root,(double[]){0,0,0},(Vec3){181,0,0},Layout_GeometryHistory,NULL) && same_json(&s->layout,saved) && Editor_UndoCount(&s->editor)==count);
     Layout_FreeString(saved);ld_test_shutdown_runtime();unlink(path);return true;
 }
+static bool test_surface_finish_history_and_validation(void) {
+    ld_test_init_runtime();GlobalState *s=Global_Get();TEST_ASSERT(part("panel",(Vec3){1,2,3}));
+    LayoutEntityInfo info=s->layout.objectStore.items[0].info;
+    info.property_count=LAYOUT_MAX_PROPERTIES;
+    for(size_t i=0;i<LAYOUT_MAX_PROPERTIES;++i) {
+        snprintf(info.properties[i].key,sizeof(info.properties[i].key),"property_%zu",i);
+        info.properties[i].kind=LAYOUT_PROPERTY_NUMBER;info.properties[i].number=(double)i;
+    }
+    TEST_ASSERT(Layout_SetEntityInfo(&s->layout,"panel",&info,NULL,NULL));
+    Editor_ClearHistory(&s->editor);
+    TEST_ASSERT(Layout_SetSurfaceMaterial(&s->layout,"panel","wood",Layout_GeometryHistory,NULL));
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==1);
+    TEST_ASSERT(!strcmp(Layout_SurfaceMaterialId(&s->layout.objectStore.items[0].info),"wood"));
+    TEST_ASSERT(s->layout.objectStore.items[0].info.property_count==LAYOUT_MAX_PROPERTIES);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout));
+    TEST_ASSERT(!Layout_SurfaceMaterialId(&s->layout.objectStore.items[0].info)[0]);
+    TEST_ASSERT(Editor_Redo(&s->editor,&s->layout));
+    char *before=Layout_SaveToString(&s->layout);size_t count=Editor_UndoCount(&s->editor);
+    TEST_ASSERT(!Layout_SetSurfaceMaterial(&s->layout,"panel","unsupported",Layout_GeometryHistory,NULL));
+    info=s->layout.objectStore.items[0].info;snprintf(info.surface_material,sizeof(info.surface_material),"unsupported");
+    TEST_ASSERT(!Layout_SetEntityInfo(&s->layout,"panel",&info,Layout_GeometryHistory,NULL));
+    TEST_ASSERT(Editor_UndoCount(&s->editor)==count && same_json(&s->layout,before));
+    TEST_ASSERT(Layout_LoadFromString(&s->layout,before));
+    TEST_ASSERT(!strcmp(Layout_SurfaceMaterialId(&s->layout.objectStore.items[0].info),"wood"));
+    TEST_ASSERT(ld_test_vec3_nearly_equal(s->layout.objectStore.items[0].transform.position,(Vec3){1,2,3}));
+    Layout_FreeString(before);ld_test_shutdown_runtime();return true;
+}
 bool engineering_run_tests(void) {
     const TestCase cases[]={
+        {"surface_finish_history_and_validation",test_surface_finish_history_and_validation},
         {"mesh_rigid_nested_frame",test_mesh_rigid_nested_frame},
         {"history_reservation_noop_legacy",test_history_reservation_noop_and_legacy},
         {"query_hitboxes_view_only",test_query_hitboxes_and_filter_persistence},

@@ -273,3 +273,9 @@ not replaced by this route.
 
 Run `make BUILD_DIR=build/camera-export camera-path-export-smoke` for export
 determinism, timing/orientation, stationary-turn, endpoint and refusal checks.
+
+The camera exporter now uses the existing dependency collector and verified
+bundle publisher, so panel openings and imported mesh payloads accompany the
+runtime scene. Existing mesh references are rebound to their contained payload
+paths. See [render finishes and optiC camera requests](surface_materials.md) for
+persistent material authoring and the unrolled-camera request adapter.
