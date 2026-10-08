@@ -65,3 +65,6 @@ are refused before any output is created. Near/far overrides are unavailable in
 that request API and remain explicitly unqualified. Ambient inspection fill is
 provisional. The command creates requests; it does not submit jobs, render a
 video, or modify RayTracing.
+
+Wood exports use procedural placement scale 8 for finer grain at van dimensions;
+brushed metal retains scale 1. This controls appearance, not measured timber grain.

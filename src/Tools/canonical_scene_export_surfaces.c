@@ -90,7 +90,8 @@ bool LineDrawingCanonicalScene_ApplySurfaceMaterials(cJSON *root,const Layout *l
             cJSON_AddBoolToObject(layer,"enabled",true);
             cJSON_AddNumberToObject(layer,"opacity",1);
             cJSON *placement=cJSON_AddObjectToObject(layer,"placement");
-            cJSON_AddNumberToObject(placement,"scale",1);
+            /* Texture coordinates multiply by scale: finer wood at van dimensions. */
+            cJSON_AddNumberToObject(placement,"scale",!strcmp(p->texture,"wood") ? 8 : 1);
             cJSON_AddNumberToObject(placement,"strength",1);
             cJSON *params=cJSON_AddObjectToObject(layer,"parameters");
             cJSON_AddNumberToObject(params,"seed",131);

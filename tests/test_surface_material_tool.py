@@ -69,8 +69,10 @@ with tempfile.TemporaryDirectory(prefix='surface-material-') as tmp:
         assert 0<=entry['reflectivity']<=1 and 0<=entry['roughness']<=1
     wood=next(n for n in native if n['object_id']=='bed_deck')
     assert wood['material_texture_stack']['layers'][0]['kind']=='wood'
+    assert wood['material_texture_stack']['layers'][0]['placement']['scale']==8
     metal=next(n for n in native if n['object_id']=='bed_rail_driver')
     assert metal['material_texture_stack']['layers'][0]['kind']=='brushed_metal'
+    assert metal['material_texture_stack']['layers'][0]['placement']['scale']==1
     assert not any(i in objects for i in ['walkway','chair_space_driver','upper_halo_driver'])
     again=root/'again.json';assert apply(rows,again,out).returncode==0
     a2,r2=export(again,root/'export2');assert a2==authoring and r2==runtime
