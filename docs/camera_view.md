@@ -220,3 +220,7 @@ save it. The idle mode runs the real demand loop for 3.5 seconds and requires
 at most two renders after its first settling second, with no remaining scheduled
 camera or mesh refinement. These checks establish automated/native evidence;
 human path-shot acceptance remains a separate review.
+
+C3 follow-up, 2026-10-08: the parent camera panel now ends its numeric field
+before the path panel starts leg-duration text entry. Leg seconds remains an
+active SDL text session until Enter/Escape, so typed values reach the editor.

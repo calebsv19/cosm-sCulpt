@@ -249,7 +249,9 @@ bool UIPanel_CameraClick(int x, int y) {
         return false;
     GlobalState *s = Global_Get();
     CameraViewSession *c = &s->cameraView;
-    if(UIPanel_CameraPathClick(x,y,path_y())) { stop_input(); return true; }
+    /* End our field before the path panel starts its own SDL text session. */
+    if(input) stop_input();
+    if(UIPanel_CameraPathClick(x,y,path_y())) return true;
     UIPanel_CameraPathReset();
     int action = 0;
     for (int a = UI_CAMERA_PREVIOUS; a <= UI_CAMERA_FACING_NEG_Z; ++a)
