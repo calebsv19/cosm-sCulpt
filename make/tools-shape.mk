@@ -134,3 +134,13 @@ physical_route_tool: $(PROGRAM_BIN_DIR)/physical_route_tool
 route-smoke: physical_route_tool
 	@python3 tests/test_physical_route_tool.py $(PROGRAM_BIN_DIR)/physical_route_tool
 -include $(PROGRAM_BUILD_DIR)/tools/physical_route_tool.d
+
+$(PROGRAM_BIN_DIR)/camera_path_tool: $(PROGRAM_BUILD_DIR)/tools/camera_path_tool.o $(VAN_CONCEPT_OBJS) $(AGENT_SCENE_TOOL_SHARED_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $^ -o $@ $(LDFLAGS)
+
+.PHONY: camera_path_tool camera-path-export-smoke
+camera_path_tool: $(PROGRAM_BIN_DIR)/camera_path_tool
+camera-path-export-smoke: camera_path_tool
+	python3 tests/test_camera_path_tool.py $(PROGRAM_BIN_DIR)/camera_path_tool
+-include $(PROGRAM_BUILD_DIR)/tools/camera_path_tool.d

@@ -6,6 +6,7 @@
 #include "Core/line_drawing_section_proof.h"
 #include "Core/line_drawing_inspection_proof.h"
 #include "Core/camera_path_proof.h"
+#include "Core/camera_path_export.h"
 // src/main.c
 #include "line_drawing/line_drawing_app_main.h"
 #include "Core/SDLApp/sdl_app_framework.h"
@@ -797,6 +798,13 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
         .nextUpdateDelayMs = nextUpdateDelayMs
     };
     App_SetRenderMode(&app, RENDER_THROTTLED, 1.0f / 60.0f);
+    const char *camera_export=getenv("LINE_DRAWING_CAMERA_EXPORT_MANIFEST");
+    if(camera_export && camera_export[0]) {
+        LineDrawingHostEnterEditor();
+        bool ok=CameraPathExport_Run(&app,&cbs,camera_export);
+        LineDrawingRuntimeShutdown(&app);
+        return ok ? 0 : 1;
+    }
     if (vulkan_rollout) {
         int proof_result = 1;
         LineDrawingHostEnterEditor();

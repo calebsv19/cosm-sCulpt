@@ -224,3 +224,52 @@ human path-shot acceptance remains a separate review.
 C3 follow-up, 2026-10-08: the parent camera panel now ends its numeric field
 before the path panel starts leg-duration text entry. Leg seconds remains an
 active SDL text session until Enter/Escape, so typed values reach the editor.
+## Deterministic local camera-path export
+
+The offline tool samples an open pose-key camera path with the same timed
+evaluator used by the editor. It preserves the input layout and requires a new
+output directory:
+
+```sh
+make BUILD_DIR=build/camera-export BUILD_TOOLCHAIN=clang camera_path_tool
+build/camera-export/toolchains/clang/bin/camera_path_tool \
+  /absolute/input.layout.json view_path_1 /absolute/new-output camera_review 12 960 540
+```
+
+Arguments after the layout are path ID, new output directory, scene ID, integer
+FPS (1–60), width and height (64–4096). A maximum of 4096 frame samples is
+admitted. Closed and legacy paths without pose keys are refused. Outputs are
+`scene_authoring.json`, compiled `scene_runtime.json`, and
+`camera_samples.json`. The scene files are geometry/baseline exports; the sample
+manifest explicitly identifies the selected camera and carries the evaluated
+position, forward/up, vertical FOV and clipping for every anchor and frame.
+Consumers must apply those samples rather than implicitly choosing cameras[0].
+
+Frame sample time is `min(index / FPS, duration)`, including the exact endpoint.
+Encoding all samples at constant FPS adds at most two frame intervals of endpoint
+hold/rounding to the authored duration. Anchor times are independent of that grid.
+
+For native viewport images, build the application and run its explicit offline
+route from an isolated session directory containing the normal read-only font
+resources (`include/fonts/`). Do not use a user project directory as the session
+working directory: shutdown writes only the usual relative runtime preferences.
+
+```sh
+env LINE_DRAWING_CAMERA_EXPORT_LAYOUT=/absolute/input.layout.json \
+  LINE_DRAWING_CAMERA_EXPORT_MANIFEST=/absolute/new-output/camera_samples.json \
+  LINE_DRAWING_CAMERA_EXPORT_OUTPUT=/absolute/new-native-output \
+  /absolute/repo/build/camera-export/toolchains/clang/bin/LineDrawing
+```
+
+This route opens a temporary native window, solves a fixed camera canvas, directly
+scrubs every time, checks observer position/orientation/FOV/clipping against the
+manifest within 1e-4, and writes viewport-only `anchors_NNNN.bmp` and
+`frames_NNNN.bmp`. Native dimensions are limited to 1600×1000 and must fit the
+display with application chrome. An existing output directory is refused. A
+successful run writes `complete.json` last; failed partial output is retained.
+These are deterministic sampling checks, not a promise of cross-device pixel
+identity or RayTracing parity. The installed application and source scene are
+not replaced by this route.
+
+Run `make BUILD_DIR=build/camera-export camera-path-export-smoke` for export
+determinism, timing/orientation, stationary-turn, endpoint and refusal checks.
