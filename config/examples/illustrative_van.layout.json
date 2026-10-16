@@ -1,6 +1,6 @@
 {
 	"file":	{
-		"schemaVersion":	19,
+		"schemaVersion":	21,
 		"generator":	"LineDrawing",
 		"gridSize":	0.10000000149011612
 	},
@@ -897,7 +897,10 @@
 						"localOriginMeters":	[0.31999999284744263, 0.050000011920928955, -0.040000021457672119],
 						"localBasis":	[0, 0, -1, -1, 0, 0, 0, 1, 0]
 					}]
-			}]
+			}],
+		"routes":	[],
+		"nextRouteId":	1,
+		"savedViews":	[]
 	},
 	"geometricConstraints":	[{
 			"a":	{

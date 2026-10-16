@@ -35,7 +35,7 @@ launcher="$app/Contents/MacOS/line-drawing-launcher"
 launcher_script="$app/Contents/Resources/line-drawing-launcher.sh"
 file "$launcher" | grep -q 'Mach-O'
 file "$launcher_script" | grep -q 'shell script'
-"$launcher" --self-test >/dev/null
+sh "$(dirname "$0")/package-self-test.sh" "$launcher" --self-test >/dev/null
 
 if [ "$signing_identity" != "-" ]; then
     spctl --assess --type execute --verbose=2 "$app"

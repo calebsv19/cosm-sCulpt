@@ -15,6 +15,7 @@ release-clean:
 	@echo "release-clean complete."
 
 release-build:
+	@if [ -n "$(RELEASE_ROOT)" ]; then python3 -B "$(PACKAGE_RELEASE_ROOT_HELPER)" --release-root "$(RELEASE_ROOT)"; fi
 	@$(MAKE) package-desktop-self-test
 	@echo "release-build complete."
 
@@ -28,9 +29,9 @@ release-bundle-audit: release-build
 		out="$(RELEASE_DIR)/otool_$$(basename "$$dylib").txt"; \
 		otool -L "$$dylib" > "$$out"; \
 	done
-	@! rg -q '/opt/homebrew|/usr/local|/Users/' "$(RELEASE_DIR)"/otool_*.txt || (echo "Found non-portable dylib linkage"; exit 1)
-	@! rg -q '@rpath/' "$(RELEASE_DIR)"/otool_*.txt || (echo "Found unresolved @rpath dylib linkage"; exit 1)
-	@"$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --print-config > "$(RELEASE_DIR)/print_config.txt"
+	@! awk '/^[[:space:]]/{print}' "$(RELEASE_DIR)"/otool_*.txt | rg -q '/opt/homebrew|/usr/local|/Users/' || (echo "Found non-portable dylib linkage"; exit 1)
+	@! awk '/^[[:space:]]/{print}' "$(RELEASE_DIR)"/otool_*.txt | rg -q '@rpath/' || (echo "Found unresolved @rpath dylib linkage"; exit 1)
+	@sh "$(PACKAGE_SELF_TEST)" "$(PACKAGE_MACOS_DIR)/line-drawing-launcher" --print-config > "$(RELEASE_DIR)/print_config.txt"
 	@rg -q '^LINE_DRAWING_RUNTIME_DIR=' "$(RELEASE_DIR)/print_config.txt" || (echo "Missing LINE_DRAWING_RUNTIME_DIR in launcher config"; exit 1)
 	@rg -q '^VK_ICD_FILENAMES=' "$(RELEASE_DIR)/print_config.txt" || (echo "Missing VK_ICD_FILENAMES in launcher config"; exit 1)
 	@echo "release-bundle-audit passed."

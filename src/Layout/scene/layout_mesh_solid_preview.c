@@ -123,6 +123,11 @@ static uint64_t LayoutMeshSolid_ObjectSignature(const Layout* layout) {
         hash=LayoutMeshSolid_HashBytes(hash,a->id,strlen(a->id));
         hash=LayoutMeshSolid_HashBytes(hash,a->info.parent_id,strlen(a->info.parent_id));
     }
+    /* Facing can be inherited from a rotated assembly without object metadata changing. */
+    hash = LayoutMeshSolid_HashBytes(hash, &layout->objectStore.assembly_count,
+        sizeof(layout->objectStore.assembly_count));
+    hash = LayoutMeshSolid_HashBytes(hash, layout->objectStore.assemblies,
+        layout->objectStore.assembly_count * sizeof(LayoutAssembly));
     return hash;
 }
 
