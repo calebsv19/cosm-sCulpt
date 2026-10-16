@@ -1,3 +1,32 @@
+## 2026-10-15 — Shared UI rollout source checkpoint completed
+
+The shared window, launcher/menu/pane controls, UTF-8 text and editor fields,
+specialized controls, runtime HUD/overlays and bounded mesh-input shutdown repair
+are qualified together with the preserved camera/scene/mesh/STL/van authoring work.
+Intentional rectangular design, canvas/camera gestures, history, saves and draft
+ownership remain. Imports are kit_ui 0.18.0, kit_render 0.15.0 and vk_renderer 1.7.0;
+no uncommitted renderer depth work was adopted.
+
+Canonical 0.5/0.6 history is reconciled into Main Edit. Existing 0.6.0 is inherited,
+without a new version decision. Current Main Edit behavior wins reviewed conflicts;
+canonical isolated package diagnostics, release-root safeguards and inherited-
+assembly-facing preview invalidation are retained. The tracked illustrative van
+example inherits canonical schema21/empty routes/views; user-authored saved scenes
+are unchanged. Generated `.cache/` and `Users/` roots are ignored and preserved.
+
+Fresh build, focused UI/preview tests, 637 application cases in70 groups, eight
+package tests, package self-test/contracts and export smoke pass. Twenty native
+packaged modes pass: all shared text/panel/HUD fixtures, strict Vulkan restart,
+both eight-stage window paths, and three restored1297-object quit checks with
+pending previews and preserved document/history/draft state. No validation errors.
+Source adoption and session-safe Main Edit refresh use this reviewed checkpoint;
+independent installed-byte and backup receipts live under
+`_private_workspace_artifacts/line_drawing/ui_adoption_20261015/`.
+
+No push, release publication, Registry promotion or new VERSION bump is included.
+Extended native IME candidate/glyph coverage remains an optional acceptance lane;
+source routing/preedit and native Unicode clipboard behavior are already qualified.
+
 ## 2026-10-15 — Mesh-preview shutdown blocker repaired and requalified
 
 The preview worker could block in source-file open before it could observe

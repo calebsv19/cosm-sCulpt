@@ -152,3 +152,16 @@ retain existing shared workers and source validation. Four focused cases and
 637 cases / 70 groups pass. Three native restored-workspace quit checks preserve
 scene/history/draft state and finish shutdown in 14–16 ms. The previous acceptance
 blocker is resolved in the private package; adoption/Desktop refresh remain next.
+
+## Reviewed UI adoption and Desktop refresh — 2026-10-15
+
+The complete UI/source checkpoint and canonical0.6 history are reconciled and
+qualified; see `docs/current_truth.md`. Keep shared-import commits distinct from
+application integration. Preserve ignored local artifact roots and specialist
+worktrees. For this refresh, build/self-test in the contained copy, verify its
+clean source identity against Main Edit, use the maintained refresh target for a
+fresh staging destination, independently audit the actual Desktop path, retain a
+byte-verified prior bundle and atomically swap the inactive Main Edit destination.
+Verify every installed file, strict signature, identity and isolated launcher test.
+Canonical Desktop, user runtime/log/config/saves/drafts and prior backups remain.
+No version bump or release action follows from this local-development refresh.
