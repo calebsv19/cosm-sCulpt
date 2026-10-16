@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "core_mesh_compile.h"
+#include "core_units.h"
 
 typedef enum {
     LAYOUT_IMPORTED_MESH_STL_CACHE_MISSING = 0,
@@ -43,6 +44,44 @@ bool LayoutImportedMeshAsset_ImportStlToRuntime(const char* stl_path,
                                                 size_t diagnostics_size);
 bool LayoutImportedMeshAsset_ImportStlToRuntimeWithProgress(
     const char* stl_path,
+    const char* asset_root,
+    char* out_authoring_path,
+    size_t out_authoring_path_size,
+    char* out_runtime_path,
+    size_t out_runtime_path_size,
+    char* diagnostics,
+    size_t diagnostics_size,
+    CoreMeshCompileProgressCallback progress_callback,
+    void* progress_user_data);
+
+bool LayoutImportedMeshAsset_ResolveStlOutputPathsForUnit(const char* stl_path,
+    CoreUnitKind source_unit,
+                                                   const char* asset_root,
+                                                   char* out_authoring_path,
+                                                   size_t out_authoring_path_size,
+                                                   char* out_runtime_path,
+                                                   size_t out_runtime_path_size,
+                                                   char* out_preview_path,
+                                                   size_t out_preview_path_size,
+                                                   char* diagnostics,
+                                                   size_t diagnostics_size);
+
+LayoutImportedMeshStlCacheState LayoutImportedMeshAsset_GetStlCacheStateForUnit(
+    const char* stl_path,
+    CoreUnitKind source_unit,
+    const char* asset_root,
+    char* out_authoring_path,
+    size_t out_authoring_path_size,
+    char* out_runtime_path,
+    size_t out_runtime_path_size,
+    char* out_preview_path,
+    size_t out_preview_path_size,
+    char* diagnostics,
+    size_t diagnostics_size);
+
+bool LayoutImportedMeshAsset_ImportStlToRuntimeWithProgressForUnit(
+    const char* stl_path,
+    CoreUnitKind source_unit,
     const char* asset_root,
     char* out_authoring_path,
     size_t out_authoring_path_size,

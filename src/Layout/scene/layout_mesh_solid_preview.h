@@ -22,7 +22,12 @@ typedef struct {
     size_t coveredPixels;
     size_t silhouettePixels;
     size_t meshCount;
+    size_t degradedMeshes; /* Bounds proxies when a runtime LOD cannot be retained/loaded. */
+    size_t culledObjects, culledAssemblies, lodTiers[5], plannedTriangles;
+    size_t rasterBufferBytes, textureBytesEstimate, plannerBytes;
+    bool detailBudgetOverflow;
     bool interactiveQuality;
+    uint64_t raster_ns, upload_ns, frame_ns;
 } LayoutMeshSolidPreviewFrameStats;
 
 // App-local expression of the shared runtime mesh for each filled/outline view.
@@ -120,3 +125,5 @@ bool Layout_RasterNativeSurfacePass(const Layout* layout, const LayoutSectionVie
 size_t Layout_ComposeInspectionOutlines(uint8_t* rgba, float* depth, int32_t* owner,
     uint8_t* near_rgba, const float* near_depth, const int32_t* near_owner,
     int width, int height, int selected, int hovered);
+
+LayoutMeshSolidPreviewFrameStats Layout_MeshSolidPreviewReadStats(void);

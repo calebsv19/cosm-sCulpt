@@ -201,3 +201,7 @@ are ignored; a drawing tool is never restored armed. The 2D mode lock still wins
 Document geometry, physical scale, grid spacing and undo history are unchanged.
 Zoom/pan position is not part of this preference contract. Storage uses shared
 `core_io_write_all_atomic`; the preference schema and restoration policy are app-owned.
+
+## Collection inspection and saved measurements (2026-10-12)
+
+Main Edit now supports complete-area bounds, explicit object/assembly frames, STL envelope datums and persistent read-only measurements in schema 29. [Usage and limits](collection_inspection.md). This extends read-only measurement records; existing driving constraints and visible-surface picking limits remain unchanged.

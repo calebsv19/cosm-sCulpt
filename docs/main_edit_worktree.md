@@ -81,3 +81,74 @@ only after proving that it is clean, all commits are reachable, no user-owned
 untracked or ignored evidence needs retention, no process owns the checkout or
 development application, and all specialist worktrees remain unaffected.
 Never force-remove or destructively reset the lane.
+
+## Main Edit icon packaging
+
+The existing product icon is retained at
+`tools/packaging/macos/local_app_icon/AppIcon.icns`; this file is deliberately
+excluded from the local-icon ignore rule so future source checkpoints and
+worktrees retain it. Main Edit packaging requires an icon input. Its self-test
+requires the bundled icon, the matching `CFBundleIconFile`, and byte equality
+with the selected `.icns` input. Missing icons must fail rather than silently
+produce a generic Desktop icon. Other local icon experiments remain ignored.
+
+## Shared UI preparation — 2026-10-15
+
+Use [contained preparation](ui_preparation_parity.md) before shared UI migration.
+The baseline source/import identity and native Vulkan proof are separate from
+canonical adoption and installed-package acceptance. Preserve the existing dirty
+camera/mesh/scene work, specialized worktrees and protected layouts. Preparation
+adds only verifier/documentation; it does not commit or merge paused work.
+
+## Shared window foundation — 2026-10-15
+
+Run `prepare_shared_ui.py --lifecycle` with fresh external roots as described in
+[foundation](ui_window_foundation.md). Committed UI/render prefixes are imported
+without adopting dirty shared depth work. Keep the import-only change set separate
+from app integration when checkpointing later; this slice does not commit paused
+functional work or refresh Desktop. Existing scene, history, draft and package
+identities remain protected.
+
+## Shared shell controls — 2026-10-15
+
+The bounded launcher/topbar/pane integration is qualified in retained Main Edit;
+see [control contract](ui_shared_controls.md). It stays uncommitted under the
+checkpoint gate above and does not refresh Desktop. Shared text/editor fields and
+specialized panels/HUD remain next. Preserve paused functional source and data.
+
+## Shared text and dialog fields — 2026-10-15
+
+The launcher filter and seven existing editor dialog owners are qualified through
+shared UTF-8 editing/presentation; see [text contract](ui_shared_text.md). Pane and
+footer containment are refined selectively. Preserve paused source and saved data;
+this checkpoint stays uncommitted and does not adopt canonical or refresh Desktop.
+Specialized inline fields, lists/panels and HUD remain next.
+
+## Specialized controls and inline text — 2026-10-15
+
+The bounded specialized panel/list and remaining inline-field integration is
+qualified in retained Main Edit; see [contract](ui_shared_specialized.md).
+Existing scene/canvas/camera/history/save/draft ownership and rectangular chrome
+remain. No commit, canonical adoption or Desktop refresh accompanies this slice.
+Runtime HUD/overlays and isolated package/installed visual acceptance remain next.
+
+## Runtime HUD / overlay checkpoint — 2026-10-15
+
+See retained Main Edit `docs/ui_shared_hud.md`: shared release/focus, bounded
+text, viewport notice/HUD containment and authoring preview/cancel are qualified.
+633 cases / 69 groups and 26 final source/runtime gates pass. Source remains
+uncommitted; isolated package and installed visual acceptance remain next.
+
+## UI package acceptance — 2026-10-15
+
+Package identity and packaged rendering pass; live restored-workspace exit blocks
+in mesh-preview worker shutdown. See `docs/ui_package_acceptance.md` and evidence
+`shared_ui_package_20261015`. Repair/reverify exit before adoption/Desktop refresh.
+
+## Preview shutdown qualification — 2026-10-15
+
+See Main Edit `docs/mesh_preview_shutdown.md`: bounded app-local input readers
+retain existing shared workers and source validation. Four focused cases and
+637 cases / 70 groups pass. Three native restored-workspace quit checks preserve
+scene/history/draft state and finish shutdown in 14–16 ms. The previous acceptance
+blocker is resolved in the private package; adoption/Desktop refresh remain next.

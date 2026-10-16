@@ -335,7 +335,7 @@ static bool camera_path_sample_and_editor_restore(void) {
     s->sectionView.mode = LAYOUT_SECTION_CUTAWAY;
     TEST_ASSERT(CameraView_Enter(s, true));
     TEST_ASSERT(ld_test_vec3_nearly_equal(s->cameraView.eye, expected.position));
-    TEST_ASSERT(!path->playing && path->normalized_distance == .45f);
+    TEST_ASSERT(path->playing && path->normalized_distance == .45f);
     TEST_ASSERT(!memcmp(points, path->control_points, sizeof(points)));
     TEST_ASSERT(!CameraView_Save(s, true));
     CameraView_Exit(s);
@@ -349,7 +349,7 @@ bool camera_view_run_tests(void) {
     const TestCase cases[] = {
         {"guides_never_occlude_physical_panels", camera_guide_volumes_do_not_occlude_physical_panels},
         {"native_perspective_depth_near_clipping", camera_native_depth_order_and_near_clip},
-        {"path_sample_pause_editor_restore", camera_path_sample_and_editor_restore},
+        {"path_sample_preserve_editor_restore", camera_path_sample_and_editor_restore},
         {"perspective_rays_clipping", camera_projection_roundtrip_and_clipping},
         {"alt_no_click_focus_roll_sleep", camera_navigation_focus_alt_roll_and_idle},
         {"saved_pose_undo_roundtrip_path_guard", camera_saved_pose_undo_persistence_and_path_guard},

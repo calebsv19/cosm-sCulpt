@@ -1,3 +1,4 @@
+#include "UI/shared_text.h"
 #include "UI/ui_panel_internal.h"
 
 #include "Core/global_state.h"
@@ -64,6 +65,7 @@ static void UIPanel_StopTextInputIfIdle(UIPanelState* ui) {
 }
 
 void UIPanel_CloseRootDialog(UIPanelState* ui) {
+    UIPanel_SharedTextReset();
     if (!ui || !ui->rootDialog.active) return;
     ui->rootDialog.active = false;
     ui->rootDialog.target = UI_ROOT_TARGET_NONE;
@@ -74,6 +76,7 @@ void UIPanel_CloseRootDialog(UIPanelState* ui) {
 }
 
 void UIPanel_CloseSaveDialog(UIPanelState* ui) {
+    UIPanel_SharedTextReset();
     if (!ui || !ui->saveDialog.active) return;
     ui->saveDialog.active = false;
     ui->saveDialog.mode = UI_SAVE_DIALOG_LAYOUT;
@@ -84,6 +87,7 @@ void UIPanel_CloseSaveDialog(UIPanelState* ui) {
 }
 
 void UIPanel_ClosePrismDimensionDialog(UIPanelState* ui) {
+    UIPanel_SharedTextReset();
     if (!ui || !ui->prismDimensionDialog.active) return;
     ui->prismDimensionDialog.active = false;
     ui->prismDimensionDialog.target = UI_PRISM_DIMENSION_TARGET_NONE;
@@ -95,6 +99,7 @@ void UIPanel_ClosePrismDimensionDialog(UIPanelState* ui) {
 }
 
 void UIPanel_CloseSceneBoundsDialog(UIPanelState* ui) {
+    UIPanel_SharedTextReset();
     if (!ui || !ui->sceneBoundsDialog.active) return;
     ui->sceneBoundsDialog.active = false;
     ui->sceneBoundsDialog.target = UI_SCENE_BOUNDS_TARGET_NONE;
@@ -105,6 +110,7 @@ void UIPanel_CloseSceneBoundsDialog(UIPanelState* ui) {
 }
 
 void UIPanel_CloseConstructionPlaneDialog(UIPanelState* ui) {
+    UIPanel_SharedTextReset();
     if (!ui || !ui->constructionPlaneDialog.active) return;
     ui->constructionPlaneDialog.active = false;
     ui->constructionPlaneDialog.target = UI_CONSTRUCTION_PLANE_DIALOG_TARGET_NONE;
@@ -115,6 +121,7 @@ void UIPanel_CloseConstructionPlaneDialog(UIPanelState* ui) {
 }
 
 void UIPanel_CloseObjectTransformDialog(UIPanelState* ui) {
+    UIPanel_SharedTextReset();
     if (!ui || !ui->objectTransformDialog.active) return;
     ui->objectTransformDialog.active = false;
     ui->objectTransformDialog.target = UI_OBJECT_TRANSFORM_DIALOG_TARGET_NONE;

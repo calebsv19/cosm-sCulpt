@@ -1,3 +1,6 @@
+#include "UI/panel/ui_panel_visibility.h"
+#include "Layout/layout_saved_views.h"
+#include "Layout/scene/layout_mesh_preview_cache.h"
 #include "Core/camera_path.h"
 #include "Core/viewport_zoom.h"
 #include "Layout/layout_constraints.h"
@@ -409,6 +412,7 @@ bool Global_SetWorkspaceMode(LineDrawingWorkspaceMode mode) {
         return false;
     }
     global->inspectionView = false;
+    global->cameraExportClean = false;
     global->sectionView.mode = LAYOUT_SECTION_OFF;
     UIPanel_OnWindowResized(global->screenWidth, global->screenHeight);
     Global_FlagGridChanged();
@@ -436,6 +440,7 @@ bool Global_SetPreviewMode(LineDrawingPreviewMode mode) {
         mode != LINE_DRAWING_PREVIEW_MODE_MATERIAL) {
         return false;
     }
+    if((mode==LINE_DRAWING_PREVIEW_MODE_FLAT || mode==LINE_DRAWING_PREVIEW_MODE_MATERIAL) && global->spaceMode==SPACE_MODE_2D)global->spaceMode=SPACE_MODE_3D;
     global->previewMode = mode;
     if(mode==LINE_DRAWING_PREVIEW_MODE_WIREFRAME || mode==LINE_DRAWING_PREVIEW_MODE_BOUNDS)
         global->sectionView.mode=LAYOUT_SECTION_OFF;
@@ -581,6 +586,7 @@ void Global_Init(int screenWidth, int screenHeight) {
     }
     LineDrawingWorkspaceAuthoringHost_Reset(&global->workspaceAuthoring);
     UIPanel_Init(screenWidth, screenHeight);
+    UIPanel_VisibilityReset();
     Global_SetWindowSize(screenWidth, screenHeight);
 
     Global_SetSpaceMode(global->spaceMode, false);
@@ -796,9 +802,12 @@ void Global_OnLayoutSaved(const char* path) {
 }
 
 void Global_OnLayoutLoaded(const char* path) {
+    UIPanel_VisibilityReset();
     GlobalState* state = Global_Get();
     if (!state) return;
     CameraView_Exit(state);
+    Layout_MeshPreviewCacheReset();
+    Layout_RestoreEntityVisibility(&state->layout.objectStore);
     state->inspectionView = false;
     state->sectionView.mode=LAYOUT_SECTION_OFF;
     if (path && *path) {
@@ -817,9 +826,12 @@ void Global_OnLayoutLoaded(const char* path) {
 }
 
 void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_path_hint) {
+    UIPanel_VisibilityReset();
     GlobalState* state = Global_Get();
     if (!state) return;
     CameraView_Exit(state);
+    Layout_MeshPreviewCacheReset();
+    Layout_RestoreEntityVisibility(&state->layout.objectStore);
     state->inspectionView = false;
     if (scene_authoring_path && *scene_authoring_path) {
         strncpy(state->currentSceneAuthoringPath,

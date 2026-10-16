@@ -17,3 +17,10 @@ This subtree owns modal and overlay rendering above the pane-clipped editor UI.
   not this overlay lane.
 - Dialog apply/cancel behavior lives in panel dialog logic; this subtree should
   stay focused on overlay rendering and modal presentation.
+
+## Shared dialog text
+
+Field input/caret/selection/preedit presentation is adapted by
+`UI/panel/ui_panel_shared_text` and `UI/shared_text`. Overlay modules retain modal
+frames, titles and hints. Validation and Apply/Save/Cancel stay in existing dialog
+owners. See `docs/ui_shared_text.md`; keep text within measured field bounds.

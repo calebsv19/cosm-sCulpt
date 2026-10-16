@@ -1,4 +1,5 @@
 #include "UI/ui_panel_measurement.h"
+#include "UI/panel/ui_panel_collection_inspection.h"
 #include "UI/ui_panel_shell.h"
 #include "Core/global_state.h"
 #include "Editor/editor_reference_edit.h"
@@ -67,6 +68,7 @@ bool UIPanel_MotionMatchesEntity(const LayoutConstraint* rule, const char* id) {
 }
 
 bool UIPanel_BeginEntityMotion(const char* entity_id) {
+    UIPanel_CollectionInspectionClose();
     const LayoutObjectStore* store = &Global_Get()->layout.objectStore;
     int found = -1;
     for (size_t i = 0; i < store->constraintCount; ++i) {
@@ -109,6 +111,7 @@ void UIPanel_MeasurementRefreshHistory(void) {
 }
 
 bool UIPanel_BeginMeasurement(void) {
+    UIPanel_CollectionInspectionClose();
     UIPanelState* ui = UIPanel_Get();
     memset(&ui->measurement, 0, sizeof(ui->measurement));
     ui->measurement.active = true;
@@ -149,6 +152,7 @@ static void begin_placement(int mode) {
 }
 
 bool UIPanel_MeasurementText(const char* text) {
+    if(UIPanel_CollectionInspectionActive())return UIPanel_CollectionInspectionText(text);
     UIPanelState* ui = UIPanel_Get();
     if (!ui->measurement.active || (ui->measurement.placing != 1 && ui->measurement.placing != 3 && ui->measurement.placing != 5 && ui->measurement.placing < 7) || !text) return false;
     if (ui->measurement.replace_text) {
@@ -272,6 +276,7 @@ static void apply_placement(void) {
 }
 
 bool UIPanel_MeasurementKey(SDL_Keycode key) {
+    if(UIPanel_CollectionInspectionActive())return UIPanel_CollectionInspectionKey(key);
     UIPanelState* ui = UIPanel_Get();
     if (!ui->measurement.active) return false;
     if (ui->measurement.placing) {
@@ -321,6 +326,7 @@ bool UIPanel_MeasurementKey(SDL_Keycode key) {
 
 
 void UIPanel_MeasurementStopInput(void) {
+    UIPanel_CollectionInspectionStopInput();
     UIPanel_TravelEndDrag();
     finish_placement();
     UIPanel_Get()->measurement.picking=false;

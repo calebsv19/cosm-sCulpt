@@ -1,3 +1,6 @@
+#include "UI/shared_overlay.h"
+#include "UI/shared_special.h"
+#include "UI/panel/ui_panel_collection_inspection.h"
 #include "UI/ui_panel_camera.h"
 #include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_spatial.h"
@@ -325,7 +328,7 @@ void UIPanel_GetLayoutMetrics(UIPanelLayoutMetrics* out_metrics) {
     if (spacing < 3) spacing = 3;
     button_h = font_h + 4;
     if (button_h < 18) button_h = 18;
-    group_header_h = font_h + 1;
+    group_header_h = font_h + 6;
     if (group_header_h < 13) group_header_h = 13;
     group_gap = 4 + (font_h / 7);
     if (group_gap < 5) group_gap = 5;
@@ -758,6 +761,11 @@ void UIPanel_Init(int screenW, int screenH) {
     g_uiPanel.loadMenu.open = false;
     g_uiPanel.loadMenu.visible = false;
     g_uiPanel.loadMenu.mode = UI_LOAD_MENU_MODE_NONE;
+    g_uiPanel.loadMenu.stlSourceUnit = CORE_UNIT_METER;
+    g_uiPanel.loadMenu.stlFitToScene = false;
+    g_uiPanel.loadMenu.stlCollection[0]=0;g_uiPanel.loadMenu.stlPartRole=0;
+    g_uiPanel.loadMenu.stlCollectionPicker=false;g_uiPanel.loadMenu.stlCollectionPage=0;
+    g_uiPanel.loadMenu.asyncStlSourceUnit = CORE_UNIT_METER;
     g_uiPanel.loadMenu.anchorButtonId = UI_BTN_LOAD_JSON;
     g_uiPanel.loadMenu.rootPath[0] = '\0';
     g_uiPanel.loadMenu.count = 0;
@@ -1065,9 +1073,11 @@ bool UIPanel_IsObjectTransformDialogActive(void) {
 }
 
 bool UIPanel_IsCapturingKeyboard(void) {
+    if(LDInline_Active())return true;
     if(UIPanel_CameraCapturingKeyboard())return true;
     if (g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_ROUTES && (g_uiPanel.routes.input || g_uiPanel.routes.chooser || g_uiPanel.routes.picking)) return true;
     if (g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_PARTS && (g_uiPanel.parts.input || g_uiPanel.parts.chooser)) return true;
+    if(UIPanel_CollectionInspectionHasInput())return true;
     if (g_uiPanel.measurement.active && g_uiPanel.measurement.placing) return true;
     return UIPanel_IsSaveDialogActive() ||
            UIPanel_IsRootDialogActive() ||
@@ -1114,25 +1124,15 @@ void UIPanel_ResetTransientUiState(void) {
 }
 
 void UIPanel_RenderOverlays(SDL_Renderer* renderer) {
+    if(UIPanel_CollectionInspectionActive())UIPanel_CollectionInspectionViewport(renderer);
     if(!Global_Get()->cameraView.active) {
     UIPanel_RenderRouteViewport(renderer);
     UIPanel_RenderConstraintViewport(renderer);
     UIPanel_RenderMotionViewport(renderer);
     UIPanel_RenderMotionPreview(renderer);
-    if (g_uiPanel.measurement.active && g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE)
+    if (g_uiPanel.measurement.active && g_uiPanel.activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE && !UIPanel_CollectionInspectionActive())
         UIPanel_RenderMeasurementViewport(renderer);
     }
+    LDOverlay_NoticeDraw(renderer,Global_Get());
     UIPanel_RenderOverlayDialogs(renderer, &g_uiPanel);
-    const char* message = Global_Get()->layout.geometryMessage;
-    if (message[0]) {
-        TTF_Font* font = FontManager_Get(FONT_DEFAULT);
-        if (font) {
-            int h = TTF_FontHeight(font) + 12;
-            SDL_Rect notice = {12, Global_GetScreenHeight()-h-12, Global_GetScreenWidth()-24, h};
-            SDL_SetRenderDrawColor(renderer, 40, 24, 20, 255);
-            SDL_RenderFillRect(renderer, &notice);
-            UIPanelSummary_DrawTextClipped(renderer, font, message, notice.x+6, notice.y+4,
-                notice.w-12, h-8, (SDL_Color){255,210,180,255});
-        }
-    }
 }

@@ -489,7 +489,8 @@ static void UIPanelObjectInspector_DrawDetailsCard(const UIPanelState* ui,
                  UIPanelObjectInspector_CorePlaneLabel(object->coreMeta.locked_plane));
         snprintf(line_dims,
                  sizeof(line_dims),
-                 "Dimensions  W %s   H %s   D %s",
+                 object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE
+                    ? "Local axes  X %s   Y %s   Z %s" : "Dimensions  W %s   H %s   D %s",
                  w_text,
                  h_text,
                  d_text);

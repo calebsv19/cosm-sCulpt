@@ -1,3 +1,4 @@
+#include "UI/shared_special.h"
 #include "UI/ui_panel_furniture.h"
 #include "UI/ui_panel_visual_style.h"
 #include "UI/ui_panel_summary_surface.h"
@@ -224,7 +225,7 @@ static void render_connections(SDL_Renderer* r) {
     paint(r, rectangle(UI_FURNITURE_FOLLOWER_END), form.link.follower_end < 0 ? "Rear end" : "Front end", true, false);
     paint(r, rectangle(UI_FURNITURE_BEHAVIOR), form.link.behavior == LAYOUT_FURNITURE_FOLLOW_MOVE ? "Move unit >" : "Fit run >", true, false);
     paint(r, rectangle(UI_FURNITURE_ENABLED), form.link.enabled ? "Enabled" : "Disabled", true, form.link.enabled);
-    snprintf(text, sizeof(text), "Gap: %s%s", form.gap, form.input == 18 ? " |" : "");
+    snprintf(text, sizeof(text), "Gap: %s", form.input==18?"":form.gap);
     paint(r, rectangle(UI_FURNITURE_GAP), text, true, form.input == 18);
     paint(r, rectangle(UI_FURNITURE_SAVE_LINK), "Save link", true, false);
     paint(r, rectangle(UI_FURNITURE_REMOVE_LINK), "Remove link", true, false);
@@ -414,3 +415,5 @@ bool UIPanel_FurnitureEvent(const SDL_Event* event) {
     }
     return false;
 }
+
+bool LDInline_Furniture(LDInlineField* f) {if(!active())return false;sync();if(!form.valid || !form.input)return false;int k=form.input-1;SDL_Rect box=rectangle(UI_FURNITURE_GAP);if(k<17){for(int a=UI_FURNITURE_LENGTH;a<=UI_FURNITURE_SHELF;++a)if(field(a)==k){box=rectangle(a);break;}int w=box.w/3;box.x+=w;box.w-=w;}if(k==17)box=LDInline_ValueRect(box,"Gap:");*f=(LDInlineField){k==17?form.gap:form.fields[k],64,&form.replace,box,k==17?&form.gap_edited:&form.edited[k]};return true;}

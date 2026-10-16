@@ -732,7 +732,7 @@ void line_drawing_host_menu_draw_browse_actions(SDL_Renderer* renderer,
 
 void line_drawing_host_menu_draw_filter(SDL_Renderer* renderer,
                                         TTF_Font* font,
-                                        const LineDrawingHostMenuState* state,
+                                        LineDrawingHostMenuState* state,
                                         const LineDrawingHostMenuLayout* layout,
                                         SDL_Color panel_fill,
                                         SDL_Color border_color,
@@ -742,8 +742,6 @@ void line_drawing_host_menu_draw_filter(SDL_Renderer* renderer,
                                         SDL_Color highlight_color) {
     SDL_Color fill = line_drawing_host_menu_mix(panel_fill, highlight_color, 0.16f);
     SDL_Color border = border_color;
-    char filter_line[160];
-    const char* placeholder = "Type to filter names and paths";
     if (!renderer || !font || !state || !layout) return;
     if (!line_drawing_host_menu_section_supports_filter(state->selected_section)) return;
 
@@ -761,16 +759,5 @@ void line_drawing_host_menu_draw_filter(SDL_Renderer* renderer,
                                       border,
                                       line_drawing_host_menu_dim(border_color, 24));
 
-    snprintf(filter_line,
-             sizeof(filter_line),
-             "Filter: %s%s",
-             state->filter_query[0] ? state->filter_query : placeholder,
-             state->focus_region == LINE_DRAWING_HOST_MENU_FOCUS_FILTER ? "_" : "");
-    line_drawing_host_menu_draw_text_clipped(renderer,
-                                             font,
-                                             filter_line,
-                                             layout->filter_rect.x + 10,
-                                             layout->filter_rect.y + 7,
-                                             layout->filter_rect.w - 20,
-                                             state->filter_query[0] ? text_color : muted_color);
+    LineDrawingHostMenu_FilterDraw(renderer,font,state,layout->filter_rect,text_color,muted_color);
 }

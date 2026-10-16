@@ -134,7 +134,7 @@ static void Layout_RenderSceneBounds3D(const Layout* layout, SDL_Renderer* rende
     GlobalState* state = Global_Get();
     if (!layout || !renderer || !state) return;
     if (state->spaceMode != SPACE_MODE_3D) return;
-    if (!layout->scene3d.bounds.enabled) return;
+    if (!state->authoringGuides || !layout->scene3d.bounds.enabled) return;
     if (!Layout_SceneBounds3D_IsValid(&layout->scene3d.bounds)) return;
 
     static const int kEdges[12][2] = {
@@ -297,7 +297,7 @@ static void Layout_RenderPrimitivePlacementPreview(SDL_Renderer* renderer) {
                           (int)center.x, (int)center.y + 7, 1);
 }
 
-static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer) {
+static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer, bool sceneMeshPreviewDrawn) {
     GlobalState* state = Global_Get();
     if (!state) return;
     const Grid* grid = &state->grid;
@@ -439,13 +439,13 @@ static void Layout_RenderObjects3D(const Layout* layout, SDL_Renderer* renderer)
                 const bool meshPreviewDrawn =
                     object->kind == OBJECT3D_KIND_MESH_ASSET_INSTANCE &&
                     state->previewMode == LINE_DRAWING_PREVIEW_MODE_WIREFRAME &&
-                    Layout_RenderMeshAssetInstanceWireframe(renderer,
+                    (sceneMeshPreviewDrawn || Layout_RenderMeshAssetInstanceWireframe(renderer,
                                                             object,
                                                             &viewCtx,
                                                             grid,
                                                             isSelected,
                                                             isHovered,
-                                                            depthFactor);
+                                                            depthFactor));
                 if (isSelected) {
                     SDL_SetRenderDrawColor(renderer, 255, 210, 80, 255);
                     thickness = meshPreviewDrawn ? 1 : 2;
@@ -899,6 +899,7 @@ static void Layout_RenderAnchors(const Layout* layout, SDL_Renderer* renderer){
 void Layout_Render(const Layout* layout, AppContext* ctx) {
     SDL_Renderer* renderer = ctx->renderer;
     GlobalState* state = Global_Get();
+    bool sceneMeshPreviewDrawn = false;
 
     if (state && (state->cameraView.active ||
         (state->inspectionView && state->spaceMode==SPACE_MODE_3D && state->workspaceMode==LINE_DRAWING_WORKSPACE_MODE_SCENE))) {
@@ -921,7 +922,7 @@ void Layout_Render(const Layout* layout, AppContext* ctx) {
         } else if (state->previewMode == LINE_DRAWING_PREVIEW_MODE_MATERIAL) {
             style = LAYOUT_MESH_SOLID_STYLE_MATERIAL;
         }
-        (void)Layout_RenderMeshSolidPreview(
+        sceneMeshPreviewDrawn = Layout_RenderMeshSolidPreview(
             renderer,
             layout,
             &viewContext,
@@ -944,7 +945,10 @@ void Layout_Render(const Layout* layout, AppContext* ctx) {
         if (state->workspaceMode==LINE_DRAWING_WORKSPACE_MODE_OBJECT)
             Layout_RenderObjectSurfaces(layout, renderer);
     }
-    Layout_RenderObjects3D(layout, renderer);
+    /* The bounded 3D preview already owns mesh wire silhouettes. Avoid a second
+     * unbounded per-edge submission; native shapes/guides and editing overlays
+     * still render below, and a failed preview retains the legacy fallback. */
+    Layout_RenderObjects3D(layout, renderer, sceneMeshPreviewDrawn);
     if (state &&
         state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT &&
         state->objectAuthoring.attached) {

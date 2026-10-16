@@ -1,3 +1,11 @@
+## Specialized shared UI checkpoint
+
+`SharedSpecial` covers release/cancel ownership, UTF-8 selection/capacity/preedit,
+draft-only edits and save history, visibility occlusion/stale rows, Section fields,
+repeated custom-query actions and popup-first camera draft handling. Existing
+mouse workflow helpers now send full clicks; continuous drag regressions remain.
+Run in the contained verification lane described in `docs/ui_shared_specialized.md`.
+
 # Tests
 
 The main test harness is a lightweight C executable that links against the app
@@ -110,3 +118,30 @@ repository-local sphere and tetrahedron runtime fixtures in
 `fixtures/agent_mesh_assets/`. These fixtures were copied from the RayTracing
 mesh-asset runtime test corpus so the smoke gate works in canonical, Main Edit,
 and standalone checkouts without a sibling RayTracing repository.
+
+Native mesh-fit CLI contract: build `make BUILD_DIR=<fresh-root> layout_edit_tool`,
+then run `python3 tests/test_layout_mesh_fit_tool.py <fresh-root>/toolchains/clang/bin/layout_edit_tool`.
+This checks stable identity/pose/membership/material, identity allocation and
+atomic refusals, using the repository mesh fixtures.
+
+Hardware retargeting integration: `python3 tests/test_layout_hardware_retarget_tool.py EDIT_TOOL ARTICULATED_LAYOUT NEW_OUTPUT_ROOT` checks follower retirement, atomic hinge-offset changes preserving the closed leaf, native articulated opening, invalid scope/input refusal and source preservation. Use a saved layout with coincident hinge attachment datums and an attached telescoping stay.
+
+Paired cabinet-hardware integration fixture:
+`python3 tests/test_layout_paired_brace_tool.py <layout_edit_tool> <paired-layout.json> <fresh-output-root>`
+Checks both link chains and save/load, duplicate/orphan/schema/secondary-lock
+refusals, and atomic refusal for a locked secondary member.
+
+## Runtime HUD / overlay checkpoint — 2026-10-15
+
+See retained Main Edit `docs/ui_shared_hud.md`: shared release/focus, bounded
+text, viewport notice/HUD containment and authoring preview/cancel are qualified.
+633 cases / 69 groups and 26 final source/runtime gates pass. Source remains
+uncommitted; isolated package and installed visual acceptance remain next.
+
+## Preview shutdown qualification — 2026-10-15
+
+See Main Edit `docs/mesh_preview_shutdown.md`: bounded app-local input readers
+retain existing shared workers and source validation. Four focused cases and
+637 cases / 70 groups pass. Three native restored-workspace quit checks preserve
+scene/history/draft state and finish shutdown in 14–16 ms. The previous acceptance
+blocker is resolved in the private package; adoption/Desktop refresh remain next.

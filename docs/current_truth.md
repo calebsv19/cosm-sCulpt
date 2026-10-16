@@ -1,3 +1,279 @@
+## 2026-10-15 — Mesh-preview shutdown blocker repaired and requalified
+
+The preview worker could block in source-file open before it could observe
+cancellation; shutdown then waited in the existing shared worker-pool join.
+App-local `layout_mesh_source_snapshot.c` confines source open/read to one bounded
+reader child at a time. The child uses only async-signal-safe POSIX operations;
+the parent retains decoding and publication. Cancellation or the 2-second input
+read deadline kills and reaps that child, removes its temporary snapshot and
+leaves the preview unavailable. Source size, regular-file/stamp checks, content
+revalidation, stale-result rejection and existing shared worker ownership remain.
+No scene, editor/save/draft contract or shared API/version changed. The underlying
+OS reason for the earlier blocked open is not established by the stack sample.
+
+Build, four focused snapshot tests, existing ten VanUsability cases, full 637
+cases in 70 groups, package self-test/contracts and export smoke pass. Tests cover
+blocked-child deadline, cancellation/reaping, byte-exact snapshots, changed stamps,
+pre-cancel and FIFO rejection. Three native packaged quit proofs each restore the
+byte-identical 1297-object van workspace, render with eight previews pending,
+retain document/history/saved state and an unsaved root-dialog draft, then send
+SDL_QUIT through App_Run and call the ordinary runtime shutdown. Shutdown takes
+14, 14 and 16 ms; each launcher exits zero, with no Vulkan validation diagnostics.
+The real Vulkan frame was inspected. A supervised live test also exits zero on
+an SDL shutdown signal; native accessibility could not reliably attach, so this
+is native event-path qualification rather than a repeated manual window-close claim.
+
+All nine protected roots, 15 runtime resource links and 3347 retained build files
+match the start of this repair. The original scene hash is unchanged. The prior
+841-byte launcher-log diagnostic append remains preserved; this repair adds none.
+Source stays uncommitted in retained Main Edit; canonical and both Desktop apps
+remain unchanged. No VERSION/release/publication/Registry action occurred.
+
+Evidence: `_private_workspace_artifacts/line_drawing/mesh_preview_exit_20261015/`.
+The earlier package acceptance blocker is resolved at the source/private-package
+layer. Next: reviewed source checkpoint/adoption and session-safe Main Edit
+Desktop refresh, with installed-byte readback. Broad native IME candidate/glyph
+acceptance remains separate from the qualified routing and Unicode clipboard checks.
+
+## 2026-10-15 — UI package verified; real-workspace exit blocker remains
+
+An isolated Main Edit package was built from the exact HUD-qualified source
+checkpoint. Package self-test, local-development identity, icon/namespaces,
+private installation readback, bundled dependencies and strict ad-hoc signature
+verification pass. Twelve packaged runtime modes pass through the bundled launcher
+and MoltenVK, including both eight-stage window paths and validated startup/resize/
+restart with zero warnings/errors. Seven retained frames exactly match the prior
+source checkpoint. The prior full source gate remains 633 cases / 69 groups;
+no functional source changed in this packaging slice.
+
+Desktop Capture and native input reviewed the live launcher, restored 1297-object
+van workspace, Font/Theme overlay, keyboard cancellation and real Unicode clipboard
+entry into the Layouts filter. No scene edits or Save were performed. On quitting
+that restored workspace, shutdown blocked joining a mesh-preview worker inside
+fopen/open. The sample points to Layout_MeshPrepareShutdown -> core_workers shutdown
+and the prepare worker opening input. Isolated fixture runs exit normally; this
+real-workspace path is an unresolved acceptance blocker, not a qualified shutdown.
+The task-owned stuck candidate was terminated after preserving the stack trace.
+Do not mark the UI rollout fully complete or refresh Desktop until this is repaired
+and the affected workspace's exit is reverified.
+
+The native app-control route launched the candidate using the existing Main Edit
+runtime despite the separate private launch. Its generated Vulkan ICD pointer was
+restored byte-for-byte. All saved data, configuration, Desktop bundles, 15 directory
+links and 3347 retained build files match baseline. The existing launcher log gained
+841 bytes of review diagnostics; its entire original prefix hash is verified and
+the append is retained as evidence. No log truncation or user-data rollback.
+
+Evidence: `_private_workspace_artifacts/line_drawing/shared_ui_package_20261015/`.
+The exact candidate bundle and compact logs/captures/sample are retained for the
+exit-repair consumer. Disposable source/build/test homes are removed after consumer
+checks. This is local development evidence, without commit, canonical adoption,
+VERSION edit, Desktop refresh, publication or Registry promotion.
+
+## 2026-10-15 — Runtime HUD and authoring overlays qualified
+
+Retained Main Edit now routes Object viewport face buttons and active Workspace
+Authoring controls through existing kit_ui capture, release activation and focus.
+Current object identity, layout, enable rules and modal ownership cancel stale
+releases. Authoring keeps Tab mode switching, Enter Apply, Escape Cancel and local
+pane gestures; arrows focus and Space activates shared controls. Window capture
+cancellation preserves drafts. Font/theme painting, hit testing and registration
+share one layout using the current shared font preset and text zoom.
+
+HUD controls retain rectangular geometry and reflow or hide when the viewport
+cannot contain them. Geometry notices wrap within the viewport below the HUD;
+modal overlays occlude HUD controls. Dialog captions and visible overlay labels
+use bounded shared text. Native review corrected selected font/theme label
+contrast. Inactive legacy Info rendering has no caller and was left untouched.
+
+Build, four focused HUD cases, all 633 cases in 69 groups, shared UI contracts,
+package contracts and export smoke pass. All 26 final gates pass, including strict
+Vulkan startup/resize/restart, both eight-stage window paths, prior text/panel
+readbacks and five native HUD/notice/modal/font-theme modes (100% and 140% text).
+Private fixture checks preserve serialized document and history. Nine protected
+file sets, 15 directory links and 3347 retained build files match the prior slice.
+Authoritative evidence: `_private_workspace_artifacts/line_drawing/shared_ui_hud_20261015/final-proof2/`.
+
+This is an uncommitted Main Edit source/runtime checkpoint. Existing paused scene,
+canvas, camera, history, saves and drafts remain owned by their current systems.
+Canonical source, installed apps, shared imports and VERSION remain unchanged.
+Next: isolated package identity and installed-app visual acceptance, followed by
+reviewed source adoption and session-safe Main Edit refresh. Native clipboard/IME
+candidate-window and broad glyph coverage remain separate hands-on acceptance.
+
+## 2026-10-15 — Specialized controls and remaining inline fields qualified
+
+Retained Main Edit integrates existing kit_ui surface/interaction and UTF-8 text
+presentation into Parts/spatial/query forms, Routes/electrical/inspection forms,
+measurement/travel controls, collection inspection, camera/path/section/furniture
+controls, visibility trees, file/STL pickers, scene/model lists and visible generic
+panel buttons. Current owner geometry and enable rules build the shared snapshot.
+Dynamic identities plus distinct placements cancel stale releases and permit
+repeated commands such as the two Show all buttons. Dragging/sliders/scrubbers,
+canvas, camera, parsing, Apply/Save, document history and draft ownership stay local.
+The file browser remains pane-local; popups occlude underlying text focus.
+
+Inline drafts use shared selection, UTF-8 scalar edits, clipboard/preedit routing,
+capacity rejection, measured caret reveal and clipping. Existing field policies
+and furniture Tab cycling remain. Active Section Position/Step labels move into
+the existing heading so the unchanged rectangular value box stays readable.
+
+Build, seven focused cases,629 cases/68 groups, shared UI contracts, export smoke,
+strict native Vulkan startup/resize/restart and both eight-stage window paths pass.
+Four native specialized field readbacks pass; Parts/Routes reveal long drafts and
+preedit, Visibility contains search/preedit, and Section fits 1250 mm without
+horizontal scrolling. Initial menu/editor pixels match the prior checkpoint.
+All nine protected file sets,15 directory links and3347 retained build files match.
+See [specialized UI contract](ui_shared_specialized.md).
+
+Source/runtime qualification applies to uncommitted Main Edit only. Canonical,
+installed apps, VERSION and protected scene work remain unchanged. Next: runtime
+HUD/overlay integration, followed by isolated package identity and installed visual
+acceptance. Manual native clipboard/IME candidate and broad glyph coverage remain
+separate acceptance checks.
+
+## 2026-10-15 — Shared filter and editor dialog text qualified
+
+Main Edit adopts existing kit_ui UTF-8 editing and measured text presentation
+for the launcher filter and save, root, dimension, bounds, construction-plane,
+transform and scene-property dialogs. Selection, scalar-safe cursor/deletion,
+clipboard commands, preedit display and caret scrolling share one adapter;
+existing field character policies, parsing, validation and Apply/Save/Cancel
+owners remain local. Capacity rejection leaves the existing draft intact.
+
+Pane/overlay labels use measured UTF-8 wrapping/clipping with word boundaries.
+Section headers reserve font height plus padding, and the launcher footer reserves
+all four rows. Rectangular design remains. 622 cases/67 groups, five focused text
+cases, shared UI contracts, exports, strict Vulkan resize/restart and both native
+eight-stage window paths pass. Native filter/scroll/preedit readbacks pass with
+contained carets; long-field proof scrolls316 logical pixels. Source/draft/history,
+protected file sets and retained builds remain preserved. See
+[text contract](ui_shared_text.md). This is Main Edit source/runtime qualification;
+canonical source, Desktop packages and manual native IME acceptance are separate.
+
+Next: specialized panel/list controls and remaining inline text fields, followed
+by runtime HUD/overlay integration and isolated package/installed visual closeout.
+
+## 2026-10-15 — Launcher and editor shell shared controls
+
+Main Edit now uses kit_ui surface/interaction contracts for launcher navigation,
+reopen/catalog rows and folder actions, editor workspace/view/history controls,
+ordinary Camera/Appearance menus, pane tabs and contextual tool choices. Pointer
+activation completes on release; focus loss, changed scopes and missing semantic
+owners cancel a held action. Disabled controls consume without activating.
+Editor Tab/Shift-Tab and Enter/Space share the interaction contract; launcher
+region/arrow/filter navigation stays local, with content actions on key release.
+Popup Escape precedes camera exit and host-menu return. Drawing stays rectangular.
+
+617 cases in 66 groups, shared UI contracts, export smoke and validated native
+Vulkan startup/resize/restart and both eight-stage window paths pass. Initial menu
+and editor PNGs retain exact foundation hashes. Source proof preserves serialized
+document/history/saved state and save drafts; it is separate from packaged-app or
+manual OS workflow acceptance. See [control contract](ui_shared_controls.md).
+
+Next: shared text/filter and editor-field integration, followed by specialized
+lists/panels and runtime HUD. Existing text containment findings remain.
+
+## 2026-10-15 — Shared window foundation qualified in Main Edit
+
+Committed kit_ui 0.18.0, kit_render 0.15.0 and vk_renderer 1.7.0 imports now
+support shared native observation, logical mapping, F11 and lifecycle handling.
+Vulkan resources and domain/editor policies remain app-owned. Capture interruption
+preserves drafts/history; stale releases are gated. Fresh build, 613 cases in 65
+groups, shared UI contracts, exports, strict native restart and both eight-stage
+window paths pass, including document/history/saved-state preservation and no
+hidden/minimized presentation. Four reference frames retain exact RGB parity.
+Source only: prior scene work, canonical, Desktop apps and saved data are retained.
+See [foundation contract](ui_window_foundation.md); launcher/menu controls follow.
+
+## 2026-10-15 — Shared UI preparation baseline
+
+Contained current-source build, direct input/theme checks,611 tests in64 groups,
+package contract, agent exports and menu/editor Vulkan readbacks pass. Native
+startup/resize/restart passes on Apple M2 at2x scale with validation enabled and
+zero warning/error receipts. Actual OS window capture is inspected. No shared UI
+behavior, imported module, scene, VERSION, canonical or installed app changed.
+The selected dirty Main Edit source remains the baseline; canonical divergence
+is preserved. See [preparation contract](ui_preparation_parity.md). Full shared
+window lifecycle and the reviewed committed UI/render refresh are next.
+
+## 2026-10-10 Main Edit articulated inspection and functional presets
+
+The development lane adds metadata-defined Coverings (Doors, Drawers and Access
+panels by area/item), scoped Restore covers, shared guide classification and
+functional saved presets. Guides off includes nonphysical movement zones,
+walkways, reservations and annotation bounds while retaining physical hardware.
+The native parser supports 128 assemblies, 32 saved presets and sixteen camera/path
+records. Schema 27 adds rigid six-part telescoping stays and symmetric declared
+closed-neighbour service guards. Native sweeps, history/roundtrip, fixed geometry,
+normal UI controls and the broad 591-test suite pass on the articulated expansion
+fixture. The sink door and battery cover retain useful individual travel but must
+be opened separately. No force/load/purchased-hardware certification is claimed.
+The task receipt under `_private_workspace_artifacts/line_drawing/` records exact
+Desktop and catalog qualification. This remains uncommitted Main Edit development,
+separate from canonical/released 0.6.0. Minor release recommended; no VERSION change.
+See `docs/native_layout_edits.md` and `docs/header_camera_visibility.md`.
+
+## 2026-10-09 Main Edit progressive mesh previews
+
+Retained Main Edit now prepares four persistent indexed LOD levels in bounded
+background jobs, rejects stale scene/source results, culls conservative transformed
+object/assembly bounds and selects screen-space detail with hysteresis and a
+120k scene triangle plan. Resident lookup is indexed; loading/budget proxies and
+separate memory counters are explicit. Source geometry remains authoritative.
+See `docs/mesh_preview_cache.md` for limits and native proof. This is uncommitted
+Main Edit development, separate from canonical/released 0.6.0. Persistent GPU mesh
+instances and a total allocator ceiling remain open.
+
+## 2026-10-09 stationary inspection camera reuse
+
+The typed CLI now supports `update_inspection_camera` for an existing stationary
+bound camera/path pair, preserving persistent IDs and other native state at full
+path capacity. Native pose initialization refreshes the target and FOV.
+Fresh CLI build, actual sink-parent pose/round-trip/preservation/refusal checks
+and existing layout, camera, hinge, capacity and retained-end smoke suites pass.
+See [native_layout_edits.md](native_layout_edits.md). No runtime/app rebuild or
+original scene edits; placement owner applies a separate review revision.
+
+## 2026-10-09 typed native hinge CLI
+
+Main Edit's create-only layout editor now exposes native hinge creation with
+local edge offsets, explicit-unit Travel/Hinge pose control and conservative
+saved envelope generation. Existing runtime/UI motion controls and saved format
+are reused. Sink precursor qualifies horizontal 0° to down-stowed 90° about -X.
+CLI tests, Constraints/Motion and 557 host cases pass; prior 64-assembly review
+app reads/captures the resulting test copy. See [native_layout_edits.md](native_layout_edits.md).
+No original scene edits, app rebuild, install, VERSION or release effect.
+
+## 2026-10-08 assembly-capacity follow-up
+
+Main Edit native assembly capacity is 64 (previously 32), consistently used by
+load/edit/save and hierarchy validation. The typed editor retains `retain_run_end`.
+The existing 32-assembly mounted van scene was qualified in contained copies at
+40 and 64 groups, with overflow refused and original scene bytes unchanged.
+Fresh tool/app, 557 host cases, package self-test and 64-group native capture pass.
+Review artifacts: `_private_workspace_artifacts/line_drawing/assembly_capacity_20261008/`.
+No installed-app, canonical, VERSION, release or scene-placement effect.
+
+## 2026-10-08 native device-group preparation
+
+Main Edit adds create-only typed saved-layout edits, managed furniture resizing,
+explicit solid RGB/roughness/reflectivity finishes in save/reload/Material preview
+and export, and exact-size material-separated rigid device groups. Assembly moves
+now preserve offset mesh source origins. The installed app and canonical release
+are separate from this source candidate. See [native_layout_edits.md](native_layout_edits.md).
+
+# Dimensioned STL import update — 2026-10-08
+
+Persistent Main Edit now exposes source units and Exact size / Fit to scene in
+its STL browser. Exact physical placement is the default, preserves source axes
+and origin, and accounts for document world scale. Cache source/unit conflicts
+are refused. Object mesh dimensions are labeled by local X/Y/Z axes. See
+[STL device import controls and limits](stl_device_import.md). STEP tessellation,
+device ports, rendered cables and protected van scene edits remain separate.
+Source qualification, package validation and installed-app state are recorded
+in the private status bucket; this entry is not a stable-release claim.
+
 # C3 camera path pose update - 2026-10-06
 
 C3.1–C3.5 are implemented in persistent Main Edit: strict additive path-owned
@@ -1227,3 +1503,41 @@ remain future work in [spatial engineering direction](spatial_engineering_direct
 - Full phase ledgers and archived slices are in:
   - `/Users/calebsv/Desktop/CodeWork/docs/private_program_docs/line_drawing/`
 - This file is the compressed public current-state contract.
+
+
+Main Edit development (2026-10-10, uncommitted): durable scene collections, separate inspection layers, named working views, and STL destination assignment are available. Schema 28 is required for documents using this metadata. This does not change canonical release status. See `scene_collections.md`.
+
+
+Main Edit performance repair (2026-10-10): covering-row visibility no longer revalidates entire collections for each object; resolved covering queries reuse entity metadata. A full 890-object native orbit benchmark improved Layers-open redraw from 184 ms to 35 ms and closed-panel redraw from 100 ms to 29 ms. Geometry/history invariance and the default regression suite passed. This remains local development; install status is recorded in the private performance evidence.
+
+Main Edit Pass 1 (2026-10-11) adds scoped Reveal, child-preserving Show, visibility
+blocker explanations, working-view Reveal persistence, resolved render visibility
+and slimmer preview signatures. Existing scene geometry and authored visibility
+are preserved. Qualification evidence is in the workspace private
+`line_drawing/pass1_20261011` artifact lane; canonical/release adoption is separate.
+
+Main Edit Pass 2 adds collection inspection, physical-part dimension/placement readback, explicit frame configuration and stable saved measurements. New records use schema 29; older documents without them remain schema 28. Inspector values use current authored geometry and conservative STL envelopes, not fabrication qualification. See docs/collection_inspection.md and workspace pass2_20261012 qualification evidence.
+
+
+Main Edit Pass 3 adds read-only collection construction references: native export/open controls, three projected sheets, direct-assembly details, saved measurements, numbered part dimensions/placements, authored properties, a current-model snapshot and optional PDF rendering. Model-derived references retain tentative/concept statuses; they do not certify fabrication or infer stock/joints/tolerances. See collection_inspection.md.
+
+
+Driver cabinet fit v2 is a separate review revision: 30 resized/trimmed native
+prisms, one fitted managed rail, two retired duplicate parts and 12 new mounting
+/recess parts. Native contact and motion evidence remains distinct from physical
+fastener, material, bore and load qualification. See collection_inspection.md.
+
+
+Cabinet fit v3 corrects the driver v2 omission of drawer bay height. Eight
+driver/passenger/rear drawers now have 3 mm top/bottom front reveals and 6 mm
+internal headroom; the driver upper drawer respects a 25 mm cleat below its
+ceiling. Fitted outer fronts are physically connected with mounting blocks.
+The upper driver drawer has a 299 mm travel limit to retain its old aisle
+envelope after adding the outer front and clear the refrigerator door.
+Passenger overhead rails, divider notches, hinge/stay packing, shallow tool
+backing and runner ledgers are explicit, as are sink fixed-hinge bridges.
+The passenger rear middle shelf is restored after a bed-clearance check.
+Four construction-reference packets capture the separate driver, passenger,
+sink and rear scopes. These are provisional model references: selected hardware,
+slide stops, fasteners, bores, stock and physical fit remain to be specified.
+Mesh resizing uses typed asset replacement without changing stable identities.

@@ -1,3 +1,4 @@
+#include "UI/shared_special.h"
 #include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel_parts.h"
 #include "Layout/layout_saved_views.h"
@@ -172,6 +173,12 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     } else {
         label(ui->parts.id,text,sizeof(text));row(&p,PARTS_SELECT,ui->parts.creating?"New assembly":text,true);
         if (ui->parts.mode==1 && !ui->parts.movement_open) row(&p,PARTS_NEW,"New assembly",true);
+        if(!ui->parts.creating && ui->parts.id[0]) {
+            cell(&p,PARTS_HIDE,"Hide",NULL,0,3,true,false);
+            cell(&p,PARTS_SHOW,"Show",NULL,1,3,true,false);
+            cell(&p,PARTS_ISOLATE,"Only",NULL,2,3,true,false);p.y+=p.h;
+        }
+        row(&p,PARTS_RESTORE_VISIBILITY,"Restore inspection visibility",true);
         bool has=selected()!=NULL || ui->parts.creating;
         if (has) {
             if (!ui->parts.movement_open || ui->parts.mode!=1) {
@@ -413,6 +420,13 @@ bool UIPanel_PartsClick(int x,int y) {
         if (i<layout()->objectStore.relationship_count)choose_link(&layout()->objectStore.relationships[i]);
     } else if((action>=PARTS_OBJECTS && action<=PARTS_LINKS) || action==PARTS_VOLUMES || action==PARTS_CHECKS) {
         UIPanel_PartsEnterMode(action==PARTS_VOLUMES?4:action==PARTS_CHECKS?5:action-PARTS_OBJECTS);
+    } else if(action==PARTS_HIDE || action==PARTS_SHOW || action==PARTS_ISOLATE || action==PARTS_RESTORE_VISIBILITY) {
+        LayoutObjectStore* store=&layout()->objectStore;
+        if(action==PARTS_RESTORE_VISIBILITY)Layout_RestoreEntityVisibility(store);
+        else if(action==PARTS_ISOLATE)(void)Layout_IsolateEntity(store,ui->parts.id);
+        else (void)Layout_SetEntityHidden(store,ui->parts.id,action==PARTS_HIDE);
+        Global_FlagHitboxesDirty();
+        snprintf(ui->parts.message,160,"Inspection visibility changed; saved geometry unchanged.");
     } else if(action==PARTS_SELECT)ui->parts.chooser=chooser==1?0:1;
     else if(action==PARTS_TYPE)ui->parts.chooser=chooser==2?0:2;
     else if(action==PARTS_PARENT)ui->parts.chooser=chooser==3?0:3;
@@ -545,3 +559,7 @@ void UIPanel_PartsEnterMode(int mode) {
     UIPanel_SetActiveRightTab(ui, UI_PANEL_RIGHT_TAB_PARTS);
     UIPanel_LayoutParts();
 }
+
+void LDSpecial_Parts(void) { if(UIPanel_Get()->activeRightTab==UI_PANEL_RIGHT_TAB_PARTS) (void)build(NULL,-1,-1,0); }
+
+bool LDInline_Parts(LDInlineField* f) {UIPanelState* u=UIPanel_Get();if(u->activeRightTab!=UI_PANEL_RIGHT_TAB_PARTS || !u->parts.input)return false;size_t cap;char* b=input_buffer(&cap);SDL_Rect box;if(!b || !UIPanel_PartsControlRect(u->parts.input,&box))return false;*f=(LDInlineField){b,cap,&u->parts.replace_text,box,NULL};return true;}

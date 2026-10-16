@@ -228,7 +228,7 @@ typedef struct {
 } RectPrismPrimitiveCreateParams;
 
 #define LAYOUT_MAX_PROPERTIES 8
-#define LAYOUT_MAX_ASSEMBLIES 32
+#define LAYOUT_MAX_ASSEMBLIES 128
 
 typedef enum {
     LAYOUT_PROPERTY_TEXT, LAYOUT_PROPERTY_NUMBER, LAYOUT_PROPERTY_BOOL, LAYOUT_PROPERTY_LENGTH
@@ -243,6 +243,9 @@ typedef enum { LAYOUT_VOLUME_NONE, LAYOUT_VOLUME_KEEPOUT, LAYOUT_VOLUME_SERVICE 
 typedef struct {
     char label[96]; /* display only; empty falls back to the existing primitive label */
     char surface_material[32]; /* Render preset, independent of physical material. */
+    bool surface_custom; /* Optional explicit solid finish; independent of engineering properties. */
+    unsigned surface_rgb;
+    double surface_roughness, surface_reflectivity;
     char entity_type[64]; /* extensible category; empty means PhysicalObject */
     char parent_id[64]; /* assembly ID; transform hierarchy, never electrical/support connectivity */
     bool reference;
@@ -264,13 +267,31 @@ typedef struct {
     char property_value[128]; /* exact text or canonical scalar representation */
 } LayoutEntityQuery;
 
-#define LAYOUT_MAX_SAVED_VIEWS 16
+#define LAYOUT_MAX_SAVED_VIEWS 32
 #define LAYOUT_MAX_VIEW_QUERIES 8
 typedef struct {
     char id[64], name[96];
     size_t query_count;
     LayoutEntityQuery queries[LAYOUT_MAX_VIEW_QUERIES]; /* OR of AND queries. */
 } LayoutSavedView;
+
+/* Semantic inspection groups are orthogonal to transform/motion assemblies. */
+#define LAYOUT_MAX_SCENE_COLLECTIONS 64
+#define LAYOUT_MAX_COLLECTION_MEMBERS 2048
+#define LAYOUT_MAX_WORKING_VIEWS 16
+#define LAYOUT_MAX_WORKING_MASKS 128
+typedef struct { char id[64], name[96], parent[64], inspection_frame[64]; } LayoutSceneCollection;
+typedef struct { char collection[64], entity[64]; } LayoutSceneCollectionMember;
+typedef struct {
+    char id[64], name[96], only[64];
+    char hidden[LAYOUT_MAX_WORKING_MASKS][64], shown[LAYOUT_MAX_WORKING_MASKS][64];
+    size_t hidden_count, shown_count;
+    char revealed[LAYOUT_MAX_WORKING_MASKS][64];
+    size_t revealed_count;
+    char hidden_views[LAYOUT_MAX_SAVED_VIEWS][64], isolated_view[64];
+    size_t hidden_view_count;
+    bool guides;
+} LayoutWorkingView;
 
 typedef struct {
     uint32_t objectId;
@@ -303,6 +324,15 @@ typedef struct LayoutGeometricReference {
     double local_offset_meters[3];
 } LayoutGeometricReference;
 
+/* Read-only dimensions use stable envelope datums, never preview triangle indices. */
+typedef struct { char entity_id[64]; int feature; /* 0 origin, 1 bounds min, 2 center, 3 max */ } LayoutInspectionDatum;
+typedef struct {
+    char id[64], name[96], collection[64], frame_entity[64];
+    int kind; /* 0..2 collection U/V/N extent, 3 point distance, 4..6 signed U/V/N projection */
+    LayoutInspectionDatum a,b;
+} LayoutSavedMeasurement;
+#define LAYOUT_MAX_SAVED_MEASUREMENTS 128
+
 #define LAYOUT_MAX_CONSTRAINTS 32
 
 typedef enum LayoutConstraintKind {
@@ -312,6 +342,26 @@ typedef enum LayoutConstraintKind {
     LAYOUT_CONSTRAINT_LINEAR_TRAVEL,
     LAYOUT_CONSTRAINT_ANGULAR_TRAVEL
 } LayoutConstraintKind;
+
+/* Coupled two-link brace driven exclusively by its owning angular travel. */
+typedef struct LayoutFoldingBrace {
+    bool enabled;
+    double fixed_offset_m[3], leaf_offset_m[3], length_m[2];
+    int branch; /* +1 or -1, signed elbow side in the hinge plane */
+    bool compact_mount, manual_lock, lock_engaged;
+    double link_lateral_m[2], pin_lateral_m[3], fixed_plate_offset_m[3], leaf_plate_offset_m[3];
+    double lock_position_deg;
+    char parts[9][64]; /* links, plates, fixed/elbow/leaf pins, stop/release envelopes */
+} LayoutFoldingBrace;
+
+/* Rigid telescoping body/rod driven by an owning hinge; no force model. */
+typedef struct LayoutTelescopingStay {
+    bool enabled;
+    double fixed_offset_m[3], leaf_offset_m[3];
+    double length_m[2], insertion_min_m, insertion_max_m;
+    double fixed_plate_offset_m[3], leaf_plate_offset_m[3];
+    char parts[6][64]; /* body, rod, fixed/leaf eyes, fixed/leaf mounting plates */
+} LayoutTelescopingStay;
 
 typedef struct LayoutConstraint {
     char id[64];
@@ -326,6 +376,10 @@ typedef struct LayoutConstraint {
     double travel_basis[3][3]; /* normalized B U/V/N at capture */
     double hinge_reference[3]; /* A direction at capture; hinge limits/home are degrees */
     char motion_assembly[64]; /* empty: B only; otherwise rigid design assembly driven by B */
+    char closed_neighbor[64]; /* Either member may move only while the other is at home. */
+    LayoutFoldingBrace folding_brace;
+    LayoutFoldingBrace paired_folding_brace; /* optional second mechanism on the same hinge */
+    LayoutTelescopingStay telescoping_stay;
 } LayoutConstraint;
 
 #define LAYOUT_MAX_RELATIONSHIPS 128
@@ -452,11 +506,26 @@ typedef struct {
     LayoutPhysicalRoute routes[LAYOUT_MAX_ROUTES];
     size_t route_count;
     uint32_t next_route_id;
+    LayoutSceneCollection scene_collections[LAYOUT_MAX_SCENE_COLLECTIONS];
+    size_t scene_collection_count;
+    uint32_t next_scene_collection_id;
+    LayoutSceneCollectionMember collection_members[LAYOUT_MAX_COLLECTION_MEMBERS];
+    size_t collection_member_count;
+    LayoutWorkingView working_views[LAYOUT_MAX_WORKING_VIEWS];
+    size_t working_view_count;
+    LayoutSavedMeasurement measurements[LAYOUT_MAX_SAVED_MEASUREMENTS];
+    size_t measurement_count;
     LayoutEntityQuery view_query; /* transient viewport filter; never changes authored visibility */
     LayoutSavedView saved_views[LAYOUT_MAX_SAVED_VIEWS];
     size_t saved_view_count;
     char hidden_view_ids[LAYOUT_MAX_SAVED_VIEWS][64], isolated_view_id[64]; /* transient */
     size_t hidden_view_count;
+    char hidden_entity_ids[1024][64], isolated_entity_id[64]; /* transient inspection state */
+    size_t hidden_entity_count;
+    char shown_entity_ids[1024][64]; /* temporary Show overrides saved visibility/filter */
+    size_t shown_entity_count;
+    char revealed_entity_ids[LAYOUT_MAX_WORKING_MASKS][64]; /* scoped transient Reveal exceptions */
+    size_t revealed_entity_count;
 } LayoutObjectStore;
 
 

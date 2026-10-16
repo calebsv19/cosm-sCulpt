@@ -144,7 +144,7 @@ bool Layout_MotionEnvelopeCurrent(const Layout* l, const LayoutMotionEnvelope* e
     if (!l || !e) return false;
     const LayoutConstraint* c=movement(l,e->rule_id);
     const Object3D* o=Layout_ObjectStore_FindConst(&l->objectStore,e->object_id);char input[17],bounds[17];
-    if (!c || !o || !input_digest(l,c,input) || strcmp(e->input_digest,input) || !members_current(l,c,e)) return false;
+    if (!c || (c->folding_brace.enabled || c->telescoping_stay.enabled) || !o || !input_digest(l,c,input) || strcmp(e->input_digest,input) || !members_current(l,c,e)) return false;
     bounds_digest(o,bounds);return !strcmp(e->bounds_digest,bounds);
 }
 static bool digest_valid(const char* s) {
@@ -194,6 +194,9 @@ static bool generate(Layout* l, void* context) {
     if (!c || g->samples<2 || g->samples>129 || !input_digest(l,c,input)) {
         snprintf(l->geometryMessage,sizeof(l->geometryMessage),"Choose saved Travel/Hinge on a design prism or panel.");return false;
     }
+    if(c->folding_brace.enabled || c->telescoping_stay.enabled) {
+        snprintf(l->geometryMessage,sizeof(l->geometryMessage),"Coupled brace clearance needs bounds for leaf and support; saved primitive envelopes do not cover it.");return false;
+    }
     const LayoutMotionEnvelope* old=Layout_FindRuleEnvelope(&l->objectStore,g->id);
     if (!old && l->objectStore.motion_envelope_count>=LAYOUT_MAX_MOTION_ENVELOPES) {
         snprintf(l->geometryMessage,sizeof(l->geometryMessage),"A scene supports up to 32 motion envelopes.");return false;
@@ -205,6 +208,9 @@ static bool generate(Layout* l, void* context) {
     const Object3D* source=entity(l,c->b.entity_id);
     if (c->motion_assembly[0]) for (size_t i=0;i<l->objectStore.count;++i) {
         const Object3D* o=&l->objectStore.items[i];if (!Layout_MotionScopeContains(&l->objectStore,c,o)) continue;
+        if (o->kind==OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+            snprintf(l->geometryMessage,sizeof(l->geometryMessage),"Mesh assemblies move rigidly; use conservative asset-bound clearance checks. Saved motion envelopes support primitive members.");return false;
+        }
         if (e.member_count>=LAYOUT_MAX_MOTION_MEMBERS) return false;
         capture_member(l,o,source,&e.members[e.member_count++]);
     }

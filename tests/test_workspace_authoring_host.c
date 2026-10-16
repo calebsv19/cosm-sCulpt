@@ -1,3 +1,4 @@
+#include "UI/shared_overlay.h"
 #include "test_framework.h"
 
 #include "UI/shared_theme_font_adapter.h"
@@ -174,14 +175,13 @@ static bool authoring_read_first_line(const char* path, char* out, size_t out_ca
     return out[0] != '\0';
 }
 
-static bool authoring_font_theme_button_point(int width,
-                                              int height,
+static bool authoring_font_theme_button_point(const GlobalState* state,
                                               KitWorkspaceAuthoringFontThemeButtonId button_id,
                                               int* out_x,
                                               int* out_y) {
     KitWorkspaceAuthoringFontThemeLayout layout;
     memset(&layout, 0, sizeof(layout));
-    TEST_ASSERT(kit_workspace_authoring_ui_font_theme_build_layout(NULL, width, height, &layout));
+    TEST_ASSERT(LDOverlay_FontThemeLayout(state,&layout));
     switch (button_id) {
         case KIT_WORKSPACE_AUTHORING_FONT_THEME_BUTTON_CUSTOM_THEME_CREATE_STUB:
             *out_x = (int)(layout.custom_theme_buttons[0].x +
@@ -222,6 +222,7 @@ static bool test_authoring_overlay_buttons_control_state(void) {
     TEST_ASSERT(x > 0 && y > 0);
     click = authoring_mouse_down(x, y);
     TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &click));
+    click.type=SDL_MOUSEBUTTONUP;TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state,&click));
     TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_FontThemeOverlayActive(&state));
     TEST_ASSERT(state.workspaceAuthoring.overlay_button_click_count == 1u);
 
@@ -229,6 +230,7 @@ static bool test_authoring_overlay_buttons_control_state(void) {
     TEST_ASSERT(x > 0 && y > 0);
     click = authoring_mouse_down(x, y);
     TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &click));
+    click.type=SDL_MOUSEBUTTONUP;TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state,&click));
     TEST_ASSERT(!LineDrawingWorkspaceAuthoringHost_Active(&state));
     TEST_ASSERT(state.workspaceAuthoring.cancel_count == 1u);
     return true;
@@ -253,14 +255,14 @@ static bool test_authoring_font_theme_overlay_hit_uses_shared_layout(void) {
     TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_FontThemeOverlayActive(&state));
 
     TEST_ASSERT(authoring_font_theme_button_point(
-        state.screenWidth,
-        state.screenHeight,
+        &state,
         KIT_WORKSPACE_AUTHORING_FONT_THEME_BUTTON_CUSTOM_THEME_CREATE_STUB,
         &x,
         &y));
     TEST_ASSERT(x > 0 && y > 0);
     click = authoring_mouse_down(x, y);
     TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &click));
+    click.type=SDL_MOUSEBUTTONUP;TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state,&click));
     TEST_ASSERT(state.workspaceAuthoring.font_theme_button_click_count == 1u);
     TEST_ASSERT(state.workspaceAuthoring.font_theme_status[0] != '\0');
     TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_FontThemeOverlayActive(&state));

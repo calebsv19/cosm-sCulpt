@@ -10,6 +10,17 @@
 #include <string.h>
 #include <unistd.h>
 
+/* Existing workflow tests model complete clicks; press/cancel has a separate suite. */
+static bool host_menu_complete_event(LineDrawingHostMenuState* state, AppContext* ctx,
+                                    const SDL_Event* event, LineDrawingHostMenuCommand* command) {
+    bool consumed=LineDrawingHostMenu_HandleEvent(state,ctx,event,command);
+    if(event->type==SDL_MOUSEBUTTONDOWN && event->button.button==SDL_BUTTON_LEFT) {
+        SDL_Event release=*event;release.type=SDL_MOUSEBUTTONUP;
+        consumed=LineDrawingHostMenu_HandleEvent(state,ctx,&release,command) || consumed;
+    }
+    return consumed;
+}
+
 static bool test_first_selectable_prefers_resume(void) {
     LineDrawingHostMenuModel model = {0};
     model.item_enabled[LINE_DRAWING_HOST_MENU_ITEM_RESUME_EDITOR] = true;
@@ -62,7 +73,7 @@ static bool test_mouse_hover_does_not_commit_nav_selection(void) {
     event.motion.x = 48;
     event.motion.y = 360;
 
-    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(host_menu_complete_event(&state, &ctx, &event, &command));
     TEST_ASSERT(state.selected_section == LINE_DRAWING_HOST_MENU_SECTION_QUICK_ACTIONS);
     TEST_ASSERT(state.hovered_section_index == LINE_DRAWING_HOST_MENU_SECTION_BROWSE);
 
@@ -86,7 +97,7 @@ static bool test_mouse_hover_does_not_commit_content_selection(void) {
     event.motion.x = 260;
     event.motion.y = 248;
 
-    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(host_menu_complete_event(&state, &ctx, &event, &command));
     TEST_ASSERT(state.selected_index == LINE_DRAWING_HOST_MENU_ITEM_QUIT);
     TEST_ASSERT(state.hovered_content_index == LINE_DRAWING_HOST_MENU_ITEM_RESUME_EDITOR);
 
@@ -110,7 +121,7 @@ static bool test_mouse_click_commits_nav_selection(void) {
     event.button.x = 48;
     event.button.y = 360;
 
-    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(host_menu_complete_event(&state, &ctx, &event, &command));
     TEST_ASSERT(state.selected_section == LINE_DRAWING_HOST_MENU_SECTION_BROWSE);
 
     ld_test_shutdown_runtime();
@@ -167,11 +178,11 @@ static bool test_browse_click_switches_to_catalog_section(void) {
     event.button.button = SDL_BUTTON_LEFT;
     event.button.x = 48;
     event.button.y = 360;
-    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(host_menu_complete_event(&state, &ctx, &event, &command));
     event.button.x = 260;
     event.button.y = 248;
 
-    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(host_menu_complete_event(&state, &ctx, &event, &command));
     TEST_ASSERT(strcmp(Global_GetInputRoot(), sibling_dir) == 0);
     TEST_ASSERT(state.selected_section == LINE_DRAWING_HOST_MENU_SECTION_SCENES ||
                 state.selected_section == LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS);
@@ -227,11 +238,11 @@ static bool test_folder_access_is_requested_and_retryable(void) {
     LineDrawingHostMenu_Init(&state);
     SDL_Event event = {.type = SDL_MOUSEMOTION};
     event.motion.x = 48; event.motion.y = 260;
-    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(host_menu_complete_event(&state, &ctx, &event, &command));
     TEST_ASSERT(!state.status_is_error && !state.section_loaded[LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS] && !state.catalog.layout_count);
     event.type = SDL_MOUSEBUTTONDOWN; event.button.button = SDL_BUTTON_LEFT;
     event.button.x = 48; event.button.y = 260;
-    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(host_menu_complete_event(&state, &ctx, &event, &command));
     TEST_ASSERT(state.status_is_error && strstr(state.status_text, "Cannot read folder"));
     TEST_ASSERT(ld_test_artifact_make_dir(root));
     char path[LINE_DRAWING_PATH_CAP];
@@ -239,9 +250,9 @@ static bool test_folder_access_is_requested_and_retryable(void) {
     TEST_ASSERT(Layout_SaveToFile(&Global_Get()->layout, path));
     SDL_Event motion = {.type = SDL_MOUSEMOTION};
     motion.motion.x = 400; motion.motion.y = 300;
-    (void)LineDrawingHostMenu_HandleEvent(&state, &ctx, &motion, &command);
+    (void)host_menu_complete_event(&state, &ctx, &motion, &command);
     TEST_ASSERT(state.status_is_error && !state.catalog.layout_count);
-    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(host_menu_complete_event(&state, &ctx, &event, &command));
     TEST_ASSERT(!state.status_is_error && state.section_loaded[LINE_DRAWING_HOST_MENU_SECTION_LAYOUTS] && state.catalog.layout_count == 1);
     unlink(path); rmdir(root); ld_test_shutdown_runtime();
     return true;
@@ -265,7 +276,7 @@ static bool test_editor_return_refreshes_requested_catalog(void) {
     SDL_Event event = {.type = SDL_MOUSEBUTTONDOWN};
     event.button.button = SDL_BUTTON_LEFT;
     event.button.x = 48; event.button.y = 260;
-    TEST_ASSERT(LineDrawingHostMenu_HandleEvent(&state, &ctx, &event, &command));
+    TEST_ASSERT(host_menu_complete_event(&state, &ctx, &event, &command));
     TEST_ASSERT(state.catalog.layout_count == 1);
     TEST_ASSERT(Layout_SaveToFile(&Global_Get()->layout, saved_as));
     Global_OnLayoutLoaded(saved_as);

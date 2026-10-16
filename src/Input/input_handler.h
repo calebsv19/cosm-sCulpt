@@ -4,3 +4,6 @@
 
 void Input_Handle(AppContext* ctx, SDL_Event* event);
 
+
+/* End native window capture without clearing authoring/save drafts. */
+void Input_CancelWindowCapture(void);

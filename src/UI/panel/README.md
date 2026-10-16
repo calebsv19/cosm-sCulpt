@@ -1,3 +1,10 @@
+## Shared specialized controls and inline drafts
+
+The app adapters in `../shared_special_controls.c` and `../shared_inline_text.c`
+collect current owner geometry and bind active owner drafts. Existing form action,
+parsing/save/history and continuous drag owners remain local. See
+[contract](../../../docs/ui_shared_specialized.md) before extending these hooks.
+
 # UI Panel
 
 This subtree owns the editor-local pane shell and pane-scoped controls.
@@ -17,6 +24,8 @@ This subtree owns the editor-local pane shell and pane-scoped controls.
   - `ui_panel_file_status.c` owns File-pane-local display basename, browser
     mode labels, summary mode labels, and prefixed browser/action status-line
     formatting shared by the File summary and expanded browser.
+- `ui_panel_stl_options.*` owns the STL browser's source-unit and exact/fit
+  controls, shared paint/hit geometry, and the in-flight settings lock.
 - Scene pane:
   - `ui_panel_scene_*`
 - Right pane summaries and layouts:
@@ -91,3 +100,14 @@ remain supported. No shared ABI or physical document schema changed.
 - Large files in this subtree are future R5/decomposition candidates. Do not
   add new feature lanes to `ui_panel_load_menu.c` or `ui_panel_file_ops.c`
   without first checking for a smaller sibling module.
+
+
+`ui_panel_visibility.c` owns the persistent Scene/Layers/Views inspection panel, group editing, and named-view capture. The topbar routes to it; semantic mutations remain in Layout. STL options expose collection and covering-role assignment.
+
+The visibility pane selects a row for blocker explanation and offers Reveal selected.
+Parent Show preserves child exclusions; Only keeps guide/reference layer boundaries.
+
+ui_panel_collection_inspection.c owns the collection Measure view, scoped framing, part inventory, wrapped dimensional readouts and saved-measurement controls/annotations. Existing reference/motion controls delegate only while this explicit mode is active.
+
+
+Collection inspection offers Export construction reference sheets and Open last exported sheets. Core construction_reference_export selects a fresh File-output directory; export never writes document history.

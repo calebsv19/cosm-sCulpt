@@ -1,4 +1,5 @@
 #include "Menu/line_drawing_host_menu_internal.h"
+#include "UI/shared_controls.h"
 
 #include "Core/global_state.h"
 #include "UI/ui_panel.h"
@@ -37,6 +38,7 @@ int line_drawing_host_menu_content_row_height(LineDrawingHostMenuSection section
 static void line_drawing_host_menu_stop_filter_editing(LineDrawingHostMenuState* state) {
     if (!state) return;
     state->filter_editing = false;
+    LDText_CancelCapture(&state->filter_text);
     if (SDL_IsTextInputActive()) {
         SDL_StopTextInput();
     }
@@ -594,6 +596,7 @@ static bool line_drawing_host_menu_activate(LineDrawingHostMenuState* state,
 }
 
 void LineDrawingHostMenu_Init(LineDrawingHostMenuState* state) {
+    LDControls_CancelAll();
     if (!state) return;
     memset(state, 0, sizeof(*state));
     state->selected_index = LINE_DRAWING_HOST_MENU_ITEM_RESUME_EDITOR;
@@ -617,6 +620,7 @@ void LineDrawingHostMenu_Init(LineDrawingHostMenuState* state) {
 }
 
 void LineDrawingHostMenu_ReturnFromEditor(LineDrawingHostMenuState* state) {
+    LDControls_CancelAll();
     if (!state) return;
     const bool requested = state->selected_section >= 0 &&
         state->selected_section < LINE_DRAWING_HOST_MENU_SECTION_COUNT &&
@@ -674,7 +678,7 @@ int LineDrawingHostMenu_MoveSelection(const LineDrawingHostMenuModel* model,
     return current_index;
 }
 
-bool LineDrawingHostMenu_HandleEvent(LineDrawingHostMenuState* state,
+bool line_drawing_host_menu_dispatch(LineDrawingHostMenuState* state,
                                      AppContext* ctx,
                                      const SDL_Event* event,
                                      LineDrawingHostMenuCommand* out_command) {
@@ -697,6 +701,25 @@ bool LineDrawingHostMenu_HandleEvent(LineDrawingHostMenuState* state,
                                   Global_GetScreenHeight());
     line_drawing_host_menu_clear_hover(state);
 
+    KitUiTextEventResult text_result=LineDrawingHostMenu_FilterEvent(state,event);
+    if(text_result.changed) {
+        line_drawing_host_menu_apply_filter(state);
+        line_drawing_host_menu_set_status(state,"Catalog filter updated.",false);
+    }
+    if(text_result.submit) {
+        line_drawing_host_menu_stop_filter_editing(state);
+        state->focus_region=LINE_DRAWING_HOST_MENU_FOCUS_CONTENT;
+    }
+    if(text_result.cancel) {
+        if(state->filter_query[0]) {
+            state->filter_query[0]=0;line_drawing_host_menu_apply_filter(state);
+            line_drawing_host_menu_set_status(state,"Catalog filter cleared.",false);
+        } else {
+            line_drawing_host_menu_stop_filter_editing(state);
+            state->focus_region=LINE_DRAWING_HOST_MENU_FOCUS_CONTENT;
+        }
+    }
+    if(text_result.consumed)return true;
     switch (event->type) {
         case SDL_KEYDOWN:
             line_drawing_host_menu_stop_scrollbar_drag(state);
@@ -797,17 +820,6 @@ bool LineDrawingHostMenu_HandleEvent(LineDrawingHostMenuState* state,
                         return true;
                     }
                     break;
-                case SDLK_BACKSPACE:
-                    if (state->focus_region == LINE_DRAWING_HOST_MENU_FOCUS_FILTER) {
-                        size_t len = strlen(state->filter_query);
-                        if (len > 0u) {
-                            state->filter_query[len - 1u] = '\0';
-                            line_drawing_host_menu_apply_filter(state);
-                            line_drawing_host_menu_set_status(state, "Catalog filter updated.", false);
-                        }
-                        return true;
-                    }
-                    break;
                 case SDLK_RETURN:
                 case SDLK_KP_ENTER:
                 case SDLK_SPACE:
@@ -841,24 +853,6 @@ bool LineDrawingHostMenu_HandleEvent(LineDrawingHostMenuState* state,
                     return true;
                 default:
                     break;
-            }
-            break;
-        case SDL_TEXTINPUT:
-            if (state->focus_region == LINE_DRAWING_HOST_MENU_FOCUS_FILTER &&
-                line_drawing_host_menu_section_supports_filter(state->selected_section) &&
-                event->text.text[0]) {
-                size_t len = strlen(state->filter_query);
-                size_t add_len = strlen(event->text.text);
-                if (len + add_len >= sizeof(state->filter_query)) {
-                    add_len = sizeof(state->filter_query) - len - 1u;
-                }
-                if (add_len > 0u) {
-                    memcpy(state->filter_query + len, event->text.text, add_len);
-                    state->filter_query[len + add_len] = '\0';
-                    line_drawing_host_menu_apply_filter(state);
-                    line_drawing_host_menu_set_status(state, "Catalog filter updated.", false);
-                }
-                return true;
             }
             break;
         case SDL_MOUSEMOTION:
@@ -926,6 +920,7 @@ bool LineDrawingHostMenu_HandleEvent(LineDrawingHostMenuState* state,
                 line_drawing_host_menu_stop_scrollbar_drag(state);
                 state->hovered_filter = true;
                 line_drawing_host_menu_begin_filter_editing(state);
+                (void)LineDrawingHostMenu_FilterEvent(state,event);
                 return true;
             }
             browse_action_index = line_drawing_host_menu_hit_test_browse_action(state,

@@ -127,7 +127,7 @@ static bool click(int action) {
         return ld_test_context_part(action);
 
     SDL_Rect r;TEST_ASSERT(UIPanel_PartsControlRect(action,&r));TEST_ASSERT(r.y>=UIPanel_Get()->rightBodyRect.y && r.y+r.h<=UIPanel_Get()->rightBodyRect.y+UIPanel_Get()->rightBodyRect.h);
-    AppContext c={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};e.button.button=SDL_BUTTON_LEFT;e.button.x=r.x+r.w/2;e.button.y=r.y+r.h/2;Input_Handle(&c,&e);return true;
+    AppContext c={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};e.button.button=SDL_BUTTON_LEFT;e.button.x=r.x+r.w/2;e.button.y=r.y+r.h/2;Input_Handle(&c,&e);e.type=SDL_MOUSEBUTTONUP;Input_Handle(&c,&e);return true;
 }
 static bool text(int action,const char* value) {
     TEST_ASSERT(click(action));SDL_Event e={.type=SDL_TEXTINPUT};snprintf(e.text.text,sizeof(e.text.text),"%s",value);TEST_ASSERT(UIPanel_PartsEvent(&e));

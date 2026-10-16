@@ -1,4 +1,6 @@
+#include "UI/shared_special.h"
 #include "UI/ui_panel_measurement.h"
+#include "UI/panel/ui_panel_collection_inspection.h"
 #include "Layout/layout_motion.h"
 #include "UI/ui_panel_spatial.h"
 #include "UI/ui_panel_shell.h"
@@ -54,6 +56,7 @@ static void cell(MeasurePane* p,int action,const char* label,int column,int colu
     }
     if (action==p->wanted) p->found=rect;
     if (action && enabled && contains(rect,p->click_x,p->click_y) && contains(p->body,p->click_x,p->click_y)) p->hit=action;
+    if(action!=MEASURE_TRAVEL_SLIDER) LDSpecial_Record(22,action,label,rect,&p->body,enabled);
     if (!p->renderer) return;
     int mx,my;Uint32 buttons=SDL_GetMouseState(&mx,&my);
     bool hovered=action && enabled && contains(rect,mx,my) && contains(p->body,mx,my);
@@ -313,6 +316,10 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
         cell(&p,MEASURE_TRAVEL_TO_MIN,"Min",0,3,active_travel && !pending,false);
         cell(&p,MEASURE_TRAVEL_TO_MAX,"Max",1,3,active_travel && !pending,false);
         cell(&p,MEASURE_TRAVEL_RESET,"Reset",2,3,active_travel,false);p.y+=p.h;
+        if(active_travel&&rule->folding_brace.manual_lock){
+            row(&p,0,rule->folding_brace.lock_engaged?"Support lock: Engaged":"Support lock: Released",true);
+            row(&p,rule->folding_brace.lock_engaged?MEASURE_SUPPORT_RELEASE:MEASURE_SUPPORT_ENGAGE,rule->folding_brace.lock_engaged?"Release support lock":"Engage support lock",!pending&&scene);
+        }
         if (active_travel && editing) {
             const LayoutAssembly* a=Layout_FindAssembly(store,rule->motion_assembly);
             snprintf(text,sizeof(text),"Moves: %s",a?(a->info.label[0]?a->info.label:a->id):"B only");
@@ -400,6 +407,7 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     return p;
 }
 void UIPanel_LayoutMeasurementPane(void) {
+    if(UIPanel_CollectionInspectionActive()){UIPanel_CollectionInspectionLayout();return;}
     UIPanelState* ui=UIPanel_Get();
     if(ui->activeRightTab!=UI_PANEL_RIGHT_TAB_MEASURE)return;
     if(!ui->measurement.placing && !ui->measurement.picking && !ui->measurement.travel_dragging &&
@@ -425,9 +433,11 @@ void UIPanel_LayoutMeasurementPane(void) {
     UIPanel_RightScrollSetContentHeight(ui,(float)(p.y-ui->rightBodyRect.y)+UIPanel_RightScrollOffset(ui)+8);
 }
 bool UIPanel_MeasurementControlRect(int action,SDL_Rect* rect) {
+    if(UIPanel_CollectionInspectionActive())return UIPanel_CollectionInspectionRect(action,rect);
     MeasurePane p=build(NULL,-1,-1,action);if(rect)*rect=p.found;return p.found.w>0;
 }
 void UIPanel_RenderMeasurement(SDL_Renderer* renderer) {
+    if(UIPanel_CollectionInspectionActive()){UIPanel_CollectionInspectionRender(renderer);return;}
     UIPanelState* ui=UIPanel_Get();if(!renderer || ui->activeRightTab!=UI_PANEL_RIGHT_TAB_MEASURE)return;
     SDL_Rect old;bool clipped=SDL_RenderIsClipEnabled(renderer);SDL_RenderGetClipRect(renderer,&old);
     SDL_RenderSetClipRect(renderer,&ui->rightBodyRect);(void)build(renderer,-1,-1,0);SDL_RenderSetClipRect(renderer,clipped?&old:NULL);
@@ -492,6 +502,7 @@ bool UIPanel_ApplyEngineeringGrid(const char* text) {
     snprintf(UIPanel_Get()->measurement.placement_message,128,"Grid step applied.");return true;
 }
 bool UIPanel_MeasurementClick(int x,int y) {
+    if(UIPanel_CollectionInspectionActive())return UIPanel_CollectionInspectionClick(x,y);
     UIPanelState* ui=UIPanel_Get();if(!ui->measurement.active || ui->activeRightTab!=UI_PANEL_RIGHT_TAB_MEASURE)return false;
     if(!contains(ui->rightBodyRect,x,y)) {
         CorePaneRect vp;
@@ -548,6 +559,7 @@ bool UIPanel_MeasurementClick(int x,int y) {
             Global_FlagHitboxesDirty();
         } else snprintf(ui->measurement.placement_message,128,"%s",Global_Get()->layout.geometryMessage);
     }
+    else if(action==MEASURE_SUPPORT_RELEASE || action==MEASURE_SUPPORT_ENGAGE) UIPanel_TravelAction(action);
     else if(action>=MEASURE_TRAVEL_MIN && action<=MEASURE_TRAVEL_SLIDER) {
         if(action==MEASURE_TRAVEL_SLIDER) {
             const LayoutConstraint* c=selected();
@@ -632,3 +644,5 @@ bool UIPanel_MeasurementClick(int x,int y) {
     }
     UIPanel_LayoutMeasurementPane();return true;
 }
+
+void LDSpecial_Measure(void) { if(UIPanel_Get()->activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE && !UIPanel_CollectionInspectionActive()) (void)build(NULL,-1,-1,0); }

@@ -1,5 +1,6 @@
 #include "Layout/layout_engineering.h"
 #include "UI/ui_panel_measurement.h"
+#include "UI/panel/ui_panel_collection_inspection.h"
 #include "Core/global_state.h"
 #include "Layout/layout_constraints.h"
 #include "Core/space_mode_adapter.h"
@@ -164,6 +165,7 @@ static void hinge_arc(SDL_Renderer* renderer,CorePaneRect rect,const LayoutConst
     }
 }
 void UIPanel_RenderMeasurementViewport(SDL_Renderer* renderer) {
+    if(UIPanel_CollectionInspectionActive()){UIPanel_CollectionInspectionViewport(renderer);return;}
     CorePaneRect rect;
     if (!renderer || !viewport(&rect)) return;
     UIPanelState* ui = UIPanel_Get();

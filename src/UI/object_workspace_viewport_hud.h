@@ -10,3 +10,5 @@ bool LineDrawingObjectWorkspaceViewportHud_HandleClick(GlobalState* state,
                                                        int mouse_y);
 void LineDrawingObjectWorkspaceViewportHud_Render(SDL_Renderer* renderer,
                                                   const GlobalState* state);
+
+bool LineDrawingObjectWorkspaceViewportHud_Rect(const GlobalState*,int,SDL_Rect*);

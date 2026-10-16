@@ -53,3 +53,7 @@ typedef struct {
 /* A sampled contact/clearance inspection, never continuous collision proof. */
 bool Layout_InspectMotionObstruction(const Layout* layout, const LayoutMotionEnvelope* envelope,
     const char* target_id, double clearance_meters, bool clearance, LayoutMotionInspection* inspection);
+
+/* Internal rigid enclosing-assembly edit; only rules with both references inside. */
+void Layout_TransformEnclosedMotionRules(LayoutObjectStore* store,const char* assembly,
+    PlaneFrame3 before,PlaneFrame3 after);

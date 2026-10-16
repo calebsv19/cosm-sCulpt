@@ -1,6 +1,7 @@
 #include "Layout/scene/layout_camera_poses.h"
 #include "Layout/layout_routes.h"
 #include "Layout/layout_saved_views.h"
+#include "Layout/layout_scene_collections.h"
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_furniture.h"
 #include "Layout/layout_relationships.h"
@@ -8,6 +9,7 @@
 #include "Layout/layout_motion.h"
 #include "Layout/layout_constraints.h"
 #include "Layout/layout_json.h"
+#include "Layout/layout_collection_inspection.h"
 #include "Layout/scene/layout_scene_camera_authoring.h"
 #include "Layout/scene/layout_scene_light_authoring.h"
 #include "Core/global_state.h"
@@ -712,7 +714,9 @@ static cJSON* Layout_CreateJson(const Layout* layout) {
         return NULL;
     }
     cJSON_AddItemToObject(root, "file", file);
-    cJSON_AddNumberToObject(file, "schemaVersion", LAYOUT_JSON_SCHEMA_VERSION);
+    bool paired=false;
+    for(size_t i=0;i<layout->objectStore.constraintCount;++i)paired|=layout->objectStore.constraints[i].paired_folding_brace.enabled;
+    cJSON_AddNumberToObject(file, "schemaVersion", paired?30:(Layout_HasInspectionRecords(layout)?LAYOUT_JSON_SCHEMA_VERSION_COLLECTION_INSPECTION:LAYOUT_JSON_SCHEMA_VERSION_COLLECTIONS));
     if (!Layout_EngineeringWriteJson(layout, root)) { cJSON_Delete(root); return NULL; }
     if (!Layout_ConstraintsWriteJson(layout, root)) { cJSON_Delete(root); return NULL; }
     cJSON_AddStringToObject(file, "generator", LAYOUT_JSON_GENERATOR);
@@ -1297,6 +1301,11 @@ static bool Layout_ApplyJson(Layout* layout, const cJSON* root) {
     if (!Layout_FurnitureReadJson(&temp, cJSON_GetObjectItemCaseSensitive(root,"engineering"), schemaVersion)) {
         Layout_Free(&temp); return false;
     }
+    if (!Layout_SceneCollectionsReadJson(&temp,cJSON_GetObjectItemCaseSensitive(root,"engineering"))) {
+        Layout_Free(&temp); return false;
+    }
+    if(!Layout_MeasurementsReadJson(&temp,cJSON_GetObjectItemCaseSensitive(root,"engineering"))) {Layout_Free(&temp);return false;}
+    if(schemaVersion<LAYOUT_JSON_SCHEMA_VERSION_COLLECTION_INSPECTION&&Layout_HasInspectionRecords(&temp)){Layout_Free(&temp);return false;}
     temp.objectStore.view_query=layout->objectStore.view_query;
     Layout_RestoreViewVisibility(&temp.objectStore,&layout->objectStore);
     Layout_Free(layout);

@@ -39,7 +39,8 @@ enum {
     UI_CAMERA_FACING_POS_Y,
     UI_CAMERA_FACING_NEG_Y,
     UI_CAMERA_FACING_POS_Z,
-    UI_CAMERA_FACING_NEG_Z
+    UI_CAMERA_FACING_NEG_Z,
+    UI_CAMERA_FRAME_SCENE, UI_CAMERA_FRAME_SELECTION, UI_CAMERA_GUIDES
 };
 int UIPanel_CameraHeight(void);
 bool UIPanel_CameraCapturingKeyboard(void);

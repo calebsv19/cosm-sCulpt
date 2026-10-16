@@ -1,3 +1,4 @@
+#include "UI/shared_special.h"
 #include <unistd.h>
 #include "test_layout_internal.h"
 #include "Layout/layout_furniture.h"
@@ -116,7 +117,7 @@ static bool test_rotated_unit_and_strict_recipe_loading(void) {
 static bool click(int action) {
     SDL_Rect r; if (!UIPanel_FurnitureControlRect(action,&r)) return false;
     SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};e.button.button=SDL_BUTTON_LEFT;
-    e.button.x=r.x+r.w*3/4;e.button.y=r.y+r.h/2;Input_Handle(NULL,&e);return true;
+    e.button.x=r.x+r.w*3/4;e.button.y=r.y+r.h/2;Input_Handle(NULL,&e);e.type=SDL_MOUSEBUTTONUP;Input_Handle(NULL,&e);return true;
 }
 static bool test_visible_form_apply_cancel_resize_and_history(void) {
     ld_test_init_runtime();GlobalState* s=Global_Get();TEST_ASSERT(setup(s,1,1));
@@ -126,6 +127,9 @@ static bool test_visible_form_apply_cancel_resize_and_history(void) {
     SDL_Rect old,wide;TEST_ASSERT(UIPanel_FurnitureControlRect(UI_FURNITURE_LENGTH,&old));
     TEST_ASSERT(click(UI_FURNITURE_LENGTH));
     SDL_Event text={.type=SDL_TEXTINPUT};snprintf(text.text.text,sizeof(text.text.text),"1.1 m");Input_Handle(NULL,&text);
+    UIPanel_SetActiveRightTab(UIPanel_Get(),UI_PANEL_RIGHT_TAB_VIEW);(void)LDInline_Active();
+    UIPanel_SetActiveRightTab(UIPanel_Get(),UI_PANEL_RIGHT_TAB_OBJECT);UIPanel_OnWindowResized(1400,1000);
+    LDInlineField draft={0};TEST_ASSERT(LDInline_Furniture(&draft) && !strcmp(draft.text,"1.1 m"));
     TEST_ASSERT(click(UI_FURNITURE_APPLY));
     TEST_ASSERT(fabs(s->layout.objectStore.furniture[0].size_m[1]-1.1)<1e-9);
     TEST_ASSERT(Editor_UndoCount(&s->editor)==1);
@@ -462,8 +466,29 @@ static bool test_whole_van_managed_units_ui_and_resize(void) {
     TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && unchanged(&s->layout,before));
     Layout_FreeString(before);ld_test_shutdown_runtime();return true;
 }
+static bool test_explicit_run_rail_span(void) {
+    ld_test_init_runtime();GlobalState* s=Global_Get();TEST_ASSERT(setup(s,-1,.1));
+    LayoutFurnitureUnit* fixture=&s->layout.objectStore.furniture[0];fixture->parts[6].role=LAYOUT_FURNITURE_RUN_RAIL;
+    memcpy(fixture->parts[6].span_m,(double[]){.045,0,.035},sizeof(fixture->parts[6].span_m));
+    memset(fixture->parts[6].offset_m,0,sizeof(fixture->parts[6].offset_m));Object3D initial;
+    TEST_ASSERT(Layout_FurniturePartGeometry(&s->layout,fixture,6,&initial));
+    *Layout_ObjectStore_Find(&s->layout.objectStore,initial.objectId)=initial;
+    LayoutFurnitureUnit u=*fixture;
+    memcpy(u.parts[6].span_m,(double[]){.045,.964,.035},sizeof(u.parts[6].span_m));
+    memcpy(u.parts[6].offset_m,(double[]){-.2095,0,.10},sizeof(u.parts[6].offset_m));
+    TEST_ASSERT(Layout_EditFurnitureUnit(&s->layout,&u,0,Editor_ReserveGeometryHistory,&s->editor));
+    TEST_ASSERT(Layout_ValidateFurniture(&s->layout,NULL,0));Object3D expected;
+    TEST_ASSERT(Layout_FurniturePartGeometry(&s->layout,&u,6,&expected));TEST_ASSERT(fabs(expected.rectPrism.height*.1-.964)<1e-6);
+    char* saved=Layout_SaveToString(&s->layout);TEST_ASSERT(saved&&Layout_LoadFromString(&s->layout,saved));TEST_ASSERT(Layout_ValidateFurniture(&s->layout,NULL,0));
+    u.parts[6].span_m[1]=1.001;TEST_ASSERT(!Layout_EditFurnitureUnit(&s->layout,&u,0,NULL,NULL));TEST_ASSERT(unchanged(&s->layout,saved));
+    u.parts[6].span_m[1]=.964;u.parts[6].offset_m[1]=.03;TEST_ASSERT(!Layout_EditFurnitureUnit(&s->layout,&u,0,NULL,NULL));TEST_ASSERT(unchanged(&s->layout,saved));
+    u.parts[6].span_m[1]=0;u.parts[6].offset_m[1]=0;TEST_ASSERT(Layout_EditFurnitureUnit(&s->layout,&u,0,NULL,NULL));
+    TEST_ASSERT(Layout_FurniturePartGeometry(&s->layout,&u,6,&expected));TEST_ASSERT(fabs(expected.rectPrism.height*.1-1)<1e-6);
+    Layout_FreeString(saved);ld_test_shutdown_runtime();return true;
+}
 bool furniture_run_tests(void) {
     const TestCase cases[] = {
+        {"explicit_run_rail_span_atomic_reopen",test_explicit_run_rail_span},
         {"sink_geometry_sections_checks_export", test_sink_removed_material_sections_checks_export},
         {"sink_form_history_strict_reopen", test_sink_form_atomic_undo_reopen},
         {"whole_van_unit_controls_resize", test_whole_van_managed_units_ui_and_resize},

@@ -114,7 +114,7 @@ static bool test_layout_json_embeds_version(void) {
     TEST_ASSERT(file && cJSON_IsObject(file));
     const cJSON* version = cJSON_GetObjectItem(file, "schemaVersion");
     TEST_ASSERT(version && cJSON_IsNumber(version));
-    TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION);
+    TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION_COLLECTIONS);
 
     cJSON_Delete(root);
     Layout_FreeString(json);
@@ -381,7 +381,7 @@ static bool test_layout_json_v6_persists_scene_bounds(void) {
     const cJSON* min = cJSON_GetObjectItem(bounds, "min");
     const cJSON* max = cJSON_GetObjectItem(bounds, "max");
     TEST_ASSERT(cJSON_IsNumber(version));
-    TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION);
+    TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION_COLLECTIONS);
     TEST_ASSERT(cJSON_IsObject(scene3d));
     TEST_ASSERT(cJSON_IsObject(bounds));
     TEST_ASSERT(cJSON_IsObject(min));
@@ -811,6 +811,7 @@ static bool test_layout_scene_authoring_defaults_seed_authoring_entities(void) {
 static bool test_scene_authoring_path_handles_follow_selected_records(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
 
     TEST_ASSERT(state->editor.sceneAuthoringEditMode == SCENE_AUTHORING_EDIT_MODE_NONE);
@@ -844,6 +845,7 @@ static bool test_scene_authoring_path_handles_follow_selected_records(void) {
 static bool test_scene_authoring_path_handles_pick_selected_camera_path_point(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     SpaceViewContext view_ctx = {0};
     Vec2 screen = {0};
@@ -881,6 +883,7 @@ static bool test_scene_authoring_path_handles_pick_selected_camera_path_point(vo
 static bool test_scene_authoring_path_gizmo_pick_stays_screen_sized_across_zoom(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     const float scales[] = { 2.0f, 80.0f };
     SceneAuthoringPathHandleRef selected = {
@@ -938,6 +941,7 @@ static bool scene_authoring_test_axis_drag(bool light,
                                            size_t control_index,
                                            GizmoAxisDirection axis) {
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     SceneAuthoringPathHandleRef handle = {
         .kind = light ? SCENE_AUTHORING_PATH_HANDLE_LIGHT_POSITION
@@ -1015,6 +1019,7 @@ static bool test_scene_authoring_axis_drags_isolate_camera_and_light_coordinates
     };
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     state->freeViewCamera.enabled = true;
     state->freeViewCamera.yawDeg = 35.0f;
@@ -1042,6 +1047,7 @@ static bool test_scene_authoring_axis_drags_isolate_camera_and_light_coordinates
 static bool test_scene_authoring_center_drag_uses_construction_plane(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     SceneAuthoringPathHandleRef handle = {
         .kind = SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT,
@@ -1078,6 +1084,7 @@ static bool test_scene_authoring_center_drag_uses_construction_plane(void) {
 static bool test_scene_authoring_gizmo_pick_priority_and_degenerate_axis_policy(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     SceneAuthoringPathHandleRef handle = {
         .kind = SCENE_AUTHORING_PATH_HANDLE_CONTROL_POINT,
@@ -1388,6 +1395,7 @@ static bool test_scene_path_edit_split_and_safe_delete_preserve_contract(void) {
 static bool test_scene_authoring_typed_tangent_pick_survives_drag_session(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     LineDrawingScenePath* path = &authoring->paths[0];
     SpaceViewContext view_ctx = SpaceAdapter_BuildViewContext(state);
@@ -1496,6 +1504,7 @@ static bool test_scene_camera_records_modes_pose_and_delete(void) {
 static bool test_scene_camera_aim_pick_survives_axis_drag(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     LineDrawingSceneCamera* camera = &authoring->cameras[0];
     SceneAuthoringPathHandleRef handle = {
@@ -1554,6 +1563,7 @@ static bool test_scene_camera_aim_pick_survives_axis_drag(void) {
 static bool test_scene_light_aim_pick_survives_axis_drag(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     LineDrawingSceneLight* light = &authoring->lights[0];
     SceneAuthoringPathHandleRef handle = {
@@ -1614,6 +1624,7 @@ static bool test_scene_light_aim_pick_survives_axis_drag(void) {
 static bool test_scene_authoring_bezier_screen_insertion_uses_sampled_geometry(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     SpaceViewContext view_ctx = SpaceAdapter_BuildViewContext(state);
     LineDrawingScenePathGeometry geometry = {0};
@@ -1641,6 +1652,7 @@ static bool test_scene_authoring_bezier_screen_insertion_uses_sampled_geometry(v
 static bool test_scene_authoring_deletes_selected_records_and_clears_references(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     size_t light_index = 0u;
     size_t path_index = 0u;
@@ -1887,6 +1899,7 @@ static bool test_layout_json_loads_legacy_camera_paths_and_repairs_bindings(void
 static bool test_scene_authoring_light_property_setters(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
 
     TEST_ASSERT(authoring->light_count == 1u);
@@ -2000,6 +2013,7 @@ static bool test_scene_authoring_light_property_setters(void) {
 static bool test_scene_light_spatial_intent_and_presets(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
+    state->authoringGuides=true;
     LineDrawingSceneAuthoringState* authoring = &state->layout.sceneAuthoring;
     LineDrawingSceneLight* light = &authoring->lights[0];
     LineDrawingScenePath* path = &authoring->paths[1];

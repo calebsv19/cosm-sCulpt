@@ -1,3 +1,4 @@
+#include "UI/shared_special.h"
 #include "UI/ui_panel_object_workspace_summary.h"
 
 #include "Core/global_state.h"
@@ -875,4 +876,18 @@ void Render_UIPanelObjectWorkspaceSummary(const UIPanelState* ui, SDL_Renderer* 
                                        font_h + 4,
                                        label_color);
     }
+}
+
+void LDSpecial_ObjectTree(void) {
+    UIPanelState* u=UIPanel_Get();GlobalState* s=Global_Get();
+    if(Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_OBJECT || u->activeLeftTab!=UI_PANEL_LEFT_TAB_SCENE || !s->objectAuthoring.attached)return;
+    const ObjectAuthoringDocument* d=&s->objectAuthoring.document;SDL_Rect detail=u->objectWorkspacePane.browserRect;
+    TTF_Font* font=FontManager_Get(FONT_DEFAULT);UIPanelVisualMetrics m=UIPanelVisual_MakeMetrics(font);int h=UIPanelObjectWorkspace_FontHeight(font);
+    int y=UIPanelObjectWorkspace_FirstStaticRowY(detail,m,h);char key[64];
+    for(size_t i=0;i<UIPanelObjectWorkspace_StaticBodyCount(d) && y+h<detail.y+detail.h;++i){snprintf(key,sizeof(key),"body:%u",(unsigned)d->bodies[i].bodyId);LDSpecial_Record(30,(int)i+1,key,UIPanelObjectWorkspace_RowRect(detail,m,y,h),&detail,true);y+=h+m.section_gap;}
+    size_t n=UIPanelObjectWorkspace_StaticSketchCount(d);if(n && y+h<detail.y+detail.h)y+=h+2*m.section_gap;
+    for(size_t i=0;i<n && y+h<detail.y+detail.h;++i){snprintf(key,sizeof(key),"sketch:%u",(unsigned)d->sketches[i].sketchId);LDSpecial_Record(30,1000+(int)i,key,UIPanelObjectWorkspace_RowRect(detail,m,y,h),&detail,true);y+=h+m.section_gap;}
+    SDL_Rect clip=UIPanelObjectWorkspace_OperationContentClipRect(u,d,m,h);int step=UIPanelObjectWorkspace_OperationRowStep(m);
+    y=clip.y-(int)UIPanelObjectWorkspace_ClampedOperationScroll(u,d,m,h);
+    for(size_t i=0;i<d->operationCount && y<clip.y+clip.h;++i){snprintf(key,sizeof(key),"operation:%u",(unsigned)d->operations[i].operationId);LDSpecial_Record(30,2000+(int)i,key,(SDL_Rect){clip.x,y,clip.w,step},&clip,true);y+=step;}
 }

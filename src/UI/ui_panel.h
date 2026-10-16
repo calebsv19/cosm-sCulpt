@@ -415,6 +415,13 @@ typedef struct {
         char loadProgressPath[MAX_CONFIG_PATH];
         char loadProgressLabel[128];
         char loadProgressDetail[160];
+        CoreUnitKind stlSourceUnit;
+        bool stlFitToScene;
+        char stlCollection[64];
+        unsigned stlPartRole; /* 0 body, 1 door, 2 drawer, 3 access panel */
+        bool stlCollectionPicker;
+        unsigned stlCollectionPage;
+        CoreUnitKind asyncStlSourceUnit;
         bool asyncStlActive;
         SDL_Thread* asyncStlThread;
         SDL_atomic_t asyncStlComplete;

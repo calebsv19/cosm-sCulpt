@@ -13,7 +13,7 @@ enum {
     LINE_DRAWING_HOST_MENU_CARD_PADDING = 18,
     LINE_DRAWING_HOST_MENU_REGION_GAP = 14,
     LINE_DRAWING_HOST_MENU_HEADER_HEIGHT = 96,
-    LINE_DRAWING_HOST_MENU_FOOTER_HEIGHT = 94,
+    LINE_DRAWING_HOST_MENU_FOOTER_HEIGHT = 120,
     LINE_DRAWING_HOST_MENU_NAV_WIDTH = 194,
     LINE_DRAWING_HOST_MENU_DETAIL_WIDTH = 328,
     LINE_DRAWING_HOST_MENU_NAV_ROW_HEIGHT = 42,
@@ -55,6 +55,12 @@ typedef struct LineDrawingHostMenuLayout {
     SDL_Rect input_root_rect;
     SDL_Rect output_root_rect;
 } LineDrawingHostMenuLayout;
+
+KitUiTextEventResult LineDrawingHostMenu_FilterEvent(LineDrawingHostMenuState*, const SDL_Event*);
+void LineDrawingHostMenu_FilterDraw(SDL_Renderer*, TTF_Font*, LineDrawingHostMenuState*, SDL_Rect, SDL_Color, SDL_Color);
+
+bool line_drawing_host_menu_dispatch(LineDrawingHostMenuState*, AppContext*, const SDL_Event*, LineDrawingHostMenuCommand*);
+bool LineDrawingHostMenu_CollectControls(LineDrawingHostMenuState* state);
 
 bool line_drawing_host_menu_section_supports_filter(LineDrawingHostMenuSection section);
 int line_drawing_host_menu_content_row_height(LineDrawingHostMenuSection section);

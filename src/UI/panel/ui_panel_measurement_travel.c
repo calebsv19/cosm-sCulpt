@@ -1,6 +1,7 @@
 #include "UI/ui_panel_measurement.h"
 #include "Core/global_state.h"
 #include "Layout/layout_constraints.h"
+#include "Layout/scene/layout_folding_brace.h"
 #include "Editor/editor_reference_edit.h"
 #include <math.h>
 #include <stdlib.h>
@@ -90,6 +91,11 @@ void UIPanel_TravelAction(int action) {
             }
             ui->measurement.placement_message[0]=0;
         }
+        return;
+    }
+    if(action==MEASURE_SUPPORT_RELEASE||action==MEASURE_SUPPORT_ENGAGE){
+        if(saved&&saved->folding_brace.manual_lock){Layout* l=&Global_Get()->layout;bool ok=Layout_FoldingBraceSetLock(l,saved->id,action==MEASURE_SUPPORT_ENGAGE,Layout_GeometryHistory,NULL);
+            snprintf(ui->measurement.placement_message,128,"%s",ok?(action==MEASURE_SUPPORT_RELEASE?"Manual lock released; upward folding enabled.":"Manual lock engaged at deployment."):l->geometryMessage);if(ok)UIPanel_TravelSelect(selected());}
         return;
     }
     if(action>=MEASURE_TRAVEL_MIN && action<=MEASURE_TRAVEL_POSITION) {

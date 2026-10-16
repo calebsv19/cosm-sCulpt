@@ -5,3 +5,5 @@
 
 bool LineDrawingEditorTopbar_HandleClick(int mouse_x, int mouse_y);
 void LineDrawingEditorTopbar_Render(SDL_Renderer* renderer);
+
+void LineDrawingEditorTopbar_UpdateControls(void);

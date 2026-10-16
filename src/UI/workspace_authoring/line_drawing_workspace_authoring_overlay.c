@@ -1,3 +1,5 @@
+#include "UI/shared_overlay.h"
+#include "UI/shared_text.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_overlay.h"
 
 #include <stdio.h>
@@ -108,7 +110,7 @@ static void line_drawing_authoring_draw_text(SDL_Renderer* renderer,
                                              SDL_Color color) {
     TTF_Font* font = FontManager_GetUIPanelFont();
     if (!renderer || !font || !text || !text[0]) return;
-    (void)line_drawing_text_draw_utf8_at(renderer, font, text, x, y, color);
+    (void)LDText_Label(renderer,font,text,(SDL_Rect){x,y,Global_GetScreenWidth()-x-12,TTF_FontHeight(font)},color,false);
 }
 
 static void line_drawing_authoring_draw_button(SDL_Renderer* renderer,
@@ -137,7 +139,7 @@ static void line_drawing_authoring_draw_button(SDL_Renderer* renderer,
         int ty = rect.y + (rect.h - text_h) / 2;
         if (tx < rect.x + 4) tx = rect.x + 4;
         if (ty < rect.y + 1) ty = rect.y + 1;
-        line_drawing_authoring_draw_text(renderer, button->label, tx, ty, text);
+        (void)LDText_Label(renderer,font,button->label,(SDL_Rect){tx,ty,rect.x+rect.w-4-tx,rect.h-2},text,false);
     }
 }
 
@@ -150,6 +152,12 @@ static void line_drawing_authoring_draw_sdl_button(SDL_Renderer* renderer,
     SDL_Color fill = active ? palette->menu_highlight : palette->button_fill;
     SDL_Color border = palette->button_border;
     SDL_Color text = enabled ? palette->text_primary : palette->text_muted;
+    /* Accent fills can be light in a dark preset; keep selected labels readable. */
+    if (active && enabled) {
+        unsigned light = 299u * fill.r + 587u * fill.g + 114u * fill.b;
+        text = light >= 128000u ? (SDL_Color){20, 20, 23, 255}
+                               : (SDL_Color){245, 245, 248, 255};
+    }
     int text_w = 0;
     int text_h = 0;
     TTF_Font* font = FontManager_GetUIPanelFont();
@@ -163,7 +171,7 @@ static void line_drawing_authoring_draw_sdl_button(SDL_Renderer* renderer,
         int ty = rect.y + (rect.h - text_h) / 2;
         if (tx < rect.x + 6) tx = rect.x + 6;
         if (ty < rect.y + 2) ty = rect.y + 2;
-        line_drawing_authoring_draw_text(renderer, label, tx, ty, text);
+        (void)LDText_Label(renderer,font,label,(SDL_Rect){tx,ty,rect.x+rect.w-6-tx,rect.h-4},text,false);
     }
 }
 
@@ -186,7 +194,7 @@ static void line_drawing_authoring_draw_section(SDL_Renderer* renderer,
     (void)SDL_RenderDrawRect(renderer, &rect);
     line_drawing_authoring_draw_text(renderer, title, rect.x + 14, rect.y + 12, palette->text_primary);
     if (detail && detail[0]) {
-        line_drawing_authoring_draw_text(renderer, detail, rect.x + 14, rect.y + 36, palette->text_muted);
+        (void)LDText_Label(renderer,FontManager_GetUIPanelFont(),detail,(SDL_Rect){rect.x+14,rect.y+36,rect.w-28,rect.h-42},palette->text_muted,true);
     }
 }
 
@@ -246,7 +254,7 @@ static void line_drawing_authoring_draw_pane_rows(SDL_Renderer* renderer,
             (void)SDL_RenderFillRect(renderer, &label_rect);
             SDL_SetRenderDrawColor(renderer, pane_border.r, pane_border.g, pane_border.b, pane_border.a);
             (void)SDL_RenderDrawRect(renderer, &label_rect);
-            line_drawing_authoring_draw_text(renderer, label, label_rect.x + 6, label_rect.y + 4, text);
+            (void)LDText_Label(renderer,FontManager_GetUIPanelFont(),label,(SDL_Rect){label_rect.x+6,label_rect.y+4,label_rect.w-12,label_rect.h-8},text,false);
         }
         if (pane_rect.w > 260 && pane_rect.h > 90) {
             line_drawing_authoring_draw_text(renderer,
@@ -314,10 +322,7 @@ static void line_drawing_authoring_draw_font_theme_overlay(
     int zoom_step = FontManager_GetZoomStep();
     uint32_t i;
 
-    if (!kit_workspace_authoring_ui_font_theme_build_layout(NULL,
-                                                            state->screenWidth,
-                                                            state->screenHeight,
-                                                            &layout)) {
+    if (!LDOverlay_FontThemeLayout(state,&layout)) {
         return;
     }
     (void)line_drawing3d_shared_theme_current_preset(theme_name, sizeof(theme_name));
@@ -453,7 +458,7 @@ static void line_drawing_authoring_draw_font_theme_overlay(
     }
 
     line_drawing_authoring_draw_text(renderer,
-                                     "Tab returns to pane authoring | Enter applies | Esc cancels",
+                                     "Tab switches | Arrows focus | Space activates | Enter applies | Esc cancels",
                                      panel_rect.x + 14,
                                      panel_rect.y + panel_rect.h - 26,
                                      palette->text_muted);
@@ -478,4 +483,5 @@ void LineDrawingWorkspaceAuthoringOverlay_Draw(SDL_Renderer* renderer, const Glo
         line_drawing_authoring_draw_pane_rows(renderer, state, &palette);
     }
     line_drawing_authoring_draw_controls(renderer, state, &palette);
+    LDOverlay_AuthoringDraw(renderer,state);
 }

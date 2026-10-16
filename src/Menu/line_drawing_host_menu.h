@@ -7,6 +7,7 @@
 #include "Menu/line_drawing_scene_catalog.h"
 
 #include <stdbool.h>
+#include "UI/shared_text.h"
 
 typedef enum LineDrawingHostMenuItemId {
     LINE_DRAWING_HOST_MENU_ITEM_RESUME_EDITOR = 0,
@@ -73,6 +74,7 @@ typedef struct LineDrawingHostMenuState {
     LineDrawingRootBrowser browser;
     LineDrawingCatalogPreviewCache preview_cache;
     char filter_query[96];
+    LDTextField filter_text;
     bool filter_editing;
     char status_text[256];
     bool status_is_error;

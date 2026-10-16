@@ -1,4 +1,5 @@
 #include "UI/panel/ui_panel_file_browser_internal.h"
+#include "UI/panel/ui_panel_stl_options.h"
 
 #include "Core/global_state.h"
 #include "Layout/asset/layout_imported_mesh_asset.h"
@@ -30,7 +31,7 @@ static const char* UIPanel_StlCacheChipLabel(const UIPanelState* ui, int index) 
         return NULL;
     }
     diagnostics[0] = '\0';
-    cache_state = LayoutImportedMeshAsset_GetStlCacheState(ui->loadMenu.entryPaths[index],
+    cache_state = LayoutImportedMeshAsset_GetStlCacheStateForUnit(ui->loadMenu.entryPaths[index], UIPanel_StlSourceUnit(ui),
                                                            asset_root,
                                                            NULL,
                                                            0u,
@@ -226,6 +227,8 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
                                metrics.pad_x,
                                accent_color,
                                90);
+
+    UIPanel_RenderStlOptions(ui, renderer);
 
     if (list_clip.w > 0 && list_clip.h > 0) {
         SDL_RenderSetClipRect(renderer, &list_clip);
@@ -428,4 +431,5 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
                                    rect.w - (metrics.pad_x * 2),
                                    font_h + 4,
                                    label_color);
+    UIPanel_RenderStlCollectionPicker(ui, renderer);
 }

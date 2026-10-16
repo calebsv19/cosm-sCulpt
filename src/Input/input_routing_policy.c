@@ -42,7 +42,7 @@ LineDrawingInputPolicyDecision LineDrawingInputPolicyNormalize(const SDL_Event* 
         return decision;
     }
 
-    if (event->type == SDL_TEXTINPUT ||
+    if (event->type == SDL_TEXTEDITING || event->type == SDL_TEXTINPUT ||
         event->type == SDL_MOUSEBUTTONDOWN ||
         event->type == SDL_MOUSEBUTTONUP ||
         event->type == SDL_MOUSEMOTION ||

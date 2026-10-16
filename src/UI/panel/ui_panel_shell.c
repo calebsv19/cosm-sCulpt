@@ -1,3 +1,6 @@
+#include "UI/shared_special.h"
+#include "UI/shared_controls.h"
+#include "UI/shared_text.h"
 #include "UI/ui_panel_camera.h"
 #include "UI/ui_panel_routes.h"
 #include "UI/ui_panel_parts.h"
@@ -47,7 +50,8 @@ void UIPanel_SetActiveRightTab(UIPanelState* ui, UIPanelRightTab tab) {
     if (!ui || !UIPanel_IsValidRightTab(tab)) return;
     if (ui->activeRightTab != tab) {
         UIPanel_CameraReset();
-        if(tab!=UI_PANEL_RIGHT_TAB_VIEW)CameraView_Exit(Global_Get());
+        /* Motion inspection must retain the current 3D observer pose. */
+        if(tab!=UI_PANEL_RIGHT_TAB_VIEW && tab!=UI_PANEL_RIGHT_TAB_MEASURE)CameraView_Exit(Global_Get());
         UIPanel_MeasurementStopInput();
         UIPanel_PartsStopInput();
         UIPanel_RoutesStopInput();
@@ -146,6 +150,9 @@ static void UIPanel_RefreshTabLabels(UIPanelState* ui) {
 }
 
 void UIPanel_InitShellState(UIPanelState* ui) {
+    LDControls_CancelAll();
+    LDInline_Cancel();
+    UIPanel_SharedTextReset();
     if (!ui) return;
     ui->contextMenuOpen = false;
     ui->sectionHelpOpen = false;
@@ -390,6 +397,21 @@ static const char* context_label(const UIPanelState* ui) {
 }
 static int context_count(const UIPanelState* ui) {
     return Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_OBJECT ? 2 : context_is_view(ui) ? 2 : 6;
+}
+
+void UIPanel_CollectShellControls(KitUiSurface* surface) {
+    UIPanelState* ui = UIPanel_Get();
+    if (!ui->contextMenuOpen) {
+        for (int i=0; i<UI_PANEL_LEFT_TAB_COUNT; ++i)
+            LDControls_Add(surface,3,(uint64_t)i,ui->leftTabs[i].bounds,NULL,true);
+        for (int i=0; i<UI_PANEL_RIGHT_TAB_COUNT; ++i)
+            LDControls_Add(surface,4,(uint64_t)i,ui->rightTabs[i].bounds,NULL,true);
+    }
+    for (int i=-1; i<(ui->contextMenuOpen ? context_count(ui) : 0); ++i) {
+        SDL_Rect rect=ui->contextRect;
+        rect.y+=(i+1)*(rect.h+2);
+        LDControls_Add(surface,5,(uint64_t)(i+1),rect,NULL,true);
+    }
 }
 
 void UIPanel_RenderContext(SDL_Renderer* renderer, const UIPanelState* ui) {

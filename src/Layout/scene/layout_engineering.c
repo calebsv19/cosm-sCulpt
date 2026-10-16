@@ -3,9 +3,12 @@
 #include "Layout/layout_inspection.h"
 #include "Layout/layout_furniture.h"
 #include "Layout/layout_saved_views.h"
+#include "Layout/layout_scene_collections.h"
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
+#include "Layout/layout_guide_groups.h"
+#include "Layout/layout_coverings.h"
 #include "Layout/layout_routes.h"
 #include <ctype.h>
 #include <float.h>
@@ -49,7 +52,7 @@ bool Layout_EntityIsSpatialGuide(const LayoutEntityInfo* info) {
     const char* type = Layout_EntityType(info);
     return info->volume_role != LAYOUT_VOLUME_NONE ||
            !strcmp(type, "RoutingCorridor") || !strcmp(type, "ServiceVolume") ||
-           !strcmp(type, "KeepoutVolume") || !strcmp(type, "MotionEnvelope");
+           !strcmp(type, "KeepoutVolume") || !strcmp(type, "MotionEnvelope") || !strcmp(type, "Walkway");
 }
 bool Layout_IsDescendant(const LayoutObjectStore* store, const char* parent, const char* assembly) {
     if (!store || !parent || !assembly || !assembly[0]) return false;
@@ -73,7 +76,7 @@ bool Layout_EntityInfoValid(const LayoutEntityInfo* info) {
         if (!strcmp(p->key,"inspection_facing") && Layout_InspectionFacing(info)==LAYOUT_INSPECTION_INVALID) return false;
         for (size_t j=0;j<i;++j) if (!strcmp(p->key,info->properties[j].key)) return false;
     }
-    return true;
+    return Layout_CoveringInfoValid(info);
 }
 static bool finite_vec(Vec3 v) { return isfinite(v.x) && isfinite(v.y) && isfinite(v.z); }
 static bool frame_valid(PlaneFrame3 f) {
@@ -84,6 +87,7 @@ static bool frame_valid(PlaneFrame3 f) {
     return Vec3_Dot(Vec3_Cross(b[0],b[1]),b[2])>0.99999f;
 }
 bool Layout_ValidateEngineering(const Layout* layout, char* message, size_t capacity) {
+    Layout_SceneCollectionInvalidate();
     if (!layout) return false;
     const LayoutObjectStore* store=&layout->objectStore;
     bool valid=store->assembly_count<=LAYOUT_MAX_ASSEMBLIES;
@@ -102,14 +106,14 @@ bool Layout_ValidateEngineering(const Layout* layout, char* message, size_t capa
         valid=Layout_EntityInfoValid(&o->info) && (!o->info.parent_id[0] || Layout_FindAssembly(store,o->info.parent_id));
     }
     if (!valid && message && capacity) snprintf(message,capacity,"Invalid metadata or assembly tree: check IDs, parent cycles, properties and rigid frames.");
-    return valid && Layout_ValidateFurniture(layout,message,capacity) && Layout_ValidateSavedViews(layout) && Layout_ValidateMotionScopes(layout,message,capacity) && Layout_ValidateRelationships(layout,message,capacity) && Layout_ValidateSpatialRecords(layout,message,capacity) && Layout_ValidateRoutes(layout,message,capacity);
+    return valid && Layout_ValidateFurniture(layout,message,capacity) && Layout_ValidateSavedViews(layout) && Layout_ValidateSceneCollections(layout) && Layout_ValidateMotionScopes(layout,message,capacity) && Layout_ValidateRelationships(layout,message,capacity) && Layout_ValidateSpatialRecords(layout,message,capacity) && Layout_ValidateRoutes(layout,message,capacity);
 }
 bool Layout_HasEngineeringData(const Layout* layout) {
     if (!layout) return false;
-    if (layout->objectStore.assembly_count || layout->objectStore.relationship_count || layout->objectStore.spatial_rule_count || layout->objectStore.route_count || layout->objectStore.saved_view_count) return true;
+    if (layout->objectStore.assembly_count || layout->objectStore.relationship_count || layout->objectStore.spatial_rule_count || layout->objectStore.route_count || layout->objectStore.saved_view_count || layout->objectStore.scene_collection_count || layout->objectStore.working_view_count) return true;
     for (size_t i=0;i<layout->objectStore.count;++i) {
         const Object3D* o=&layout->objectStore.items[i];
-        if (!o->isDeleted && (o->info.label[0] || o->info.entity_type[0] || o->info.parent_id[0] || o->info.reference || o->info.property_count || o->info.volume_role || o->info.volume_owner[0])) return true;
+        if (!o->isDeleted && (o->info.surface_custom || o->info.surface_material[0] || o->info.label[0] || o->info.entity_type[0] || o->info.parent_id[0] || o->info.reference || o->info.property_count || o->info.volume_role || o->info.volume_owner[0])) return true;
     }
     return false;
 }
@@ -188,6 +192,7 @@ static bool move_assembly(Layout* layout, void* context) {
     if (!selected || !finite_vec(edit->rotation)) return false;
     if (fabsf(edit->rotation.x)>180 || fabsf(edit->rotation.y)>180 || fabsf(edit->rotation.z)>180)
         return refuse(layout,"Assembly rotations must be within -180 to 180 degrees per world axis.");
+    PlaneFrame3 before_frame=selected->frame;
     Vec3 origin=selected->frame.origin,delta={0};float* parts[]={&delta.x,&delta.y,&delta.z};
     for (int k=0;k<3;++k) {
         double world=edit->translation[k]/Layout_WorldScale(layout);
@@ -205,8 +210,16 @@ static bool move_assembly(Layout* layout, void* context) {
             if (!Layout_RotateObject3D(layout,o->objectId,axes[k],values[k],&baseline,&adjusted) || adjusted)
                 return refuse(layout,"Assembly rotation conflicts with member bounds or plane locks.");
         }
+        /* The position setter takes the mesh bounds center; assembly transforms
+         * operate on the source origin, which differs for material-separated parts. */
+        Vec3 center=position;
+        if (o->kind==OBJECT3D_KIND_MESH_ASSET_INSTANCE) {
+            Transform3D basis=o->transform;basis.position=(Vec3){0};
+            Vec3 local=Vec3_Scale(Vec3_Add(o->meshInstance.localBoundsMin,o->meshInstance.localBoundsMax),.5f);
+            center=Vec3_Add(position,Layout_Transform3D_ApplyLocalPoint(basis,local));
+        }
         bool adjusted=false;
-        if (!finite_vec(position) || !Layout_SetObject3DPosition(layout,o->objectId,position,&adjusted) || adjusted ||
+        if (!finite_vec(position) || !Layout_SetObject3DPosition(layout,o->objectId,center,&adjusted) || adjusted ||
             Vec3_Distance(o->transform.position,position)*Layout_WorldScale(layout)>1e-6)
             return refuse(layout,"Assembly movement conflicts with member bounds, locks or precision.");
     }
@@ -216,6 +229,7 @@ static bool move_assembly(Layout* layout, void* context) {
         a->frame.origin=Vec3_Add(Vec3_Add(origin,rotate(Vec3_Sub(a->frame.origin,origin),edit->rotation)),delta);
         a->frame.axisU=rotate(a->frame.axisU,edit->rotation);a->frame.axisV=rotate(a->frame.axisV,edit->rotation);a->frame.normal=rotate(a->frame.normal,edit->rotation);
     }
+    Layout_TransformEnclosedMotionRules(store,edit->id,before_frame,selected->frame);
     if (edit->skip_solve) return true;
     /* External dependents may follow, but the solver must not distort any member's
      * requested rigid pose. Conflicting cross-boundary rules reject the entire move. */
@@ -225,7 +239,10 @@ static bool move_assembly(Layout* layout, void* context) {
     bool ok=Layout_SolveGeometryCandidate(layout);
     for (size_t i=0;ok && i<store->count;++i)
         if (!store->items[i].isDeleted && Layout_IsDescendant(store,store->items[i].info.parent_id,edit->id) &&
-            memcmp(&expected[i],&store->items[i],sizeof(Object3D))) ok=false;
+            memcmp(&expected[i],&store->items[i],sizeof(Object3D))) {
+            if(getenv("LINE_DRAWING_BRACE_DIAGNOSTICS")) fprintf(stderr,"Rigid move changed member %s\n",store->items[i].coreMeta.object_id);
+            ok=false;
+        }
     free(expected);
     if (!ok) return refuse(layout,"Assembly move conflicts with a driving rule; its members must keep their rigid poses.");
     return true;
@@ -281,6 +298,7 @@ bool Layout_QueryMatchesResolved(const LayoutObjectStore* store, const char* id,
     if (query->designation && info->reference!=(query->designation==2)) return false;
     if (query->assembly_id[0] && strcmp(id,query->assembly_id) && !Layout_IsDescendant(store,info->parent_id,query->assembly_id)) return false;
     if (!query->property_key[0]) return true;
+    if(!strcmp(query->property_key,"covering_collection"))return Layout_CoveringInfoContains(info,query->property_value);
     if (route && (!strcmp(query->property_key,"power_domain") || !strcmp(query->property_key,"circuit"))) {
         const char* value=!strcmp(query->property_key,"power_domain")?route->electrical.power_domain:route->electrical.circuit;
         return value[0] && (!query->property_value[0] || !strcmp(value,query->property_value));
@@ -297,7 +315,13 @@ bool Layout_QueryMatchesResolved(const LayoutObjectStore* store, const char* id,
     return false;
 }
 bool Layout_ObjectShown(const LayoutObjectStore* store, const Object3D* object) {
-    return object && !object->isDeleted && object->coreMeta.flags.visible && Layout_EntityShown(store,object->coreMeta.object_id);
+    if(!store || !object || object->isDeleted)return false;
+    int inspection=Layout_EntityInspectionOverrideResolved(store,object->coreMeta.object_id,&object->info,object);
+    if(inspection<0)return false;
+    if(inspection>0 && Layout_EntityRevealed(store,object))return true;
+    if(Layout_GuideHiddenByPreset(store,object)||Layout_CoveringHiddenByPreset(store,object->coreMeta.object_id))return false;
+    if(inspection>0)return true;
+    return object->coreMeta.flags.visible && Layout_EntityShownResolved(store,object->coreMeta.object_id,&object->info,object);
 }
 size_t Layout_QueryEntities(const LayoutObjectStore* store, const LayoutEntityQuery* query, char (*ids)[64], size_t capacity) {
     if (!store) return 0;

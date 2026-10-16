@@ -82,7 +82,7 @@ bool CameraView_Enter(GlobalState *state, bool from_saved) {
             LineDrawingScenePath *candidate = &state->layout.sceneAuthoring.paths[i];
             if (!strcmp(candidate->path_id, camera->path_id)) {
                 path = candidate;
-                candidate->playing = false;
+
                 break;
             }
         }
@@ -102,6 +102,8 @@ bool CameraView_Enter(GlobalState *state, bool from_saved) {
         }
     }
     CameraView_RefreshViewport(state);
+    if(!from_saved) (void)CameraView_Frame(state,false);
+    else { Vec3 f;CameraView_Basis(c,&f,NULL,NULL);c->orbit_target=Vec3_Add(c->eye,Vec3_Scale(f,2)); }
     state->spaceMode = SPACE_MODE_3D;
     state->sectionView.mode = LAYOUT_SECTION_OFF;
     InputViewportNavigation_ResetGesture();
@@ -187,9 +189,8 @@ bool CameraView_Step(GlobalState *state, float seconds) {
     if (Vec3_Length(d) < 1e-6f)
         return false;
     CameraPath_NavigationChanged(state);
-    c->eye =
-        Vec3_Add(c->eye, Vec3_Scale(Vec3_Normalize(d), (float)(c->speed_mps * seconds /
-                                                               state->layout.metersPerWorldUnit)));
+    Vec3 delta=Vec3_Scale(Vec3_Normalize(d),(float)(c->speed_mps*seconds/state->layout.metersPerWorldUnit));
+    c->eye=Vec3_Add(c->eye,delta);c->orbit_target=Vec3_Add(c->orbit_target,delta);
     Global_FlagHitboxesDirty();
     return true;
 }
@@ -251,6 +252,7 @@ bool CameraView_HandleEvent(GlobalState *state, const SDL_Event *e) {
                 c->held |= key_bit(e->key.keysym.sym);
             return true;
         }
+        if(e->key.keysym.sym==SDLK_f) (void)CameraView_Frame(state,(e->key.keysym.mod & KMOD_SHIFT)!=0);
         /* Observer mode cannot leak editing shortcuts into geometry. */
         return true;
     }
@@ -260,7 +262,9 @@ bool CameraView_HandleEvent(GlobalState *state, const SDL_Event *e) {
             c->held = 0;
             return false;
         }
-        if (SDL_GetModState() & KMOD_ALT) {
+        if(e->motion.state & (SDL_BUTTON_RMASK | SDL_BUTTON_MMASK)) {
+            CameraView_Drag(state,e->motion.xrel,e->motion.yrel,(e->motion.state & SDL_BUTTON_MMASK)!=0);
+        } else if (SDL_GetModState() & KMOD_ALT) {
             CameraPath_NavigationChanged(state);
             if (c->roll_mouse || (SDL_GetModState() & KMOD_SHIFT))
                 c->roll = Angle_NormalizeSignedDeg(c->roll + e->motion.xrel * .25f);
@@ -290,13 +294,15 @@ bool CameraView_HandleEvent(GlobalState *state, const SDL_Event *e) {
         }
         return true;
     }
-    if (e->type == SDL_MOUSEWHEEL)
-        return c->focused; /* No orthographic zoom in physical view. */
+    if (e->type == SDL_MOUSEWHEEL) {
+        if(c->focused)CameraView_Dolly(state,(float)(e->wheel.direction==SDL_MOUSEWHEEL_FLIPPED?-e->wheel.y:e->wheel.y));
+        return c->focused;
+    }
     return false;
 }
 
 void CameraView_RenderMarkers(SDL_Renderer *renderer, const GlobalState *state) {
-    if (!renderer || !state || state->cameraView.active || state->inspectionView ||
+    if (!renderer || !state || !state->authoringGuides || state->cameraView.active || state->inspectionView ||
         state->workspaceMode != LINE_DRAWING_WORKSPACE_MODE_SCENE ||
         state->sectionView.mode != LAYOUT_SECTION_OFF)
         return;

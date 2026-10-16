@@ -187,3 +187,10 @@ repaint section chrome over visible Create buttons. See the van workflow for
 the navigation/drawing/cancellation contract.
 
 - `panel/ui_panel_camera_path.c` exposes bounded point selection, View/Revert/Apply/Add, playback/scrub and collapsed point actions through the existing clipped View pane.
+
+## Runtime HUD / overlay checkpoint — 2026-10-15
+
+See retained Main Edit `docs/ui_shared_hud.md`: shared release/focus, bounded
+text, viewport notice/HUD containment and authoring preview/cancel are qualified.
+633 cases / 69 groups and 26 final source/runtime gates pass. Source remains
+uncommitted; isolated package and installed visual acceptance remain next.

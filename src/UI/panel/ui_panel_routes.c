@@ -1,3 +1,4 @@
+#include "UI/shared_special.h"
 #include "UI/ui_panel_routes.h"
 #include "Layout/layout_saved_views.h"
 #include <stdlib.h>
@@ -149,6 +150,7 @@ static void cell(RoutePane* p,int action,const char* title,const char* value,int
     }
     if (action==p->wanted) p->found=r;
     if (action && enabled && inside(r,p->x,p->click_y) && inside(p->body,p->x,p->click_y)) p->hit=action;
+    LDSpecial_Record(21,action,title,r,&p->body,enabled);
     if (!p->renderer) return;
     SDL_Color text=enabled?p->palette.text_primary:p->palette.text_muted;
     if (action) {
@@ -558,3 +560,7 @@ void UIPanel_RenderRouteViewport(SDL_Renderer* renderer) {
     if(active && (ui->routes.creating || (ui->routes.observed_valid && Layout_EntityShown(&layout()->objectStore,ui->routes.id))))draw_route(renderer,&ui->routes.draft,true);
     SDL_RenderSetClipRect(renderer,clipped?&old:NULL);
 }
+
+void LDSpecial_Routes(void) { if(UIPanel_Get()->activeRightTab==UI_PANEL_RIGHT_TAB_ROUTES) (void)build(NULL,-1,-1,0); }
+
+bool LDInline_Routes(LDInlineField* f) {UIPanelState* u=UIPanel_Get();if(u->activeRightTab!=UI_PANEL_RIGHT_TAB_ROUTES || !u->routes.input)return false;size_t cap;char* b=input_buffer(u->routes.input,&cap);SDL_Rect box;if(!b || !UIPanel_RoutesControlRect(u->routes.input,&box))return false;*f=(LDInlineField){b,cap,&u->routes.replace_text,box,NULL};return true;}

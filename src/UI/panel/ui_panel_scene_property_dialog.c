@@ -1,3 +1,4 @@
+#include "UI/shared_text.h"
 #include "UI/ui_panel.h"
 
 #include "Core/global_state.h"
@@ -162,6 +163,7 @@ bool UIPanel_BeginScenePropertyDialog(UIScenePropertyDialogTarget target) {
 }
 
 void UIPanel_CloseScenePropertyDialog(UIPanelState* ui) {
+    UIPanel_SharedTextReset();
     if (!ui) return;
     ui->scenePropertyDialog.active = false;
     ui->scenePropertyDialog.target = UI_SCENE_PROPERTY_DIALOG_NONE;

@@ -14,3 +14,5 @@ bool UIPanel_CameraPathClick(int x,int y,int base_y);
 bool UIPanel_CameraPathEvent(const SDL_Event *event,int y);
 bool UIPanel_CameraPathCapturing(void);
 void UIPanel_CameraPathReset(void);
+
+void UIPanel_CameraPathCancelCapture(void);

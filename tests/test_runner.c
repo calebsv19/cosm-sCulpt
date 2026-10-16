@@ -1,10 +1,18 @@
 #include "test_framework.h"
+bool mesh_source_snapshot_run_tests(void);
+bool scene_collections_run_tests(void);
+bool collection_inspection_run_tests(void);
+bool construction_reference_run_tests(void);
+bool articulated_expansion_run_tests(void);
+bool folding_support_v2_run_tests(void);
+extern bool van_usability_run_tests(void);
 
 bool demand_loop_run_tests(void);
 
 #include <stdio.h>
 #include <string.h>
 
+bool stl_physical_import_run_tests(void);
 bool camera_view_run_tests(void);
 bool camera_path_run_tests(void);
 bool inspection_view_run_tests(void);
@@ -58,6 +66,11 @@ bool startup_config_run_tests(void);
 bool app_wrapper_diagnostics_run_tests(void);
 bool shutdown_lifetime_run_tests(void);
 bool viewport_navigation_input_run_tests(void);
+bool window_foundation_run_tests(void);
+bool shared_controls_run_tests(void);
+bool shared_text_run_tests(void);
+bool shared_special_run_tests(void);
+bool shared_hud_run_tests(void);
 bool ui_panel_resize_run_tests(void);
 bool viewport_navigation_parity_run_tests(void);
 bool viewport3d_bridge_run_tests(void);
@@ -68,8 +81,18 @@ typedef struct TestGroup {
     bool run_by_default;
 } TestGroup;
 
+bool appearance_tree_run_tests(void);
 static const TestGroup kTestGroups[] = {
+    {"SceneCollections",scene_collections_run_tests,true},
+    {"CollectionInspection",collection_inspection_run_tests,true},
+    {"ConstructionReference",construction_reference_run_tests,true},
+    {"ArticulatedExpansion",articulated_expansion_run_tests,true},
+    {"STLPhysicalImport", stl_physical_import_run_tests, true},
     {"CameraView", camera_view_run_tests, true},
+    {"MeshSourceSnapshot", mesh_source_snapshot_run_tests, true},
+    {"VanUsability", van_usability_run_tests, true},
+    {"FoldingSupportV2",folding_support_v2_run_tests,true},
+    {"AppearanceTree", appearance_tree_run_tests, true},
     {"CameraPath", camera_path_run_tests, true},
     {"InspectionView", inspection_view_run_tests, true},
     {"Furniture", furniture_run_tests, true},
@@ -123,6 +146,11 @@ static const TestGroup kTestGroups[] = {
     {"AppWrapperDiagnostics", app_wrapper_diagnostics_run_tests, true},
     {"ShutdownLifetime", shutdown_lifetime_run_tests, true},
     {"ViewportNavigationInput", viewport_navigation_input_run_tests, true},
+    {"WindowFoundation", window_foundation_run_tests, true},
+    {"SharedControls", shared_controls_run_tests, true},
+    {"SharedText", shared_text_run_tests, true},
+    {"SharedSpecial", shared_special_run_tests, true},
+    {"SharedHud", shared_hud_run_tests, true},
     {"UIPanelResize", ui_panel_resize_run_tests, true},
     {"ViewportNavigationParity", viewport_navigation_parity_run_tests, true},
     {"Viewport3DBridge", viewport3d_bridge_run_tests, true},

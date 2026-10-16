@@ -118,7 +118,7 @@ static bool click(int command) {
     SDL_Rect rect;TEST_ASSERT(UIPanel_RoutesControlRect(command,&rect));
     TEST_ASSERT(rect.y>=UIPanel_Get()->rightBodyRect.y && rect.y+rect.h<=UIPanel_Get()->rightBodyRect.y+UIPanel_Get()->rightBodyRect.h);
     SDL_Event event={.type=SDL_MOUSEBUTTONDOWN};event.button.button=SDL_BUTTON_LEFT;
-    event.button.x=rect.x+rect.w/2;event.button.y=rect.y+rect.h/2;AppContext context={0};Input_Handle(&context,&event);return true;
+    event.button.x=rect.x+rect.w/2;event.button.y=rect.y+rect.h/2;AppContext context={0};Input_Handle(&context,&event);event.type=SDL_MOUSEBUTTONUP;Input_Handle(&context,&event);return true;
 }
 static bool test_visible_draft_controls_undo_cancel_and_wrapped_tabs(void) {
     TEST_ASSERT(setup());Global_SetWindowSize(1800,2200);UIPanel_OnWindowResized(1800,2200);

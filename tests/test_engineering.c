@@ -106,7 +106,10 @@ static bool test_cycles_deletion_capacity_history_failure(void) {
     info.parent_id[0]=0;info.property_count=2;snprintf(info.properties[0].key,48,"duplicate");snprintf(info.properties[1].key,48,"duplicate");
     TEST_ASSERT(!Layout_SetEntityInfo(&s->layout,"A",&info,Layout_GeometryHistory,NULL));
     for(int i=(int)s->layout.objectStore.assembly_count;i<LAYOUT_MAX_ASSEMBLIES;++i){char id[64];TEST_ASSERT(create("Group",NULL,(Vec3){0},id));}
-    before=Layout_SaveToString(&s->layout);TEST_ASSERT(!create("Overflow",NULL,(Vec3){0},child) && same_json(&s->layout,before));Layout_FreeString(before);
+    before=Layout_SaveToString(&s->layout);
+    TEST_ASSERT(before && Layout_LoadFromString(&s->layout,before) &&
+        s->layout.objectStore.assembly_count==LAYOUT_MAX_ASSEMBLIES && same_json(&s->layout,before));
+    TEST_ASSERT(!create("Overflow",NULL,(Vec3){0},child) && same_json(&s->layout,before));Layout_FreeString(before);
     ld_test_shutdown_runtime();return true;
 }
 static bool test_persistence_export_and_malformed_atomic(void) {
@@ -141,10 +144,10 @@ static bool click(int action) {
         return ld_test_context_part(action);
 
     SDL_Rect rect;TEST_ASSERT(UIPanel_PartsControlRect(action,&rect));TEST_ASSERT(rect.y>=UIPanel_Get()->rightBodyRect.y && rect.y+rect.h<=UIPanel_Get()->rightBodyRect.y+UIPanel_Get()->rightBodyRect.h);
-    AppContext ctx={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};e.button.button=SDL_BUTTON_LEFT;e.button.x=rect.x+rect.w/2;e.button.y=rect.y+rect.h/2;Input_Handle(&ctx,&e);return true;
+    AppContext ctx={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};e.button.button=SDL_BUTTON_LEFT;e.button.x=rect.x+rect.w/2;e.button.y=rect.y+rect.h/2;Input_Handle(&ctx,&e);e.type=SDL_MOUSEBUTTONUP;Input_Handle(&ctx,&e);return true;
 }
 static bool text(int action,const char* value) {
-    TEST_ASSERT(click(action));AppContext ctx={0};SDL_Event e={.type=SDL_TEXTINPUT};snprintf(e.text.text,sizeof(e.text.text),"%s",value);Input_Handle(&ctx,&e);e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_RETURN;Input_Handle(&ctx,&e);return true;
+    TEST_ASSERT(click(action));AppContext ctx={0};SDL_Event e={.type=SDL_TEXTINPUT};snprintf(e.text.text,sizeof(e.text.text),"%s",value);Input_Handle(&ctx,&e);e.type=SDL_KEYDOWN;e.key.keysym.sym=SDLK_RETURN;Input_Handle(&ctx,&e);e.type=SDL_MOUSEBUTTONUP;Input_Handle(&ctx,&e);return true;
 }
 static bool test_parts_mouse_workflow_filter_history(void) {
     ld_test_init_runtime();GlobalState* s=Global_Get();uint32_t a=part("A",(Vec3){0});TEST_ASSERT(a && part("B",(Vec3){2,0,0}));
@@ -193,7 +196,7 @@ static bool test_query_hitboxes_and_filter_persistence(void) {
 }
 static bool test_mesh_rigid_nested_frame(void) {
     const char* path="/private/tmp/ld_s2_mesh.runtime.json";
-    const char* json="{\"schema_variant\":\"mesh_asset_runtime_v1\",\"asset_id\":\"s2_mesh\",\"source_asset_id\":\"s2_source\",\"vertex_count\":4,\"triangle_count\":2,\"local_bounds\":{\"min\":{\"x\":-1,\"y\":-1,\"z\":-1},\"max\":{\"x\":1,\"y\":1,\"z\":1}}}";
+    const char* json="{\"schema_variant\":\"mesh_asset_runtime_v1\",\"asset_id\":\"s2_mesh\",\"source_asset_id\":\"s2_source\",\"vertex_count\":4,\"triangle_count\":2,\"local_bounds\":{\"min\":{\"x\":0,\"y\":0,\"z\":0},\"max\":{\"x\":1,\"y\":2,\"z\":3}}}";
     ld_test_init_runtime();GlobalState* s=Global_Get();char root[64],child[64];uint32_t handle=0;
     Transform3D transform=Layout_Transform3D_Default();transform.position=(Vec3){2,1,0};transform.rotationDeg=(Vec3){20,30,40};transform.scale=(Vec3){2,1,.5f};
     TEST_ASSERT(ld_test_write_text_file_basic(path,json));
@@ -238,8 +241,28 @@ static bool test_surface_finish_history_and_validation(void) {
     TEST_ASSERT(ld_test_vec3_nearly_equal(s->layout.objectStore.items[0].transform.position,(Vec3){1,2,3}));
     Layout_FreeString(before);ld_test_shutdown_runtime();return true;
 }
+static bool test_custom_finish_roundtrip_history(void) {
+    ld_test_init_runtime();GlobalState *s=Global_Get();TEST_ASSERT(part("color_panel",(Vec3){0}));
+    LayoutEntityInfo info=s->layout.objectStore.items[0].info;
+    info.surface_custom=true;info.surface_rgb=0x0463A3;info.surface_roughness=.38;info.surface_reflectivity=.2;
+    Editor_ClearHistory(&s->editor);
+    TEST_ASSERT(Layout_SetEntityInfo(&s->layout,"color_panel",&info,Layout_GeometryHistory,NULL));
+    LayoutSurfaceMaterial finish;
+    TEST_ASSERT(Layout_SurfaceMaterialResolve(&s->layout.objectStore.items[0].info,&finish) && finish.rgb==0x0463A3);
+    char *saved=Layout_SaveToString(&s->layout);
+    TEST_ASSERT(saved && Layout_LoadFromString(&s->layout,saved));
+    TEST_ASSERT(Layout_SurfaceMaterialResolve(&s->layout.objectStore.items[0].info,&finish) && finish.rgb==0x0463A3);
+    TEST_ASSERT(Editor_Undo(&s->editor,&s->layout) && !s->layout.objectStore.items[0].info.surface_custom);
+    TEST_ASSERT(Editor_Redo(&s->editor,&s->layout) && s->layout.objectStore.items[0].info.surface_custom);
+    info.surface_roughness=1.1;TEST_ASSERT(!Layout_SetEntityInfo(&s->layout,"color_panel",&info,NULL,NULL));
+    TEST_ASSERT(same_json(&s->layout,saved));
+    TEST_ASSERT(Layout_SetSurfaceMaterial(&s->layout,"color_panel","wood",NULL,NULL));
+    TEST_ASSERT(!s->layout.objectStore.items[0].info.surface_custom);
+    Layout_FreeString(saved);ld_test_shutdown_runtime();return true;
+}
 bool engineering_run_tests(void) {
     const TestCase cases[]={
+        {"custom_finish_roundtrip_history",test_custom_finish_roundtrip_history},
         {"surface_finish_history_and_validation",test_surface_finish_history_and_validation},
         {"mesh_rigid_nested_frame",test_mesh_rigid_nested_frame},
         {"history_reservation_noop_legacy",test_history_reservation_noop_and_legacy},

@@ -1,3 +1,6 @@
+# Absolute contained output roots already identify the recursive archive destination.
+IMPORTED_MESH_HARNESS_CORE_OBJECT_LIB = $(if $(filter /%,$(BUILD_DIR)),$(BUILD_DIR)/libcore_object.a,$(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)/$(BUILD_DIR)/libcore_object.a)
+IMPORTED_MESH_HARNESS_CORE_UNITS_LIB = $(if $(filter /%,$(BUILD_DIR)),$(BUILD_DIR)/libcore_units.a,$(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)/$(BUILD_DIR)/libcore_units.a)
 shape-sanity: $(SHAPE_SANITY_BIN)
 
 $(SHAPE_SANITY_BIN): src/Tools/shape_sanity_tool.c
@@ -28,10 +31,10 @@ $(IMPORTED_MESH_HARNESS_CORE_BASE_DIR)/build/libcore_base.a:
 $(IMPORTED_MESH_HARNESS_CORE_IO_DIR)/build/libcore_io.a:
 	$(MAKE) -C $(IMPORTED_MESH_HARNESS_CORE_IO_DIR)
 
-$(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)/build/libcore_object.a:
+$(IMPORTED_MESH_HARNESS_CORE_OBJECT_LIB):
 	$(MAKE) -C $(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)
 
-$(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)/build/libcore_units.a:
+$(IMPORTED_MESH_HARNESS_CORE_UNITS_LIB):
 	$(MAKE) -C $(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)
 
 $(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)/build/libcore_mesh_asset.a:
@@ -47,8 +50,8 @@ $(IMPORTED_MESH_HARNESS_BIN): src/Tools/imported_mesh_harness.c \
 		$(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)/build/libcore_mesh_compile.a \
 		$(IMPORTED_MESH_HARNESS_CORE_MESH_PREVIEW_DIR)/build/libcore_mesh_preview.a \
 		$(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)/build/libcore_mesh_asset.a \
-		$(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)/build/libcore_object.a \
-		$(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)/build/libcore_units.a \
+		$(IMPORTED_MESH_HARNESS_CORE_OBJECT_LIB) \
+		$(IMPORTED_MESH_HARNESS_CORE_UNITS_LIB) \
 		$(IMPORTED_MESH_HARNESS_CORE_IO_DIR)/build/libcore_io.a \
 		$(IMPORTED_MESH_HARNESS_CORE_BASE_DIR)/build/libcore_base.a
 	@mkdir -p $(dir $@)
@@ -63,8 +66,8 @@ $(IMPORTED_MESH_HARNESS_BIN): src/Tools/imported_mesh_harness.c \
 		$(IMPORTED_MESH_HARNESS_CORE_MESH_COMPILE_DIR)/build/libcore_mesh_compile.a \
 		$(IMPORTED_MESH_HARNESS_CORE_MESH_PREVIEW_DIR)/build/libcore_mesh_preview.a \
 		$(IMPORTED_MESH_HARNESS_CORE_MESH_ASSET_DIR)/build/libcore_mesh_asset.a \
-		$(IMPORTED_MESH_HARNESS_CORE_OBJECT_DIR)/build/libcore_object.a \
-		$(IMPORTED_MESH_HARNESS_CORE_UNITS_DIR)/build/libcore_units.a \
+		$(IMPORTED_MESH_HARNESS_CORE_OBJECT_LIB) \
+		$(IMPORTED_MESH_HARNESS_CORE_UNITS_LIB) \
 		$(IMPORTED_MESH_HARNESS_CORE_IO_DIR)/build/libcore_io.a \
 		$(IMPORTED_MESH_HARNESS_CORE_BASE_DIR)/build/libcore_base.a \
 		-o $@ $(LDFLAGS)
@@ -154,3 +157,16 @@ surface-material-smoke: surface_material_tool camera_path_tool
 	@python3 tests/test_surface_material_tool.py $(PROGRAM_BIN_DIR)/surface_material_tool $(PROGRAM_BIN_DIR)/camera_path_tool
 	@python3 tests/test_ray_camera_requests.py
 -include $(PROGRAM_BUILD_DIR)/tools/surface_material_tool.d
+
+$(PROGRAM_BIN_DIR)/layout_edit_tool: $(PROGRAM_BUILD_DIR)/tools/layout_edit_tool.o $(PROGRAM_BUILD_DIR)/tools/layout_edit_motion.o $(PROGRAM_BUILD_DIR)/tools/layout_edit_collections.o $(PROGRAM_BUILD_DIR)/tools/layout_edit_scene_groups.o $(PROGRAM_BUILD_DIR)/tools/layout_edit_inspection.o $(PROGRAM_BUILD_DIR)/tools/layout_edit_mesh_fit.o $(VAN_CONCEPT_OBJS) $(AGENT_SCENE_TOOL_SHARED_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $^ -o $@ $(LDFLAGS)
+.PHONY: layout_edit_tool
+layout_edit_tool: $(PROGRAM_BIN_DIR)/layout_edit_tool
+-include $(PROGRAM_BUILD_DIR)/tools/layout_edit_tool.d $(PROGRAM_BUILD_DIR)/tools/layout_edit_motion.d $(PROGRAM_BUILD_DIR)/tools/layout_edit_collections.d
+
+-include $(PROGRAM_BUILD_DIR)/tools/layout_edit_scene_groups.d
+
+-include $(PROGRAM_BUILD_DIR)/tools/layout_edit_inspection.d
+
+-include $(PROGRAM_BUILD_DIR)/tools/layout_edit_mesh_fit.d

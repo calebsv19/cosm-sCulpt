@@ -4,7 +4,10 @@
 #include "Layout/layout_section.h"
 #include "Core/global_state.h"
 #include "Layout/scene/layout_mesh_solid_preview.h"
+#include "Layout/scene/layout_mesh_view_plan.h"
+#include "Layout/scene/layout_preview_quality.h"
 #include "Layout/scene/layout_mesh_asset_path_resolver.h"
+#include "Layout/scene/layout_mesh_preview_cache.h"
 
 #include "Core/data_paths.h"
 #include "Math/math_util.h"
@@ -20,26 +23,13 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#define LD_MESH_SOLID_ASSET_CACHE_CAPACITY 8u
 #define LD_MESH_SOLID_INTERACTIVE_TRIANGLES 8000u
 #define LD_MESH_SOLID_SETTLED_TRIANGLES 18000u
 #define LD_MESH_SOLID_SETTLE_NS 150000000ull
-#define LD_MESH_SOLID_INTERACTIVE_SCALE 0.60f
+#define LD_MESH_SOLID_INTERACTIVE_SCALE 0.50f
 #define LD_MESH_SOLID_SETTLED_SCALE 0.75f
 
 typedef struct {
-    char runtimePath[512];
-    off_t fileSize;
-    time_t modifiedTime;
-    bool populated;
-    bool valid;
-    LayoutMeshSolidPreviewLod interactive;
-    LayoutMeshSolidPreviewLod settled;
-} LayoutMeshSolidPreviewAssetCache;
-
-typedef struct {
-    LayoutMeshSolidPreviewAssetCache assets[LD_MESH_SOLID_ASSET_CACHE_CAPACITY];
-    size_t nextAssetSlot;
     VkRenderer* renderer;
     VkRendererTexture texture;
     bool textureValid;
@@ -63,6 +53,7 @@ typedef struct {
     bool renderedInteractive;
     bool pixelsValid;
     LayoutMeshSolidPreviewFrameStats lastStats;
+    uint32_t detailFocus;
     SDL_Rect clip;
     float rasterScale;
 } LayoutMeshSolidPreviewCache;
@@ -98,6 +89,7 @@ static uint64_t LayoutMeshSolid_HashBytes(uint64_t hash, const void* data, size_
 
 // Build a deterministic signature for authoritative object geometry. Selection
 // and hover are viewport overlays and intentionally stay out of this cache key.
+static SDL_Color LayoutMeshSolid_Color(const Object3D* object,bool material);
 static uint64_t LayoutMeshSolid_ObjectSignature(const Layout* layout) {
     uint64_t hash = 1469598103934665603ull;
     hash = LayoutMeshSolid_HashBytes(hash, &layout->metersPerWorldUnit, sizeof(layout->metersPerWorldUnit));
@@ -106,28 +98,31 @@ static uint64_t LayoutMeshSolid_ObjectSignature(const Layout* layout) {
                                     sizeof(layout->objectStore.count));
     for (size_t i = 0u; i < layout->objectStore.count; ++i) {
         const Object3D* object = &layout->objectStore.items[i];
-        char resolvedPath[LINE_DRAWING_PATH_CAP];
         if (!Layout_ObjectShown(&layout->objectStore,object) || Layout_EntityIsSpatialGuide(&object->info)) continue;
         hash = LayoutMeshSolid_HashBytes(hash, &object->kind, sizeof(object->kind));
         hash = LayoutMeshSolid_HashBytes(hash, &object->plane, sizeof(object->plane));
         hash = LayoutMeshSolid_HashBytes(hash, &object->rectPrism, sizeof(object->rectPrism));
-        hash = LayoutMeshSolid_HashBytes(hash, &object->info, sizeof(object->info));
+        /* Hash actual preview appearance rather than unused engineering property slots. */
+        SDL_Color color=LayoutMeshSolid_Color(object,true);
+        hash = LayoutMeshSolid_HashBytes(hash, &color, sizeof(color));
+        hash = LayoutMeshSolid_HashBytes(hash, object->info.parent_id, strlen(object->info.parent_id));
+        hash = LayoutMeshSolid_HashBytes(hash, &object->info.reference, sizeof(object->info.reference));
         hash = LayoutMeshSolid_HashBytes(hash, &object->objectId, sizeof(object->objectId));
         hash = LayoutMeshSolid_HashBytes(hash, &object->transform, sizeof(object->transform));
         hash = LayoutMeshSolid_HashBytes(hash,
                                         object->meshInstance.runtimePath,
                                         strlen(object->meshInstance.runtimePath));
-        if (Layout_MeshAssetResolveRuntimePath(object->meshInstance.runtimePath,
-                                               resolvedPath,
-                                               sizeof(resolvedPath)) != LAYOUT_MESH_PATH_MISSING) {
-            hash = LayoutMeshSolid_HashBytes(hash, resolvedPath, strlen(resolvedPath));
-        }
+
     }
     /* Facing can be inherited from a rotated assembly without object metadata changing. */
     hash = LayoutMeshSolid_HashBytes(hash, &layout->objectStore.assembly_count,
         sizeof(layout->objectStore.assembly_count));
-    hash = LayoutMeshSolid_HashBytes(hash, layout->objectStore.assemblies,
-        layout->objectStore.assembly_count * sizeof(LayoutAssembly));
+    for(size_t i=0;i<layout->objectStore.assembly_count;++i) {
+        const LayoutAssembly* a=&layout->objectStore.assemblies[i];
+        hash=LayoutMeshSolid_HashBytes(hash,&a->frame,sizeof(a->frame));
+        hash=LayoutMeshSolid_HashBytes(hash,a->id,strlen(a->id));
+        hash=LayoutMeshSolid_HashBytes(hash,a->info.parent_id,strlen(a->info.parent_id));
+    }
     return hash;
 }
 
@@ -167,73 +162,12 @@ static uint64_t LayoutMeshSolid_AppearanceSignature(LayoutMeshSolidPreviewStyle 
     hash = LayoutMeshSolid_HashBytes(hash, &style, sizeof(style));
     const GlobalState* state = Global_Get();
     if (state) {
+        hash = LayoutMeshSolid_HashBytes(hash, &state->cameraExportClean, sizeof(state->cameraExportClean));
+        hash = LayoutMeshSolid_HashBytes(hash, &state->surfaceEdges, sizeof(state->surfaceEdges));
         hash = LayoutMeshSolid_HashBytes(hash, &state->editor.selectedObject3DId, sizeof(state->editor.selectedObject3DId));
         hash = LayoutMeshSolid_HashBytes(hash, &state->editor.hoveredObject3DId, sizeof(state->editor.hoveredObject3DId));
     }
     return hash;
-}
-
-// Release both quality levels for one cached runtime asset.
-static void LayoutMeshSolid_ClearAsset(LayoutMeshSolidPreviewAssetCache* asset) {
-    if (!asset) return;
-    Layout_MeshSolidPreviewFreeLod(&asset->interactive);
-    Layout_MeshSolidPreviewFreeLod(&asset->settled);
-    memset(asset, 0, sizeof(*asset));
-}
-
-// Load or retrieve the two coherent LODs for one runtime mesh path.
-static LayoutMeshSolidPreviewAssetCache* LayoutMeshSolid_AssetForPath(const char* runtimePath) {
-    struct stat info;
-    LayoutMeshSolidPreviewAssetCache* slot = NULL;
-    CoreMeshAssetRuntimeDocument document;
-    if (!runtimePath || !runtimePath[0] || stat(runtimePath, &info) != 0) return NULL;
-
-    for (size_t i = 0u; i < LD_MESH_SOLID_ASSET_CACHE_CAPACITY; ++i) {
-        LayoutMeshSolidPreviewAssetCache* candidate = &g_solidPreview.assets[i];
-        if (!candidate->populated || strcmp(candidate->runtimePath, runtimePath) != 0) continue;
-        if (candidate->fileSize == info.st_size && candidate->modifiedTime == info.st_mtime) {
-            return candidate->valid ? candidate : NULL;
-        }
-        slot = candidate;
-        break;
-    }
-    if (!slot) {
-        for (size_t i = 0u; i < LD_MESH_SOLID_ASSET_CACHE_CAPACITY; ++i) {
-            if (!g_solidPreview.assets[i].populated) {
-                slot = &g_solidPreview.assets[i];
-                break;
-            }
-        }
-    }
-    if (!slot) {
-        slot = &g_solidPreview.assets[g_solidPreview.nextAssetSlot];
-        g_solidPreview.nextAssetSlot =
-            (g_solidPreview.nextAssetSlot + 1u) % LD_MESH_SOLID_ASSET_CACHE_CAPACITY;
-    }
-
-    LayoutMeshSolid_ClearAsset(slot);
-    slot->populated = true;
-    slot->fileSize = info.st_size;
-    slot->modifiedTime = info.st_mtime;
-    snprintf(slot->runtimePath, sizeof(slot->runtimePath), "%s", runtimePath);
-    core_mesh_asset_runtime_document_init(&document);
-    if (core_mesh_asset_runtime_document_load_file(runtimePath, &document).code != CORE_OK) {
-        core_mesh_asset_runtime_document_free(&document);
-        return NULL;
-    }
-    slot->valid = Layout_MeshSolidPreviewBuildLod(&document,
-                                                  LD_MESH_SOLID_INTERACTIVE_TRIANGLES,
-                                                  &slot->interactive) &&
-                  Layout_MeshSolidPreviewBuildLod(&document,
-                                                  LD_MESH_SOLID_SETTLED_TRIANGLES,
-                                                  &slot->settled);
-    core_mesh_asset_runtime_document_free(&document);
-    if (!slot->valid) {
-        Layout_MeshSolidPreviewFreeLod(&slot->interactive);
-        Layout_MeshSolidPreviewFreeLod(&slot->settled);
-        return NULL;
-    }
-    return slot;
 }
 
 // Resolve view depth in the same orthographic basis used by the viewport projection.
@@ -349,7 +283,8 @@ static void LayoutMeshSolid_RasterizeTriangle(Vec3 a, Vec3 b, Vec3 c,
 }
 static SDL_Color LayoutMeshSolid_Color(const Object3D* object, bool material) {
     if (!material) return (SDL_Color){164,185,202,255};
-    const LayoutSurfaceMaterial *finish=Layout_SurfaceMaterialFind(Layout_SurfaceMaterialId(&object->info));
+    LayoutSurfaceMaterial resolved;
+    const LayoutSurfaceMaterial *finish=Layout_SurfaceMaterialResolve(&object->info,&resolved) ? &resolved : NULL;
     if(finish) return (SDL_Color){(finish->rgb>>16)&255,(finish->rgb>>8)&255,finish->rgb&255,255};
     for (size_t i=0;i<object->info.property_count;++i) {
         const LayoutProperty* p=&object->info.properties[i];
@@ -372,6 +307,14 @@ static bool LayoutMeshSolid_RasterNativeSurfaceFilter(const Layout* layout, cons
             object->kind==OBJECT3D_KIND_MESH_ASSET_INSTANCE ||
             Layout_InspectionOutlined(&layout->objectStore,object,view)!=outlines ||
             (reference_filter>=0 && object->info.reference!=(reference_filter==1)))continue;
+        Vec3 corners[8];size_t count=object->kind==OBJECT3D_KIND_PLANE?4:8;
+        bool known=object->kind==OBJECT3D_KIND_PLANE?Layout_Object3D_ComputePlaneCorners(object,corners):Layout_Object3D_ComputeRectPrismCorners(object,corners);
+        if(known && !getenv("LINE_DRAWING_PREVIEW_CULLING_OFF")) {
+            Vec3 lo=corners[0],hi=corners[0];
+            for(size_t j=1;j<count;++j) {lo=(Vec3){fminf(lo.x,corners[j].x),fminf(lo.y,corners[j].y),fminf(lo.z,corners[j].z)};
+                hi=(Vec3){fmaxf(hi.x,corners[j].x),fmaxf(hi.y,corners[j].y),fmaxf(hi.z,corners[j].z)};}
+            if(!Layout_MeshBoundsVisible(lo,hi,view,grid,clip))continue;
+        }
         LayoutSurfaceTriangle triangles[LAYOUT_SURFACE_MAX_TRIANGLES];
         size_t n=Layout_BuildNativeSurface(object,section,Layout_WorldScale(layout),triangles);
         SDL_Color color=LayoutMeshSolid_Color(object,material);
@@ -678,12 +621,16 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
     if (SDL_RenderIsClipEnabled(renderer)) SDL_RenderGetClipRect(renderer, &clip);
     if (clip.w <= 0 || clip.h <= 0) return false;
 
+    if(Layout_MeshPreviewCacheSync(layout))g_solidPreview.pixelsValid=false;
+    uint32_t focus=Global_Get()->editor.selectedObject3DId;
+    if(g_solidPreview.detailFocus!=focus) {g_solidPreview.detailFocus=focus;g_solidPreview.pixelsValid=false;}
     objectSignature = LayoutMeshSolid_ObjectSignature(layout);
     surfaceSignature = LayoutMeshSolid_SurfaceSignature(objectSignature,
                                                         viewContext,
                                                         grid,
                                                         clip);
     appearanceSignature = LayoutMeshSolid_AppearanceSignature(style);
+    appearanceSignature=LayoutMeshSolid_HashBytes(appearanceSignature,&vk->context.swapchain.extent,sizeof(vk->context.swapchain.extent));
     surfaceChanged = !g_solidPreview.surfaceSignatureValid ||
                      surfaceSignature != g_solidPreview.surfaceSignature;
     objectChanged = !g_solidPreview.objectSignatureValid ||
@@ -718,10 +665,17 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
     needsRaster = surfaceChanged || appearanceChanged || !g_solidPreview.pixelsValid ||
                   interactive != g_solidPreview.renderedInteractive;
 
+    CoreTimeNs rasterStart=core_time_now_ns();
     if (needsRaster) {
         LayoutMeshSolidPreviewFrameStats stats = {0};
-        rasterScale = interactive ? LD_MESH_SOLID_INTERACTIVE_SCALE
-                                  : LD_MESH_SOLID_SETTLED_SCALE;
+        const GlobalState* planningState=Global_Get();
+        const LayoutMeshViewPlan* meshPlan=Layout_MeshViewPlanBuild(layout,viewContext,grid,clip,interactive,
+            viewContext->inspection || planningState->sectionView.mode!=LAYOUT_SECTION_OFF,focus,120000);
+        if(meshPlan) {stats.culledObjects=meshPlan->culled_objects;stats.culledAssemblies=meshPlan->culled_assemblies;
+            stats.plannedTriangles=meshPlan->planned_triangles;stats.detailBudgetOverflow=meshPlan->budget_overflow;stats.plannerBytes=meshPlan->scratch_bytes;}
+        float dpi=screenWidth>0?(float)vk->context.swapchain.extent.width/(float)screenWidth:1;
+        rasterScale=Layout_PreviewRasterScale(clip.w,clip.h,dpi,interactive);
+        if(getenv("LINE_DRAWING_PREVIEW_LEGACY_QUALITY"))rasterScale=interactive?.5f:.75f;
         /* Thin panel sections need full screen resolution; mesh preview LOD stays unchanged. */
         if (Global_Get() && Global_Get()->sectionView.mode != LAYOUT_SECTION_OFF) rasterScale = 1.0f;
         rasterWidth = (int)ceilf((float)clip.w * rasterScale);
@@ -753,11 +707,20 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
                     !object->meshInstance.runtimePath[0] || Layout_EntityIsSpatialGuide(&object->info) ||
                     Layout_InspectionOutlined(&layout->objectStore,object,viewContext)!=near ||
                     (reference_filter>=0 && object->info.reference!=(reference_filter==1))) continue;
-                char resolvedPath[LINE_DRAWING_PATH_CAP];
-                if(Layout_MeshAssetResolveRuntimePath(object->meshInstance.runtimePath,resolvedPath,sizeof(resolvedPath))==LAYOUT_MESH_PATH_MISSING)continue;
-                LayoutMeshSolidPreviewAssetCache* asset=LayoutMeshSolid_AssetForPath(resolvedPath);
-                if(!asset) continue;
-                const LayoutMeshSolidPreviewLod* lod=interactive ? &asset->interactive : &asset->settled;
+                if(meshPlan && !meshPlan->entries[i].visible)continue;
+                unsigned tier=meshPlan?meshPlan->entries[i].tier:interactive?2:3;
+                ++stats.lodTiers[tier];
+                const LayoutMeshSolidPreviewLod* lod=tier<4?Layout_MeshPreviewCacheGetTier(object->meshInstance.runtimePath,tier):NULL;
+                CoreObjectVec3 fallbackVertices[8];
+                uint32_t fallbackIndices[]={0,1,3,0,3,2,4,6,7,4,7,5,0,4,5,0,5,1,2,3,7,2,7,6,0,2,6,0,6,4,1,5,7,1,7,3};
+                LayoutMeshSolidPreviewLod fallback={.vertices=fallbackVertices,.indices=fallbackIndices,.vertex_count=8,.triangle_count=12};
+                if(!lod) {
+                    for(int j=0;j<8;++j) fallbackVertices[j]=(CoreObjectVec3){
+                        j&1?object->meshInstance.localBoundsMax.x:object->meshInstance.localBoundsMin.x,
+                        j&2?object->meshInstance.localBoundsMax.y:object->meshInstance.localBoundsMin.y,
+                        j&4?object->meshInstance.localBoundsMax.z:object->meshInstance.localBoundsMin.z};
+                    lod=&fallback;if(tier!=4)++stats.degradedMeshes;
+                }
                 LayoutMeshSolid_RasterizeObject(object,lod,viewContext,grid,clip,rasterScale,rasterWidth,rasterHeight,
                     (int32_t)i,materialMode,rgba,depth,owner,&stats);
                 ++stats.meshCount;
@@ -765,17 +728,22 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
             if(near) {
                 stats.silhouettePixels+=Layout_ComposeInspectionOutlines(g_solidPreview.rgba,g_solidPreview.depth,
                     g_solidPreview.owner,rgba,depth,owner,rasterWidth,rasterHeight,selected,hovered);
-            } else {
-                const KitViewport3dOutlineParams outlineParams={.rgba=rgba,.depth=depth,.owner=owner,
-                    .width=rasterWidth,.height=rasterHeight,.depth_format=KIT_VIEWPORT3D_DEPTH_F32,
-                    .relative_depth_threshold=.18,.selected_owner=selected,.hover_owner=hovered,
-                    .outline_only=outlineOnly,.palette=NULL};
-                (void)kit_viewport3d_apply_outline(&outlineParams,&stats.silhouettePixels);
+            } else if (!state || !state->cameraExportClean) {
+                stats.silhouettePixels+=Layout_PreviewEdges(rgba,depth,owner,rasterWidth,rasterHeight,
+                    outlineOnly,state && state->surfaceEdges,selected,hovered);
             }
         }
+        if(!interactive && !outlineOnly && !getenv("LINE_DRAWING_PREVIEW_LEGACY_QUALITY"))(void)Layout_PreviewAntialias(g_solidPreview.rgba,g_solidPreview.owner,rasterWidth,rasterHeight);
         for(size_t pixel=0;pixel<(size_t)rasterWidth*(size_t)rasterHeight;++pixel)
             if(g_solidPreview.rgba[pixel*4u+3u]) ++stats.coveredPixels;
+        stats.raster_ns=core_time_diff_ns(core_time_now_ns(),rasterStart);
+        size_t allocatedPixels=(size_t)g_solidPreview.rasterWidth*(size_t)g_solidPreview.rasterHeight;
+        stats.rasterBufferBytes=allocatedPixels*12u*(g_solidPreview.inspectionRgba?2u:1u);
+        stats.textureBytesEstimate=allocatedPixels*4u;
+        if(stats.submittedTriangles>120000)stats.detailBudgetOverflow=true;
+        CoreTimeNs uploadStart=core_time_now_ns();
         if (!LayoutMeshSolid_UpdateTexture(vk, rasterWidth, rasterHeight)) return false;
+        stats.upload_ns=core_time_diff_ns(core_time_now_ns(),uploadStart);
         g_solidPreview.renderer = vk;
         g_solidPreview.lastStats = stats;
         g_solidPreview.renderedInteractive = interactive;
@@ -786,6 +754,8 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
 
     if (!g_solidPreview.textureValid || g_solidPreview.lastStats.meshCount == 0u) return false;
     vk_renderer_draw_texture(vk, &g_solidPreview.texture, NULL, &clip);
+    g_solidPreview.lastStats.frame_ns=core_time_diff_ns(core_time_now_ns(),now);
+    if(!needsRaster)g_solidPreview.lastStats.raster_ns=g_solidPreview.lastStats.upload_ns=0;
     if (outStats) *outStats = g_solidPreview.lastStats;
     return true;
 }
@@ -813,9 +783,7 @@ bool Layout_SolidPreviewPick(const Layout* layout, const SpaceViewContext* view,
 
 void Layout_MeshSolidPreviewShutdown(SDL_Renderer* renderer) {
     VkRenderer* vk = (VkRenderer*)renderer;
-    for (size_t i = 0u; i < LD_MESH_SOLID_ASSET_CACHE_CAPACITY; ++i) {
-        LayoutMeshSolid_ClearAsset(&g_solidPreview.assets[i]);
-    }
+    Layout_MeshPreviewCacheShutdown();Layout_MeshViewPlanShutdown();
     if (g_solidPreview.textureValid && vk) {
         vk_renderer_wait_idle(vk);
         vk_renderer_texture_destroy(vk, &g_solidPreview.texture);
@@ -830,8 +798,11 @@ void Layout_MeshSolidPreviewShutdown(SDL_Renderer* renderer) {
 }
 
 int Layout_MeshSolidPreviewNextUpdateDelayMs(void) {
+    if(Layout_MeshPreviewCacheRead().pending_jobs)return 16;
     if (!g_solidPreview.pixelsValid || !g_solidPreview.renderedInteractive) return -1;
     uint64_t elapsed = core_time_diff_ns(core_time_now_ns(), g_solidPreview.qualityChangedAt);
     if (elapsed >= LD_MESH_SOLID_SETTLE_NS) return 0;
     return (int)((LD_MESH_SOLID_SETTLE_NS - elapsed + 999999u) / 1000000u);
 }
+
+LayoutMeshSolidPreviewFrameStats Layout_MeshSolidPreviewReadStats(void) {return g_solidPreview.lastStats;}

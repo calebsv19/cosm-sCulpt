@@ -1,4 +1,6 @@
 #include "Layout/layout_constraints.h"
+#include "Layout/scene/layout_folding_brace.h"
+#include "Layout/scene/layout_telescoping_stay.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -46,6 +48,14 @@ bool Layout_ConstraintsWriteJson(const Layout* layout, cJSON* root) {
         cJSON* o=cJSON_CreateObject();
         if (!o) return false;
         if (!cJSON_AddItemToArray(array,o)) { cJSON_Delete(o); return false; }
+        if(!Layout_TelescopingStayWrite(&c->telescoping_stay,o) || !Layout_FoldingBraceWrite(&c->folding_brace,o)) return false;
+        if(c->paired_folding_brace.enabled) {
+            cJSON* temporary=cJSON_CreateObject();
+            if(!temporary || !Layout_FoldingBraceWrite(&c->paired_folding_brace,temporary)){cJSON_Delete(temporary);return false;}
+            cJSON* paired=cJSON_DetachItemFromObjectCaseSensitive(temporary,"foldingBrace");cJSON_Delete(temporary);
+            if(!paired || !cJSON_AddItemToObject(o,"pairedFoldingBrace",paired)){cJSON_Delete(paired);return false;}
+        }
+        if(c->closed_neighbor[0] && !cJSON_AddStringToObject(o,"closedNeighbor",c->closed_neighbor))return false;
         cJSON* a=reference_json(&c->a); cJSON* b=reference_json(&c->b);
         if (!a || !b) { cJSON_Delete(a); cJSON_Delete(b); return false; }
         if (!cJSON_AddItemToObject(o,"a",a)) { cJSON_Delete(a); cJSON_Delete(b); return false; }
@@ -111,6 +121,18 @@ bool Layout_ConstraintsReadJson(Layout* layout, const cJSON* root, bool required
                 if(!cJSON_IsNumber(v) || !isfinite(v->valuedouble))return false;
                 if(hinge)c.hinge_reference[i]=v->valuedouble;else c.travel_offset[i]=v->valuedouble;
             }
+        }
+        const cJSON* brace=cJSON_GetObjectItemCaseSensitive(o,"foldingBrace");
+        if(brace && (!cJSON_IsNumber(version) || version->valuedouble<25 || !Layout_FoldingBraceRead(brace,&c.folding_brace))) return false;
+        if((c.folding_brace.compact_mount||c.folding_brace.manual_lock)&&version->valuedouble<26)return false;
+        const cJSON* paired=cJSON_GetObjectItemCaseSensitive(o,"pairedFoldingBrace");
+        if(paired && (!cJSON_IsNumber(version) || version->valuedouble<30 || !c.folding_brace.enabled || !Layout_FoldingBraceRead(paired,&c.paired_folding_brace)))return false;
+        const cJSON* stay=cJSON_GetObjectItemCaseSensitive(o,"telescopingStay");
+        if(stay && (!cJSON_IsNumber(version) || version->valuedouble<27 || !Layout_TelescopingStayRead(stay,&c.telescoping_stay)))return false;
+        const cJSON* neighbor=cJSON_GetObjectItemCaseSensitive(o,"closedNeighbor");
+        if(neighbor) {
+            if(!cJSON_IsNumber(version) || version->valuedouble<27 || !cJSON_IsString(neighbor) || !neighbor->valuestring[0] || strlen(neighbor->valuestring)>=sizeof(c.closed_neighbor))return false;
+            snprintf(c.closed_neighbor,sizeof(c.closed_neighbor),"%s",neighbor->valuestring);
         }
         layout->objectStore.constraints[layout->objectStore.constraintCount++]=c;
     }

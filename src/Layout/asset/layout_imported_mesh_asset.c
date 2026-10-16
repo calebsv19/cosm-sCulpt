@@ -120,7 +120,8 @@ static bool LayoutImportedMesh_BuildOutputPaths(const char* asset_root,
                                           filename);
 }
 
-bool LayoutImportedMeshAsset_ResolveStlOutputPaths(const char* stl_path,
+bool LayoutImportedMeshAsset_ResolveStlOutputPathsForUnit(const char* stl_path,
+                                                   CoreUnitKind source_unit,
                                                    const char* asset_root,
                                                    char* out_authoring_path,
                                                    size_t out_authoring_path_size,
@@ -148,7 +149,16 @@ bool LayoutImportedMeshAsset_ResolveStlOutputPaths(const char* stl_path,
         return false;
     }
 
+    if (core_units_convert(1.0, source_unit, CORE_UNIT_METER, &(double){0}).code != CORE_OK) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "invalid STL source unit");
+        return false;
+    }
     LayoutImportedMesh_BuildAssetId(stl_path, asset_id, sizeof(asset_id));
+    if (source_unit != CORE_UNIT_METER) {
+        char base_id[64];
+        snprintf(base_id, sizeof(base_id), "%s", asset_id);
+        snprintf(asset_id, sizeof(asset_id), "%.54s_%s", base_id, core_units_kind_symbol(source_unit));
+    }
     if (!LayoutImportedMesh_BuildOutputPaths(asset_root,
                                              asset_id,
                                              authoring_path,
@@ -177,8 +187,30 @@ bool LayoutImportedMeshAsset_ResolveStlOutputPaths(const char* stl_path,
     return true;
 }
 
-LayoutImportedMeshStlCacheState LayoutImportedMeshAsset_GetStlCacheState(
+/* A basename is a display identity, not proof that a cache belongs to this source. */
+static bool LayoutImportedMesh_AuthoringMatches(const char* authoring_path,
+                                                const char* stl_path,
+                                                CoreUnitKind source_unit) {
+    CoreMeshAssetAuthoringDocument document;
+    char resolved[PATH_MAX];
+    double scale = 0.0;
+    bool matches = false;
+    core_mesh_asset_authoring_document_init(&document);
+    if (LayoutImportedMesh_ResolveSourcePath(stl_path, resolved, sizeof(resolved)) &&
+        core_units_convert(1.0, source_unit, CORE_UNIT_METER, &scale).code == CORE_OK &&
+        core_mesh_asset_authoring_document_load_file(authoring_path, &document).code == CORE_OK) {
+        matches = document.has_imported_mesh_source &&
+            strcmp(document.imported_mesh_source.source_uri, resolved) == 0 &&
+            document.imported_mesh_source.source_unit_kind == source_unit &&
+            document.imported_mesh_source.source_to_asset_scale == scale;
+    }
+    core_mesh_asset_authoring_document_free(&document);
+    return matches;
+}
+
+LayoutImportedMeshStlCacheState LayoutImportedMeshAsset_GetStlCacheStateForUnit(
     const char* stl_path,
+    CoreUnitKind source_unit,
     const char* asset_root,
     char* out_authoring_path,
     size_t out_authoring_path_size,
@@ -196,7 +228,7 @@ LayoutImportedMeshStlCacheState LayoutImportedMeshAsset_GetStlCacheState(
     struct stat runtime_stat = {0};
     struct stat preview_stat = {0};
 
-    if (!LayoutImportedMeshAsset_ResolveStlOutputPaths(stl_path,
+    if (!LayoutImportedMeshAsset_ResolveStlOutputPathsForUnit(stl_path, source_unit,
                                                        asset_root,
                                                        authoring_path,
                                                        sizeof(authoring_path),
@@ -231,6 +263,10 @@ LayoutImportedMeshStlCacheState LayoutImportedMeshAsset_GetStlCacheState(
         LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "STL runtime cache is missing");
         return LAYOUT_IMPORTED_MESH_STL_CACHE_MISSING;
     }
+    if (!LayoutImportedMesh_AuthoringMatches(authoring_path, stl_path, source_unit)) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "STL cache source or units differ");
+        return LAYOUT_IMPORTED_MESH_STL_CACHE_STALE;
+    }
     if (authoring_stat.st_mtime < stl_stat.st_mtime ||
         runtime_stat.st_mtime < stl_stat.st_mtime ||
         preview_stat.st_mtime < stl_stat.st_mtime) {
@@ -244,6 +280,7 @@ LayoutImportedMeshStlCacheState LayoutImportedMeshAsset_GetStlCacheState(
 
 static bool LayoutImportedMesh_PopulateAuthoringDocument(
     const char* stl_path,
+    CoreUnitKind source_unit,
     const char* asset_id,
     CoreMeshAssetAuthoringDocument* document,
     char* diagnostics,
@@ -286,8 +323,13 @@ static bool LayoutImportedMesh_PopulateAuthoringDocument(
     }
     document->imported_mesh_source.source_format =
         CORE_MESH_ASSET_IMPORTED_MESH_SOURCE_FORMAT_STL;
-    document->imported_mesh_source.source_unit_kind = CORE_UNIT_METER;
-    document->imported_mesh_source.source_to_asset_scale = 1.0;
+    document->imported_mesh_source.source_unit_kind = source_unit;
+    result = core_units_convert(1.0, source_unit, CORE_UNIT_METER,
+                                &document->imported_mesh_source.source_to_asset_scale);
+    if (result.code != CORE_OK) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, result.message);
+        return false;
+    }
     document->imported_mesh_source.weld_vertices = true;
     document->imported_mesh_source.weld_tolerance = 0.000001;
     document->imported_mesh_source.preserve_source_normals = false;
@@ -303,8 +345,9 @@ static bool LayoutImportedMesh_PopulateAuthoringDocument(
     return true;
 }
 
-bool LayoutImportedMeshAsset_ImportStlToRuntimeWithProgress(
+bool LayoutImportedMeshAsset_ImportStlToRuntimeWithProgressForUnit(
     const char* stl_path,
+    CoreUnitKind source_unit,
     const char* asset_root,
     char* out_authoring_path,
     size_t out_authoring_path_size,
@@ -337,7 +380,16 @@ bool LayoutImportedMeshAsset_ImportStlToRuntimeWithProgress(
         return false;
     }
 
+    if (core_units_convert(1.0, source_unit, CORE_UNIT_METER, &(double){0}).code != CORE_OK) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "invalid STL source unit");
+        return false;
+    }
     LayoutImportedMesh_BuildAssetId(stl_path, asset_id, sizeof(asset_id));
+    if (source_unit != CORE_UNIT_METER) {
+        char base_id[64];
+        snprintf(base_id, sizeof(base_id), "%s", asset_id);
+        snprintf(asset_id, sizeof(asset_id), "%.54s_%s", base_id, core_units_kind_symbol(source_unit));
+    }
     if (!LayoutImportedMesh_BuildOutputPaths(asset_root,
                                              asset_id,
                                              authoring_path,
@@ -347,7 +399,14 @@ bool LayoutImportedMeshAsset_ImportStlToRuntimeWithProgress(
         LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, "failed to build import output paths");
         return false;
     }
-    if (!LayoutImportedMesh_PopulateAuthoringDocument(stl_path,
+    struct stat existing;
+    if (stat(authoring_path, &existing) == 0 &&
+        !LayoutImportedMesh_AuthoringMatches(authoring_path, stl_path, source_unit)) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size,
+            "STL name already belongs to another source or unit; choose a separate asset root");
+        goto done;
+    }
+    if (!LayoutImportedMesh_PopulateAuthoringDocument(stl_path, source_unit,
                                                       asset_id,
                                                       &document,
                                                       diagnostics,
@@ -355,17 +414,17 @@ bool LayoutImportedMeshAsset_ImportStlToRuntimeWithProgress(
         goto done;
     }
 
-    result = core_mesh_asset_authoring_document_save_file(&document, authoring_path);
-    if (result.code != CORE_OK) {
-        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, result.message);
-        goto done;
-    }
     result = core_mesh_compile_imported_mesh_to_runtime_document_with_progress(&document,
                                                                               NULL,
                                                                               asset_id,
                                                                               &runtime_document,
                                                                               progress_callback,
                                                                               progress_user_data);
+    if (result.code != CORE_OK) {
+        LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, result.message);
+        goto done;
+    }
+    result = core_mesh_asset_authoring_document_save_file(&document, authoring_path);
     if (result.code != CORE_OK) {
         LayoutImportedMesh_SetDiagnostics(diagnostics, diagnostics_size, result.message);
         goto done;
@@ -405,7 +464,7 @@ bool LayoutImportedMeshAsset_ImportStlToRuntime(const char* stl_path,
                                                 size_t out_runtime_path_size,
                                                 char* diagnostics,
                                                 size_t diagnostics_size) {
-    return LayoutImportedMeshAsset_ImportStlToRuntimeWithProgress(stl_path,
+    return LayoutImportedMeshAsset_ImportStlToRuntimeWithProgressForUnit(stl_path, CORE_UNIT_METER,
                                                                   asset_root,
                                                                   out_authoring_path,
                                                                   out_authoring_path_size,
@@ -415,4 +474,45 @@ bool LayoutImportedMeshAsset_ImportStlToRuntime(const char* stl_path,
                                                                   diagnostics_size,
                                                                   NULL,
                                                                   NULL);
+}
+
+bool LayoutImportedMeshAsset_ResolveStlOutputPaths(const char* stl_path,
+                                                   const char* asset_root,
+                                                   char* out_authoring_path,
+                                                   size_t out_authoring_path_size,
+                                                   char* out_runtime_path,
+                                                   size_t out_runtime_path_size,
+                                                   char* out_preview_path,
+                                                   size_t out_preview_path_size,
+                                                   char* diagnostics,
+                                                   size_t diagnostics_size) {
+    return LayoutImportedMeshAsset_ResolveStlOutputPathsForUnit(stl_path, CORE_UNIT_METER, asset_root, out_authoring_path, out_authoring_path_size, out_runtime_path, out_runtime_path_size, out_preview_path, out_preview_path_size, diagnostics, diagnostics_size);
+}
+
+LayoutImportedMeshStlCacheState LayoutImportedMeshAsset_GetStlCacheState(
+    const char* stl_path,
+    const char* asset_root,
+    char* out_authoring_path,
+    size_t out_authoring_path_size,
+    char* out_runtime_path,
+    size_t out_runtime_path_size,
+    char* out_preview_path,
+    size_t out_preview_path_size,
+    char* diagnostics,
+    size_t diagnostics_size) {
+    return LayoutImportedMeshAsset_GetStlCacheStateForUnit(stl_path, CORE_UNIT_METER, asset_root, out_authoring_path, out_authoring_path_size, out_runtime_path, out_runtime_path_size, out_preview_path, out_preview_path_size, diagnostics, diagnostics_size);
+}
+
+bool LayoutImportedMeshAsset_ImportStlToRuntimeWithProgress(
+    const char* stl_path,
+    const char* asset_root,
+    char* out_authoring_path,
+    size_t out_authoring_path_size,
+    char* out_runtime_path,
+    size_t out_runtime_path_size,
+    char* diagnostics,
+    size_t diagnostics_size,
+    CoreMeshCompileProgressCallback progress_callback,
+    void* progress_user_data) {
+    return LayoutImportedMeshAsset_ImportStlToRuntimeWithProgressForUnit(stl_path, CORE_UNIT_METER, asset_root, out_authoring_path, out_authoring_path_size, out_runtime_path, out_runtime_path_size, diagnostics, diagnostics_size, progress_callback, progress_user_data);
 }

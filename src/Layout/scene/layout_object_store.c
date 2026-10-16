@@ -1,3 +1,4 @@
+#include "Layout/layout_scene_collections.h"
 #include "Layout/layout.h"
 #include "Layout/layout_section.h"
 #include "Core/global_state.h"
@@ -93,8 +94,16 @@ void Layout_ObjectStore_Init(LayoutObjectStore* store) {
     store->spatial_rule_count=0;store->next_spatial_rule_id=1;
     memset(store->motion_envelopes,0,sizeof(store->motion_envelopes));store->motion_envelope_count=0;
     memset(store->routes,0,sizeof(store->routes));store->route_count=0;store->next_route_id=1;
+    Layout_SceneCollectionInvalidate();
+    memset(store->scene_collections,0,sizeof(store->scene_collections));store->scene_collection_count=0;
+    memset(store->collection_members,0,sizeof(store->collection_members));store->collection_member_count=0;
+    memset(store->working_views,0,sizeof(store->working_views));store->working_view_count=0;
+    store->next_scene_collection_id=1;
     memset(store->saved_views,0,sizeof(store->saved_views));store->saved_view_count=0;
     store->hidden_view_count=0;store->isolated_view_id[0]=0;
+    store->measurement_count=0;store->hidden_entity_count=0;store->shown_entity_count=0;store->revealed_entity_count=0;store->isolated_entity_id[0]=0;
+    memset(store->hidden_entity_ids,0,sizeof(store->hidden_entity_ids));
+    memset(store->shown_entity_ids,0,sizeof(store->shown_entity_ids));
 }
 
 void Layout_ObjectStore_Free(LayoutObjectStore* store) {
@@ -122,8 +131,16 @@ void Layout_ObjectStore_Free(LayoutObjectStore* store) {
     store->spatial_rule_count=0;store->next_spatial_rule_id=1;
     memset(store->motion_envelopes,0,sizeof(store->motion_envelopes));store->motion_envelope_count=0;
     memset(store->routes,0,sizeof(store->routes));store->route_count=0;store->next_route_id=1;
+    Layout_SceneCollectionInvalidate();
+    memset(store->scene_collections,0,sizeof(store->scene_collections));store->scene_collection_count=0;
+    memset(store->collection_members,0,sizeof(store->collection_members));store->collection_member_count=0;
+    memset(store->working_views,0,sizeof(store->working_views));store->working_view_count=0;
+    store->next_scene_collection_id=1;
     memset(store->saved_views,0,sizeof(store->saved_views));store->saved_view_count=0;
     store->hidden_view_count=0;store->isolated_view_id[0]=0;
+    store->measurement_count=0;store->hidden_entity_count=0;store->shown_entity_count=0;store->revealed_entity_count=0;store->isolated_entity_id[0]=0;
+    memset(store->hidden_entity_ids,0,sizeof(store->hidden_entity_ids));
+    memset(store->shown_entity_ids,0,sizeof(store->shown_entity_ids));
 }
 
 Object3D* Layout_ObjectStore_Find(LayoutObjectStore* store, uint32_t objectId) {

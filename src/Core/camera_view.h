@@ -10,7 +10,7 @@ typedef struct {
     unsigned held;
     size_t selected;
     char source_id[LINE_DRAWING_SCENE_AUTHORING_ID_SIZE];
-    Vec3 eye;
+    Vec3 eye, orbit_target;
     float viewport[4]; /* Solved canvas rect; projection never links UI into scene tools. */
     float yaw, pitch, roll, fov, near_clip, far_clip, speed_mps;
     LayoutSectionView previous_section;
@@ -36,3 +36,8 @@ bool CameraView_Step(GlobalState *state, float seconds);
 int CameraView_NextUpdateDelayMs(const GlobalState *state);
 void CameraView_RenderMarkers(SDL_Renderer *renderer, const GlobalState *state);
 bool CameraView_HandleEvent(GlobalState *state, const SDL_Event *event);
+
+bool CameraView_Frame(GlobalState* state,bool selection);
+bool CameraView_FrameBounds(GlobalState* state,Vec3 minimum,Vec3 maximum);
+void CameraView_Drag(GlobalState* state,float dx,float dy,bool pan);
+void CameraView_Dolly(GlobalState* state,float amount);

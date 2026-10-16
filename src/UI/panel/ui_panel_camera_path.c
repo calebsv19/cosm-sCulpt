@@ -1,3 +1,5 @@
+#include "UI/ui_panel_camera.h"
+#include "UI/shared_special.h"
 #include "UI/ui_panel_camera_path.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_visual_style.h"
@@ -127,7 +129,7 @@ void UIPanel_CameraPathRender(SDL_Renderer *renderer,int y) {
             action==UI_PATH_LATER || action==UI_PATH_NEXT ? a+1<n : true;
         const char *name=names[action-UI_PATH_VIEW];
         if(action==UI_PATH_SECONDS) {
-            if(editing)snprintf(label,sizeof(label),"Leg seconds: %s",text);
+            if(editing)snprintf(label,sizeof(label),"Leg seconds:");
             if(!editing)snprintf(label,sizeof(label),"Leg seconds: %.3g",p->key_count ? p->keys[a].seconds : 2.f);
             name=label;
         }
@@ -211,4 +213,18 @@ bool UIPanel_CameraPathEvent(const SDL_Event *e,int y) {
         refresh();return true;
     }
     return false;
+}
+
+void UIPanel_CameraPathCancelCapture(void) { dragging=false; }
+
+bool LDInline_Path(LDInlineField* f) {if(!editing || UIPanel_Get()->activeRightTab!=UI_PANEL_RIGHT_TAB_VIEW)return false;SDL_Rect box;if(!UIPanel_CameraControlRect(UI_PATH_SECONDS,&box))return false;*f=(LDInlineField){text,sizeof(text),&replace,LDInline_ValueRect(box,"Leg seconds:"),NULL};return true;}
+
+void LDSpecial_Path(void) {
+    if(UIPanel_Get()->activeRightTab!=UI_PANEL_RIGHT_TAB_VIEW || Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_SCENE)return;
+    GlobalState* s=Global_Get();const LineDrawingScenePath* p=CameraPath_Selected(s);SDL_Rect box,clip=UIPanel_Get()->rightBodyRect;
+    size_t n=p?Layout_ScenePathEdit_AnchorCount(p):0,a=CameraPath_SelectedAnchor(s);
+    for(int k=UI_PATH_SHOW;k<UI_PATH_POINT_BASE+16;++k){if(k==UI_PATH_SCRUB || !UIPanel_CameraControlRect(k,&box))continue;
+        bool enabled=(k==UI_PATH_APPLY || k==UI_PATH_ADD || k==UI_PATH_NEW)?s->cameraView.active:k==UI_PATH_PLAY || k==UI_PATH_REMOVE?n>1:k==UI_PATH_EARLIER || k==UI_PATH_PREVIOUS?a>0:k==UI_PATH_LATER || k==UI_PATH_NEXT?a+1<n:true;
+        LDSpecial_Record(24,k,p?p->path_id:"",box,&clip,enabled);
+    }
 }

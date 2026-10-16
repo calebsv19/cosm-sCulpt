@@ -1,5 +1,6 @@
 #pragma once
 /* Shared Parts form layout/hit/render surface. Domain workflows remain in modules. */
+#include "UI/shared_special.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_visual_style.h"
@@ -38,6 +39,7 @@ static inline void cell(PartsPane* p,int action,const char* title,const char* va
     }
     if (action==p->wanted) p->found=rect;
     if (action && enabled && contains(rect,p->x,p->click_y) && contains(p->body,p->x,p->click_y)) p->hit=action;
+    LDSpecial_Record(20,action,title,rect,&p->body,enabled);
     if (!p->renderer) return;
     SDL_Color text=enabled ? p->palette.text_primary : p->palette.text_muted;
     if (action) {

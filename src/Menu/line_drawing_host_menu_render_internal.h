@@ -117,7 +117,7 @@ void line_drawing_host_menu_draw_browse_actions(SDL_Renderer* renderer,
                                                 SDL_Color highlight_color);
 void line_drawing_host_menu_draw_filter(SDL_Renderer* renderer,
                                         TTF_Font* font,
-                                        const LineDrawingHostMenuState* state,
+                                        LineDrawingHostMenuState* state,
                                         const LineDrawingHostMenuLayout* layout,
                                         SDL_Color panel_fill,
                                         SDL_Color border_color,

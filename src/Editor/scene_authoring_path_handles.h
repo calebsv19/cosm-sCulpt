@@ -82,3 +82,6 @@ bool BeginSceneAuthoringPathHandleDragSession(GlobalState* state,
 void ResetSceneAuthoringPathHandleDrag(EditorState* editor);
 void UpdateSceneAuthoringPathHandleDragPosition(int mouse_x, int mouse_y);
 void Render_Editor_SceneAuthoringPathHandles(EditorState* editor, AppContext* ctx);
+
+bool SceneAuthoringCameraGuide_Corners(const LineDrawingSceneCameraPose* pose,float fov,
+    float aspect,Vec3 near_corners[4],Vec3 far_corners[4]);

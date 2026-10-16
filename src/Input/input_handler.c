@@ -1,3 +1,7 @@
+#include "UI/shared_special.h"
+#include "UI/shared_controls.h"
+#include "UI/shared_text.h"
+#include "UI/panel/ui_panel_collection_inspection.h"
 #include "UI/ui_panel_section.h"
 #include "UI/ui_panel_camera.h"
 #include "UI/ui_panel_furniture.h"
@@ -6,6 +10,8 @@
 #include "UI/ui_panel_parts.h"
 // src/Input/input_handler.c
 #include "input_handler.h"
+#include "UI/topbar/line_drawing_editor_topbar.h"
+#include "UI/topbar/line_drawing_view_controls.h"
 #include "input_mouse.h"
 #include "Input/input_viewport_navigation.h"
 #include "input_keyboard.h"   // ← NEW
@@ -19,6 +25,11 @@
 void Input_Handle(AppContext *ctx, SDL_Event* event) {
     if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST)
         InputViewportNavigation_ResetGesture();
+    if (UIPanel_SharedTextEvent(event)) return;
+    if (LDInline_Event(event)) return;
+    LineDrawingEditorTopbar_UpdateControls();
+    if (LDControls_EditorEvent(event)) return;
+    if (LDViewControls_Event(event)) return;
     if (UIPanel_ContextEvent(event)) return;
     if (UIPanel_CameraEvent(event)) return;
     if (CameraView_HandleEvent(Global_Get(),event)) return;
@@ -31,6 +42,7 @@ void Input_Handle(AppContext *ctx, SDL_Event* event) {
     if (UIPanel_RoutesEvent(event)) return;
     if (UIPanel_PartsEvent(event)) return;
     UIPanelState* panel=UIPanel_Get();
+    if(UIPanel_CollectionInspectionInputEvent(event))return;
     if(UIPanel_TravelEvent(event))return;
     if (panel->measurement.active && panel->activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE) {
         if (event->type==SDL_KEYDOWN && (panel->measurement.placing || panel->measurement.picking)) {

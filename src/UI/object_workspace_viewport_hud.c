@@ -1,3 +1,6 @@
+#include "UI/shared_overlay.h"
+#include "UI/shared_special.h"
+#include "UI/shared_text.h"
 #include "UI/object_workspace_viewport_hud.h"
 
 #include "Core/line_drawing_pane_host.h"
@@ -24,7 +27,7 @@ typedef struct {
 static bool ObjectViewportHud_CanShow(const GlobalState* state, const Object3D** out_object) {
     const Object3D* object = NULL;
     if (out_object) *out_object = NULL;
-    if (!state) return false;
+    if (!state || LDOverlay_Blocked()) return false;
     if (state->workspaceMode != LINE_DRAWING_WORKSPACE_MODE_OBJECT) return false;
     if (state->editor.selectedObject3DId == 0u) return false;
     object = Layout_ObjectStore_FindConst(&state->layout.objectStore,
@@ -70,27 +73,40 @@ static bool ObjectViewportHud_ResolveLayout(const GlobalState* state,
     const int button_count = (object && object->kind == OBJECT3D_KIND_RECT_PRISM)
                                  ? (int)(sizeof(kPrismButtons) / sizeof(kPrismButtons[0]))
                                  : (int)(sizeof(kPlaneButtons) / sizeof(kPlaneButtons[0]));
-    const int rows = (button_count + (kCols - 1)) / kCols;
+    int cols=kCols;
+    int button_w=kButtonW,button_h=kButtonH;
 
     if (!state || !object || !out_layout) return false;
     if (!LineDrawingPaneHost_GetViewportRect(&state->paneHost, &viewport)) return false;
     if (viewport.width < 60.0f || viewport.height < 60.0f) return false;
 
-    panel_w = (kPad * 2) + (kButtonW * kCols) + kGap;
-    panel_h = (kPad * 2) + (kButtonH * rows) + (kGap * (rows - 1));
+    TTF_Font* font=FontManager_Get(FONT_DEFAULT);int label_w=0;
+    if(font){(void)TTF_SizeUTF8(font,"Bottom",&label_w,NULL);button_h=TTF_FontHeight(font)+10;if(button_h<kButtonH)button_h=kButtonH;}
+    if(label_w+16>button_w)button_w=label_w+16;
+    SDL_Rect notice;int reserved=LDOverlay_NoticeRect(state,&notice)?notice.h+8:0;
+    int available_w=(int)viewport.width-28,available_h=(int)viewport.height-28-reserved;
+    bool fits=false;
+    for(int candidate=kCols;candidate<=button_count;++candidate){
+        int rows=(button_count+candidate-1)/candidate;
+        panel_w=kPad*2+button_w*candidate+kGap*(candidate-1);
+        panel_h=kPad*2+button_h*rows+kGap*(rows-1);
+        if(panel_w<=available_w && panel_h<=available_h){cols=candidate;fits=true;break;}
+    }
+    if(!fits && button_w+kPad*2<=available_w){cols=1;panel_w=button_w+kPad*2;panel_h=kPad*2+button_h*button_count+kGap*(button_count-1);fits=panel_h<=available_h;}
+    if(!fits)return false;
     x = (int)(viewport.x + viewport.width) - panel_w - 14;
-    y = (int)(viewport.y + viewport.height) - panel_h - 14;
+    y = (int)(viewport.y + viewport.height) - panel_h - 14 - reserved;
 
     memset(out_layout, 0, sizeof(*out_layout));
     out_layout->panel = (SDL_Rect){ x, y, panel_w, panel_h };
     out_layout->button_count = button_count;
 
     for (i = 0; i < button_count; ++i) {
-        const int row = i / kCols;
-        const int col = i % kCols;
-        const int bx = x + kPad + (col * (kButtonW + kGap));
-        const int by = y + kPad + (row * (kButtonH + kGap));
-        out_layout->buttons[i].rect = (SDL_Rect){ bx, by, kButtonW, kButtonH };
+        const int row = i / cols;
+        const int col = i % cols;
+        const int bx = x + kPad + (col * (button_w + kGap));
+        const int by = y + kPad + (row * (button_h + kGap));
+        out_layout->buttons[i].rect = (SDL_Rect){ bx, by, button_w, button_h };
         if (object->kind == OBJECT3D_KIND_RECT_PRISM) {
             out_layout->buttons[i].label = kPrismButtons[i].label;
             out_layout->buttons[i].face = kPrismButtons[i].face;
@@ -188,12 +204,20 @@ void LineDrawingObjectWorkspaceViewportHud_Render(SDL_Renderer* renderer,
                                                  &text_h);
             text_x = layout.buttons[i].rect.x + ((layout.buttons[i].rect.w - text_w) / 2);
             text_y = layout.buttons[i].rect.y + ((layout.buttons[i].rect.h - text_h) / 2);
-            (void)line_drawing_text_draw_utf8_at(renderer,
-                                                 font,
-                                                 layout.buttons[i].label,
-                                                 text_x,
-                                                 text_y,
-                                                 text);
+            (void)LDText_Label(renderer,font,layout.buttons[i].label,
+                (SDL_Rect){text_x,text_y,layout.buttons[i].rect.x+layout.buttons[i].rect.w-4-text_x,layout.buttons[i].rect.h-4},text,false);
         }
     }
+}
+
+bool LineDrawingObjectWorkspaceViewportHud_Rect(const GlobalState* state,int index,SDL_Rect* out) {
+    const Object3D* object=NULL;ObjectViewportHudLayout l={0};
+    if(!out || !ObjectViewportHud_CanShow(state,&object) || !ObjectViewportHud_ResolveLayout(state,object,&l))return false;
+    if(index<0){*out=l.panel;return true;}if(index>=l.button_count)return false;*out=l.buttons[index].rect;return true;
+}
+void LDOverlay_CollectHud(void) {
+    const GlobalState* s=Global_Get();const Object3D* object=NULL;ObjectViewportHudLayout l={0};
+    if(!ObjectViewportHud_CanShow(s,&object) || !ObjectViewportHud_ResolveLayout(s,object,&l))return;
+    SDL_Rect clip=l.panel;
+    for(int i=0;i<l.button_count;++i)LDSpecial_Record(32,i+1,object->coreMeta.object_id,l.buttons[i].rect,&clip,true);
 }

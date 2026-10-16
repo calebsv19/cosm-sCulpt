@@ -24,4 +24,9 @@ config/Carbon.json
 *.tmp
 *.swp
 *.swo
-tools/packaging/macos/local_app_icon/
+tools/packaging/macos/local_app_icon/*
+!tools/packaging/macos/local_app_icon/AppIcon.icns
+
+# Retained local verification artifacts (never source).
+/.cache/
+/Users/

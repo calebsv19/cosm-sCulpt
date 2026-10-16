@@ -383,7 +383,7 @@ static bool test_layout_json_v8_persists_rect_prism_payload_deterministically(vo
         const cJSON* version = cJSON_IsObject(file) ? cJSON_GetObjectItem(file, "schemaVersion") : NULL;
         const cJSON* objects3d = cJSON_GetObjectItem(root, "objects3d");
         TEST_ASSERT(cJSON_IsNumber(version));
-        TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION);
+        TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION_COLLECTIONS);
         TEST_ASSERT(cJSON_IsArray(objects3d));
         TEST_ASSERT(cJSON_GetArraySize(objects3d) == 2);
         const cJSON* obj0 = cJSON_GetArrayItem(objects3d, 0);
@@ -477,7 +477,7 @@ static bool test_layout_json_v9_persists_mesh_asset_instance_payload(void) {
         const cJSON* obj0 = cJSON_GetArrayItem(objects3d, 0);
         const cJSON* mesh = cJSON_IsObject(obj0) ? cJSON_GetObjectItem(obj0, "meshAssetInstance") : NULL;
         TEST_ASSERT(cJSON_IsNumber(version));
-        TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION);
+        TEST_ASSERT(version->valueint == LAYOUT_JSON_SCHEMA_VERSION_COLLECTIONS);
         TEST_ASSERT(cJSON_IsObject(mesh));
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(mesh, "assetId")->valuestring, "asset_test_mesh") == 0);
         TEST_ASSERT(strcmp(cJSON_GetObjectItem(mesh, "runtimePath")->valuestring, runtime_path) == 0);

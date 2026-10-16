@@ -96,7 +96,11 @@ bool Layout_FurniturePartGeometry(const Layout* layout, const LayoutFurnitureUni
             pos[k] = part->offset_m[k]; span[k] = part->span_m[k];
         }
         if (span[0] <= 1e-6 || span[2] <= 1e-6 || span[0] > 1 || span[2] > 1) return false;
-        span[1] = l;
+        /* Zero retains the legacy whole-run rail. Explicit spans allow a rail
+         * to meet inner end faces without penetrating the end panels. */
+        if (span[1] < 0 || span[1] > l) return false;
+        if (span[1] == 0) span[1] = l;
+        if (fabs(pos[1]) + span[1] / 2 > l / 2 + 1e-9) return false;
         break;
     case LAYOUT_FURNITURE_FIXTURE:
         for (int k = 0; k < 3; ++k) {
@@ -221,6 +225,10 @@ static bool edit(Layout* layout, void* context) {
     for (size_t j = 0; j < old->part_count; ++j) {
         LayoutFurniturePart a = old->parts[j], b = e->unit.parts[j];
         if (old->sink_opening && a.role == LAYOUT_FURNITURE_FIXTURE) {
+            memset(a.offset_m, 0, sizeof(a.offset_m)); memset(b.offset_m, 0, sizeof(b.offset_m));
+            memset(a.span_m, 0, sizeof(a.span_m)); memset(b.span_m, 0, sizeof(b.span_m));
+        }
+        if (a.role == LAYOUT_FURNITURE_RUN_RAIL && b.role == LAYOUT_FURNITURE_RUN_RAIL) {
             memset(a.offset_m, 0, sizeof(a.offset_m)); memset(b.offset_m, 0, sizeof(b.offset_m));
             memset(a.span_m, 0, sizeof(a.span_m)); memset(b.span_m, 0, sizeof(b.span_m));
         }

@@ -1,3 +1,7 @@
+#include "Core/mesh_shutdown_proof.h"
+#include "Core/shared_hud_proof.h"
+#include "Core/shared_special_proof.h"
+#include "Core/van_navigation_proof.h"
 #include "Layout/layout_saved_views.h"
 #include "UI/ui_panel_shell.h"
 #include "Core/editor_preferences.h"
@@ -14,6 +18,9 @@
 #include "Layout/Grid/grid.h"
 #include "UI/font_manager.h"
 #include "UI/shared_theme_font_adapter.h"
+#include "Core/shared_text_proof.h"
+#include "UI/shared_controls.h"
+#include "UI/topbar/line_drawing_view_controls.h"
 #include "UI/ui_panel.h"
 #include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel_right_scroll.h"
@@ -297,6 +304,7 @@ static void LineDrawingHostEnterMenu(void) {
 }
 
 static void LineDrawingHostEnterEditor(void) {
+    LDControls_CancelAll();
     UIPanel_ResetTransientUiState();
     g_line_drawing_host_mode = LINE_DRAWING_HOST_MODE_EDITOR;
     g_line_drawing_pending_invalidation_bits |= LINE_DRAWING_INPUT_INVALIDATION_REASON_ACTION;
@@ -330,6 +338,11 @@ static void handleInput(AppContext *ctx, SDL_Event* event) {
         return;
     }
 
+    if (event->type==SDL_KEYDOWN && event->key.keysym.sym==SDLK_ESCAPE &&
+        (LDViewControls_ActivePopup() || UIPanel_Get()->contextMenuOpen)) {
+        LineDrawingRunInputRoutingFrame(ctx,event);
+        return;
+    }
     if (Global_Get() && Global_Get()->cameraView.active && event->type==SDL_KEYDOWN &&
         event->key.keysym.sym==SDLK_ESCAPE && !UIPanel_IsCapturingKeyboard()) {
         CameraView_Exit(Global_Get()); return;
@@ -573,7 +586,7 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
     const bool constraint_angle = pivot_feedback || (proof_mode && strcmp(proof_mode, "constraint-angle") == 0);
     const bool placement_proof = parts_proof || hinge_proof || travel_proof || constraint_distance || constraint_angle || (proof_mode && strcmp(proof_mode, "placement") == 0);
     const bool measurement_proof = placement_proof || (proof_mode && strcmp(proof_mode, "measurement") == 0);
-    if (camera_proof || cabinet_proof || measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
+    if ((proof_mode && !strncmp(proof_mode,"shared-hud-",11)) || (proof_mode && !strncmp(proof_mode,"shared-special-",15)) || (proof_mode && !strncmp(proof_mode,"shared-text-",12) && strcmp(proof_mode,"shared-text-filter")) || camera_proof || cabinet_proof || measurement_proof || LineDrawingVisualArtifactModeIsEditor(proof_mode)) {
         LineDrawingHostEnterEditor();
         if (visualMeshPath && visualMeshPath[0] &&
             !LineDrawingVisualArtifactStageMesh(visualMeshPath)) {
@@ -740,6 +753,9 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         SDL_Delay(180u);
     }
 
+    if (!SharedTextProof_Stage(proof_mode,&g_line_drawing_host_menu)) return 1;
+    if (!SharedHudProof_Stage(proof_mode)) return 1;
+    if (!SharedSpecialProof_Stage(proof_mode)) return 1;
     capture_request = vk_renderer_request_capture(app->renderer, artifact_path);
     if (capture_request != VK_SUCCESS) {
         fprintf(stderr,
@@ -755,6 +771,9 @@ static int LineDrawingRunVisualArtifactProof(AppContext* app,
         fprintf(stderr, "line_drawing: visual-artifact render failed path=%s\n", artifact_path);
         return 1;
     }
+    if (!SharedTextProof_Check(proof_mode,&g_line_drawing_host_menu)) return 1;
+    if (!SharedHudProof_Check(proof_mode)) return 1;
+    if (!SharedSpecialProof_Check(proof_mode)) return 1;
     if(inspection_proof && !LineDrawingInspection_CheckProof(proof_mode)) return 1;
     if(path_proof && !CameraPathProof_Check())return 1;
     if (draw_calls == 0u) {
@@ -776,8 +795,15 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
     const char* visual_artifact_path = getenv("LINE_DRAWING_VISUAL_ARTIFACT");
     const char* visual_artifact_mode = getenv("LINE_DRAWING_VISUAL_ARTIFACT_MODE");
     AppContext app;
-    VulkanAdapter_SetValidationEnabled(vulkan_rollout);
-    if (!App_Init(&app, "LineDrawing", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, true))
+    VulkanAdapter_SetValidationEnabled(vulkan_rollout || getenv("CODEWORK_WINDOW_LIFECYCLE_PROOF") || getenv("LINE_DRAWING_MESH_SHUTDOWN_PROOF_LAYOUT"));
+    int initial_width=DEFAULT_WINDOW_WIDTH,initial_height=DEFAULT_WINDOW_HEIGHT;
+    if(getenv("LINE_DRAWING_NAVIGATION_PROOF_LAYOUT")) {
+        const char* width=getenv("LINE_DRAWING_NAVIGATION_PROOF_WIDTH");
+        const char* height=getenv("LINE_DRAWING_NAVIGATION_PROOF_HEIGHT");
+        int w=width?atoi(width):initial_width,h=height?atoi(height):initial_height;
+        if(w>=800 && w<=1920 && h>=600 && h<=1080) {initial_width=w;initial_height=h;}
+    }
+    if (!App_Init(&app, "LineDrawing", initial_width, initial_height, true))
         return 1;
 
     line_drawing3d_shared_theme_load_persisted();
@@ -786,7 +812,7 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
     if (!FontManager_LoadFonts()) return 1;
 
     // Initialize global program state (grid, layout, editor, etc.)
-    Global_Init(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
+    Global_Init(initial_width, initial_height);
     (void)LineDrawingEditorPreferences_Load("data/runtime/editor_preferences.json");
     LineDrawingHostMenu_Init(&g_line_drawing_host_menu);
     LineDrawingHostEnterMenu();
@@ -798,6 +824,19 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
         .nextUpdateDelayMs = nextUpdateDelayMs
     };
     App_SetRenderMode(&app, RENDER_THROTTLED, 1.0f / 60.0f);
+    const char *shutdown_layout = getenv("LINE_DRAWING_MESH_SHUTDOWN_PROOF_LAYOUT");
+    if (shutdown_layout && shutdown_layout[0]) {
+        LineDrawingHostEnterEditor();
+        return MeshShutdownProof_Run(&app, &cbs, shutdown_layout,
+            getenv("LINE_DRAWING_MESH_SHUTDOWN_PROOF_CAPTURE"), LineDrawingRuntimeShutdown) ? 0 : 1;
+    }
+    const char* navigation_layout=getenv("LINE_DRAWING_NAVIGATION_PROOF_LAYOUT");
+    if(navigation_layout && navigation_layout[0]) {
+        LineDrawingHostEnterEditor();
+        const char* output=getenv("LINE_DRAWING_NAVIGATION_PROOF_OUTPUT");
+        bool ok=output && VanNavigationProof_Run(&app,&cbs,navigation_layout,output);
+        LineDrawingRuntimeShutdown(&app);return ok?0:1;
+    }
     const char *camera_export=getenv("LINE_DRAWING_CAMERA_EXPORT_MANIFEST");
     if(camera_export && camera_export[0]) {
         LineDrawingHostEnterEditor();
@@ -822,10 +861,13 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
         return proof_result;
     }
 
+    if (getenv("CODEWORK_WINDOW_LIFECYCLE_PROOF") && getenv("LINE_DRAWING_WINDOW_PROOF_EDITOR"))
+        LineDrawingHostEnterEditor();
     App_Run(&app, &cbs);
+    bool window_proof_failed = app.window_probe.status < 0;
 
     LineDrawingRuntimeShutdown(&app);
-    return 0;
+    return window_proof_failed ? 1 : 0;
 }
 
 int main(int argc, char **argv) {

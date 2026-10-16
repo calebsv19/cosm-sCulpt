@@ -7,6 +7,8 @@
 #include "UI/ui_panel_parts.h"
 #include "Input/input_handler.h"
 #include "core_scene_compile.h"
+#include "Core/camera_view.h"
+#include "Layout/scene/layout_folding_brace.h"
 
 static Layout* live(void) {return &Global_Get()->layout;}
 static uint32_t part(const char* name, Vec3 center, float width, float height, float depth) {
@@ -142,7 +144,7 @@ static bool test_scaled_panel_sampling_and_locked_failure(void) {
 }
 static bool parts_click(int action) {
     SDL_Rect rect;TEST_ASSERT(UIPanel_PartsControlRect(action,&rect));
-    AppContext c={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};e.button.button=SDL_BUTTON_LEFT;e.button.x=rect.x+rect.w/2;e.button.y=rect.y+rect.h/2;Input_Handle(&c,&e);return true;
+    AppContext c={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};e.button.button=SDL_BUTTON_LEFT;e.button.x=rect.x+rect.w/2;e.button.y=rect.y+rect.h/2;Input_Handle(&c,&e);e.type=SDL_MOUSEBUTTONUP;Input_Handle(&c,&e);return true;
 }
 static bool test_mouse_create_regenerate_checks_return_to_movement(void) {
     ld_test_init_runtime();TEST_ASSERT(rig(false));TEST_ASSERT(part("cabinet",(Vec3){2,0,0},.1f,.1f,.1f));
@@ -480,7 +482,7 @@ static bool test_selected_saved_motion_and_history(void) {
     for(int i=0;i<buttons_count;++i) if(buttons[i].id==UI_BTN_SAVED_MOTION && buttons[i].bounds.w>0) {
         SDL_Event event={.type=SDL_MOUSEBUTTONDOWN};event.button.button=SDL_BUTTON_LEFT;
         event.button.x=buttons[i].bounds.x+buttons[i].bounds.w/2;event.button.y=buttons[i].bounds.y+buttons[i].bounds.h/2;
-        AppContext context={0};Input_Handle(&context,&event);found=true;break;
+        AppContext context={0};Input_Handle(&context,&event);event.type=SDL_MOUSEBUTTONUP;Input_Handle(&context,&event);found=true;break;
     }
     TEST_ASSERT(found && ui->measurement.active && ui->measurement.motion_preview && ui->measurement.constraint_index==0);
     TEST_ASSERT(ui->measurement.operation==3 && !strcmp(ui->measurement.observed_rule.id,"movement"));
@@ -537,8 +539,100 @@ static bool test_selected_saved_hinge(void) {
     TEST_ASSERT(fabs(live()->objectStore.constraints[0].target)<1e-5 && live()->objectStore.constraintCount==1);
     ld_test_shutdown_runtime();return true;
 }
+static bool test_imported_member_rigid_travel_hinge_history(void) {
+    for (int angular=0;angular<2;++angular) {
+        ld_test_init_runtime();TEST_ASSERT(group_rig(angular));
+        Transform3D transform=Layout_Transform3D_Default();transform.position=(Vec3){1,.5f,.2f};
+        uint32_t id;
+        TEST_ASSERT(Layout_CreateMeshAssetInstanceFromRuntimeAsset(live(),"tests/fixtures/agent_mesh_assets/asset_imported_tetrahedron_01.runtime.json",&transform,&id,NULL,0));
+        Object3D* mesh=Layout_ObjectStore_Find(&live()->objectStore,id);
+        char stable[64];snprintf(stable,64,"%s",mesh->coreMeta.object_id);
+        TEST_ASSERT(parent_part(stable,"assembly_1"));Editor_ClearHistory(&Global_Get()->editor);
+        Vec3 before[8],after[8];TEST_ASSERT(Layout_Object3D_ComputeMeshInstanceCorners(mesh,before));
+        char* saved=Layout_SaveToString(live());
+        TEST_ASSERT(CameraView_Enter(Global_Get(),false));CameraViewSession camera=Global_Get()->cameraView;
+        TEST_ASSERT(UIPanel_BeginEntityMotion(stable) && Global_Get()->cameraView.active);
+        TEST_ASSERT(Vec3_Distance(camera.eye,Global_Get()->cameraView.eye)==0);
+        double position=angular?90:2;
+        TEST_ASSERT(Layout_SetTravelPosition(live(),"movement",position,Layout_GeometryHistory,NULL));
+        TEST_ASSERT(Layout_Object3D_ComputeMeshInstanceCorners(Layout_ObjectStore_FindConst(&live()->objectStore,id),after));
+        for (int k=0;k<8;++k) {
+            Vec3 expected=angular?(Vec3){-before[k].y,before[k].x,before[k].z}:Vec3_Add(before[k],(Vec3){1,0,0});
+            TEST_ASSERT(Vec3_Distance(expected,after[k])<1e-5);
+        }
+        char* moved=Layout_SaveToString(live());TEST_ASSERT(moved && Layout_LoadFromString(live(),moved));
+        TEST_ASSERT(Layout_SetTravelPosition(live(),"movement",angular?0:1,NULL,NULL));
+        TEST_ASSERT(Layout_Object3D_ComputeMeshInstanceCorners(Layout_ObjectStore_FindConst(&live()->objectStore,id),after));
+        for (int k=0;k<8;++k) TEST_ASSERT(Vec3_Distance(before[k],after[k])<1e-5);
+        TEST_ASSERT(Layout_LoadFromString(live(),saved));
+        TEST_ASSERT(Layout_SetTravelPosition(live(),"movement",position,Layout_GeometryHistory,NULL));
+        TEST_ASSERT(Editor_Undo(&Global_Get()->editor,live()) && same(saved));
+        TEST_ASSERT(Editor_Redo(&Global_Get()->editor,live()));
+        char* current=Layout_SaveToString(live());
+        TEST_ASSERT(!Layout_GenerateMotionEnvelope(live(),"movement",33,NULL,NULL) && same(current));
+        TEST_ASSERT(!Layout_SetTravelPosition(live(),"movement",999,NULL,NULL) && same(current));
+        Layout_FreeString(current);Layout_FreeString(moved);Layout_FreeString(saved);ld_test_shutdown_runtime();
+    }
+    return true;
+}
+static bool test_imported_motion_rotated_parent(void) {
+    for (int angular=0;angular<2;++angular) {
+        ld_test_init_runtime();TEST_ASSERT(group_rig(angular));
+        Transform3D t=Layout_Transform3D_Default();t.position=(Vec3){1,.5f,.2f};uint32_t id;
+        TEST_ASSERT(Layout_CreateMeshAssetInstanceFromRuntimeAsset(live(),"tests/fixtures/agent_mesh_assets/asset_imported_tetrahedron_01.runtime.json",&t,&id,NULL,0));
+        char stable[64];snprintf(stable,64,"%s",Layout_ObjectStore_FindConst(&live()->objectStore,id)->coreMeta.object_id);
+        TEST_ASSERT(parent_part(stable,"assembly_1"));
+        char whole[64];TEST_ASSERT(assembly("Cabinet frame","",whole));TEST_ASSERT(parent_part("A",whole));
+        LayoutAssembly moving=*Layout_FindAssembly(&live()->objectStore,"assembly_1");snprintf(moving.info.parent_id,64,"%s",whole);
+        TEST_ASSERT(Layout_EditAssembly(live(),&moving,NULL,NULL,NULL));
+        const LayoutAssembly* parent=Layout_FindAssembly(&live()->objectStore,whole);Vec3 origin=parent->frame.origin;
+        Vec3 before[8],after[8];TEST_ASSERT(Layout_Object3D_ComputeMeshInstanceCorners(Layout_ObjectStore_FindConst(&live()->objectStore,id),before));
+        double delta[]={2,3,0};TEST_ASSERT(Layout_MoveAssembly(live(),whole,delta,(Vec3){0,0,90},NULL,NULL));
+        TEST_ASSERT(Layout_SetTravelPosition(live(),"movement",angular?90:2,NULL,NULL));
+        TEST_ASSERT(Layout_Object3D_ComputeMeshInstanceCorners(Layout_ObjectStore_FindConst(&live()->objectStore,id),after));
+        for (int k=0;k<8;++k) {
+            Vec3 v=angular?(Vec3){-before[k].y,before[k].x,before[k].z}:Vec3_Add(before[k],(Vec3){1,0,0});
+            v=Vec3_Sub(v,origin);Vec3 expected=Vec3_Add(origin,(Vec3){2-v.y,3+v.x,v.z});
+            TEST_ASSERT(Vec3_Distance(expected,after[k])<1e-5);
+        }
+        ld_test_shutdown_runtime();
+    }
+    return true;
+}
+static bool test_folding_elbow_continuity(void) {
+    const double length=hypot(.3786,.235)/2;
+    Vec3 a={0,0,-.25f},previous={0};
+    for(int i=0;i<=9000;++i) {
+        double t=i*.01*.017453292519943295;
+        Vec3 b={0,(float)(.3786*cos(t)-.015*sin(t)),(float)(-.3786*sin(t)-.015*cos(t))},e;
+        TEST_ASSERT(Layout_FoldingElbow(a,b,(Vec3){-1,0,0},length,length,1,&e));
+        TEST_ASSERT(fabs(Vec3_Distance(a,e)-length)<2e-6);
+        TEST_ASSERT(fabs(Vec3_Distance(b,e)-length)<2e-6);
+        Vec3 u=Vec3_Sub(b,a),side=Vec3_Cross((Vec3){-1,0,0},u);
+        TEST_ASSERT(Vec3_Dot(Vec3_Sub(e,Vec3_Scale(Vec3_Add(a,b),.5f)),side)>=-1e-7);
+        if(i) TEST_ASSERT(Vec3_Distance(previous,e)<.005);
+        previous=e;
+    }
+    Vec3 exact;
+    TEST_ASSERT(Layout_FoldingElbow((Vec3){0},(Vec3){1,0,0},(Vec3){0,0,1},.5,.5,-1,&exact));
+    TEST_ASSERT(Vec3_Distance(exact,(Vec3){.5,0,0})<1e-7);
+    return true;
+}
+static bool test_folding_elbow_refusals(void) {
+    Vec3 output={7,8,9},saved=output;
+    TEST_ASSERT(!Layout_FoldingElbow((Vec3){0},(Vec3){2,0,0},(Vec3){0,0,1},.5,.5,1,&output));
+    TEST_ASSERT(!Layout_FoldingElbow((Vec3){0},(Vec3){.5,0,0},(Vec3){0,0,1},NAN,.5,1,&output));
+    TEST_ASSERT(!Layout_FoldingElbow((Vec3){0},(Vec3){.5,0,0},(Vec3){1,0,0},.5,.5,1,&output));
+    TEST_ASSERT(!Layout_FoldingElbow((Vec3){0},(Vec3){0},(Vec3){0,0,1},.5,.5,1,&output));
+    TEST_ASSERT(!Layout_FoldingElbow((Vec3){0},(Vec3){.5,0,0},(Vec3){0,0,1},.5,.5,0,&output));
+    TEST_ASSERT(!memcmp(&output,&saved,sizeof(output)));return true;
+}
 bool motion_run_tests(void) {
     const TestCase tests[]={
+        {"folding_elbow_continuity_singularity",test_folding_elbow_continuity},
+        {"folding_elbow_atomic_refusals",test_folding_elbow_refusals},
+        {"imported_motion_rotated_parent",test_imported_motion_rotated_parent},
+        {"imported_member_rigid_travel_hinge_history",test_imported_member_rigid_travel_hinge_history},
         {"selected_saved_motion_history",test_selected_saved_motion_and_history},
         {"history_selection_absent",test_history_selection_clears_when_entity_is_absent},
         {"selected_saved_hinge",test_selected_saved_hinge},

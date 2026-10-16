@@ -69,3 +69,24 @@ clean:
 
 -include $(APP_OBJS:.o=.d)
 -include $(TEST_OBJS:.o=.d)
+
+# Native window observation/probes use real SDL, outside the drawing facade.
+$(PROGRAM_OBJ_DIR)/$(KIT_UI_DIR)/src/kit_ui_window_sdl.o: $(KIT_UI_DIR)/src/kit_ui_window_sdl.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(PROGRAM_OBJ_DIR)/$(KIT_UI_DIR)/src/kit_ui_window_probe_sdl.o: $(KIT_UI_DIR)/src/kit_ui_window_probe_sdl.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+$(PROGRAM_OBJ_DIR)/$(KIT_UI_DIR)/src/kit_ui_interaction_sdl.o: $(KIT_UI_DIR)/src/kit_ui_interaction_sdl.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+# Clipboard/IME platform helpers use real SDL; painting stays app-owned Vulkan.
+$(PROGRAM_OBJ_DIR)/$(KIT_UI_DIR)/src/kit_ui_text_edit_sdl.o: $(KIT_UI_DIR)/src/kit_ui_text_edit_sdl.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
+$(PROGRAM_OBJ_DIR)/$(KIT_UI_DIR)/src/kit_ui_native_text_sdl.o: $(KIT_UI_DIR)/src/kit_ui_native_text_sdl.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(DEPFLAGS) -c $< -o $@

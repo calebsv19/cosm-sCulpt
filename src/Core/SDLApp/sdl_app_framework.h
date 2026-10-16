@@ -1,5 +1,7 @@
 #pragma once
 #include "vk_renderer.h"
+#include "kit_ui_window_sdl.h"
+#include "kit_ui_window_probe_sdl.h"
 #include <SDL2/SDL.h>
 #include <stdbool.h>
 
@@ -16,6 +18,12 @@ typedef struct {
     SDL_Window* window;
     SDL_Renderer* renderer;
     VkRenderer renderer_storage;
+    KitUiWindowState window_state;
+    KitUiWindowProbe window_probe;
+    uint64_t presented_frames;
+    bool window_block_pointer, window_resume_text;
+    bool window_held_keys[SDL_NUM_SCANCODES], window_block_keys[SDL_NUM_SCANCODES];
+    void* window_checkpoint;
     float deltaTime;
     bool quit;
     bool redraw_requested;

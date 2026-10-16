@@ -1,3 +1,4 @@
+#include "UI/shared_special.h"
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_constraints.h"
 #include "UI/ui_panel_scene_list.h"
@@ -965,4 +966,12 @@ void Render_UIPanelSceneList(const UIPanelState* ui, SDL_Renderer* renderer) {
                                         ui->sceneList.scrollbarDragging);
         }
     }
+}
+
+void LDSpecial_SceneList(void) {
+    UIPanelState* u=UIPanel_Get();GlobalState* s=Global_Get();
+    if(u->activeLeftTab!=UI_PANEL_LEFT_TAB_SCENE || Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_SCENE)return;
+    UIPanel_PrepareSceneList(u,&s->layout);
+    SDL_Rect clip=UIPanelSceneList_ContentClipRect(u,&s->layout);int y=clip.y-(int)u->sceneList.scrollOffsetPx;
+    for(int i=0;;++i){UIPanelSceneListRow row=UIPanelSceneList_RowAtVisibleIndex(&s->layout,i);if(row.kind==UI_SCENE_LIST_ROW_NONE)break;int h=UIPanelSceneList_RowHeightForRow(u,row);SDL_Rect box={clip.x,y,clip.w,h};char key[80];snprintf(key,sizeof(key),"%d:%zu:%u",row.kind,row.index,row.object?row.object->objectId:0);const char* stable=row.kind==UI_SCENE_LIST_ROW_LIGHT?s->layout.sceneAuthoring.lights[row.index].light_id:row.kind==UI_SCENE_LIST_ROW_PATH?s->layout.sceneAuthoring.paths[row.index].path_id:row.kind==UI_SCENE_LIST_ROW_MATERIAL?s->layout.sceneAuthoring.materials[row.index].material_id:key;LDSpecial_Record(29,i+1,stable,box,&clip,true);y+=h+UIPanelSceneList_RowGap();if(y>=clip.y+clip.h)break;}
 }

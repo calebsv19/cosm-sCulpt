@@ -1,3 +1,7 @@
+#include "UI/shared_special.h"
+#include "UI/topbar/visibility_tree.h"
+#include "Layout/scene/layout_mesh_preview_cache.h"
+#include "Layout/scene/layout_mesh_solid_preview.h"
 #include "Core/camera_path.h"
 #include "UI/ui_panel_camera_path.h"
 #include "UI/ui_panel_camera.h"
@@ -41,19 +45,20 @@ static bool active(void) {
 int UIPanel_CameraHeight(void) {
     const GlobalState *s = Global_Get();
     (void)s;
-    int rows = camera_rows() + 1 + (facing_details ? 6 : 0);
+    int rows = camera_rows() + 2 + (facing_details ? 6 : 0);
     return rows * height() + 8 + UIPanel_CameraPathHeight();
 }
 static int path_y(void) {
     return UIPanel_Get()->viewPane.summaryRect.y +
-        (camera_rows()+1+(facing_details ? 6 : 0))*height()+8;
+        (camera_rows()+2+(facing_details ? 6 : 0))*height()+8;
 }
 static SDL_Rect rect(int action) {
     SDL_Rect body = UIPanel_Get()->viewPane.summaryRect;
     int row = 0, col = 0, cols = 1;
     bool on = Global_Get()->cameraView.active;
-    if (action >= UI_CAMERA_INSPECTION) {
-        row=camera_rows();
+    if(action>=UI_CAMERA_FRAME_SCENE) { row=camera_rows(); cols=3; col=action-UI_CAMERA_FRAME_SCENE; }
+    else if (action >= UI_CAMERA_INSPECTION) {
+        row=camera_rows()+1;
         cols=3;
         if(action==UI_CAMERA_INSPECTION) cols=1;
         else if(action==UI_CAMERA_FACING_DETAILS) col=2;
@@ -219,14 +224,17 @@ void UIPanel_RenderCamera(SDL_Renderer *renderer) {
                   (a == UI_CAMERA_ROLL && c->roll_mouse),
               enabled);
     }
+    paint(renderer,rect(UI_CAMERA_FRAME_SCENE),"Frame scene",true,false,c->active);
+    paint(renderer,rect(UI_CAMERA_FRAME_SELECTION),"Frame selected",true,false,c->active);
+    paint(renderer,rect(UI_CAMERA_GUIDES),LDVisibilityTree_State(&s->layout.objectStore,"@guides")?"Guides: on":"Guides: off",true,s->authoringGuides,true);
     render_inspection(renderer);
     UIPanel_CameraPathRender(renderer,path_y());
     if (!c->active) {
-        if(!CameraPath_Selected(s)) paint(renderer, line(2), "Explore from origin; Enter uses saved camera.", false, false, true);
+        if(!CameraPath_Selected(s)) paint(renderer, line(2), "Explore frames scene; Enter uses saved camera.", false, false, true);
         return;
     }
-    paint(renderer, line(6), "Alt + mouse: look; Alt + Shift: roll", false, false, true);
-    paint(renderer, line(7), "Move over view to navigate. Esc: exit.", false, false, true);
+    paint(renderer, line(6), "WASD/QE: fly; Alt: look; F: frame", false, false, true);
+    paint(renderer, line(7), "Right: orbit; middle: pan; wheel: zoom.", false, false, true);
     snprintf(label, sizeof(label), "Speed %.3g m/s | FOV %.3g deg", c->speed_mps, c->fov);
     paint(renderer, line(8), label, false, false, true);
     const char *fields[] = {"X", "Y", "Z", "Yaw", "Pitch", "Roll", "FOV", "m/s", "Near m", "Far m"};
@@ -235,7 +243,7 @@ void UIPanel_RenderCamera(SDL_Renderer *renderer) {
         if (a <= UI_CAMERA_Z)
             (void)core_units_convert(n, CORE_UNIT_METER, UIPanel_GetDisplayUnit(), &n);
         if (input == a)
-            snprintf(label, sizeof(label), "%s: %s |", fields[a - UI_CAMERA_X], text);
+            snprintf(label, sizeof(label), "%s:", fields[a - UI_CAMERA_X]);
         else
             snprintf(label, sizeof(label), "%s: %.5g%s", fields[a - UI_CAMERA_X], n,
                      a <= UI_CAMERA_Z ? UIPanel_GetDisplayUnitSymbol() : "");
@@ -243,6 +251,14 @@ void UIPanel_RenderCamera(SDL_Renderer *renderer) {
     }
     if (c->message[0])
         paint(renderer, line(details ? 13 : 9), c->message, false, false, true);
+    else {
+        LayoutMeshPreviewCacheStats cache=Layout_MeshPreviewCacheRead();
+        LayoutMeshSolidPreviewFrameStats frame=Layout_MeshSolidPreviewReadStats();
+        snprintf(label,sizeof(label),"Assets %zu | preparing %zu | %.1f ms | proxies %zu%s",cache.resident_assets,
+            cache.pending_jobs,frame.frame_ns*1e-6,frame.degradedMeshes+frame.lodTiers[4],
+            frame.detailBudgetOverflow?" | detail limit":"");
+        paint(renderer,line(details?13:9),label,false,false,true);
+    }
 }
 bool UIPanel_CameraClick(int x, int y) {
     if (!active() || !contains(UIPanel_Get()->rightBodyRect, x, y))
@@ -254,7 +270,7 @@ bool UIPanel_CameraClick(int x, int y) {
     if(UIPanel_CameraPathClick(x,y,path_y())) return true;
     UIPanel_CameraPathReset();
     int action = 0;
-    for (int a = UI_CAMERA_PREVIOUS; a <= UI_CAMERA_FACING_NEG_Z; ++a)
+    for (int a = UI_CAMERA_PREVIOUS; a <= UI_CAMERA_GUIDES; ++a)
         if (contains(rect(a), x, y)) {
             action = a;
             break;
@@ -263,9 +279,11 @@ bool UIPanel_CameraClick(int x, int y) {
         return false;
     stop_input();
     CameraView_ResetInput(s);
-    if(action==UI_CAMERA_INSPECTION) {
+    if(action==UI_CAMERA_GUIDES) { (void)LDVisibilityTree_Hide(&s->layout.objectStore,"@guides",LDVisibilityTree_State(&s->layout.objectStore,"@guides")!=0);Global_FlagHitboxesDirty(); }
+    else if(action==UI_CAMERA_FRAME_SCENE || action==UI_CAMERA_FRAME_SELECTION) (void)CameraView_Frame(s,action==UI_CAMERA_FRAME_SELECTION);
+    else if(action==UI_CAMERA_INSPECTION) {
         s->inspectionView=!s->inspectionView;
-        if(s->inspectionView) { s->spaceMode=SPACE_MODE_3D; s->previewMode=LINE_DRAWING_PREVIEW_MODE_MATERIAL; }
+        if(s->inspectionView) { s->spaceMode=SPACE_MODE_3D; }
         Global_FlagGridChanged();
     } else if(action==UI_CAMERA_FACING_DETAILS) facing_details=!facing_details;
     else if(action==UI_CAMERA_FACING_SCOPE) { facing_part=!facing_part; facing_message[0]=0; }
@@ -427,4 +445,11 @@ bool UIPanel_CameraEvent(const SDL_Event *e) {
     if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_LEFT)
         return UIPanel_CameraClick(e->button.x, e->button.y);
     return false;
+}
+
+bool LDInline_Camera(LDInlineField* f) {if(!active() || !input)return false;const char* labels[]={"X:","Y:","Z:","Yaw:","Pitch:","Roll:","FOV:","m/s:","Near m:","Far m:"};*f=(LDInlineField){text,sizeof(text),&replace,LDInline_ValueRect(rect(input),labels[input-UI_CAMERA_X]),NULL};return true;}
+
+void LDSpecial_Camera(void) {
+    if(!active())return;const GlobalState* s=Global_Get();const CameraViewSession* c=&s->cameraView;SDL_Rect box,clip=UIPanel_Get()->rightBodyRect;
+    for(int a=UI_CAMERA_PREVIOUS;a<=UI_CAMERA_GUIDES;++a){bool enabled=a==UI_CAMERA_ENTER?c->selected<s->layout.sceneAuthoring.camera_count:a==UI_CAMERA_EXIT || a==UI_CAMERA_FRAME_SCENE || a==UI_CAMERA_FRAME_SELECTION?c->active:a==UI_CAMERA_UPDATE?update_allowed():a>=UI_CAMERA_FACING_INHERIT && a<=UI_CAMERA_FACING_NEG_Z?facing_target()!=NULL:true;if(UIPanel_CameraControlRect(a,&box))LDSpecial_Record(24,a,"camera",box,&clip,enabled);}
 }

@@ -1,4 +1,6 @@
 #include "sdl_app_framework.h"
+#include "sdl_app_window.h"
+#include <string.h>
 #include "Core/global_state.h"
 #include "Core/SDLApp/sdl_app_loop_diag.h"
 #include "Core/SDLApp/sdl_app_loop_policy.h"
@@ -49,22 +51,12 @@ static bool app_process_event(AppContext* ctx,
     if (!ctx || !event) return false;
 
     mutable_event = *event;
+    if (!SDLAppWindow_Filter(ctx, &mutable_event)) return ctx->redraw_requested;
     if (mutable_event.type == SDL_QUIT) {
         ctx->quit = true;
         dirty = true;
     }
 
-    if (mutable_event.type == SDL_WINDOWEVENT &&
-        (mutable_event.window.event == SDL_WINDOWEVENT_RESIZED ||
-         mutable_event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)) {
-        int newW = mutable_event.window.data1;
-        int newH = mutable_event.window.data2;
-        Global_SetWindowSize(newW, newH);
-        ctx->pending_swapchain_recreate = true;
-        ctx->pending_swapchain_width = newW;
-        ctx->pending_swapchain_height = newH;
-        dirty = true;
-    }
 
     if (app_event_is_interaction(&mutable_event) || mutable_event.type == SDL_USEREVENT ||
         mutable_event.type == SDL_DROPFILE || mutable_event.type == SDL_DROPTEXT ||
@@ -75,6 +67,7 @@ static bool app_process_event(AppContext* ctx,
 }
 
 bool App_Init(AppContext* ctx, const char* title, int width, int height, bool vsync) {
+    memset(ctx, 0, sizeof(*ctx));
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
         return false;
@@ -97,6 +90,12 @@ bool App_Init(AppContext* ctx, const char* title, int width, int height, bool vs
         return false;
     }
 
+    uint32_t initial_changes = 0;
+    if (kit_ui_window_refresh_sdl(&ctx->window_state, ctx->window, &initial_changes).code != CORE_OK) {
+        App_Shutdown(ctx);
+        return false;
+    }
+    kit_ui_window_probe_init_sdl(&ctx->window_probe, "line-drawing");
     ctx->deltaTime = 0.0f;
     ctx->quit = false;
     ctx->redraw_requested = false;
@@ -119,14 +118,19 @@ void App_Run(AppContext* ctx, AppCallbacks* callbacks) {
     bool retry = false;
 
     while (!ctx->quit) {
+        if (!SDLAppWindow_Refresh(ctx)) { ctx->quit = true; break; }
+        int proof = SDLAppWindow_Probe(ctx);
+        if (proof) { ctx->quit = true; break; }
+        if (ctx->window_probe.directory) ctx->redraw_requested = true;
         uint64_t frame_begin_counter = SDL_GetPerformanceCounter();
         uint32_t wait_blocked_ms = 0u;
         uint32_t wait_call_count = 0u;
-        bool suspended = (SDL_GetWindowFlags(ctx->window) & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN)) != 0;
+        bool suspended = !ctx->window_state.presentable;
         int timed_delay = callbacks && callbacks->nextUpdateDelayMs ? callbacks->nextUpdateDelayMs(ctx) : -1;
         int wait_ms = SDLAppLoop_DemandWaitMs(frame_dirty || ctx->redraw_requested,
                                             suspended, retry, timed_delay);
         if (ctx->renderMode == RENDER_ALWAYS && !suspended && !retry) wait_ms = 0;
+        if (ctx->window_probe.directory && wait_ms > 16) wait_ms = 16;
         bool timed_due = !suspended && timed_delay == 0;
         if (wait_ms > 0) {
             uint64_t wait_start = SDL_GetPerformanceCounter();
@@ -148,7 +152,8 @@ void App_Run(AppContext* ctx, AppCallbacks* callbacks) {
         if (callbacks && callbacks->handleUpdate) callbacks->handleUpdate(ctx);
         frame_dirty |= ctx->redraw_requested || timed_due;
 
-        suspended = (SDL_GetWindowFlags(ctx->window) & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN)) != 0;
+        if (!SDLAppWindow_Refresh(ctx)) { ctx->quit = true; break; }
+        suspended = !ctx->window_state.presentable;
         if (!suspended && ctx->pending_swapchain_recreate &&
             app_try_recreate_swapchain(ctx, ctx->pending_swapchain_width, ctx->pending_swapchain_height)) {
             ctx->pending_swapchain_recreate = false;
@@ -174,6 +179,7 @@ void App_Run(AppContext* ctx, AppCallbacks* callbacks) {
 }
 
 void App_Shutdown(AppContext* ctx) {
+    SDLAppWindow_Shutdown(ctx);
     if (ctx->renderer) {
         VulkanAdapter_Shutdown(ctx);
     }
@@ -291,5 +297,6 @@ bool App_RenderOnce(AppContext* ctx, void (*handleRender)(AppContext* ctx)) {
         return false;
     }
     logged_end_failure = 0;
+    ctx->presented_frames++;
     return true;
 }

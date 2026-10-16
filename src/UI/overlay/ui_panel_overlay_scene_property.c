@@ -1,5 +1,6 @@
 #include "UI/overlay/ui_panel_overlay_render_internal.h"
 
+#include "UI/shared_text.h"
 #include "Core/global_state.h"
 #include "UI/info_overlay.h"
 #include "UI/shared_theme_font_adapter.h"
@@ -27,8 +28,8 @@ void UIPanelOverlay_RenderScenePropertyDialog(SDL_Renderer* renderer, const UIPa
                            themed ? palette.panel_border.g : 110,
                            themed ? palette.panel_border.b : 125, 255);
     SDL_RenderDrawRect(renderer, &panel);
-    UIPanelOverlay_DrawText(renderer, UIPanel_ScenePropertyDialogTitle(ui->scenePropertyDialog.target),
-                            panel.x + 16, panel.y + 14,
+    UIPanelOverlay_DrawTextClipped(renderer, UIPanel_ScenePropertyDialogTitle(ui->scenePropertyDialog.target),
+                            panel.x + 16, panel.y + 14,panel.x+panel.w-14-(panel.x + 16),
                             themed ? palette.text_primary : (SDL_Color){235,235,240,255});
     UIPanelOverlay_DrawTextClipped(renderer, UIPanel_ScenePropertyDialogHint(ui->scenePropertyDialog.target),
                                    panel.x + 16, panel.y + 42, panel.w - 32,
@@ -41,16 +42,14 @@ void UIPanelOverlay_RenderScenePropertyDialog(SDL_Renderer* renderer, const UIPa
                            themed ? palette.panel_border.g : 140,
                            themed ? palette.panel_border.b : 155, 255);
     SDL_RenderDrawRect(renderer, &input_rect);
-    UIPanelOverlay_DrawTextClipped(renderer, ui->scenePropertyDialog.buffer,
-                                   input_rect.x + 8, input_rect.y + 8, input_rect.w - 16,
-                                   themed ? palette.text_primary : (SDL_Color){255,255,255,255});
+    UIPanel_SharedTextDraw(renderer,input_rect,themed ? palette.text_primary : (SDL_Color){255,255,255,255});
     if (ui->scenePropertyDialog.validationMessage[0]) {
         UIPanelOverlay_DrawTextClipped(renderer, ui->scenePropertyDialog.validationMessage,
                                        panel.x + 16, panel.y + 122, panel.w - 32,
                                        (SDL_Color){240,120,110,255});
     } else {
-        UIPanelOverlay_DrawText(renderer, "Enter applies one undoable edit. Esc cancels.",
-                                panel.x + 16, panel.y + 122,
+        UIPanelOverlay_DrawTextClipped(renderer, "Enter applies one undoable edit. Esc cancels.",
+                                panel.x + 16, panel.y + 122,panel.x+panel.w-14-(panel.x + 16),
                                 themed ? palette.text_muted : (SDL_Color){180,180,190,255});
     }
 }

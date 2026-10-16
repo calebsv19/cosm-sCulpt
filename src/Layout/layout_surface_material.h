@@ -14,3 +14,6 @@ const char *Layout_SurfaceMaterialNext(const LayoutEntityInfo *info);
 bool Layout_SurfaceMaterialValid(const LayoutEntityInfo *info);
 bool Layout_SetSurfaceMaterial(Layout *layout, const char *object_id, const char *preset,
     LayoutGeometryBeforePublish history, void *context);
+
+/* Resolves a preset or explicit solid finish into caller-owned storage. */
+bool Layout_SurfaceMaterialResolve(const LayoutEntityInfo *info, LayoutSurfaceMaterial *out);

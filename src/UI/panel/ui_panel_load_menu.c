@@ -1,4 +1,5 @@
 #include "UI/ui_panel_internal.h"
+#include "UI/panel/ui_panel_stl_options.h"
 #include "UI/ui_panel_file_layout.h"
 #include "UI/panel/ui_panel_file_browser_internal.h"
 #include "UI/ui_panel_file_summary.h"
@@ -198,8 +199,9 @@ static int UIPanel_AsyncStlImportThreadMain(void* data) {
     diagnostics[0] = '\0';
     authoring_path[0] = '\0';
     runtime_path[0] = '\0';
-    ok = LayoutImportedMeshAsset_ImportStlToRuntimeWithProgress(
+    ok = LayoutImportedMeshAsset_ImportStlToRuntimeWithProgressForUnit(
         ui->loadMenu.asyncStlSourcePath,
+        ui->loadMenu.asyncStlSourceUnit,
         ui->loadMenu.asyncStlAssetRoot,
         authoring_path,
         sizeof(authoring_path),
@@ -258,6 +260,7 @@ static bool UIPanel_StartAsyncStlImport(UIPanelState* ui,
     ui->loadMenu.asyncStlAuthoringPath[0] = '\0';
     ui->loadMenu.asyncStlRuntimePath[0] = '\0';
     ui->loadMenu.asyncStlDiagnostics[0] = '\0';
+    ui->loadMenu.asyncStlSourceUnit = UIPanel_StlSourceUnit(ui);
     ui->loadMenu.asyncStlSucceeded = false;
     SDL_AtomicSet(&ui->loadMenu.asyncStlComplete, 0);
     SDL_AtomicSet(&ui->loadMenu.asyncStlProgressPermille, 50);
@@ -298,7 +301,7 @@ static bool UIPanel_PlaceCachedStlOrStartImport(UIPanelState* ui,
     preview_path[0] = '\0';
     diagnostics[0] = '\0';
     if (asset_root && asset_root[0]) {
-        cache_state = LayoutImportedMeshAsset_GetStlCacheState(stl_path,
+        cache_state = LayoutImportedMeshAsset_GetStlCacheStateForUnit(stl_path, UIPanel_StlSourceUnit(ui),
                                                                asset_root,
                                                                authoring_path,
                                                                sizeof(authoring_path),
@@ -1447,6 +1450,8 @@ bool UIPanel_HandleLoadMenuClick(int mouseX, int mouseY) {
             return UIPanel_OpenDirectoryDialogForActiveBrowser();
         }
     }
+
+    if (UIPanel_HandleStlOptionsClick(ui, mouseX, mouseY)) return true;
 
     if (ui->loadMenu.count <= 0) {
         return true;

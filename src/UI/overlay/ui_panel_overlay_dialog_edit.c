@@ -1,4 +1,5 @@
 #include "UI/overlay/ui_panel_overlay_render_internal.h"
+#include "UI/shared_text.h"
 
 #include "UI/ui_panel_internal.h"
 #include "UI/ui_panel_measurement.h"
@@ -19,12 +20,6 @@ static void RenderPrismDimensionDialog(SDL_Renderer* renderer, const UIPanelStat
     SDL_Rect backdrop = {0, 0, 0, 0};
     SDL_Rect panel = {0, 0, 0, 0};
     SDL_Rect input_rect = {0, 0, 0, 0};
-    TTF_Font* font = NULL;
-    char caret_buf[96];
-    int caret_offset = 0;
-    int caret_x = 0;
-    int caret_top = 0;
-    int caret_bottom = 0;
     LineDrawing3dThemePalette palette = {0};
     const bool has_shared_palette = line_drawing3d_shared_theme_resolve_palette(&palette);
 
@@ -80,15 +75,15 @@ static void RenderPrismDimensionDialog(SDL_Renderer* renderer, const UIPanelStat
 
     text_x = panel.x + 16;
     text_y = panel.y + 14;
-    UIPanelOverlay_DrawText(renderer,
+    UIPanelOverlay_DrawTextClipped(renderer,
                             title,
                             text_x,
-                            text_y,
+                            text_y,panel.x+panel.w-14-(text_x),
                             has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 235, 255});
-    UIPanelOverlay_DrawText(renderer,
+    UIPanelOverlay_DrawTextClipped(renderer,
                             subtitle,
                             text_x,
-                            text_y + 22,
+                            text_y + 22,panel.x+panel.w-14-(text_x),
                             has_shared_palette ? palette.text_muted : (SDL_Color){180, 180, 190, 255});
 
     input_rect = (SDL_Rect){
@@ -113,34 +108,9 @@ static void RenderPrismDimensionDialog(SDL_Renderer* renderer, const UIPanelStat
         SDL_SetRenderDrawColor(renderer, 130, 140, 155, 255);
     }
     SDL_RenderDrawRect(renderer, &input_rect);
-    UIPanelOverlay_DrawTextClipped(renderer,
-                                   ui->prismDimensionDialog.buffer,
-                                   input_rect.x + 8,
-                                   input_rect.y + 8,
-                                   input_rect.w - 16,
-                                   has_shared_palette ? palette.text_primary : (SDL_Color){255, 255, 255, 255});
+    UIPanel_SharedTextDraw(renderer,input_rect,has_shared_palette ? palette.text_primary : (SDL_Color){255,255,255,255});
 
-    font = FontManager_Get(FONT_DEFAULT);
-    if (font) {
-        size_t len = ui->prismDimensionDialog.cursor;
-        if (len >= sizeof(caret_buf)) len = sizeof(caret_buf) - 1u;
-        memcpy(caret_buf, ui->prismDimensionDialog.buffer, len);
-        caret_buf[len] = '\0';
-        if (TTF_SizeUTF8(font, caret_buf, &caret_offset, NULL) == 0) {
-            caret_x = input_rect.x + 8 + caret_offset;
-            if (caret_x > input_rect.x + input_rect.w - 8) caret_x = input_rect.x + input_rect.w - 8;
-            caret_top = input_rect.y + 4;
-            caret_bottom = input_rect.y + input_rect.h - 4;
-            if (has_shared_palette) {
-                SDL_SetRenderDrawColor(renderer,
-                                       palette.text_primary.r, palette.text_primary.g,
-                                       palette.text_primary.b, 220);
-            } else {
-                SDL_SetRenderDrawColor(renderer, 255, 255, 255, 220);
-            }
-            SDL_RenderDrawLine(renderer, caret_x, caret_top, caret_x, caret_bottom);
-        }
-    }
+
 }
 
 static void RenderSceneBoundsDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
@@ -153,12 +123,6 @@ static void RenderSceneBoundsDialog(SDL_Renderer* renderer, const UIPanelState* 
     SDL_Rect backdrop = {0, 0, 0, 0};
     SDL_Rect panel = {0, 0, 0, 0};
     SDL_Rect input_rect = {0, 0, 0, 0};
-    TTF_Font* font = NULL;
-    char caret_buf[160];
-    int caret_offset = 0;
-    int caret_x = 0;
-    int caret_top = 0;
-    int caret_bottom = 0;
     LineDrawing3dThemePalette palette = {0};
     const bool has_shared_palette = line_drawing3d_shared_theme_resolve_palette(&palette);
 
@@ -210,15 +174,15 @@ static void RenderSceneBoundsDialog(SDL_Renderer* renderer, const UIPanelState* 
 
     text_x = panel.x + 16;
     text_y = panel.y + 14;
-    UIPanelOverlay_DrawText(renderer,
+    UIPanelOverlay_DrawTextClipped(renderer,
                             title,
                             text_x,
-                            text_y,
+                            text_y,panel.x+panel.w-14-(text_x),
                             has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 235, 255});
-    UIPanelOverlay_DrawText(renderer,
+    UIPanelOverlay_DrawTextClipped(renderer,
                             subtitle,
                             text_x,
-                            text_y + 22,
+                            text_y + 22,panel.x+panel.w-14-(text_x),
                             has_shared_palette ? palette.text_muted : (SDL_Color){180, 180, 190, 255});
 
     input_rect = (SDL_Rect){
@@ -243,34 +207,9 @@ static void RenderSceneBoundsDialog(SDL_Renderer* renderer, const UIPanelState* 
         SDL_SetRenderDrawColor(renderer, 130, 140, 155, 255);
     }
     SDL_RenderDrawRect(renderer, &input_rect);
-    UIPanelOverlay_DrawTextClipped(renderer,
-                                   ui->sceneBoundsDialog.buffer,
-                                   input_rect.x + 8,
-                                   input_rect.y + 8,
-                                   input_rect.w - 16,
-                                   has_shared_palette ? palette.text_primary : (SDL_Color){255, 255, 255, 255});
+    UIPanel_SharedTextDraw(renderer,input_rect,has_shared_palette ? palette.text_primary : (SDL_Color){255,255,255,255});
 
-    font = FontManager_Get(FONT_DEFAULT);
-    if (font) {
-        size_t len = ui->sceneBoundsDialog.cursor;
-        if (len >= sizeof(caret_buf)) len = sizeof(caret_buf) - 1u;
-        memcpy(caret_buf, ui->sceneBoundsDialog.buffer, len);
-        caret_buf[len] = '\0';
-        if (TTF_SizeUTF8(font, caret_buf, &caret_offset, NULL) == 0) {
-            caret_x = input_rect.x + 8 + caret_offset;
-            if (caret_x > input_rect.x + input_rect.w - 8) caret_x = input_rect.x + input_rect.w - 8;
-            caret_top = input_rect.y + 4;
-            caret_bottom = input_rect.y + input_rect.h - 4;
-            if (has_shared_palette) {
-                SDL_SetRenderDrawColor(renderer,
-                                       palette.text_primary.r, palette.text_primary.g,
-                                       palette.text_primary.b, 220);
-            } else {
-                SDL_SetRenderDrawColor(renderer, 255, 255, 255, 220);
-            }
-            SDL_RenderDrawLine(renderer, caret_x, caret_top, caret_x, caret_bottom);
-        }
-    }
+
 }
 
 static void RenderConstructionPlaneDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
@@ -285,12 +224,6 @@ static void RenderConstructionPlaneDialog(SDL_Renderer* renderer, const UIPanelS
     SDL_Rect backdrop = {0, 0, 0, 0};
     SDL_Rect panel = {0, 0, 0, 0};
     SDL_Rect input_rect = {0, 0, 0, 0};
-    TTF_Font* font = NULL;
-    char caret_buf[96];
-    int caret_offset = 0;
-    int caret_x = 0;
-    int caret_top = 0;
-    int caret_bottom = 0;
     LineDrawing3dThemePalette palette = {0};
     const bool has_shared_palette = line_drawing3d_shared_theme_resolve_palette(&palette);
 
@@ -346,15 +279,15 @@ static void RenderConstructionPlaneDialog(SDL_Renderer* renderer, const UIPanelS
 
     text_x = panel.x + 16;
     text_y = panel.y + 14;
-    UIPanelOverlay_DrawText(renderer,
+    UIPanelOverlay_DrawTextClipped(renderer,
                             title,
                             text_x,
-                            text_y,
+                            text_y,panel.x+panel.w-14-(text_x),
                             has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 235, 255});
-    UIPanelOverlay_DrawText(renderer,
+    UIPanelOverlay_DrawTextClipped(renderer,
                             subtitle,
                             text_x,
-                            text_y + 22,
+                            text_y + 22,panel.x+panel.w-14-(text_x),
                             has_shared_palette ? palette.text_muted : (SDL_Color){180, 180, 190, 255});
 
     input_rect = (SDL_Rect){
@@ -379,34 +312,9 @@ static void RenderConstructionPlaneDialog(SDL_Renderer* renderer, const UIPanelS
         SDL_SetRenderDrawColor(renderer, 130, 140, 155, 255);
     }
     SDL_RenderDrawRect(renderer, &input_rect);
-    UIPanelOverlay_DrawTextClipped(renderer,
-                                   ui->constructionPlaneDialog.buffer,
-                                   input_rect.x + 8,
-                                   input_rect.y + 8,
-                                   input_rect.w - 16,
-                                   has_shared_palette ? palette.text_primary : (SDL_Color){255, 255, 255, 255});
+    UIPanel_SharedTextDraw(renderer,input_rect,has_shared_palette ? palette.text_primary : (SDL_Color){255,255,255,255});
 
-    font = FontManager_Get(FONT_DEFAULT);
-    if (font) {
-        size_t len = ui->constructionPlaneDialog.cursor;
-        if (len >= sizeof(caret_buf)) len = sizeof(caret_buf) - 1u;
-        memcpy(caret_buf, ui->constructionPlaneDialog.buffer, len);
-        caret_buf[len] = '\0';
-        if (TTF_SizeUTF8(font, caret_buf, &caret_offset, NULL) == 0) {
-            caret_x = input_rect.x + 8 + caret_offset;
-            if (caret_x > input_rect.x + input_rect.w - 8) caret_x = input_rect.x + input_rect.w - 8;
-            caret_top = input_rect.y + 4;
-            caret_bottom = input_rect.y + input_rect.h - 4;
-            if (has_shared_palette) {
-                SDL_SetRenderDrawColor(renderer,
-                                       palette.text_primary.r, palette.text_primary.g,
-                                       palette.text_primary.b, 220);
-            } else {
-                SDL_SetRenderDrawColor(renderer, 255, 255, 255, 220);
-            }
-            SDL_RenderDrawLine(renderer, caret_x, caret_top, caret_x, caret_bottom);
-        }
-    }
+
 }
 
 static void RenderObjectTransformDialog(SDL_Renderer* renderer, const UIPanelState* ui) {
@@ -419,12 +327,6 @@ static void RenderObjectTransformDialog(SDL_Renderer* renderer, const UIPanelSta
     SDL_Rect backdrop = {0, 0, 0, 0};
     SDL_Rect panel = {0, 0, 0, 0};
     SDL_Rect input_rect = {0, 0, 0, 0};
-    TTF_Font* font = NULL;
-    char caret_buf[160];
-    int caret_offset = 0;
-    int caret_x = 0;
-    int caret_top = 0;
-    int caret_bottom = 0;
     LineDrawing3dThemePalette palette = {0};
     const bool has_shared_palette = line_drawing3d_shared_theme_resolve_palette(&palette);
 
@@ -490,15 +392,15 @@ static void RenderObjectTransformDialog(SDL_Renderer* renderer, const UIPanelSta
 
     text_x = panel.x + 16;
     text_y = panel.y + 14;
-    UIPanelOverlay_DrawText(renderer,
+    UIPanelOverlay_DrawTextClipped(renderer,
                             title,
                             text_x,
-                            text_y,
+                            text_y,panel.x+panel.w-14-(text_x),
                             has_shared_palette ? palette.text_primary : (SDL_Color){230, 230, 235, 255});
-    UIPanelOverlay_DrawText(renderer,
+    UIPanelOverlay_DrawTextClipped(renderer,
                             subtitle,
                             text_x,
-                            text_y + 22,
+                            text_y + 22,panel.x+panel.w-14-(text_x),
                             has_shared_palette ? palette.text_muted : (SDL_Color){180, 180, 190, 255});
 
     input_rect = (SDL_Rect){
@@ -523,34 +425,9 @@ static void RenderObjectTransformDialog(SDL_Renderer* renderer, const UIPanelSta
         SDL_SetRenderDrawColor(renderer, 130, 140, 155, 255);
     }
     SDL_RenderDrawRect(renderer, &input_rect);
-    UIPanelOverlay_DrawTextClipped(renderer,
-                                   ui->objectTransformDialog.buffer,
-                                   input_rect.x + 8,
-                                   input_rect.y + 8,
-                                   input_rect.w - 16,
-                                   has_shared_palette ? palette.text_primary : (SDL_Color){255, 255, 255, 255});
+    UIPanel_SharedTextDraw(renderer,input_rect,has_shared_palette ? palette.text_primary : (SDL_Color){255,255,255,255});
 
-    font = FontManager_Get(FONT_DEFAULT);
-    if (font) {
-        size_t len = ui->objectTransformDialog.cursor;
-        if (len >= sizeof(caret_buf)) len = sizeof(caret_buf) - 1u;
-        memcpy(caret_buf, ui->objectTransformDialog.buffer, len);
-        caret_buf[len] = '\0';
-        if (TTF_SizeUTF8(font, caret_buf, &caret_offset, NULL) == 0) {
-            caret_x = input_rect.x + 8 + caret_offset;
-            if (caret_x > input_rect.x + input_rect.w - 8) caret_x = input_rect.x + input_rect.w - 8;
-            caret_top = input_rect.y + 4;
-            caret_bottom = input_rect.y + input_rect.h - 4;
-            if (has_shared_palette) {
-                SDL_SetRenderDrawColor(renderer,
-                                       palette.text_primary.r, palette.text_primary.g,
-                                       palette.text_primary.b, 220);
-            } else {
-                SDL_SetRenderDrawColor(renderer, 255, 255, 255, 220);
-            }
-            SDL_RenderDrawLine(renderer, caret_x, caret_top, caret_x, caret_bottom);
-        }
-    }
+
 }
 
 void UIPanelOverlay_RenderEditDialogs(SDL_Renderer* renderer, const UIPanelState* ui) {

@@ -28,11 +28,13 @@ bool LineDrawingCanonicalScene_ApplySurfaceMaterials(cJSON *root,const Layout *l
         const Object3D *o=&layout->objectStore.items[i];
         if(o->isDeleted || Layout_EntityIsSpatialGuide(&o->info)) continue;
         const char *id=Layout_SurfaceMaterialId(&o->info);
-        if(!id[0]) continue;
-        const LayoutSurfaceMaterial *p=Layout_SurfaceMaterialFind(id);
+        if(!id[0] && !o->info.surface_custom) continue;
+        LayoutSurfaceMaterial resolved;
+        const LayoutSurfaceMaterial *p=Layout_SurfaceMaterialResolve(&o->info,&resolved) ? &resolved : NULL;
         cJSON *object=find(objects,"object_id",o->coreMeta.object_id);
         if(!p || !object) return false;
-        char material_id[96];snprintf(material_id,sizeof(material_id),"ld_surface_%s",id);
+        char material_id[96];snprintf(material_id,sizeof(material_id),"ld_surface_%s",
+            o->info.surface_custom ? o->coreMeta.object_id : id);
         cJSON *material=find(materials,"material_id",material_id);
         if(!material) {
             material=cJSON_CreateObject();if(!material) return false;

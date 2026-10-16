@@ -1,3 +1,5 @@
+#include "UI/shared_special.h"
+#include "UI/shared_text.h"
 #include "Layout/layout_surface_material.h"
 #include "UI/ui_panel_section.h"
 #include "UI/ui_panel_camera.h"
@@ -190,6 +192,9 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
             btn->id == UI_BTN_EXTRUDE_DEPTH_INC) &&
            !extrude_tool_active)));
 
+    SDL_Rect clip=btn->side==UI_PANEL_LEFT?ui_state->leftBodyRect:ui_state->rightBodyRect;
+    LDSpecial_Record(31,btn->id+1,btn->label,btn->bounds,&clip,!render_disabled);
+    if(!r)return;
     (void)UIPanelVisual_ResolvePalette(&palette);
     button_fill = palette.button_fill;
     button_border = palette.button_border;
@@ -549,7 +554,8 @@ static void DrawButton(SDL_Renderer* r, const UIButton* btn) {
     } else if (btn->id==UI_BTN_SURFACE_MATERIAL) {
         const GlobalState *st=Global_Get();
         const Object3D *o=st ? Layout_ObjectStore_FindConst(&st->layout.objectStore,st->editor.selectedObject3DId) : NULL;
-        const LayoutSurfaceMaterial *p=o ? Layout_SurfaceMaterialFind(Layout_SurfaceMaterialId(&o->info)) : NULL;
+        LayoutSurfaceMaterial resolved;
+        const LayoutSurfaceMaterial *p=o && Layout_SurfaceMaterialResolve(&o->info,&resolved) ? &resolved : NULL;
         snprintf(dynamicLabel,sizeof(dynamicLabel),"Finish: %s >",p ? p->label : "Default");label=dynamicLabel;
     } else if (btn->id==UI_BTN_PANEL_THICKNESS || btn->id==UI_BTN_PANEL_KEEP_FACE || btn->id==UI_BTN_PANEL_MATERIAL) {
         const GlobalState* st=Global_Get();
@@ -811,8 +817,6 @@ static void DrawGroupSection(SDL_Renderer* renderer,
     const char* title = UIPanel_GroupTitle(group, side);
     UIPanelVisualMetrics metrics = {0};
     int title_band_h = 16;
-    int title_w = 0;
-    SDL_Rect title_chip = { bounds.x + 6, bounds.y + 3, 0, 0 };
     SDL_Rect explicit_rect = {0, 0, 0, 0};
 
     if (!renderer || !ui || first_index < 0 || last_index < first_index) return;
@@ -846,22 +850,16 @@ static void DrawGroupSection(SDL_Renderer* renderer,
     font = FontManager_GetUIPanelFont();
     metrics = UIPanelVisual_MakeMetrics(font);
     title_band_h = metrics.chip_h + 2;
-    title_chip.x = bounds.x + metrics.pad_x - 2;
-    title_chip.y = bounds.y + 3;
 
     UIPanelVisual_DrawFrame(renderer, bounds, panel_fill, panel_border, 60);
 
     if (font) {
-        if (line_drawing_text_measure_utf8(renderer, font, title, &title_w, NULL)) {
-            title_chip = (SDL_Rect){ bounds.x + metrics.pad_x - 2, bounds.y + 3, title_w + 12, metrics.chip_h };
-            UIPanelVisual_DrawLabelChip(renderer,
-                                        title_chip,
-                                        UIPanelVisual_BlendColor(panel_fill, panel_border, 38),
-                                        panel_border,
-                                        110,
-                                        130);
-        }
-        DrawTextBasic(renderer, font, title, title_chip.x + 4, bounds.y + 4, title_color);
+        int first_y=bounds.y+title_band_h;
+        for(int i=first_index;i<=last_index && i<ui->count;++i)
+            if(ui->buttons[i].side==side && ui->buttons[i].group==group && ui->buttons[i].bounds.h>0 && ui->buttons[i].bounds.y<first_y)
+                first_y=ui->buttons[i].bounds.y;
+        SDL_Rect title_rect={bounds.x+metrics.pad_x,bounds.y+2,bounds.w-2*metrics.pad_x,first_y-bounds.y-3};
+        if(title_rect.h>0)(void)LDText_Label(renderer,font,title,title_rect,title_color,false);
     }
 }
 
@@ -1008,4 +1006,9 @@ void Render_UIPanel(const UIPanelState* ui, SDL_Renderer* renderer) {
         (void)SDL_RenderSetClipRect(renderer, had_clip ? &previous_clip : NULL);
     }
     UIPanel_RenderContext(renderer, ui);
+}
+
+void LDSpecial_Generic(void) {
+    const UIPanelState* u=UIPanel_Get();
+    for(int i=0;i<u->count;++i)if(UIPanel_ShouldShowGroup(u,u->buttons[i].group))DrawButton(NULL,&u->buttons[i]);
 }

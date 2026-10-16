@@ -1,4 +1,6 @@
 #include "UI/ui_panel_internal.h"
+#include "UI/panel/ui_panel_stl_options.h"
+#include "Layout/layout_scene_collections.h"
 
 #include "Core/global_state.h"
 #include "Core/scene_document_lifecycle.h"
@@ -1074,7 +1076,8 @@ bool UIPanel_ExportObjectRuntimeMesh(void) {
 
 static bool UIPanel_PlaceRuntimeMeshAsSceneInstanceWithOptions(const char* runtime_mesh_path,
                                                                bool place_at_origin,
-                                                               bool allow_scale_up) {
+                                                               bool allow_scale_up,
+                                                               bool fit_to_scene) {
     GlobalState* state = Global_Get();
     Transform3D transform;
     uint32_t object_id = 0u;
@@ -1097,9 +1100,15 @@ static bool UIPanel_PlaceRuntimeMeshAsSceneInstanceWithOptions(const char* runti
     snprintf(resolved_path, sizeof(resolved_path), "%s", runtime_mesh_path);
 
     transform = Layout_Transform3D_Default();
+    if (!fit_to_scene) {
+        /* Compiled STL vertices are metres; layout coordinates may use a different world scale. */
+        float physical_scale = (float)(1.0 / Layout_WorldScale(&state->layout));
+        if (!isfinite(physical_scale) || physical_scale <= 0.0f) return false;
+        transform.scale = (Vec3){physical_scale, physical_scale, physical_scale};
+    }
     {
         float auto_scale = 1.0f;
-        if (UIPanel_ResolveRuntimeMeshAutoScale(&state->layout,
+        if (fit_to_scene && UIPanel_ResolveRuntimeMeshAutoScale(&state->layout,
                                                 resolved_path,
                                                 allow_scale_up,
                                                 &auto_scale) &&
@@ -1126,6 +1135,17 @@ static bool UIPanel_PlaceRuntimeMeshAsSceneInstanceWithOptions(const char* runti
                     transform.position.z = plane->axisAligned.offset;
                     break;
             }
+        }
+    }
+
+    if (!fit_to_scene) {
+        Vec3 checked_origin = transform.position;
+        bool clamped = false;
+        if (!Layout_SceneBounds3D_ClampPoint(&state->layout.scene3d.bounds, &checked_origin, &clamped) || clamped) {
+            const char* message = "Exact STL placement failed: source origin is outside scene bounds.";
+            Global_SetObjectRuntimeMeshStatus(message);
+            UIPanel_SetFilePaneActionStatus(message);
+            return false;
         }
     }
 
@@ -1168,7 +1188,7 @@ static bool UIPanel_PlaceRuntimeMeshAsSceneInstanceWithOptions(const char* runti
 }
 
 bool UIPanel_PlaceRuntimeMeshAsSceneInstance(const char* runtime_mesh_path) {
-    return UIPanel_PlaceRuntimeMeshAsSceneInstanceWithOptions(runtime_mesh_path, false, false);
+    return UIPanel_PlaceRuntimeMeshAsSceneInstanceWithOptions(runtime_mesh_path, false, false, true);
 }
 
 bool UIPanel_ImportStlAndPlaceFromPath(const char* stl_path) {
@@ -1196,14 +1216,14 @@ bool UIPanel_ImportStlAndPlaceFromPath(const char* stl_path) {
         return false;
     }
 
-    if (!LayoutImportedMeshAsset_ImportStlToRuntime(stl_path,
+    if (!LayoutImportedMeshAsset_ImportStlToRuntimeWithProgressForUnit(stl_path, UIPanel_StlSourceUnit(UIPanel_Get()),
                                                     asset_root,
                                                     authoring_path,
                                                     sizeof(authoring_path),
                                                     runtime_path,
                                                     sizeof(runtime_path),
                                                     diagnostics,
-                                                    sizeof(diagnostics))) {
+                                                    sizeof(diagnostics), NULL, NULL)) {
         char status[160];
         snprintf(status,
                  sizeof(status),
@@ -1231,12 +1251,31 @@ bool UIPanel_PlaceImportedStlRuntimeMesh(const char* stl_path,
         UIPanel_SetFilePaneActionStatus("STL import failed: placement path is missing.");
         return false;
     }
-    placed = UIPanel_PlaceRuntimeMeshAsSceneInstanceWithOptions(runtime_path, true, true);
+    UIPanelState* ui=UIPanel_Get();
+    if(ui->loadMenu.stlCollection[0]&&(!Layout_FindSceneCollection(&state->layout.objectStore,ui->loadMenu.stlCollection)||state->layout.objectStore.collection_member_count==LAYOUT_MAX_COLLECTION_MEMBERS)){
+        UIPanel_SetFilePaneActionStatus("Import destination is unavailable; choose a valid scene group.");return false;
+    }
+    placed = UIPanel_PlaceRuntimeMeshAsSceneInstanceWithOptions(runtime_path, true, true, UIPanel_Get()->loadMenu.stlFitToScene);
+    if(placed&&ui->loadMenu.stlCollection[0]) {
+        Object3D* imported=Layout_ObjectStore_Find(&state->layout.objectStore,state->editor.selectedObject3DId);
+        if(!imported||!Layout_AssignSceneCollection(&state->layout,ui->loadMenu.stlCollection,imported->coreMeta.object_id,true,NULL,NULL)){
+            (void)Editor_Undo(&state->editor,&state->layout);UIPanel_SetFilePaneActionStatus("Import group assignment failed; placement rolled back.");return false;
+        }
+        imported=Layout_ObjectStore_Find(&state->layout.objectStore,state->editor.selectedObject3DId);
+        if(ui->loadMenu.stlPartRole%4){
+            static const char* kinds[]={"", "doors", "drawers", "access"};LayoutEntityInfo* info=&imported->info;
+            LayoutProperty* group=&info->properties[info->property_count++];snprintf(group->key,48,"cover_group");group->kind=LAYOUT_PROPERTY_TEXT;
+            snprintf(group->text,128,"%s/%s/%s",kinds[ui->loadMenu.stlPartRole%4],ui->loadMenu.stlCollection+7,imported->coreMeta.object_id);
+            LayoutProperty* part=&info->properties[info->property_count++];snprintf(part->key,48,"cover_part");part->kind=LAYOUT_PROPERTY_TEXT;snprintf(part->text,128,"front");
+        }
+    }
+
     if (!placed) return false;
 
     {
         char status[160];
-        snprintf(status, sizeof(status), "STL imported at origin: %s", runtime_path);
+        snprintf(status, sizeof(status), "STL imported at source origin; %s size. Inspect X/Y/Z dimensions.",
+                 UIPanel_Get()->loadMenu.stlFitToScene ? "fit-to-scene" : "exact physical");
         Global_RecordObjectRuntimeMeshResult(runtime_path, status);
     }
     SDL_Log("[UI] Imported STL %s to %s and %s",

@@ -1,7 +1,9 @@
+#include "UI/shared_controls.h"
 #include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel_parts.h"
 #include "UI/ui_panel_routes.h"
 #include "UI/topbar/line_drawing_editor_topbar.h"
+#include "UI/topbar/line_drawing_view_controls.h"
 
 #include "Core/global_state.h"
 #include "Core/line_drawing_file_catalog.h"
@@ -55,7 +57,7 @@ typedef struct {
 enum {
     TOPBAR_CHIP_GAP = 6,
     TOPBAR_MODE_CHIP_W = 112,
-    TOPBAR_VIEW_CHIP_W = 86,
+    TOPBAR_VIEW_CHIP_W = 140,
     TOPBAR_PLANE_CHIP_W = 118,
     TOPBAR_CP_CHIP_W = 150,
     TOPBAR_BOUNDS_CHIP_W = 142,
@@ -181,42 +183,32 @@ static LineDrawingEditorTopbarLayout Topbar_ResolveLayout(void) {
     };
     if (layout.chips_row_rect.w < 0) layout.chips_row_rect.w = 0;
     {
-        int chip_x = layout.chips_row_rect.x;
-        const int chip_right = layout.chips_row_rect.x + layout.chips_row_rect.w;
-        layout.mode_chip = (SDL_Rect){chip_x, row2_y, TOPBAR_MODE_CHIP_W, row_h};
-        if (layout.mode_chip.x + layout.mode_chip.w > chip_right) {
-            layout.mode_chip = (SDL_Rect){0, 0, 0, 0};
+        int x=layout.chips_row_rect.x;
+        const int end=right;
+        /* Reserve camera, Gizmo, visibility and overflow before optional readouts. */
+        const int reserved=136+104+108+108+60+5*gap;
+#define OPTIONAL(field,width) do { if(x+(width)+gap+reserved<=end) { layout.field=(SDL_Rect){x,row2_y,(width),row_h};x+=(width)+gap; } } while(0)
+        OPTIONAL(mode_chip,TOPBAR_MODE_CHIP_W);
+        OPTIONAL(view_chip,TOPBAR_VIEW_CHIP_W);
+        OPTIONAL(plane_chip,TOPBAR_PLANE_CHIP_W);
+        OPTIONAL(cp_chip,TOPBAR_CP_CHIP_W);
+        OPTIONAL(bounds_chip,TOPBAR_BOUNDS_CHIP_W);
+#undef OPTIONAL
+        SDL_Rect camera={x,row2_y,136,row_h};x+=136+gap;
+        layout.gizmo_chip=(SDL_Rect){x,row2_y,104,row_h};x+=104+gap;
+        SDL_Rect visibility={x,row2_y,108,row_h};x+=108+gap;
+        SDL_Rect appearance={x,row2_y,108,row_h};x+=108+gap;
+        SDL_Rect more={x,row2_y,60,row_h};x+=60+gap;
+        if(more.x+more.w>end) {
+            /* Extremely narrow panes keep a compact camera and visibility overflow. */
+            layout.gizmo_chip=(SDL_Rect){0};
+            camera=(SDL_Rect){layout.chips_row_rect.x,row2_y,116,row_h};
+            visibility=(SDL_Rect){camera.x+camera.w+gap,row2_y,94,row_h};
+            appearance=(SDL_Rect){visibility.x+visibility.w+gap,row2_y,94,row_h};
+            more=(SDL_Rect){appearance.x+appearance.w+gap,row2_y,52,row_h};
         }
-        chip_x += TOPBAR_MODE_CHIP_W + TOPBAR_CHIP_GAP;
-        layout.view_chip = (SDL_Rect){chip_x, row2_y, TOPBAR_VIEW_CHIP_W, row_h};
-        if (layout.view_chip.x + layout.view_chip.w > chip_right) {
-            layout.view_chip = (SDL_Rect){0, 0, 0, 0};
-        }
-        chip_x += TOPBAR_VIEW_CHIP_W + TOPBAR_CHIP_GAP;
-        layout.plane_chip = (SDL_Rect){chip_x, row2_y, TOPBAR_PLANE_CHIP_W, row_h};
-        if (layout.plane_chip.x + layout.plane_chip.w > chip_right) {
-            layout.plane_chip = (SDL_Rect){0, 0, 0, 0};
-        }
-        chip_x += TOPBAR_PLANE_CHIP_W + TOPBAR_CHIP_GAP;
-        layout.cp_chip = (SDL_Rect){chip_x, row2_y, TOPBAR_CP_CHIP_W, row_h};
-        if (layout.cp_chip.x + layout.cp_chip.w > chip_right) {
-            layout.cp_chip = (SDL_Rect){0, 0, 0, 0};
-        }
-        chip_x += TOPBAR_CP_CHIP_W + TOPBAR_CHIP_GAP;
-        layout.bounds_chip = (SDL_Rect){chip_x, row2_y, TOPBAR_BOUNDS_CHIP_W, row_h};
-        if (layout.bounds_chip.x + layout.bounds_chip.w > chip_right) {
-            layout.bounds_chip = (SDL_Rect){0, 0, 0, 0};
-        }
-        chip_x += TOPBAR_BOUNDS_CHIP_W + TOPBAR_CHIP_GAP;
-        layout.gizmo_chip = (SDL_Rect){chip_x, row2_y, TOPBAR_GIZMO_CHIP_W, row_h};
-        if (layout.gizmo_chip.x + layout.gizmo_chip.w > chip_right) {
-            layout.gizmo_chip = (SDL_Rect){0, 0, 0, 0};
-        }
-        chip_x += TOPBAR_GIZMO_CHIP_W + TOPBAR_CHIP_GAP;
-        layout.operation_chip = (SDL_Rect){chip_x, row2_y, TOPBAR_OPERATION_CHIP_W, row_h};
-        if (layout.operation_chip.x + layout.operation_chip.w > chip_right) {
-            layout.operation_chip = (SDL_Rect){0, 0, 0, 0};
-        }
+        LDViewControls_SetHeader(camera,visibility,more,appearance);
+        if(x+TOPBAR_OPERATION_CHIP_W<=end)layout.operation_chip=(SDL_Rect){x,row2_y,TOPBAR_OPERATION_CHIP_W,row_h};
     }
     layout.valid = true;
     return layout;
@@ -658,39 +650,16 @@ static void Topbar_DrawStatusChips(SDL_Renderer* renderer,
     Topbar_DrawChip(renderer, font, layout.redo_chip, "Redo", redo_value, redo_count > 0u, colors);
     Topbar_DrawChip(renderer, font, layout.file_rect, "File", file_value, dirty, colors);
 
-#define DRAW_NEXT_CHIP(width, label, value, active) \
-    do { \
-        chip = (SDL_Rect){x, layout.chips_row_rect.y, (width), h}; \
-        if (chip.x + chip.w <= layout.chips_row_rect.x + layout.chips_row_rect.w) { \
-            Topbar_DrawChip(renderer, font, chip, (label), (value), (active), colors); \
-        } \
-        x += (width) + TOPBAR_CHIP_GAP; \
-    } while (0)
+    (void)chip;(void)x;(void)gap;(void)h;
+    Topbar_DrawChip(renderer,font,layout.mode_chip,"Mode",mode_value,state && state->spaceMode==SPACE_MODE_3D,colors);
+    Topbar_DrawChip(renderer,font,layout.view_chip,"Editor",state && SpaceAdapter_IsFreeViewEnabled(&view_ctx)?"Free orient":"Plane",false,colors);
+    Topbar_DrawChip(renderer,font,layout.plane_chip,"Plane",plane_value,false,colors);
+    Topbar_DrawChip(renderer,font,layout.cp_chip,"CP",cp_value,false,colors);
+    Topbar_DrawChip(renderer,font,layout.bounds_chip,"Bounds",bounds_value,state && state->layout.scene3d.bounds.enabled,colors);
+    Topbar_DrawChip(renderer,font,layout.gizmo_chip,"Gizmo",gizmo_value,state && (state->editor.object3DRotateMode || state->editor.object3DSizeMode),colors);
+    if(operation_value[0])Topbar_DrawChip(renderer,font,layout.operation_chip,"Op",operation_value,true,colors);
+    LDViewControls_RenderHeader(renderer);
 
-    (void)gap;
-    DRAW_NEXT_CHIP(TOPBAR_MODE_CHIP_W,
-                   "Mode",
-                   mode_value,
-                   state && state->spaceMode == SPACE_MODE_3D);
-    DRAW_NEXT_CHIP(TOPBAR_VIEW_CHIP_W,
-                   "View",
-                   view_value,
-                   state && SpaceAdapter_IsFreeViewEnabled(&view_ctx));
-    DRAW_NEXT_CHIP(TOPBAR_PLANE_CHIP_W, "Plane", plane_value, false);
-    DRAW_NEXT_CHIP(TOPBAR_CP_CHIP_W, "CP", cp_value, false);
-    DRAW_NEXT_CHIP(TOPBAR_BOUNDS_CHIP_W,
-                   "Bounds",
-                   bounds_value,
-                   state && state->layout.scene3d.bounds.enabled);
-    DRAW_NEXT_CHIP(TOPBAR_GIZMO_CHIP_W,
-                   "Gizmo",
-                   gizmo_value,
-                   state && (state->editor.object3DRotateMode || state->editor.object3DSizeMode));
-    if (operation_value[0]) {
-        DRAW_NEXT_CHIP(TOPBAR_OPERATION_CHIP_W, "Op", operation_value, true);
-    }
-
-#undef DRAW_NEXT_CHIP
 }
 
 static void Topbar_EndViewInput(void) {
@@ -700,10 +669,29 @@ static void Topbar_EndViewInput(void) {
     UIPanel_RoutesStopInput();
 }
 
+void LineDrawingEditorTopbar_Collect(KitUiSurface* surface) {
+    LineDrawingEditorTopbarLayout l = Topbar_ResolveLayout();
+    if (!l.valid) return;
+    SDL_Rect rects[] = {l.scene_button,l.object_button,l.mode_chip,l.view_chip,l.plane_chip,
+        l.bounds_chip,l.gizmo_chip,l.undo_chip,l.redo_chip};
+    for (unsigned i=0; i<sizeof(rects)/sizeof(rects[0]); ++i) {
+        bool enabled = i==7 ? Editor_UndoCount(&Global_Get()->editor)>0 :
+                       i==8 ? Editor_RedoCount(&Global_Get()->editor)>0 : true;
+        LDControls_Add(surface,1,i+1,rects[i],&l.pane_rect,enabled);
+    }
+    for (int i=LD_VIEW_CAMERA; i<=LD_VIEW_APPEARANCE; ++i) {
+        SDL_Rect rect;
+        if (LDViewControls_Rect(i,&rect)) LDControls_Add(surface,2,(uint64_t)i,rect,&l.pane_rect,true);
+    }
+}
+
+void LineDrawingEditorTopbar_UpdateControls(void) { (void)Topbar_ResolveLayout(); }
+
 bool LineDrawingEditorTopbar_HandleClick(int mouse_x, int mouse_y) {
     LineDrawingEditorTopbarLayout layout = Topbar_ResolveLayout();
 
     if (!layout.valid) return false;
+    if (LDViewControls_Click(mouse_x,mouse_y))return true;
     if (Topbar_PointInRect(mouse_x, mouse_y, layout.scene_button)) {
         if (Global_SetWorkspaceMode(LINE_DRAWING_WORKSPACE_MODE_SCENE)) {
             UIPanel_ResetTransientUiState();

@@ -155,7 +155,7 @@ static bool click(int action) {
         return ld_test_context_part(action);
 
     SDL_Rect rect;TEST_ASSERT(UIPanel_PartsControlRect(action,&rect));TEST_ASSERT(rect.y>=UIPanel_Get()->rightBodyRect.y && rect.y+rect.h<=UIPanel_Get()->rightBodyRect.y+UIPanel_Get()->rightBodyRect.h);
-    AppContext context={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};e.button.button=SDL_BUTTON_LEFT;e.button.x=rect.x+rect.w/2;e.button.y=rect.y+rect.h/2;Input_Handle(&context,&e);return true;
+    AppContext context={0};SDL_Event e={.type=SDL_MOUSEBUTTONDOWN};e.button.button=SDL_BUTTON_LEFT;e.button.x=rect.x+rect.w/2;e.button.y=rect.y+rect.h/2;Input_Handle(&context,&e);e.type=SDL_MOUSEBUTTONUP;Input_Handle(&context,&e);return true;
 }
 static bool test_mouse_links_form_history_incoming_filter(void) {
     ld_test_init_runtime();GlobalState* s=Global_Get();char cabinet[64];uint32_t handle=part("A",(Vec3){0});TEST_ASSERT(handle && part("B",(Vec3){2,0,0}) && assembly(cabinet));

@@ -63,3 +63,33 @@ that either link into the runtime or build as focused command-line helpers.
   command-specific failure messages stable enough for those tests, but do not
   extract shared CLI argument/path helpers until a later R5 slice chooses that
   boundary.
+
+- `layout_edit_tool.c` — typed create-only saved-layout revisions, managed furniture
+  resizing, explicit solid finishes, exact-size rigid mesh groups and inspection
+  cameras; see `docs/native_layout_edits.md`.
+
+- `layout_edit_motion.*` — typed Hinge creation, explicit-unit pose control and
+  native motion-envelope generation for the create-only layout editor.
+
+- `layout_edit_tool` also updates existing stationary bound inspection camera/path
+  pairs without consuming a path slot; native pose keys are regenerated.
+
+- Native folding-support edits include explicit `set_brace_lock`, bounded
+  attach/detach and detached hinge-offset correction, with create-only output
+  and native managed-object deletion guards. See `docs/native_layout_edits.md`.
+
+`layout_edit_collections.c` owns native design-group creation, text metadata,
+functional saved presets and read-only collection inspection. The motion adapter
+also exposes finite telescoping stay attachment/update, bounded travel limits and
+explicit closed-neighbour service guards; see `docs/native_layout_edits.md`.
+
+
+`layout_edit_tool` accepts `scene_collection` (id/name/parent/members), `collection_member` (collection/entity/present), and `working_view` (id/name/only/hidden/guides) commands. `tools/scene_groups/seed_van_collections.py` emits an identity-pinned, explicit migration for the reviewed van layout; runtime membership never relies on label guesses.
+
+The layout_edit_tool inspect route and layout_edit_inspection.c expose collection dimensional readback plus typed frame and saved-measurement edits. Values are current meters and conservative envelopes, not generated build specifications.
+
+
+layout_edit_tool reference exports create-only construction sheets and a current-model snapshot using the same evaluator as the native inspector. tools/construction_reference/render_pdf.py produces optional A3 PDF packets from completed exports.
+
+
+configure_furniture_rail exposes managed RUN_RAIL offset/span editing through native atomic unit regeneration. Positive run spans are bounded within the unit; zero preserves legacy full-run behavior.

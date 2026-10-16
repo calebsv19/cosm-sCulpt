@@ -6,13 +6,18 @@ acceptance scene; camera navigation is generic and does not rebuild furniture.
 ## Human controls
 
 Open **View > Camera / section**. **Explore** starts a temporary perspective
-camera at world X=0, Y=0, Z=1.6 meters, looking toward -Y. This is a convenience
-starting pose, not an inferred vehicle origin or a walking/collision simulation.
+camera framed around the visible physical scene. This fits the scene bounds;
+it does not infer a walking origin or simulate collisions.
 **< / >** selects an existing scene camera; **Enter** looks through its evaluated
 pose, including the current normalized position on a bound camera path. Enter
-pauses that path and leaves its control points and traversal position intact.
+preserves that path playback state, control points and traversal position.
 
-Move the pointer into the canvas to navigate. Hold W/S for forward/back along
+Move the pointer into the canvas to navigate. Right-drag orbits the scene target;
+middle-drag pans; the wheel dollies. **Frame scene** or F refits visible physical
+geometry, and **Frame selected** or Shift+F fits the selected object. These controls
+move only the temporary observer.
+
+ Hold W/S for forward/back along
 camera heading on the world XY floor, A/D for strafe, Q/E for world-Z down/up.
 Movement is in meters per second, with diagonal normalization and bounded wake
 delta. Hold **Alt/Option and move the mouse without clicking** to look horizontally
@@ -40,7 +45,11 @@ observer mode. A scene load or workspace change also exits it. Focus loss,
 leaving the window/canvas, text entry and pane clicks clear held movement.
 Camera mode uses depth-tested physical surfaces and rendered-surface selection;
 it suppresses engineering cages, routes, measurement overlays and edit gizmos.
-Standalone saved cameras have constant-screen-size symbols in the editor view.
+**Guides on/off** explicitly enables selected path/light authoring handles and
+standalone camera symbols. It starts off. Guide rendering and picking both honor
+this toggle; camera observer mode suppresses authoring guides. Exit the observer
+to edit a guide. Camera symbols are screen-sized; selected frustum geometry is
+constructed before drawing and clipped to the central viewport.
 Routing corridors and semantic service/keep-out/motion volumes are presentation
 only: they never enter the opaque surface, depth, or surface-picking pass, even
 when older scenes lack an explicit reserved-space role. They remain thin outlines
@@ -279,3 +288,8 @@ bundle publisher, so panel openings and imported mesh payloads accompany the
 runtime scene. Existing mesh references are rebound to their contained payload
 paths. See [render finishes and optiC camera requests](surface_materials.md) for
 persistent material authoring and the unrolled-camera request adapter.
+
+For a clean offline capture, set `LINE_DRAWING_CAMERA_EXPORT_CLEAN=1` on the
+application invocation. This omits silhouette/selection outline overlays and
+directional inspection cutaways; it is ephemeral and does not edit the layout.
+Hide unwanted proxy/reference/guide objects in a separate native revision first.

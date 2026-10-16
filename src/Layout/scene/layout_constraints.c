@@ -6,6 +6,9 @@
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
+#include "Layout/scene/layout_folding_brace.h"
+#include "Layout/scene/layout_telescoping_stay.h"
+#include "Layout/scene/layout_motion_interlock.h"
 #include "Core/global_state.h"
 #include <float.h>
 #include <math.h>
@@ -209,7 +212,8 @@ bool Layout_InitAngularTravel(const Layout* layout,LayoutConstraint* rule,double
 static bool order_rules(const Layout* layout, size_t order[LAYOUT_MAX_CONSTRAINTS], char* message, size_t size) {
     const LayoutObjectStore* store=&layout->objectStore;
     if (store->constraintCount > LAYOUT_MAX_CONSTRAINTS) return fail(message,size,"Too many constraints.");
-    if (!Layout_ValidateMotionScopes(layout,message,size)) return false;
+    if (!Layout_MotionInterlocksValidate(layout,message,size)) return false;
+    if (!Layout_ValidateMotionScopes(layout,message,size) || !Layout_FoldingBracesValidate(layout,false) || !Layout_TelescopingStaysValidate(layout,false)) return false;
     bool done[LAYOUT_MAX_CONSTRAINTS]={0};
     for (size_t i=0; i<store->constraintCount; ++i) {
         const LayoutConstraint* c=&store->constraints[i];
@@ -269,14 +273,17 @@ bool Layout_ValidateConstraints(const Layout* layout, char* message, size_t size
     if (!layout || !order_rules(layout,order,message,size)) return false;
     for (size_t i=0; i<layout->objectStore.constraintCount; ++i)
         if (!rule_satisfied(layout,&layout->objectStore.constraints[i])) return fail(message,size,"Constraint does not match stored geometry.");
-    return true;
+    return Layout_FoldingBracesValidate(layout,true) && Layout_TelescopingStaysValidate(layout,true);
 }
 static bool solve(Layout* layout, uint32_t edited, char* message, size_t size) {
     size_t order[LAYOUT_MAX_CONSTRAINTS];
     if (!order_rules(layout,order,message,size)) return false;
     for (size_t i=0; i<layout->objectStore.constraintCount; ++i) {
         const LayoutConstraint* c=&layout->objectStore.constraints[order[i]];
-        if (rule_satisfied(layout,c)) continue;
+        if (rule_satisfied(layout,c)) {
+            if(!Layout_TelescopingStayApply(layout,c) || !Layout_FoldingBraceApply(layout,c)) return fail(message,size,"Coupled support is unreachable or locked.");
+            continue;
+        }
         Object3D* b=entity(layout,c->b.entity_id);
         if (!b || b->coreMeta.flags.locked) return fail(message,size,"Dependent is locked; constraint cannot be maintained.");
         Object3D before_b=*b;
@@ -313,6 +320,7 @@ static bool solve(Layout* layout, uint32_t edited, char* message, size_t size) {
         if (!Layout_SetObject3DPosition(layout,b->objectId,(Vec3){(float)world[0],(float)world[1],(float)world[2]},&adjusted) || adjusted || !rule_satisfied(layout,c))
             return fail(message,size,"Constraint conflicts with bounds, plane locks or numeric precision.");
         if (!Layout_ApplyMotionScope(layout,c,&before_b)) return false;
+        if (!Layout_TelescopingStayApply(layout,c) || !Layout_FoldingBraceApply(layout,c)) return fail(message,size,"Coupled support is unreachable or conflicts with locked geometry/bounds.");
     }
     return Layout_ValidateConstraints(layout,message,size);
 }
@@ -483,9 +491,12 @@ bool Layout_ConstraintEdit(Layout* layout, const LayoutConstraint* rule, const c
 
 bool Layout_SetTravelPosition(Layout* layout, const char* id, double position, LayoutGeometryBeforePublish hook, void* context) {
     if (!layout || !id || !isfinite(position)) return false;
+    if (!Layout_MotionInterlocksAllow(layout,id,position,layout->geometryMessage,sizeof(layout->geometryMessage)))return false;
     for(size_t i=0;i<layout->objectStore.constraintCount;++i) {
         LayoutConstraint c=layout->objectStore.constraints[i];
         if(strcmp(c.id,id) || (c.kind!=LAYOUT_CONSTRAINT_LINEAR_TRAVEL && c.kind!=LAYOUT_CONSTRAINT_ANGULAR_TRAVEL))continue;
+        if(c.folding_brace.enabled&&c.folding_brace.manual_lock&&c.folding_brace.lock_engaged&&fabs(position-c.folding_brace.lock_position_deg)>1e-5)
+            return fail(layout->geometryMessage,sizeof(layout->geometryMessage),"Release the manual support lock before folding the leaf.");
         c.target=position;
         return Layout_ConstraintEdit(layout,&c,NULL,hook,context);
     }

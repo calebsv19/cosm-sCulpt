@@ -1,6 +1,9 @@
 #include "Layout/layout_engineering.h"
+#include "Layout/layout_collection_inspection.h"
+#include "Layout/layout_surface_material.h"
 #include "Layout/layout_furniture.h"
 #include "Layout/layout_saved_views.h"
+#include "Layout/layout_scene_collections.h"
 #include "Layout/layout_relationships.h"
 #include "Layout/layout_spatial.h"
 #include "Layout/layout_motion.h"
@@ -26,6 +29,12 @@ cJSON* Layout_EntityInfoToJson(const LayoutEntityInfo* info) {
     }
     if (!cJSON_AddNumberToObject(o,"volumeRole",info->volume_role) || !cJSON_AddStringToObject(o,"volumeOwner",info->volume_owner)) {cJSON_Delete(o);return NULL;}
     if (info->surface_material[0] && !cJSON_AddStringToObject(o,"surfaceMaterial",info->surface_material)) {cJSON_Delete(o);return NULL;}
+    if (info->surface_custom) {
+        cJSON *finish=cJSON_AddObjectToObject(o,"surfaceFinish");
+        if (!finish || !cJSON_AddNumberToObject(finish,"rgb",info->surface_rgb) ||
+            !cJSON_AddNumberToObject(finish,"roughness",info->surface_roughness) ||
+            !cJSON_AddNumberToObject(finish,"reflectivity",info->surface_reflectivity)) {cJSON_Delete(o);return NULL;}
+    }
     cJSON* properties=cJSON_AddArrayToObject(o,"properties");
     if (!properties) {cJSON_Delete(o);return NULL;}
     for (size_t i=0;i<info->property_count;++i) {
@@ -44,6 +53,19 @@ bool Layout_EntityInfoFromJson(const cJSON* o, LayoutEntityInfo* info) {
         !string(o,"type",info->entity_type,sizeof(info->entity_type)) || !string(o,"parent",info->parent_id,sizeof(info->parent_id))) return false;
     memset(info->surface_material,0,sizeof(info->surface_material));
     if(cJSON_GetObjectItemCaseSensitive(o,"surfaceMaterial") && !string(o,"surfaceMaterial",info->surface_material,sizeof(info->surface_material))) return false;
+    info->surface_custom=false;info->surface_rgb=0;info->surface_roughness=0;info->surface_reflectivity=0;
+    const cJSON *finish=cJSON_GetObjectItemCaseSensitive(o,"surfaceFinish");
+    if (finish) {
+        const cJSON *rgb=cJSON_GetObjectItemCaseSensitive(finish,"rgb"),
+            *rough=cJSON_GetObjectItemCaseSensitive(finish,"roughness"),
+            *reflect=cJSON_GetObjectItemCaseSensitive(finish,"reflectivity");
+        if (!cJSON_IsObject(finish) || !cJSON_IsNumber(rgb) || !isfinite(rgb->valuedouble) ||
+            rgb->valuedouble<0 || rgb->valuedouble>0xFFFFFF || floor(rgb->valuedouble)!=rgb->valuedouble ||
+            !cJSON_IsNumber(rough) || !cJSON_IsNumber(reflect)) return false;
+        info->surface_custom=true;info->surface_rgb=(unsigned)rgb->valuedouble;
+        info->surface_roughness=rough->valuedouble;info->surface_reflectivity=reflect->valuedouble;
+        if (!Layout_SurfaceMaterialValid(info)) return false;
+    }
     const cJSON* role=cJSON_GetObjectItemCaseSensitive(o,"volumeRole"),*owner=cJSON_GetObjectItemCaseSensitive(o,"volumeOwner");
     if (role || owner) {
         if (!cJSON_IsNumber(role) || !isfinite(role->valuedouble) || role->valuedouble<0 || role->valuedouble>LAYOUT_VOLUME_SERVICE || floor(role->valuedouble)!=role->valuedouble || !string(o,"volumeOwner",info->volume_owner,sizeof(info->volume_owner))) return false;
@@ -90,7 +112,7 @@ bool Layout_EngineeringWriteJson(const Layout* layout, cJSON* root) {
         if (!cJSON_AddItemToObject(o,"worldFrame",frame)) {cJSON_Delete(frame);return false;}
         if (!cJSON_AddStringToObject(o,"id",a->id)) return false;
     }
-    return Layout_FurnitureWriteJson(layout,engineering) && Layout_RelationshipsWriteJson(layout,engineering) && Layout_SpatialWriteJson(layout,engineering) && Layout_MotionWriteJson(layout,engineering) && Layout_RoutesWriteJson(layout,engineering) && Layout_SavedViewsWriteJson(layout,engineering);
+    return Layout_FurnitureWriteJson(layout,engineering) && Layout_RelationshipsWriteJson(layout,engineering) && Layout_SpatialWriteJson(layout,engineering) && Layout_MotionWriteJson(layout,engineering) && Layout_RoutesWriteJson(layout,engineering) && Layout_SavedViewsWriteJson(layout,engineering) && Layout_SceneCollectionsWriteJson(layout,engineering) && Layout_MeasurementsWriteJson(layout,engineering);
 }
 bool Layout_EngineeringReadJson(Layout* layout, const cJSON* root, bool required) {
     const cJSON* engineering=cJSON_GetObjectItemCaseSensitive(root,"engineering");

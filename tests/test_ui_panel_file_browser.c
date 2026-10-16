@@ -630,7 +630,7 @@ static bool test_stl_import_browser_imports_and_places_scene_asset_instance(void
     TEST_ASSERT(ld_test_nearly_equal(object->transform.position.x, 0.0f));
     TEST_ASSERT(ld_test_nearly_equal(object->transform.position.y, 0.0f));
     TEST_ASSERT(ld_test_nearly_equal(object->transform.position.z, 0.0f));
-    TEST_ASSERT(object->transform.scale.x > 1.0f);
+    TEST_ASSERT(ld_test_nearly_equal(object->transform.scale.x, 1.0f));
     TEST_ASSERT(ld_test_nearly_equal(object->transform.scale.x, object->transform.scale.y));
     TEST_ASSERT(ld_test_nearly_equal(object->transform.scale.x, object->transform.scale.z));
     TEST_ASSERT(Layout_MeshRuntimePreview_LoadStats(runtime_path,
@@ -921,6 +921,7 @@ static bool test_stl_import_auto_scales_and_preserves_scene_bounds(void) {
     bounds_min_before = state->layout.scene3d.bounds.min;
     bounds_max_before = state->layout.scene3d.bounds.max;
     TEST_ASSERT(Global_SetObjectAssetRoot(stl_root, false));
+    UIPanel_Get()->loadMenu.stlFitToScene = true;
     TEST_ASSERT(UIPanel_ImportStlAndPlaceFromPath(stl_path));
     TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(authoring_path));
     TEST_ASSERT(LineDrawingFileCatalog_PathIsRegularFile(runtime_path));

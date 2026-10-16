@@ -1,3 +1,4 @@
+#include "UI/shared_special.h"
 #include "UI/ui_panel_section.h"
 #include "UI/ui_panel_visual_style.h"
 #include "UI/ui_panel_summary_surface.h"
@@ -121,7 +122,7 @@ void UIPanel_RenderSection(SDL_Renderer* renderer) {
     LayoutSectionView* s = &state->sectionView;
     SDL_Rect body = ui->viewPane.workspaceRect;
     char heading[96];
-    snprintf(heading, sizeof(heading), "Section%s  %s", ui->sectionHelpOpen ? " - help" : " + help",
+    snprintf(heading, sizeof(heading), "Section%s  %s", ui->sectionInput==1 ? " Position" : ui->sectionInput==2 ? " Step" : ui->sectionHelpOpen ? " - help" : " + help",
              s->mode == LAYOUT_SECTION_OFF ? "" : (const char*[]){"YZ / X", "XZ / Y", "XY / Z"}[s->axis]);
     paint(renderer, rect_for(UI_SECTION_HELP), heading, true, ui->sectionHelpOpen, true);
     const char* names[] = {"Off", "Slice", "Cutaway", "Y", "X", "Z"};
@@ -151,8 +152,8 @@ void UIPanel_RenderSection(SDL_Renderer* renderer) {
     for (int a = UI_SECTION_POSITION; a <= UI_SECTION_STEP; ++a) {
         int field = a == UI_SECTION_POSITION ? 1 : 2;
         format_length(field == 1 ? s->position_meters : s->step_meters, value, sizeof(value));
-        snprintf(label, sizeof(label), "%s: %s%s", field == 1 ? "Position" : "Step",
-                 ui->sectionInput == field ? ui->sectionText : value, ui->sectionInput == field ? " |" : "");
+        if(ui->sectionInput==field)label[0]=0;
+        else snprintf(label,sizeof(label),"%s: %s",field==1?"Position":"Step",value);
         paint(renderer, rect_for(a), label, true, ui->sectionInput == field, true);
     }
     paint(renderer, rect_for(UI_SECTION_PREVIOUS), "Previous", true, false, range);
@@ -363,4 +364,11 @@ bool UIPanel_SectionEvent(const SDL_Event* event) {
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT)
         return UIPanel_SectionClick(event->button.x, event->button.y);
     return false;
+}
+
+bool LDInline_Section(LDInlineField* f) {UIPanelState* u=UIPanel_Get();if(!active() || !u->sectionInput)return false;*f=(LDInlineField){u->sectionText,sizeof(u->sectionText),&u->sectionReplace,rect_for(u->sectionInput==1?UI_SECTION_POSITION:UI_SECTION_STEP),NULL};return true;}
+
+void LDSpecial_Section(void) {
+    if(!active())return;const GlobalState* s=Global_Get();double lo,hi;bool range=Layout_SectionRange(&s->layout,s->sectionView.axis,&lo,&hi);SDL_Rect box,clip=UIPanel_Get()->rightBodyRect;
+    for(int a=UI_SECTION_OFF;a<=UI_SECTION_HELP;++a){bool enabled=a==UI_SECTION_PREVIOUS || a==UI_SECTION_NEXT?range:a==UI_SECTION_SELECTED?Layout_ObjectStore_FindConst(&s->layout.objectStore,s->editor.selectedObject3DId)!=NULL:true;if(a!=UI_SECTION_TRACK && UIPanel_SectionControlRect(a,&box))LDSpecial_Record(25,a,"section",box,&clip,enabled);}
 }

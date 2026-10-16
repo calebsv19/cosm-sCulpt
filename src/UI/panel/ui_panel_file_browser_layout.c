@@ -48,11 +48,12 @@ float UIPanel_LoadMenuContentHeight(const UIPanelState* ui) {
 
 SDL_Rect UIPanel_GetLoadMenuListClipRect(const UIPanelState* ui) {
     SDL_Rect rect = UIPanel_GetLoadMenuRect(ui);
+    const int options_h = ui && ui->loadMenu.mode == UI_LOAD_MENU_MODE_STL_IMPORT ? 80 : 0;
     SDL_Rect clip = {
         rect.x + UI_LOAD_MENU_PADDING_PX,
-        rect.y + UI_LOAD_MENU_HEADER_H,
+        rect.y + UI_LOAD_MENU_HEADER_H + options_h,
         rect.w - (UI_LOAD_MENU_PADDING_PX * 2) - UI_LOAD_MENU_SCROLLBAR_W - UI_LOAD_MENU_GUTTER_PX,
-        rect.h - UI_LOAD_MENU_HEADER_H - UI_LOAD_MENU_FOOTER_H
+        rect.h - UI_LOAD_MENU_HEADER_H - UI_LOAD_MENU_FOOTER_H - options_h
     };
     if (clip.w < 0) clip.w = 0;
     if (clip.h < 0) clip.h = 0;

@@ -530,9 +530,9 @@ static bool test_measure_pane_tabs_scroll_focus(void) {
     TEST_ASSERT(UIPanel_RightScrollOffset(ui)>0);
     TEST_ASSERT(click_measure(MEASURE_PICK_B) && ui->measurement.picking);
     SDL_Rect tab=ui->rightTabs[UI_PANEL_RIGHT_TAB_CREATE].bounds;
-    e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;e.button.x=tab.x+tab.w/2;e.button.y=tab.y+tab.h/2;Input_Handle(&ctx,&e);
+    e.type=SDL_MOUSEBUTTONDOWN;e.button.button=SDL_BUTTON_LEFT;e.button.x=tab.x+tab.w/2;e.button.y=tab.y+tab.h/2;e.type=SDL_MOUSEBUTTONDOWN;Input_Handle(&ctx,&e);e.type=SDL_MOUSEBUTTONUP;Input_Handle(&ctx,&e);
     TEST_ASSERT(ui->activeRightTab==UI_PANEL_RIGHT_TAB_CREATE && !ui->measurement.active && !ui->measurement.picking);
-    tab=ui->rightTabs[UI_PANEL_RIGHT_TAB_MEASURE].bounds;e.button.x=tab.x+tab.w/2;e.button.y=tab.y+tab.h/2;Input_Handle(&ctx,&e);
+    tab=ui->rightTabs[UI_PANEL_RIGHT_TAB_MEASURE].bounds;e.button.x=tab.x+tab.w/2;e.button.y=tab.y+tab.h/2;e.type=SDL_MOUSEBUTTONDOWN;Input_Handle(&ctx,&e);e.type=SDL_MOUSEBUTTONUP;Input_Handle(&ctx,&e);
     TEST_ASSERT(ui->activeRightTab==UI_PANEL_RIGHT_TAB_MEASURE && ui->measurement.active);
     TEST_ASSERT(!memcmp(&a,&ui->measurement.refs[0],sizeof(a)));
     TEST_ASSERT(Editor_UndoCount(&s->editor)==undo);

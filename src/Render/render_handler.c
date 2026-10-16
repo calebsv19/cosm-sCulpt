@@ -1,4 +1,5 @@
 #include "render_handler.h"
+#include "UI/shared_controls.h"
 #include "Editor/viewport_gizmo.h"
 #include "Core/global_state.h"
 #include "Core/space_mode_adapter.h"
@@ -8,6 +9,7 @@
 #include "UI/object_workspace_viewport_hud.h"
 #include "UI/shared_theme_font_adapter.h"
 #include "UI/topbar/line_drawing_editor_topbar.h"
+#include "UI/topbar/line_drawing_view_controls.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_overlay.h"
 
 #include "Layout/Grid/render_grid.h"
@@ -426,8 +428,10 @@ void Render_SubmitFrame(AppContext* ctx,
                             chrome_border);
     RenderPaneSplitterHandle(ctx->renderer, derive_frame->state, chrome_border);
 
-    UIPanel_RenderOverlays(ctx->renderer);
     LineDrawingObjectWorkspaceViewportHud_Render(ctx->renderer, derive_frame->state);
+    LDViewControls_RenderPopup(ctx->renderer);
+    LDControls_EditorDraw(ctx->renderer);
+    UIPanel_RenderOverlays(ctx->renderer);
     LineDrawingWorkspaceAuthoringOverlay_Draw(ctx->renderer, derive_frame->state);
     LogDrawCallDelta("UI panel", should_log, vk, &before_draws);
 

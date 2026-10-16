@@ -1,4 +1,5 @@
 #include "Menu/line_drawing_host_menu_render_internal.h"
+#include "UI/shared_controls.h"
 
 #include "Core/global_state.h"
 #include "UI/font_manager.h"
@@ -790,4 +791,5 @@ void LineDrawingHostMenu_Render(LineDrawingHostMenuState* state, AppContext* ctx
                                                  layout.output_root_rect.w,
                                                  text_color);
     }
+    if (LineDrawingHostMenu_CollectControls(state)) LDControls_Draw(ctx->renderer,LDControls_Menu());
 }

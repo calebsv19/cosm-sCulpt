@@ -69,7 +69,9 @@ bool CameraPathExport_Run(AppContext *app,const AppCallbacks *cb,const char *man
     if(!path || !path->key_count)goto done;
     s->layout.sceneAuthoring.selected_kind=LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH;
     s->layout.sceneAuthoring.selected_index=(size_t)(path-s->layout.sceneAuthoring.paths);
-    s->previewMode=LINE_DRAWING_PREVIEW_MODE_MATERIAL;s->inspectionView=true;
+    const char *clean=getenv("LINE_DRAWING_CAMERA_EXPORT_CLEAN");
+    s->cameraExportClean=clean && !strcmp(clean,"1");
+    s->previewMode=LINE_DRAWING_PREVIEW_MODE_MATERIAL;s->inspectionView=!s->cameraExportClean;
     if(!CameraPath_ViewPoint(s,0) || mkdir(root,0700))goto done;
     for(int i=0;i<3;++i) {
         cb->handleUpdate(app);

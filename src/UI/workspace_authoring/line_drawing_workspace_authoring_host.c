@@ -1,3 +1,4 @@
+#include "UI/shared_overlay.h"
 #include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
 
 #include <string.h>
@@ -86,10 +87,7 @@ static int line_drawing_authoring_hit_interactive_ui(const GlobalState* state,
 
     if (LineDrawingWorkspaceAuthoringHost_FontThemeOverlayActive(state)) {
         KitWorkspaceAuthoringFontThemeLayout layout = {0};
-        if (kit_workspace_authoring_ui_font_theme_build_layout(NULL,
-                                                               state->screenWidth,
-                                                               state->screenHeight,
-                                                               &layout)) {
+        if (LDOverlay_FontThemeLayout(state,&layout)) {
             if (line_drawing_authoring_point_in_kit_rect(layout.panel, x, y)) {
                 return 1;
             }
@@ -271,6 +269,7 @@ static int line_drawing_authoring_apply_font_theme_button(
 }
 
 void LineDrawingWorkspaceAuthoringHost_Reset(LineDrawingWorkspaceAuthoringHostState* host) {
+    LDOverlay_Cancel();
     if (!host) return;
     memset(host, 0, sizeof(*host));
     host->overlay_mode = LINE_DRAWING_WORKSPACE_AUTHORING_OVERLAY_PANE;
@@ -354,6 +353,7 @@ CoreResult LineDrawingWorkspaceAuthoringHost_CycleOverlay(GlobalState* state) {
         return core_result_ok();
     }
 
+    LDOverlay_Cancel();
     state->workspaceAuthoring.overlay_mode =
         (state->workspaceAuthoring.overlay_mode ==
          LINE_DRAWING_WORKSPACE_AUTHORING_OVERLAY_PANE)
@@ -376,6 +376,11 @@ int LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(GlobalState* state, const S
     state->workspaceAuthoring.last_event_entered = 0u;
     state->workspaceAuthoring.last_event_exited = 0u;
 
+    if(LDOverlay_AuthoringEvent(state,event)) {line_drawing_authoring_note_consumed(state);return 1;}
+    if(event->type==SDL_MOUSEBUTTONDOWN && LineDrawingWorkspaceAuthoringHost_Active(state)) {
+        if(event->button.button!=SDL_BUTTON_LEFT){line_drawing_authoring_note_consumed(state);return 1;}
+        return 0; /* Unclaimed pointers remain pane-authoring gestures. */
+    }
     if (event->type == SDL_MOUSEMOTION) {
         if (LineDrawingWorkspaceAuthoringHost_Active(state)) {
             state->workspaceAuthoring.last_pointer_x = event->motion.x;
@@ -392,68 +397,6 @@ int LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(GlobalState* state, const S
         return 0;
     }
 
-    if (event->type == SDL_MOUSEBUTTONDOWN) {
-        if (LineDrawingWorkspaceAuthoringHost_Active(state)) {
-            KitWorkspaceAuthoringOverlayButton buttons[4];
-            KitWorkspaceAuthoringOverlayButtonId hit;
-            uint32_t count = 0u;
-            state->workspaceAuthoring.last_pointer_x = event->button.x;
-            state->workspaceAuthoring.last_pointer_y = event->button.y;
-            state->workspaceAuthoring.last_pointer_ready = 1u;
-            if (event->button.button != SDL_BUTTON_LEFT) {
-                line_drawing_authoring_note_consumed(state);
-                return 1;
-            }
-            if (!line_drawing_authoring_hit_interactive_ui(state,
-                                                           (float)event->button.x,
-                                                           (float)event->button.y)) {
-                return 0;
-            }
-            count = kit_workspace_authoring_ui_build_overlay_buttons(
-                state->screenWidth,
-                1,
-                LineDrawingWorkspaceAuthoringHost_PaneOverlayActive(state),
-                buttons,
-                4u);
-            hit = kit_workspace_authoring_ui_overlay_hit_test(buttons,
-                                                             count,
-                                                             (float)event->button.x,
-                                                             (float)event->button.y);
-            if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_MODE) {
-                (void)LineDrawingWorkspaceAuthoringHost_CycleOverlay(state);
-                state->workspaceAuthoring.overlay_button_click_count += 1u;
-            } else if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_APPLY) {
-                (void)LineDrawingWorkspaceAuthoringHost_Apply(state);
-                state->workspaceAuthoring.overlay_button_click_count += 1u;
-            } else if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_CANCEL) {
-                (void)LineDrawingWorkspaceAuthoringHost_Cancel(state);
-                state->workspaceAuthoring.overlay_button_click_count += 1u;
-            } else if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_ADD) {
-                state->workspaceAuthoring.overlay_button_click_count += 1u;
-            }
-            if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_NONE &&
-                LineDrawingWorkspaceAuthoringHost_FontThemeOverlayActive(state)) {
-                KitWorkspaceAuthoringFontThemeLayout layout = {0};
-                KitWorkspaceAuthoringFontThemeButtonId font_hit =
-                    KIT_WORKSPACE_AUTHORING_FONT_THEME_BUTTON_NONE;
-                if (kit_workspace_authoring_ui_font_theme_build_layout(NULL,
-                                                                       state->screenWidth,
-                                                                       state->screenHeight,
-                                                                       &layout)) {
-                    font_hit = kit_workspace_authoring_ui_font_theme_hit_button(
-                        &layout,
-                        (float)event->button.x,
-                        (float)event->button.y);
-                    if (line_drawing_authoring_apply_font_theme_button(state, font_hit)) {
-                        Global_RefreshPaneLayout(NULL);
-                    }
-                }
-            }
-            line_drawing_authoring_note_consumed(state);
-            return 1;
-        }
-        return 0;
-    }
 
     if (event->type != SDL_KEYDOWN && event->type != SDL_KEYUP) {
         return 0;
@@ -528,11 +471,13 @@ int LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(GlobalState* state, const S
     }
 
     if (key == KIT_WORKSPACE_AUTHORING_KEY_ESCAPE) {
+        LDOverlay_Cancel();
         (void)LineDrawingWorkspaceAuthoringHost_Cancel(state);
         line_drawing_authoring_note_consumed(state);
         return 1;
     }
     if (key == KIT_WORKSPACE_AUTHORING_KEY_ENTER) {
+        LDOverlay_Cancel();
         (void)LineDrawingWorkspaceAuthoringHost_Apply(state);
         line_drawing_authoring_note_consumed(state);
         return 1;
@@ -551,4 +496,57 @@ int LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(GlobalState* state, const S
 
     line_drawing_authoring_note_consumed(state);
     return 1;
+}
+
+bool LineDrawingWorkspaceAuthoringHost_Click(GlobalState* state,int mouse_x,int mouse_y) {
+    if(!state || !LineDrawingWorkspaceAuthoringHost_Active(state))return false;
+            KitWorkspaceAuthoringOverlayButton buttons[4];
+            KitWorkspaceAuthoringOverlayButtonId hit;
+            uint32_t count = 0u;
+            state->workspaceAuthoring.last_pointer_x = mouse_x;
+            state->workspaceAuthoring.last_pointer_y = mouse_y;
+            state->workspaceAuthoring.last_pointer_ready = 1u;
+            if (!line_drawing_authoring_hit_interactive_ui(state,
+                                                           (float)mouse_x,
+                                                           (float)mouse_y)) {
+                return 0;
+            }
+            count = kit_workspace_authoring_ui_build_overlay_buttons(
+                state->screenWidth,
+                1,
+                LineDrawingWorkspaceAuthoringHost_PaneOverlayActive(state),
+                buttons,
+                4u);
+            hit = kit_workspace_authoring_ui_overlay_hit_test(buttons,
+                                                             count,
+                                                             (float)mouse_x,
+                                                             (float)mouse_y);
+            if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_MODE) {
+                (void)LineDrawingWorkspaceAuthoringHost_CycleOverlay(state);
+                state->workspaceAuthoring.overlay_button_click_count += 1u;
+            } else if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_APPLY) {
+                (void)LineDrawingWorkspaceAuthoringHost_Apply(state);
+                state->workspaceAuthoring.overlay_button_click_count += 1u;
+            } else if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_CANCEL) {
+                (void)LineDrawingWorkspaceAuthoringHost_Cancel(state);
+                state->workspaceAuthoring.overlay_button_click_count += 1u;
+            } else if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_ADD) {
+                state->workspaceAuthoring.overlay_button_click_count += 1u;
+            }
+            if (hit == KIT_WORKSPACE_AUTHORING_OVERLAY_BUTTON_NONE &&
+                LineDrawingWorkspaceAuthoringHost_FontThemeOverlayActive(state)) {
+                KitWorkspaceAuthoringFontThemeLayout layout = {0};
+                KitWorkspaceAuthoringFontThemeButtonId font_hit =
+                    KIT_WORKSPACE_AUTHORING_FONT_THEME_BUTTON_NONE;
+                if (LDOverlay_FontThemeLayout(state,&layout)) {
+                    font_hit = kit_workspace_authoring_ui_font_theme_hit_button(
+                        &layout,
+                        (float)mouse_x,
+                        (float)mouse_y);
+                    if (line_drawing_authoring_apply_font_theme_button(state, font_hit)) {
+                        Global_RefreshPaneLayout(NULL);
+                    }
+                }
+            }
+    line_drawing_authoring_note_consumed(state);return true;
 }

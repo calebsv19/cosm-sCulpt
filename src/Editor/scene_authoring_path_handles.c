@@ -107,7 +107,7 @@ static bool SceneAuthoringPathHandles_SelectedLightIndex(const LineDrawingSceneA
 
 bool SceneAuthoringPathHandles_ShouldShow(const GlobalState* state) {
     const LineDrawingSceneAuthoringState* authoring = NULL;
-    if (!state || state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT) return false;
+    if (!state || !state->authoringGuides || state->cameraView.active || state->workspaceMode == LINE_DRAWING_WORKSPACE_MODE_OBJECT) return false;
     authoring = &state->layout.sceneAuthoring;
     if (authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH) {
         return authoring->selected_kind == LINE_DRAWING_SCENE_AUTHORING_SELECTION_PATH &&
@@ -1073,54 +1073,21 @@ static void SceneAuthoringPathHandles_DrawCamera(SDL_Renderer* renderer,
                                                  int active_axis) {
     LineDrawingSceneCameraPose pose = {0};
     LineDrawingScenePathGeometry geometry = {0};
-    Vec3 right;
-    Vec3 body_right;
-    Vec3 body_up;
-    Vec3 near_center;
-    Vec3 far_center;
-    Vec3 near_corners[4];
-    Vec3 far_corners[4];
+    Vec3 near_corners[4],far_corners[4];
     const float aspect = state->cameraView.viewport[3]>0 ? state->cameraView.viewport[2]/state->cameraView.viewport[3] : 16.f/9;
-    float half_angle;
-    float near_height;
-    float far_height;
     const SDL_Color camera_color = {110, 225, 255, 245};
     const SDL_Color frustum_color = {95, 175, 230, 220};
     if (!renderer || !state || !view_ctx || !path || !camera ||
         !Layout_SceneCamera_EvaluatePoseAtNormalizedDistance(
             camera, path, path->normalized_distance, &pose)) return;
-    right = Vec3_Normalize(Vec3_Cross(pose.forward, pose.up));
-    body_right = Vec3_Scale(right, 0.42f);
-    body_up = Vec3_Scale(pose.up, 0.28f);
-    SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
-        Vec3_Add(pose.position, Vec3_Add(body_right, body_up)),
-        Vec3_Add(pose.position, Vec3_Sub(body_right, body_up)), camera_color);
-    SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
-        Vec3_Sub(pose.position, Vec3_Add(body_right, body_up)),
-        Vec3_Add(pose.position, Vec3_Sub(body_right, body_up)), camera_color);
-    SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
-        Vec3_Sub(pose.position, Vec3_Add(body_right, body_up)),
-        Vec3_Add(pose.position, Vec3_Sub(body_up, body_right)), camera_color);
-    SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
-        Vec3_Add(pose.position, Vec3_Add(body_right, body_up)),
-        Vec3_Add(pose.position, Vec3_Sub(body_up, body_right)), camera_color);
-
+    Vec2 icon=SceneAuthoringPathHandles_WorldToScreen(state,pose.position,view_ctx);
+    SDL_SetRenderDrawColor(renderer,camera_color.r,camera_color.g,camera_color.b,camera_color.a);
+    SceneAuthoringPathHandles_DrawSquareMarker(renderer,(int)icon.x,(int)icon.y,5,false);
     float fov=camera->vertical_fov_degrees;
     if(path->key_count) (void)CameraPoses_DistanceSample(path,path->normalized_distance,&pose,&fov);
-    half_angle = fov * 0.00872664625997164788f;
-    near_center = Vec3_Add(pose.position, Vec3_Scale(pose.forward, 1.0f));
-    far_center = Vec3_Add(pose.position, Vec3_Scale(pose.forward, 4.0f));
-    near_height = tanf(half_angle);
-    far_height = near_height * 4.0f;
-    for (int i = 0; i < 4; ++i) {
-        const float sx = (i == 0 || i == 3) ? -1.0f : 1.0f;
-        const float sy = i < 2 ? -1.0f : 1.0f;
-        near_corners[i] = Vec3_Add(near_center,
-            Vec3_Add(Vec3_Scale(right, sx * near_height * aspect),
-                     Vec3_Scale(pose.up, sy * near_height)));
-        far_corners[i] = Vec3_Add(far_center,
-            Vec3_Add(Vec3_Scale(right, sx * far_height * aspect),
-                     Vec3_Scale(pose.up, sy * far_height)));
+    if(!SceneAuthoringCameraGuide_Corners(&pose,fov,aspect,near_corners,far_corners))return;
+    /* Construct every corner before reading the next endpoint. */
+    for(int i=0;i<4;++i) {
         SceneAuthoringPathHandles_DrawCameraLine(renderer, state, view_ctx,
                                                   pose.position, far_corners[i],
                                                   frustum_color);
@@ -1279,6 +1246,13 @@ void Render_Editor_SceneAuthoringPathHandles(EditorState* editor, AppContext* ct
     int hovered_axis = -1;
     int active_axis = -1;
     if (!ctx || !ctx->renderer || !SceneAuthoringPathHandles_ShouldShow(state)) return;
+    SDL_Rect old_clip;bool had_clip=SDL_RenderIsClipEnabled(ctx->renderer);
+    SDL_RenderGetClipRect(ctx->renderer,&old_clip);
+    CorePaneRect viewport;
+    if(!LineDrawingPaneHost_GetViewportRect(&state->paneHost,&viewport))return;
+    SDL_Rect clip={(int)viewport.x,(int)viewport.y,(int)viewport.width,(int)viewport.height};
+    if(had_clip) {SDL_Rect intersection;if(!SDL_IntersectRect(&clip,&old_clip,&intersection))return;clip=intersection;}
+    SDL_RenderSetClipRect(ctx->renderer,&clip);
     authoring = &state->layout.sceneAuthoring;
     viewCtx = SpaceAdapter_BuildViewContext(state);
     if (editor && editor->hoveredSceneAuthoringGizmoPart == SCENE_AUTHORING_GIZMO_PART_AXIS) {
@@ -1392,4 +1366,5 @@ void Render_Editor_SceneAuthoringPathHandles(EditorState* editor, AppContext* ct
                           SCENE_AUTHORING_PATH_HANDLE_LIGHT_AIM,
             hovered_axis, active_axis);
     }
+    SDL_RenderSetClipRect(ctx->renderer,had_clip?&old_clip:NULL);
 }
