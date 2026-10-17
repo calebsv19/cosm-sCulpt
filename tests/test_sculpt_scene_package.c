@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 static bool test_scene_package_resolves_descriptor_directory_and_authoring(void) {
-    char temp_template[] = "/tmp/ld_scene_package_XXXXXX";
+    char temp_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(temp_template, sizeof(temp_template), "ld_scene_package_XXXXXX"));
     char* root = ld_test_artifact_make_temp_dir(temp_template);
     char scene_dir[PATH_MAX];
     char authoring_path[PATH_MAX];
@@ -56,7 +56,7 @@ static bool test_scene_package_resolves_descriptor_directory_and_authoring(void)
 }
 
 static bool test_scene_package_keeps_loose_layout_and_runtime_inputs_distinct(void) {
-    char temp_template[] = "/tmp/ld_scene_input_kind_XXXXXX";
+    char temp_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(temp_template, sizeof(temp_template), "ld_scene_input_kind_XXXXXX"));
     char* root = ld_test_artifact_make_temp_dir(temp_template);
     char loose_layout[PATH_MAX];
     char scene_dir[PATH_MAX];
@@ -99,7 +99,7 @@ static bool test_scene_package_keeps_loose_layout_and_runtime_inputs_distinct(vo
 }
 
 static bool test_scene_package_rejects_unsafe_or_unsupported_descriptor(void) {
-    char temp_template[] = "/tmp/ld_scene_package_invalid_XXXXXX";
+    char temp_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(temp_template, sizeof(temp_template), "ld_scene_package_invalid_XXXXXX"));
     char* root = ld_test_artifact_make_temp_dir(temp_template);
     char authoring_path[PATH_MAX];
     char descriptor_path[PATH_MAX];

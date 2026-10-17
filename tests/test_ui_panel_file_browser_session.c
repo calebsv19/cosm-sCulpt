@@ -40,7 +40,7 @@ static bool test_file_browser_restore_reopens_last_layout_for_json_mode(void) {
     char alpha_path[LINE_DRAWING_PATH_CAP];
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_restore_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(temp_root, sizeof(temp_root), "ld_file_browser_restore_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
 
@@ -78,7 +78,7 @@ static bool test_file_browser_remembers_last_browsed_entry_without_session_resto
     int beta_index = -1;
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_remember_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(temp_root, sizeof(temp_root), "ld_file_browser_remember_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
     snprintf(beta_path, sizeof(beta_path), "%s/beta.json", temp_root);
@@ -120,8 +120,8 @@ static bool test_file_browser_root_switch_clears_unmatched_highlight(void) {
     const char* selection_path = NULL;
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(root_a, sizeof(root_a), "/tmp/ld_file_browser_root_a_%u", (unsigned)SDL_GetTicks());
-    snprintf(root_b, sizeof(root_b), "/tmp/ld_file_browser_root_b_%u", (unsigned)SDL_GetTicks() + 1u);
+    TEST_ASSERT(ld_test_artifact_temp_path(root_a, sizeof(root_a), "ld_file_browser_root_a_%u", (unsigned)SDL_GetTicks()));
+    TEST_ASSERT(ld_test_artifact_temp_path(root_b, sizeof(root_b), "ld_file_browser_root_b_%u", (unsigned)SDL_GetTicks() + 1u));
     TEST_ASSERT(mkdir(root_a, 0755) == 0 || errno == EEXIST);
     TEST_ASSERT(mkdir(root_b, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", root_a);
@@ -161,8 +161,8 @@ static bool test_file_browser_mode_specific_roots_restore_on_activation(void) {
     char scene_dir[LINE_DRAWING_PATH_CAP];
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(json_root, sizeof(json_root), "/tmp/ld_file_browser_json_root_%u", (unsigned)SDL_GetTicks());
-    snprintf(scene_root, sizeof(scene_root), "/tmp/ld_file_browser_scene_root_%u", (unsigned)SDL_GetTicks() + 1u);
+    TEST_ASSERT(ld_test_artifact_temp_path(json_root, sizeof(json_root), "ld_file_browser_json_root_%u", (unsigned)SDL_GetTicks()));
+    TEST_ASSERT(ld_test_artifact_temp_path(scene_root, sizeof(scene_root), "ld_file_browser_scene_root_%u", (unsigned)SDL_GetTicks() + 1u));
     TEST_ASSERT(mkdir(json_root, 0755) == 0 || errno == EEXIST);
     TEST_ASSERT(mkdir(scene_root, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", json_root);
@@ -221,8 +221,8 @@ static bool test_session_input_root_change_does_not_override_mode_browser_root(v
     char beta_path[LINE_DRAWING_PATH_CAP];
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(json_root, sizeof(json_root), "/tmp/ld_file_browser_mode_root_%u", (unsigned)SDL_GetTicks());
-    snprintf(session_root, sizeof(session_root), "/tmp/ld_file_browser_session_root_%u", (unsigned)SDL_GetTicks() + 1u);
+    TEST_ASSERT(ld_test_artifact_temp_path(json_root, sizeof(json_root), "ld_file_browser_mode_root_%u", (unsigned)SDL_GetTicks()));
+    TEST_ASSERT(ld_test_artifact_temp_path(session_root, sizeof(session_root), "ld_file_browser_session_root_%u", (unsigned)SDL_GetTicks() + 1u));
     TEST_ASSERT(mkdir(json_root, 0755) == 0 || errno == EEXIST);
     TEST_ASSERT(mkdir(session_root, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", json_root);
@@ -262,8 +262,8 @@ static bool test_session_input_root_change_preserves_loaded_layout_identity(void
     char alpha_path[LINE_DRAWING_PATH_CAP];
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(layout_root, sizeof(layout_root), "/tmp/ld_input_root_identity_a_%u", (unsigned)SDL_GetTicks());
-    snprintf(session_root, sizeof(session_root), "/tmp/ld_input_root_identity_b_%u", (unsigned)SDL_GetTicks() + 1u);
+    TEST_ASSERT(ld_test_artifact_temp_path(layout_root, sizeof(layout_root), "ld_input_root_identity_a_%u", (unsigned)SDL_GetTicks()));
+    TEST_ASSERT(ld_test_artifact_temp_path(session_root, sizeof(session_root), "ld_input_root_identity_b_%u", (unsigned)SDL_GetTicks() + 1u));
     TEST_ASSERT(mkdir(layout_root, 0755) == 0 || errno == EEXIST);
     TEST_ASSERT(mkdir(session_root, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", layout_root);
@@ -296,8 +296,8 @@ static bool test_session_input_root_change_updates_default_layout_path_before_lo
     char expected_default_path[LINE_DRAWING_PATH_CAP];
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(root_a, sizeof(root_a), "/tmp/ld_input_root_default_a_%u", (unsigned)SDL_GetTicks());
-    snprintf(root_b, sizeof(root_b), "/tmp/ld_input_root_default_b_%u", (unsigned)SDL_GetTicks() + 1u);
+    TEST_ASSERT(ld_test_artifact_temp_path(root_a, sizeof(root_a), "ld_input_root_default_a_%u", (unsigned)SDL_GetTicks()));
+    TEST_ASSERT(ld_test_artifact_temp_path(root_b, sizeof(root_b), "ld_input_root_default_b_%u", (unsigned)SDL_GetTicks() + 1u));
     TEST_ASSERT(mkdir(root_a, 0755) == 0 || errno == EEXIST);
     TEST_ASSERT(mkdir(root_b, 0755) == 0 || errno == EEXIST);
 
@@ -328,7 +328,7 @@ static bool test_file_browser_status_text_marks_active_session_row(void) {
     int alpha_index = -1;
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_status_active_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(temp_root, sizeof(temp_root), "ld_file_browser_status_active_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
 
@@ -366,7 +366,7 @@ static bool test_file_browser_status_text_marks_remembered_fallback_row(void) {
     int alpha_index = -1;
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_status_remembered_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(temp_root, sizeof(temp_root), "ld_file_browser_status_remembered_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
 
@@ -410,8 +410,8 @@ static bool test_file_browser_status_text_marks_unmatched_root_state(void) {
     int gamma_index = -1;
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(root_a, sizeof(root_a), "/tmp/ld_file_browser_status_unmatched_a_%u", (unsigned)SDL_GetTicks());
-    snprintf(root_b, sizeof(root_b), "/tmp/ld_file_browser_status_unmatched_b_%u", (unsigned)SDL_GetTicks() + 1u);
+    TEST_ASSERT(ld_test_artifact_temp_path(root_a, sizeof(root_a), "ld_file_browser_status_unmatched_a_%u", (unsigned)SDL_GetTicks()));
+    TEST_ASSERT(ld_test_artifact_temp_path(root_b, sizeof(root_b), "ld_file_browser_status_unmatched_b_%u", (unsigned)SDL_GetTicks() + 1u));
     TEST_ASSERT(mkdir(root_a, 0755) == 0 || errno == EEXIST);
     TEST_ASSERT(mkdir(root_b, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", root_a);
@@ -457,8 +457,8 @@ static bool test_file_browser_use_active_realigns_browser_root_and_highlight(voi
     const char* selection_path = NULL;
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(root_a, sizeof(root_a), "/tmp/ld_file_browser_use_active_a_%u", (unsigned)SDL_GetTicks());
-    snprintf(root_b, sizeof(root_b), "/tmp/ld_file_browser_use_active_b_%u", (unsigned)SDL_GetTicks() + 1u);
+    TEST_ASSERT(ld_test_artifact_temp_path(root_a, sizeof(root_a), "ld_file_browser_use_active_a_%u", (unsigned)SDL_GetTicks()));
+    TEST_ASSERT(ld_test_artifact_temp_path(root_b, sizeof(root_b), "ld_file_browser_use_active_b_%u", (unsigned)SDL_GetTicks() + 1u));
     TEST_ASSERT(mkdir(root_a, 0755) == 0 || errno == EEXIST);
     TEST_ASSERT(mkdir(root_b, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", root_a);
@@ -504,7 +504,7 @@ static bool test_file_browser_clear_last_removes_remembered_fallback(void) {
     const char* selection_path = NULL;
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_clear_last_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(temp_root, sizeof(temp_root), "ld_file_browser_clear_last_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", temp_root);
     snprintf(beta_path, sizeof(beta_path), "%s/beta.json", temp_root);
@@ -551,7 +551,7 @@ static bool test_file_browser_restore_summary_reports_active_and_remembered_json
     int alpha_index = -1;
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(root, sizeof(root), "/tmp/ld_file_browser_restore_summary_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "ld_file_browser_restore_summary_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(root, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", root);
 
@@ -594,7 +594,7 @@ static bool test_file_browser_restore_summary_reports_stale_remembered_entry(voi
     char stale_path[LINE_DRAWING_PATH_CAP];
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(root, sizeof(root), "/tmp/ld_file_browser_restore_stale_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "ld_file_browser_restore_stale_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(root, 0755) == 0 || errno == EEXIST);
     snprintf(alpha_path, sizeof(alpha_path), "%s/alpha.json", root);
     snprintf(stale_path, sizeof(stale_path), "%s/missing.json", root);
@@ -638,7 +638,7 @@ static bool test_failed_file_open_preserves_document_and_history(void) {
     snprintf(current_path, sizeof(current_path), "%s", Global_GetCurrentConfigPath());
     state->editor.selectedAnchorIndex = 0;
     size_t undo_count = Editor_UndoCount(&state->editor);
-    char malformed_template[] = "/tmp/ld_continuity_bad_XXXXXX";
+    char malformed_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(malformed_template, sizeof(malformed_template), "ld_continuity_bad_XXXXXX"));
     int malformed_fd = mkstemp(malformed_template);
     TEST_ASSERT(malformed_fd >= 0 && write(malformed_fd, "{invalid", 8) == 8);
     close(malformed_fd);

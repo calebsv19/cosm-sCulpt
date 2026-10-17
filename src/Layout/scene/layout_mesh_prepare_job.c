@@ -32,10 +32,10 @@ static bool canceled(LayoutMeshPrepareJob* j) {return atomic_load(&j->canceled);
 static void* prepare(void* data) {
     LayoutMeshPrepareJob* j=data;CoreTimeNs start=core_time_now_ns();
     j->delta.background_jobs=1;j->delta.ui_decode_calls=pthread_equal(owner_thread,pthread_self())?1:0;
-    char key[1024],verified[1024],input[128]={0},checked[128]={0};bool keyed=false,loaded=false;struct stat stamp;size_t result_bytes=0;
+    char key[1024],verified[1024];char *input=NULL,*checked=NULL;bool keyed=false,loaded=false;struct stat stamp;size_t result_bytes=0;
     if(canceled(j) || stat(j->path,&j->stamp) || !S_ISREG(j->stamp.st_mode))goto complete;
     if(j->stamp.st_size>SOURCE_LIMIT) {j->delta.oversized_sources=1;goto complete;}
-    if(!Layout_MeshSourceSnapshot(j->path,&j->stamp,&j->canceled,input))goto complete;
+    if(!Layout_MeshSourceSnapshot(j->path,&j->stamp,&j->canceled,&input))goto complete;
     keyed=Layout_MeshPreparedStoreKey(input,key);
     if(canceled(j))goto complete;
     j->valid=keyed && Layout_MeshPreparedStoreLoad(key,j->levels);
@@ -57,12 +57,12 @@ static void* prepare(void* data) {
     }
     for(int i=0;i<4;++i)result_bytes+=bytes(&j->levels[i]);
     if(canceled(j) || stat(j->path,&stamp) || !Layout_MeshSourceStampSame(&j->stamp,&stamp) ||
-       (keyed && (!Layout_MeshSourceSnapshot(j->path,&j->stamp,&j->canceled,checked) || !Layout_MeshPreparedStoreKey(checked,verified) || strcmp(key,verified))) ||
+       (keyed && (!Layout_MeshSourceSnapshot(j->path,&j->stamp,&j->canceled,&checked) || !Layout_MeshPreparedStoreKey(checked,verified) || strcmp(key,verified))) ||
        result_bytes>RESULT_LIMIT)j->valid=false;
     if(j->valid && keyed && !loaded && !canceled(j) && Layout_MeshPreparedStoreSave(key,j->levels))j->delta.prepared_writes=1;
 complete:
-    if(input[0])unlink(input);
-    if(checked[0])unlink(checked);
+    if(input){unlink(input);free(input);}
+    if(checked){unlink(checked);free(checked);}
     if(canceled(j))j->valid=false;
     if(!j->valid) {for(int i=0;i<4;++i)core_mesh_preview_lod_mesh_free(&j->levels[i]);}
     j->delta.load_ns=core_time_diff_ns(core_time_now_ns(),start);

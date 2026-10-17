@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "test_layout_internal.h"
 
 #include "Core/scene_document_lifecycle.h"
@@ -31,8 +32,8 @@ static bool lifecycle_write_fixture(const char* root, LineDrawingSceneExportPath
 }
 
 static bool test_scene_document_open_save_save_as_export_reopen(void) {
-    char source_root_template[] = "/tmp/ld_document_source_XXXXXX";
-    char output_root_template[] = "/tmp/ld_document_output_XXXXXX";
+    char source_root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(source_root_template, sizeof(source_root_template), "ld_document_source_XXXXXX"));
+    char output_root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(output_root_template, sizeof(output_root_template), "ld_document_output_XXXXXX"));
     char* source_root = mkdtemp(source_root_template);
     char* output_root = mkdtemp(output_root_template);
     LineDrawingSceneExportPaths source_paths;
@@ -156,7 +157,7 @@ static bool test_scene_document_open_save_save_as_export_reopen(void) {
 }
 
 static bool test_scene_document_save_as_rejects_unsafe_or_existing_destination(void) {
-    char root_template[] = "/tmp/ld_document_paths_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_document_paths_XXXXXX"));
     char* root = mkdtemp(root_template);
     LineDrawingSceneExportPaths source_paths;
     char scene_dir[512];
@@ -178,7 +179,7 @@ static bool test_scene_document_save_as_rejects_unsafe_or_existing_destination(v
 }
 
 static bool test_scene_document_runtime_status_tracks_missing_current_and_stale(void) {
-    char root_template[] = "/tmp/ld_document_runtime_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_document_runtime_XXXXXX"));
     char* root = mkdtemp(root_template);
     LineDrawingSceneExportPaths paths;
     struct timeval runtime_times[2] = {{100, 0}, {100, 0}};

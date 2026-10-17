@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "test_framework.h"
 
 #include "Layout/layout.h"
@@ -97,7 +98,7 @@ static bool json_string_equals(const cJSON* object, const char* key, const char*
 }
 
 static bool test_scene_export_emits_authoring_and_runtime_files(void) {
-    char root_template[] = "/tmp/ld_scene_export_basic_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_export_basic_XXXXXX"));
     char* root = NULL;
     Layout layout;
     LineDrawingSceneExportPaths export_paths;
@@ -166,7 +167,7 @@ static bool test_scene_export_emits_authoring_and_runtime_files(void) {
 }
 
 static bool test_scene_export_uses_parent_scene_name_for_authoring_hint(void) {
-    char root_template[] = "/tmp/ld_scene_export_parent_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_export_parent_XXXXXX"));
     char* root = NULL;
     char layout_path_hint[512];
     Layout layout;
@@ -211,7 +212,7 @@ static bool test_scene_export_uses_parent_scene_name_for_authoring_hint(void) {
 }
 
 static bool test_scene_export_refuses_to_replace_existing_bundle(void) {
-    char root_template[] = "/tmp/ld_scene_export_collision_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_export_collision_XXXXXX"));
     char* root = mkdtemp(root_template);
     Layout layout;
     LineDrawingSceneExportPaths export_paths;
@@ -263,7 +264,7 @@ static bool test_scene_export_refuses_to_replace_existing_bundle(void) {
 }
 
 static bool test_scene_export_collects_and_verifies_mesh_dependencies(void) {
-    char root_template[] = "/tmp/ld_scene_export_dependencies_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_export_dependencies_XXXXXX"));
     char* root = mkdtemp(root_template);
     char mesh_path[512];
     char packaged_relative[CORE_SCENE_COMPILE_DEPENDENCY_PATH_SIZE];
@@ -366,7 +367,7 @@ static bool test_scene_export_collects_and_verifies_mesh_dependencies(void) {
 }
 
 static bool test_scene_export_prefers_scene_owned_mesh_dependency(void) {
-    char root_template[] = "/tmp/ld_scene_export_owned_mesh_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_export_owned_mesh_XXXXXX"));
     char* root = mkdtemp(root_template);
     char source_dir[512];
     char assets_dir[512];
@@ -463,7 +464,7 @@ static bool test_scene_export_prefers_scene_owned_mesh_dependency(void) {
 }
 
 static bool test_scene_import_reconciles_mesh_metadata_without_rewriting_source(void) {
-    char root_template[] = "/tmp/ld_scene_import_reconcile_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_import_reconcile_XXXXXX"));
     char* root = mkdtemp(root_template);
     char source_dir[512];
     char assets_dir[512];
@@ -602,7 +603,7 @@ static bool test_scene_import_reconciles_mesh_metadata_without_rewriting_source(
 }
 
 static bool test_scene_export_cleans_new_directory_on_authoring_failure(void) {
-    char root_template[] = "/tmp/ld_scene_export_cleanup_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_export_cleanup_XXXXXX"));
     char* root = NULL;
     char expected_scene_dir[512];
     Layout layout;
@@ -639,6 +640,10 @@ static bool test_scene_export_cleans_new_directory_on_authoring_failure(void) {
 }
 
 static bool test_scene_export_embeds_layout_snapshot_and_round_trips_import(void) {
+    char output_template[PATH_MAX];
+    TEST_ASSERT(ld_test_artifact_temp_path(output_template, sizeof(output_template), "ld_scene_roundtrip_XXXXXX"));
+    char* output_root = mkdtemp(output_template);
+    TEST_ASSERT(output_root);
     Layout layout;
     Layout imported;
     LineDrawingSceneExportPaths export_paths;
@@ -660,7 +665,7 @@ static bool test_scene_export_embeds_layout_snapshot_and_round_trips_import(void
 
     TEST_ASSERT(LineDrawingSceneExport_ExportLayoutToOutputRoot(&layout,
                                                                 layout_path_hint,
-                                                                "/tmp",
+                                                                output_root,
                                                                 &export_paths,
                                                                 diagnostics,
                                                                 sizeof(diagnostics)));
@@ -694,13 +699,20 @@ static bool test_scene_export_embeds_layout_snapshot_and_round_trips_import(void
     TEST_ASSERT(imported.anchors[1].pos.z == layout.anchors[1].pos.z);
     TEST_ASSERT(imported.scene3d.bounds.max.z == layout.scene3d.bounds.max.z);
 
+    TEST_ASSERT(unlink(export_paths.authoring_path) == 0);
+    TEST_ASSERT(unlink(export_paths.runtime_path) == 0);
+    TEST_ASSERT(unlink(export_paths.dependency_manifest_path) == 0);
+    TEST_ASSERT(unlink(export_paths.receipt_path) == 0);
+    TEST_ASSERT(unlink(export_paths.package_manifest_path) == 0);
+    TEST_ASSERT(rmdir(export_paths.scene_dir) == 0);
+    TEST_ASSERT(rmdir(output_root) == 0);
     Layout_Free(&layout);
     Layout_Free(&imported);
     return true;
 }
 
 static bool test_scene_project_export_writes_project_metadata_scaffold(void) {
-    char root_template[] = "/tmp/ld_scene_project_export_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_project_export_XXXXXX"));
     char* root = NULL;
     char authoring_path[512];
     char runtime_path[512];
@@ -806,7 +818,7 @@ static bool test_scene_project_export_writes_project_metadata_scaffold(void) {
 }
 
 static bool test_scene_export_project_root_writes_scene_and_project_files(void) {
-    char root_template[] = "/tmp/ld_scene_project_integrated_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_project_integrated_XXXXXX"));
     char* root = NULL;
     char path[512];
     char diagnostics[256];
@@ -870,8 +882,8 @@ static bool test_scene_export_project_root_writes_scene_and_project_files(void) 
 }
 
 static bool test_scene_export_project_root_populates_mesh_manifest_sidecar(void) {
-    char source_template[] = "/tmp/ld_scene_project_mesh_source_XXXXXX";
-    char project_template[] = "/tmp/ld_scene_project_mesh_export_XXXXXX";
+    char source_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(source_template, sizeof(source_template), "ld_scene_project_mesh_source_XXXXXX"));
+    char project_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(project_template, sizeof(project_template), "ld_scene_project_mesh_export_XXXXXX"));
     char* source_root = NULL;
     char* project_root = NULL;
     char runtime_path[512];
@@ -987,8 +999,8 @@ static bool test_scene_export_project_root_populates_mesh_manifest_sidecar(void)
 }
 
 static bool test_scene_project_export_rejects_metadata_only_mesh_sidecar(void) {
-    char source_template[] = "/tmp/ld_scene_project_invalid_mesh_source_XXXXXX";
-    char project_template[] = "/tmp/ld_scene_project_invalid_mesh_export_XXXXXX";
+    char source_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(source_template, sizeof(source_template), "ld_scene_project_invalid_mesh_source_XXXXXX"));
+    char project_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(project_template, sizeof(project_template), "ld_scene_project_invalid_mesh_export_XXXXXX"));
     char* source_root = mkdtemp(source_template);
     char* project_root = mkdtemp(project_template);
     char runtime_path[512];
@@ -1030,7 +1042,7 @@ static bool test_scene_project_export_rejects_metadata_only_mesh_sidecar(void) {
 }
 
 static bool test_scene_project_scaffold_keeps_authoring_as_editable_import(void) {
-    char root_template[] = "/tmp/ld_scene_project_import_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_project_import_XXXXXX"));
     char* root = NULL;
     char diagnostics[256];
     Layout layout;
@@ -1076,7 +1088,7 @@ static bool test_scene_import_accepts_supported_authoring_unit_metadata(void) {
         .unit_system = "meters",
         .conversion_policy = "explicit_only",
     };
-    const char* path = "/tmp/line_drawing_scene_import_supported_units.json";
+    char path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(path, sizeof(path), "line_drawing_scene_import_supported_units.json"));
     char diagnostics[256];
 
     Layout_Init(&layout, 1.0f);
@@ -1115,7 +1127,7 @@ static bool test_scene_import_accepts_supported_authoring_unit_metadata(void) {
 static bool test_scene_import_rejects_unsupported_authoring_unit_metadata(void) {
     Layout imported;
     char diagnostics[256];
-    const char* path = "/tmp/line_drawing_scene_import_bad_units.json";
+    char path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(path, sizeof(path), "line_drawing_scene_import_bad_units.json"));
     const char* json =
         "{"
         "\"schema_variant\":\"scene_authoring_v1\","
@@ -1152,7 +1164,7 @@ static bool test_scene_import_rejects_unsupported_authoring_unit_metadata(void) 
 static bool test_scene_import_rejects_runtime_scene_file(void) {
     Layout imported;
     char diagnostics[256];
-    const char* path = "/tmp/line_drawing_scene_import_runtime_scene.json";
+    char path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(path, sizeof(path), "line_drawing_scene_import_runtime_scene.json"));
     const char* json =
         "{"
         "\"schema_variant\":\"scene_runtime_v1\","
@@ -1177,7 +1189,7 @@ static bool test_scene_import_normalizes_top_level_camera_light_and_path_records
     Layout reloaded;
     char diagnostics[256];
     char* layout_json = NULL;
-    const char* path = "/tmp/line_drawing_scene_import_authoring_records.json";
+    char path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(path, sizeof(path), "line_drawing_scene_import_authoring_records.json"));
     const char* json =
         "{"
         "\"schema_variant\":\"scene_authoring_v1\","

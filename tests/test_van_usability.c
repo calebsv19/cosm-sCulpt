@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "test_layout_internal.h"
 #include "Core/camera_view.h"
 #include "UI/topbar/line_drawing_editor_topbar.h"
@@ -73,7 +74,7 @@ static bool visibility_subtree_and_history(void) {
     TEST_ASSERT(!Layout_SetEntityHidden(&s->layout.objectStore,"missing",true));ld_test_shutdown_runtime();return true;
 }
 static bool cache_working_set_and_budget(void) {
-    char root[]="/private/tmp/sculpt-cache-test-XXXXXX";TEST_ASSERT(mkdtemp(root));
+    char root[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "sculpt-cache-test-XXXXXX"));TEST_ASSERT(mkdtemp(root));
     char disabled[512];snprintf(disabled,sizeof(disabled),"%s/not-created/store",root);
     TEST_ASSERT(!setenv("LINE_DRAWING_PREVIEW_STORE",disabled,1));
     char* json=ld_test_read_text_file("tests/fixtures/agent_mesh_assets/asset_imported_tetrahedron_01.runtime.json");TEST_ASSERT(json);
@@ -99,7 +100,7 @@ static bool cache_working_set_and_budget(void) {
     Layout_MeshPreviewCacheShutdown();Layout_Free(&l);for(int i=0;i<12;++i)unlink(paths[i]);rmdir(root);free(json);unsetenv("LINE_DRAWING_PREVIEW_STORE");return true;
 }
 static bool prepared_persistence_and_corruption(void) {
-    char root[]="/private/tmp/sculpt-prepared-test-XXXXXX";TEST_ASSERT(mkdtemp(root));
+    char root[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "sculpt-prepared-test-XXXXXX"));TEST_ASSERT(mkdtemp(root));
     char store[512],source[512],path[1024],replacement[1024];
     snprintf(store,sizeof(store),"%s/store",root);snprintf(source,sizeof(source),"%s/source.json",root);
     TEST_ASSERT(!setenv("LINE_DRAWING_PREVIEW_STORE",store,1));
@@ -137,7 +138,7 @@ static bool prepared_persistence_and_corruption(void) {
     closedir(d);rmdir(store);rmdir(root);unsetenv("LINE_DRAWING_PREVIEW_STORE");return true;
 }
 static bool asynchronous_pressure_and_scene_cancellation(void) {
-    char root[]="/private/tmp/sculpt-async-test-XXXXXX";TEST_ASSERT(mkdtemp(root));
+    char root[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "sculpt-async-test-XXXXXX"));TEST_ASSERT(mkdtemp(root));
     char disabled[512];snprintf(disabled,sizeof(disabled),"%s/missing/store",root);setenv("LINE_DRAWING_PREVIEW_STORE",disabled,1);
     char* json=ld_test_read_text_file("tests/fixtures/agent_mesh_assets/asset_imported_tetrahedron_01.runtime.json");TEST_ASSERT(json);
     Layout_MeshPreviewCacheShutdown();char paths[20][512];
@@ -162,7 +163,7 @@ static bool asynchronous_pressure_and_scene_cancellation(void) {
     Layout_MeshPreviewCacheShutdown();for(int i=0;i<20;++i)unlink(paths[i]);rmdir(root);free(json);unsetenv("LINE_DRAWING_PREVIEW_STORE");return true;
 }
 static bool rapid_replacement_reset_shutdown(void) {
-    char root[]="/private/tmp/sculpt-pass1-race-XXXXXX";TEST_ASSERT(mkdtemp(root));
+    char root[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "sculpt-pass1-race-XXXXXX"));TEST_ASSERT(mkdtemp(root));
     char disabled[512],path[512];snprintf(disabled,512,"%s/missing/store",root);snprintf(path,512,"%s/mesh.json",root);
     setenv("LINE_DRAWING_PREVIEW_STORE",disabled,1);
     char* json=ld_test_read_text_file("tests/fixtures/agent_mesh_assets/asset_imported_tetrahedron_01.runtime.json");TEST_ASSERT(json);

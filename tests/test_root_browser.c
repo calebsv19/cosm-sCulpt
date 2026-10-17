@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 static bool test_root_browser_builds_picker_actions_and_nearby_suggestions(void) {
-    char temp_template[] = "/tmp/ld_root_browser_nearby_XXXXXX";
+    char temp_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(temp_template, sizeof(temp_template), "ld_root_browser_nearby_XXXXXX"));
     char* root = NULL;
     char family_dir[PATH_MAX];
     char current_dir[PATH_MAX];
@@ -54,7 +54,7 @@ static bool test_root_browser_builds_picker_actions_and_nearby_suggestions(void)
 }
 
 static bool test_root_browser_uses_input_root_as_anchor_when_browse_root_is_missing(void) {
-    char temp_template[] = "/tmp/ld_root_browser_input_XXXXXX";
+    char temp_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(temp_template, sizeof(temp_template), "ld_root_browser_input_XXXXXX"));
     char* root = NULL;
     char sibling_dir[PATH_MAX];
     char sibling_json[PATH_MAX];

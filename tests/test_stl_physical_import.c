@@ -31,7 +31,7 @@ static bool write_offset_stl(const char* path) {
 }
 
 static bool test_units_compile_and_cache(void) {
-    char dir[]="/tmp/sculpt_units_XXXXXX";
+    char dir[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(dir, sizeof(dir), "sculpt_units_XXXXXX"));
     TEST_ASSERT(mkdtemp(dir)!=NULL);
     char stl[1024],a[1024],r[1024],preview[1024],d[256];
     snprintf(stl,sizeof(stl),"%s/device.stl",dir);
@@ -76,7 +76,7 @@ static bool test_units_compile_and_cache(void) {
 }
 
 static bool test_exact_size_history_reload_and_export(void) {
-    char dir[]="/tmp/sculpt_exact_XXXXXX";
+    char dir[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(dir, sizeof(dir), "sculpt_exact_XXXXXX"));
     TEST_ASSERT(mkdtemp(dir)!=NULL);
     char stl[1024],saved[1024],d[256];
     snprintf(stl,sizeof(stl),"%s/device.stl",dir);

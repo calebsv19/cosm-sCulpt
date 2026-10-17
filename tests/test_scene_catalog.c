@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 static bool test_catalog_refresh_collects_sorted_layouts_and_scenes(void) {
-    char temp_template[] = "/tmp/ld_host_catalog_XXXXXX";
+    char temp_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(temp_template, sizeof(temp_template), "ld_host_catalog_XXXXXX"));
     char* root = NULL;
     char alpha_json[PATH_MAX];
     char beta_json[PATH_MAX];

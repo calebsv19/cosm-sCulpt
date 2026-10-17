@@ -6,9 +6,39 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+/* The invocation owns TMPDIR. Without it, keep artifacts in the checkout's
+ * existing test scratch lane rather than choosing a shared absolute /tmp path.
+ * A too-long root is a test failure, never a silently truncated destination. */
+static inline bool ld_test_artifact_temp_path(char* out, size_t capacity,
+                                               const char* name_format, ...) {
+    if (!out || !capacity || !name_format) return false;
+    out[0] = '\0';
+    char name[PATH_MAX];
+    va_list args;
+    va_start(args, name_format);
+    int length = vsnprintf(name, sizeof(name), name_format, args);
+    va_end(args);
+    if (length <= 0 || (size_t)length >= sizeof(name) ||
+        strchr(name, '/') || !strcmp(name, ".") || !strcmp(name, "..")) return false;
+    const char* root = getenv("TMPDIR");
+    if (!root || !root[0]) {
+        root = "tmp";
+        if (mkdir(root, 0700) != 0 && errno != EEXIST) return false;
+    }
+    length = snprintf(out, capacity, "%s%s%s", root,
+                      root[strlen(root) - 1] == '/' ? "" : "/", name);
+    if (length < 0 || (size_t)length >= capacity) {
+        out[0] = '\0';
+        return false;
+    }
+    return true;
+}
 
 static inline bool ld_test_artifact_make_dir(const char* path) {
     if (!path || !path[0]) return false;

@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "test_layout_internal.h"
 #include "Layout/scene/layout_mesh_asset_path_resolver.h"
 
@@ -42,7 +43,7 @@ static bool test_preview_mode_rejects_invalid_values(void) {
 }
 
 static bool test_mesh_path_resolver_recovers_legacy_desktop_library(void) {
-    char root[256];
+    char root[512];
     char desktop[320];
     char stls[384];
     char library[448];
@@ -50,7 +51,7 @@ static bool test_mesh_path_resolver_recovers_legacy_desktop_library(void) {
     char actual[512];
     char resolved[512];
     FILE* file = NULL;
-    snprintf(root, sizeof(root), "/tmp/ld_mesh_path_%ld", (long)getpid());
+    TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "ld_mesh_path_%ld", (long)getpid()));
     snprintf(desktop, sizeof(desktop), "%s/Desktop", root);
     snprintf(stls, sizeof(stls), "%s/stls", desktop);
     snprintf(library, sizeof(library), "%s/Legacy_Library", stls);
@@ -74,7 +75,7 @@ static bool test_mesh_path_resolver_recovers_legacy_desktop_library(void) {
 }
 
 static bool test_mesh_path_resolver_prefers_scene_owned_attachment(void) {
-    char root[256];
+    char root[512];
     char scene[320];
     char assets[384];
     char meshes[448];
@@ -83,7 +84,7 @@ static bool test_mesh_path_resolver_prefers_scene_owned_attachment(void) {
     char actual[512];
     char resolved[512];
     FILE* file = NULL;
-    snprintf(root, sizeof(root), "/tmp/ld_mesh_scene_path_%ld", (long)getpid());
+    TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "ld_mesh_scene_path_%ld", (long)getpid()));
     snprintf(scene, sizeof(scene), "%s/scene_v2", root);
     snprintf(assets, sizeof(assets), "%s/assets", scene);
     snprintf(meshes, sizeof(meshes), "%s/mesh_assets", assets);
@@ -108,7 +109,7 @@ static bool test_mesh_path_resolver_prefers_scene_owned_attachment(void) {
 }
 
 static bool test_mesh_reconciliation_refreshes_scene_owned_metadata(void) {
-    char root[256];
+    char root[512];
     char scene[320];
     char assets[384];
     char meshes[448];
@@ -137,7 +138,7 @@ static bool test_mesh_reconciliation_refreshes_scene_owned_metadata(void) {
         "}"
         "}";
 
-    snprintf(root, sizeof(root), "/tmp/ld_mesh_reconcile_%ld", (long)getpid());
+    TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "ld_mesh_reconcile_%ld", (long)getpid()));
     snprintf(scene, sizeof(scene), "%s/scene_v5", root);
     snprintf(assets, sizeof(assets), "%s/assets", scene);
     snprintf(meshes, sizeof(meshes), "%s/mesh_assets", assets);

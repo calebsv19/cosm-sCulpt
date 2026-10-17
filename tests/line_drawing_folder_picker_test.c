@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "UI/platform/line_drawing_folder_picker.h"
 #include "test_framework.h"
 
@@ -46,7 +47,7 @@ static bool setup_fixture(char* root,
                           char* kdialog,
                           char* args_log,
                           char* kdialog_marker) {
-    char root_template[] = "/tmp/line_drawing_folder_picker_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "line_drawing_folder_picker_XXXXXX"));
     const char* zenity_script =
         "#!/bin/sh\n"
         "printf '%s\\n' \"$@\" > \"$LINE_DRAWING_FOLDER_PICKER_ARGS_LOG\"\n"
@@ -154,7 +155,7 @@ static bool test_cancelled_zenity_does_not_open_kdialog(void) {
 }
 
 static bool test_missing_linux_picker_reports_unavailable(void) {
-    char root_template[] = "/tmp/line_drawing_folder_picker_empty_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "line_drawing_folder_picker_empty_XXXXXX"));
     char output_path[PATH_MAX];
     char* root = mkdtemp(root_template);
     bool passed = false;

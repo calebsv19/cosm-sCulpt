@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "test_layout_internal.h"
 #include "Editor/editor_measurement.h"
 #include "Editor/editor_numeric_edit.h"
@@ -308,7 +309,7 @@ static bool test_canonical_import_keeps_rules_and_rejects_broken_snapshot(void) 
     offset_rule.b.local_offset_meters[0]=-0.1;
     TEST_ASSERT(put(offset_rule));
     char* authored=LineDrawingCanonicalScene_ExportLayoutToString(&s->layout,"rule_import"); TEST_ASSERT(authored);
-    char path[]="/tmp/ld_rule_import_XXXXXX"; int fd=mkstemp(path); TEST_ASSERT(fd>=0);
+    char path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(path, sizeof(path), "ld_rule_import_XXXXXX")); int fd=mkstemp(path); TEST_ASSERT(fd>=0);
     FILE* file=fdopen(fd,"w"); TEST_ASSERT(file && fputs(authored,file)>=0 && fclose(file)==0);
     Layout imported; Layout_Init(&imported,1); char diagnostics[256];
     TEST_ASSERT(LineDrawingSceneImport_LoadLayoutFromAuthoringFile(&imported,path,diagnostics,sizeof(diagnostics)));
@@ -348,7 +349,7 @@ static bool test_object_asset_boundary_preserves_scene_rules(void) {
     TEST_ASSERT(!put(rule("ab","A","B",1)) && !s->layout.objectStore.constraintCount);
     s->workspaceMode=LINE_DRAWING_WORKSPACE_MODE_SCENE;
     TEST_ASSERT(put(rule("ab","A","B",1)));
-    char path[]="/tmp/ld_constraint_asset_XXXXXX"; int fd=mkstemp(path); TEST_ASSERT(fd>=0);
+    char path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(path, sizeof(path), "ld_constraint_asset_XXXXXX")); int fd=mkstemp(path); TEST_ASSERT(fd>=0);
     FILE* file=fdopen(fd,"w"); TEST_ASSERT(file && fputs("keep original",file)>=0 && fclose(file)==0);
     char diagnostics[256];
     TEST_ASSERT(!LayoutObjectAssetMeshAuthoring_SaveWithAuthoring(&s->layout,NULL,path,diagnostics,sizeof(diagnostics)));

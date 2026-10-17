@@ -6,6 +6,8 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -64,16 +66,43 @@ static void copy_child(const char *source, int output, const struct stat *expect
 }
 
 bool Layout_MeshSourceSnapshot(const char *source, const struct stat *expected,
-                               const atomic_bool *canceled, char output[128]) {
-    output[0] = 0;
-    if (!source || !expected || !canceled || atomic_load(canceled)) return false;
-    (void)snprintf(output, 128, "/private/tmp/sculpt-mesh-input-XXXXXX");
-    int fd = mkstemp(output);
-    if (fd < 0) { output[0] = 0; return false; }
+                               const atomic_bool *canceled, char **output) {
+    if (!output) { errno = EINVAL; return false; }
+    *output = NULL;
+    if (!source || !expected || !canceled) { errno = EINVAL; return false; }
+    if (atomic_load(canceled)) { errno = ECANCELED; return false; }
+    const char *root = getenv("TMPDIR");
+    if (!root || root[0] != '/') { errno = EINVAL; return false; }
+    const char suffix[] = "sculpt-mesh-input-XXXXXX";
+    size_t root_length = strlen(root);
+    size_t separator = root[root_length - 1] == '/' ? 0u : 1u;
+    if (root_length > SIZE_MAX - sizeof(suffix) - separator) {
+        errno = ENAMETOOLONG;
+        return false;
+    }
+    size_t capacity = root_length + separator + sizeof(suffix);
+    char *path = malloc(capacity);
+    if (!path) return false;
+    memcpy(path, root, root_length);
+    if (separator) path[root_length] = '/';
+    memcpy(path + root_length + separator, suffix, sizeof(suffix));
+    int fd = mkstemp(path);
+    if (fd < 0) { int error = errno; free(path); errno = error; return false; }
+    if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
+        int error = errno;
+        (void)close(fd); (void)unlink(path); free(path); errno = error;
+        return false;
+    }
     pid_t child = fork();
+    int fork_error = errno;
     if (child == 0) copy_child(source, fd, expected);
     (void)close(fd);
     bool ok = child > 0 && Layout_MeshSourceWait(child, canceled, 2000);
-    if (!ok) { (void)unlink(output); output[0] = 0; }
-    return ok;
+    if (!ok) {
+        int error = child < 0 ? fork_error : (atomic_load(canceled) ? ECANCELED : EIO);
+        (void)unlink(path); free(path); errno = error;
+        return false;
+    }
+    *output = path;
+    return true;
 }

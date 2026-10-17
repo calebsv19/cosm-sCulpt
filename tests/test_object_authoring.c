@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "test_layout_internal.h"
 #include "Editor/viewport_gizmo.h"
 
@@ -1130,12 +1131,12 @@ static bool test_object_authoring_stable_face_refs_survive_save_load(void) {
     const ObjectAuthoringFace* loaded_face = NULL;
     bool has_authoring = false;
     char diagnostics[256] = {0};
-    char root[256];
+    char root[512];
     char path[512];
 
     ObjectAuthoringDocument_Init(&loaded_authoring);
     Layout_Init(&loaded_layout, 1.0f);
-    snprintf(root, sizeof(root), "/tmp/ld_object_authoring_face_ids_%ld", (long)getpid());
+    TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "ld_object_authoring_face_ids_%ld", (long)getpid()));
     TEST_ASSERT(mkdir(root, 0700) == 0 || errno == EEXIST);
     snprintf(path, sizeof(path), "%s/asset.json", root);
 
@@ -1268,12 +1269,12 @@ static bool test_object_authoring_asset_save_load_preserves_operation_stack(void
     Layout loaded_layout;
     bool has_authoring = false;
     char diagnostics[256] = {0};
-    char root[256];
+    char root[512];
     char path[512];
 
     ObjectAuthoringDocument_Init(&loaded_authoring);
     Layout_Init(&loaded_layout, 1.0f);
-    snprintf(root, sizeof(root), "/tmp/ld_object_authoring_asset_%ld", (long)getpid());
+    TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "ld_object_authoring_asset_%ld", (long)getpid()));
     TEST_ASSERT(mkdir(root, 0700) == 0 || errno == EEXIST);
     snprintf(path, sizeof(path), "%s/asset.json", root);
 
@@ -1424,14 +1425,14 @@ static bool test_object_authoring_saved_asset_compiles_to_runtime_mesh_file(void
     ObjectAuthoringRuntimeMesh runtime;
     bool has_authoring = false;
     char diagnostics[256] = {0};
-    char root[256];
+    char root[512];
     char path[512];
     char runtime_path[512];
 
     ObjectAuthoringDocument_Init(&loaded_authoring);
     Layout_Init(&loaded_layout, 1.0f);
     ObjectAuthoringRuntimeMesh_Init(&runtime);
-    snprintf(root, sizeof(root), "/tmp/ld_object_authoring_runtime_%ld", (long)getpid());
+    TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "ld_object_authoring_runtime_%ld", (long)getpid()));
     TEST_ASSERT(mkdir(root, 0700) == 0 || errno == EEXIST);
     snprintf(path, sizeof(path), "%s/asset.json", root);
     snprintf(runtime_path, sizeof(runtime_path), "%s/asset.runtime.json", root);
@@ -1471,11 +1472,11 @@ static bool test_object_authoring_saved_asset_compiles_to_runtime_mesh_file(void
 static bool test_object_authoring_ui_export_writes_runtime_mesh_sidecar(void) {
     GlobalState* state = NULL;
     struct stat st;
-    char root[256];
+    char root[512];
     char asset_path[512];
     char runtime_path[512];
 
-    snprintf(root, sizeof(root), "/tmp/ld_object_authoring_ui_export_%ld", (long)getpid());
+    TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "ld_object_authoring_ui_export_%ld", (long)getpid()));
     TEST_ASSERT(mkdir(root, 0700) == 0 || errno == EEXIST);
     snprintf(asset_path, sizeof(asset_path), "%s/ui_asset.json", root);
     snprintf(runtime_path, sizeof(runtime_path), "%s/ui_asset.runtime.json", root);

@@ -129,7 +129,7 @@ static bool test_mouse_click_commits_nav_selection(void) {
 }
 
 static bool test_browse_click_switches_to_catalog_section(void) {
-    char temp_template[] = "/tmp/ld_host_menu_browse_click_XXXXXX";
+    char temp_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(temp_template, sizeof(temp_template), "ld_host_menu_browse_click_XXXXXX"));
     char* root = NULL;
     char family_dir[PATH_MAX];
     char current_dir[PATH_MAX];
@@ -226,7 +226,7 @@ static bool test_last_layout_and_scene_paths_remain_independent(void) {
 }
 
 static bool test_folder_access_is_requested_and_retryable(void) {
-    char template[] = "/tmp/ld_menu_access_XXXXXX";
+    char template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(template, sizeof(template), "ld_menu_access_XXXXXX"));
     char* root = mkdtemp(template);
     TEST_ASSERT(root != NULL);
     ld_test_init_runtime();
@@ -259,7 +259,7 @@ static bool test_folder_access_is_requested_and_retryable(void) {
 }
 
 static bool test_editor_return_refreshes_requested_catalog(void) {
-    char template[] = "/tmp/ld_menu_return_XXXXXX";
+    char template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(template, sizeof(template), "ld_menu_return_XXXXXX"));
     char* root = mkdtemp(template);
     TEST_ASSERT(root != NULL);
     ld_test_init_runtime();

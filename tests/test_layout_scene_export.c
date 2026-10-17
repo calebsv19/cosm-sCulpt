@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "test_layout_internal.h"
 
 static cJSON* ld_test_find_path_by_id(cJSON* paths, const char* path_id) {
@@ -284,7 +285,7 @@ static bool test_canonical_scene_export_preserves_existing_extensions(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
     Layout* layout = &state->layout;
-    const char* path = "/tmp/line_drawing_scene_export_preserve.json";
+    char path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(path, sizeof(path), "line_drawing_scene_export_preserve.json"));
 
     const char* seed_json =
         "{"
@@ -372,7 +373,7 @@ static bool test_canonical_scene_export_preserves_camera_path_authoring_metadata
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
     Layout* layout = &state->layout;
-    const char* path = "/tmp/line_drawing_scene_export_camera_path_authoring.json";
+    char path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(path, sizeof(path), "line_drawing_scene_export_camera_path_authoring.json"));
     LineDrawingSceneAuthoringOptions options = {
         .camera_id = "cam_review_path",
         .camera_type = "perspective",
@@ -634,7 +635,7 @@ static bool test_canonical_scene_export_preserves_existing_scene_id_and_canonica
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
     Layout* layout = &state->layout;
-    const char* path = "/tmp/line_drawing_scene_export_id_immutability.json";
+    char path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(path, sizeof(path), "line_drawing_scene_export_id_immutability.json"));
 
     const char* seed_json =
         "{"
@@ -1315,7 +1316,7 @@ static bool test_canonical_scene_export_uses_live_scene_authoring_records(void) 
 }
 
 static bool test_canonical_scene_export_emits_mesh_asset_instance_reference(void) {
-    const char* runtime_path = "/tmp/ld_mesh_asset_instance_scene_export.runtime.json";
+    char runtime_path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(runtime_path, sizeof(runtime_path), "ld_mesh_asset_instance_scene_export.runtime.json"));
     const char* runtime_json =
         "{"
         "\"schema_variant\":\"mesh_asset_runtime_v1\","
@@ -1387,7 +1388,7 @@ static bool test_canonical_scene_export_rejects_invalid_scene_authoring_options(
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
     Layout* layout = &state->layout;
-    const char* path = "/tmp/line_drawing_scene_export_invalid_options.json";
+    char path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(path, sizeof(path), "line_drawing_scene_export_invalid_options.json"));
     LineDrawingSceneAuthoringOptions bad_options = {
         .material_id = "bad id",
         .material_type = "flat_color",

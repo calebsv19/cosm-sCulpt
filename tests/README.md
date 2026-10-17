@@ -145,3 +145,22 @@ retain existing shared workers and source validation. Four focused cases and
 637 cases / 70 groups pass. Three native restored-workspace quit checks preserve
 scene/history/draft state and finish shutdown in 14–16 ms. The previous acceptance
 blocker is resolved in the private package; adoption/Desktop refresh remain next.
+
+## Owned temporary test outputs
+
+Writable C fixtures use `ld_test_artifact_temp_path` from
+`test_artifact_helpers.h`. Set `TMPDIR` to the invocation-owned, existing test
+temporary directory; the helper preserves formatted fixture names and rejects
+truncation, absolute child names and child path separators. Without TMPDIR it
+uses the checkout's `tmp/` scratch lane. Read-only synthetic identities and
+missing-input refusal paths remain literal. The legacy Desktop-relocation
+fixture requires an owned root without an earlier `/Desktop/` component, matching
+the release executor's system-temp layout. Keep roots short enough for existing
+application path capacities; overflow is a failing test, not silent truncation.
+
+Production mesh-source snapshots require an existing absolute TMPDIR and return
+an exactly sized allocated path. Snapshot tests cover long roots, missing/invalid
+and unwritable roots, distinct secure files, occupied-name preservation and
+cleanup after source-stamp/cancellation refusal. The focused snapshot group and
+preview-cache group must pass under the same sandbox; do not allow shared
+temporary directories or omit tests to bypass a containment failure.

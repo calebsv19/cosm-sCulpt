@@ -213,7 +213,7 @@ static bool test_file_browser_switches_modes_and_uses_pane_rect(void) {
     SDL_Rect list_clip = {0};
     SDL_Rect set_dir_button = {0};
 
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_file_browser_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(temp_root, sizeof(temp_root), "ld_file_browser_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
     ld_test_remove_file_browser_runtime_state();
     ld_test_init_runtime();
@@ -345,7 +345,7 @@ static bool test_file_browser_close_api_synchronizes_open_and_visible(void) {
 }
 
 static bool test_file_pane_export_scene_button_click_exports_and_sets_status(void) {
-    char root_template[] = "/tmp/ld_file_pane_export_click_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_file_pane_export_click_XXXXXX"));
     char* root = NULL;
     char expected_scene_dir[LINE_DRAWING_PATH_CAP];
     char expected_authoring[LINE_DRAWING_PATH_CAP];
@@ -424,7 +424,7 @@ static bool test_stl_browser_action_hint_surfaces_import_failure(void) {
     char action_text[320];
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(temp_root, sizeof(temp_root), "/tmp/ld_stl_failure_hint_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(temp_root, sizeof(temp_root), "ld_stl_failure_hint_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(temp_root, 0755) == 0 || errno == EEXIST);
     snprintf(stl_path, sizeof(stl_path), "%s/sample.stl", temp_root);
     TEST_ASSERT(ld_test_write_tetrahedron_stl(stl_path));
@@ -462,7 +462,7 @@ static bool test_runtime_mesh_browser_places_scene_asset_instance(void) {
     int beta_index = -1;
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(asset_root, sizeof(asset_root), "/tmp/ld_runtime_mesh_browser_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(asset_root, sizeof(asset_root), "ld_runtime_mesh_browser_%u", (unsigned)SDL_GetTicks()));
     snprintf(nested_root, sizeof(nested_root), "%s/group", asset_root);
     TEST_ASSERT(mkdir(asset_root, 0755) == 0 || errno == EEXIST);
     TEST_ASSERT(mkdir(nested_root, 0755) == 0 || errno == EEXIST);
@@ -538,7 +538,7 @@ static bool test_stl_catalog_recurses_into_curated_source_directories(void) {
     LineDrawingFileCatalogEntry entries[8];
     int count = 0;
 
-    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_recursive_catalog_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(stl_root, sizeof(stl_root), "ld_stl_recursive_catalog_%u", (unsigned)SDL_GetTicks()));
     snprintf(curated_dir, sizeof(curated_dir), "%s/curated", stl_root);
     snprintf(asset_dir, sizeof(asset_dir), "%s/generated_table", curated_dir);
     snprintf(source_dir, sizeof(source_dir), "%s/source", asset_dir);
@@ -577,7 +577,7 @@ static bool test_stl_import_browser_imports_and_places_scene_asset_instance(void
     SDL_Rect list_clip = {0};
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_import_browser_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(stl_root, sizeof(stl_root), "ld_stl_import_browser_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
     snprintf(stl_path, sizeof(stl_path), "%s/tetra sample.stl", stl_root);
     snprintf(authoring_path, sizeof(authoring_path), "%s/imported_tetra_sample.json", stl_root);
@@ -681,7 +681,7 @@ static bool test_stl_import_browser_reimports_stale_cache(void) {
     SDL_Rect list_clip = {0};
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_stale_cache_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(stl_root, sizeof(stl_root), "ld_stl_stale_cache_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
     snprintf(stl_path, sizeof(stl_path), "%s/tetra stale.stl", stl_root);
     snprintf(authoring_path, sizeof(authoring_path), "%s/imported_tetra_stale.json", stl_root);
@@ -739,7 +739,7 @@ static bool test_stl_import_failure_updates_progress_and_runtime_status(void) {
     SDL_Rect list_clip = {0};
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_failure_status_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(stl_root, sizeof(stl_root), "ld_stl_failure_status_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
     snprintf(stl_path, sizeof(stl_path), "%s/not_really.stl", stl_root);
     TEST_ASSERT(ld_test_write_text_file_basic(stl_path, "not an stl\n"));
@@ -780,7 +780,7 @@ static bool test_stl_import_wrong_workspace_sets_failure_status(void) {
     char stl_path[LINE_DRAWING_PATH_CAP];
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_wrong_workspace_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(stl_root, sizeof(stl_root), "ld_stl_wrong_workspace_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
     snprintf(stl_path, sizeof(stl_path), "%s/sample.stl", stl_root);
     TEST_ASSERT(ld_test_write_tetrahedron_stl(stl_path));
@@ -849,7 +849,7 @@ static bool test_stl_import_capacity_writes_bounded_preview_sidecar(void) {
     struct stat runtime_stat;
     struct stat preview_stat;
 
-    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_capacity_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(stl_root, sizeof(stl_root), "ld_stl_capacity_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
     snprintf(stl_path, sizeof(stl_path), "%s/large repeated.stl", stl_root);
     snprintf(preview_path, sizeof(preview_path), "%s/imported_large_repeated.preview.json", stl_root);
@@ -906,7 +906,7 @@ static bool test_stl_import_auto_scales_and_preserves_scene_bounds(void) {
     char preview_path[LINE_DRAWING_PATH_CAP];
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_autoscale_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(stl_root, sizeof(stl_root), "ld_stl_autoscale_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
     snprintf(stl_path, sizeof(stl_path), "%s/oversized skull-ish.stl", stl_root);
     snprintf(authoring_path, sizeof(authoring_path), "%s/imported_oversized_skull_ish.json", stl_root);
@@ -976,7 +976,7 @@ static bool test_stl_import_bounds_proxy_preview_keeps_mesh_selectable(void) {
     CoreResult preview_result = {0};
 
     ld_test_remove_file_browser_runtime_state();
-    snprintf(stl_root, sizeof(stl_root), "/tmp/ld_stl_bounds_proxy_%u", (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(stl_root, sizeof(stl_root), "ld_stl_bounds_proxy_%u", (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(stl_root, 0755) == 0 || errno == EEXIST);
     snprintf(stl_path, sizeof(stl_path), "%s/degraded selectable.stl", stl_root);
     snprintf(authoring_path, sizeof(authoring_path), "%s/imported_degraded_selectable.json", stl_root);
@@ -1044,7 +1044,7 @@ static bool test_stl_import_bounds_proxy_preview_keeps_mesh_selectable(void) {
 }
 
 static bool test_save_as_preserves_dotted_layout_filename(void) {
-    char template[] = "/tmp/ld_save_name_XXXXXX";
+    char template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(template, sizeof(template), "ld_save_name_XXXXXX"));
     char* root = mkdtemp(template);
     TEST_ASSERT(root != NULL);
     ld_test_init_runtime();

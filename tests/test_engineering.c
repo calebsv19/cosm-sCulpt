@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "Layout/layout_surface_material.h"
 #include "test_layout_internal.h"
 #include "Layout/layout_engineering.h"
@@ -195,7 +196,7 @@ static bool test_query_hitboxes_and_filter_persistence(void) {
     ld_test_shutdown_runtime();return true;
 }
 static bool test_mesh_rigid_nested_frame(void) {
-    const char* path="/private/tmp/ld_s2_mesh.runtime.json";
+    char path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(path, sizeof(path), "ld_s2_mesh.runtime.json"));
     const char* json="{\"schema_variant\":\"mesh_asset_runtime_v1\",\"asset_id\":\"s2_mesh\",\"source_asset_id\":\"s2_source\",\"vertex_count\":4,\"triangle_count\":2,\"local_bounds\":{\"min\":{\"x\":0,\"y\":0,\"z\":0},\"max\":{\"x\":1,\"y\":2,\"z\":3}}}";
     ld_test_init_runtime();GlobalState* s=Global_Get();char root[64],child[64];uint32_t handle=0;
     Transform3D transform=Layout_Transform3D_Default();transform.position=(Vec3){2,1,0};transform.rotationDeg=(Vec3){20,30,40};transform.scale=(Vec3){2,1,.5f};

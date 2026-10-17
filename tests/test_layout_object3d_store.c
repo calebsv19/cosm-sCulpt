@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "test_layout_internal.h"
 #include "Layout/asset/layout_object_asset_mesh_authoring.h"
 
@@ -422,7 +423,7 @@ static bool test_layout_json_v8_persists_rect_prism_payload_deterministically(vo
 }
 
 static bool test_layout_json_v9_persists_mesh_asset_instance_payload(void) {
-    const char* runtime_path = "/tmp/ld_mesh_asset_instance_store.runtime.json";
+    char runtime_path[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(runtime_path, sizeof(runtime_path), "ld_mesh_asset_instance_store.runtime.json"));
     const char* runtime_json =
         "{"
         "\"schema_variant\":\"mesh_asset_runtime_v1\","
@@ -790,10 +791,8 @@ static bool test_workspace_mode_handoff_reopens_mesh_instance_source_asset(void)
     char diagnostics[256] = {0};
     const Object3D* selected_object = NULL;
 
-    snprintf(asset_root,
-             sizeof(asset_root),
-             "/tmp/ld_mesh_source_reopen_%u",
-             (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(asset_root, sizeof(asset_root), "ld_mesh_source_reopen_%u",
+             (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(asset_root, 0755) == 0 || errno == EEXIST);
     snprintf(source_asset_path, sizeof(source_asset_path), "%s/reopen_asset.json", asset_root);
     snprintf(runtime_path, sizeof(runtime_path), "%s/reopen_asset.runtime.json", asset_root);
@@ -893,10 +892,8 @@ static bool test_workspace_mode_handoff_refreshes_mesh_instance_runtime_sidecar(
     const Object3D* scene_object = NULL;
     const Object3D* second_scene_object = NULL;
 
-    snprintf(asset_root,
-             sizeof(asset_root),
-             "/tmp/ld_mesh_sidecar_refresh_%u",
-             (unsigned)SDL_GetTicks());
+    TEST_ASSERT(ld_test_artifact_temp_path(asset_root, sizeof(asset_root), "ld_mesh_sidecar_refresh_%u",
+             (unsigned)SDL_GetTicks()));
     TEST_ASSERT(mkdir(asset_root, 0755) == 0 || errno == EEXIST);
     snprintf(source_asset_path, sizeof(source_asset_path), "%s/refresh_asset.json", asset_root);
     snprintf(runtime_path, sizeof(runtime_path), "%s/refresh_asset.runtime.json", asset_root);

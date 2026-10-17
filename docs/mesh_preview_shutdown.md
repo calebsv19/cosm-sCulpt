@@ -36,3 +36,18 @@ The earlier package acceptance blocker is resolved at the source/private-package
 layer. Next: reviewed source checkpoint/adoption and session-safe Main Edit
 Desktop refresh, with installed-byte readback. Broad native IME candidate/glyph
 acceptance remains separate from the qualified routing and Unicode clipboard checks.
+
+## Owned temporary snapshot paths
+
+The source-reader boundary uses the invocation's existing absolute `TMPDIR`.
+An absent, relative, unavailable or unwritable root makes the preview unavailable;
+it does not fall back to a shared absolute temporary directory or create a root.
+Snapshot names are allocated to the exact root-plus-template size and created
+with `mkstemp` (0600, unique exclusive creation) and close-on-exec descriptors.
+The internal API returns an owned path; the preparation job unlinks and frees
+both its initial input snapshot and its later source-verification snapshot after
+their last consumers finish, including cancellation and refusal exits. Existing
+source-stamp validation, content revalidation, child deadlines/reaping and stale
+result rejection remain unchanged. Long paths no longer depend on a128-byte
+output buffer. The new tests qualify this filesystem boundary; they do not
+resolve or waive intermittent native window/restart readiness failures.

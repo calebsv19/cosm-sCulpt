@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "test_framework.h"
 
 #include "Menu/line_drawing_catalog_preview.h"
@@ -67,7 +68,7 @@ static bool build_sample_layout(Layout* layout) {
 }
 
 static bool test_catalog_preview_loads_layout_metadata_and_segments(void) {
-    char temp_template[] = "/tmp/ld_catalog_preview_XXXXXX";
+    char temp_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(temp_template, sizeof(temp_template), "ld_catalog_preview_XXXXXX"));
     char* root = NULL;
     char layout_path[PATH_MAX];
     Layout layout;
@@ -99,7 +100,7 @@ static bool test_catalog_preview_loads_layout_metadata_and_segments(void) {
 }
 
 static bool test_catalog_preview_loads_scene_authoring_snapshot(void) {
-    char temp_template[] = "/tmp/ld_catalog_preview_scene_XXXXXX";
+    char temp_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(temp_template, sizeof(temp_template), "ld_catalog_preview_scene_XXXXXX"));
     char* root = NULL;
     char authoring_path[PATH_MAX];
     char* layout_snapshot = NULL;

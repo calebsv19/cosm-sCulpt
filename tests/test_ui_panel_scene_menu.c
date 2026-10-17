@@ -172,7 +172,7 @@ static bool ld_test_write_legacy_scene_contract(const char* scene_dir) {
 }
 
 static bool test_scene_menu_discovers_direct_and_grouped_scene_dirs(void) {
-    char root_template[] = "/tmp/ld_scene_menu_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_menu_XXXXXX"));
     char* root = NULL;
     char direct_scene[512];
     char grouped_parent[512];
@@ -261,7 +261,7 @@ static bool test_scene_menu_discovers_direct_and_grouped_scene_dirs(void) {
 }
 
 static bool test_scene_menu_accepts_input_root_that_is_a_scene_dir(void) {
-    char root_template[] = "/tmp/ld_scene_menu_root_scene_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_menu_root_scene_XXXXXX"));
     char* root = NULL;
     UIPanelState* ui = NULL;
 
@@ -294,7 +294,7 @@ static bool test_scene_menu_accepts_input_root_that_is_a_scene_dir(void) {
 }
 
 static bool test_json_menu_discovers_directory_json_files(void) {
-    char root_template[] = "/tmp/ld_json_menu_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_json_menu_XXXXXX"));
     char* root = NULL;
     char alpha_path[512];
     char beta_path[512];
@@ -345,8 +345,8 @@ static bool test_json_menu_discovers_directory_json_files(void) {
 }
 
 static bool test_json_menu_rejects_invalid_root_without_clobbering_input_root(void) {
-    char baseline_template[] = "/tmp/ld_json_menu_prev_root_XXXXXX";
-    char invalid_template[] = "/tmp/ld_json_menu_invalid_root_XXXXXX";
+    char baseline_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(baseline_template, sizeof(baseline_template), "ld_json_menu_prev_root_XXXXXX"));
+    char invalid_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(invalid_template, sizeof(invalid_template), "ld_json_menu_invalid_root_XXXXXX"));
     char stable_json[512];
     char* baseline_root = NULL;
     char* invalid_root = NULL;
@@ -372,7 +372,7 @@ static bool test_json_menu_rejects_invalid_root_without_clobbering_input_root(vo
 }
 
 static bool test_json_menu_click_loads_selection_and_stays_open(void) {
-    char root_template[] = "/tmp/ld_json_click_menu_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_json_click_menu_XXXXXX"));
     char* root = NULL;
     char alpha_path[512];
     char beta_path[512];
@@ -420,7 +420,7 @@ static bool test_json_menu_click_loads_selection_and_stays_open(void) {
 }
 
 static bool test_load_menu_rect_stays_within_left_pane_and_below_button_groups(void) {
-    char root_template[] = "/tmp/ld_json_menu_geom_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_json_menu_geom_XXXXXX"));
     char* root = NULL;
     char alpha_path[512];
     UIPanelState* ui = NULL;
@@ -456,8 +456,8 @@ static bool test_load_menu_rect_stays_within_left_pane_and_below_button_groups(v
 }
 
 static bool test_scene_folder_selection_opens_menu_for_scene_root(void) {
-    char baseline_template[] = "/tmp/ld_scene_menu_prev_root_XXXXXX";
-    char scene_root_template[] = "/tmp/ld_scene_menu_picker_root_XXXXXX";
+    char baseline_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(baseline_template, sizeof(baseline_template), "ld_scene_menu_prev_root_XXXXXX"));
+    char scene_root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(scene_root_template, sizeof(scene_root_template), "ld_scene_menu_picker_root_XXXXXX"));
     char* baseline_root = NULL;
     char* scene_root = NULL;
     char direct_scene[512];
@@ -512,7 +512,7 @@ static bool test_scene_folder_selection_opens_menu_for_scene_root(void) {
 }
 
 static bool test_scene_menu_click_loads_selection_and_stays_open(void) {
-    char root_template[] = "/tmp/ld_scene_click_menu_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_click_menu_XXXXXX"));
     char* root = NULL;
     Layout layout;
     LineDrawingSceneExportPaths export_paths;
@@ -560,7 +560,7 @@ static bool test_scene_menu_click_loads_selection_and_stays_open(void) {
 }
 
 static bool test_scene_export_preserves_layout_source_and_dirty_state(void) {
-    char root_template[] = "/tmp/ld_scene_export_active_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_export_active_XXXXXX"));
     char* root = NULL;
     char expected_authoring[512];
     char expected_runtime[512];
@@ -609,8 +609,8 @@ static bool test_scene_export_preserves_layout_source_and_dirty_state(void) {
 }
 
 static bool test_scene_export_uses_output_root_even_with_active_scene_session(void) {
-    char session_root_template[] = "/tmp/ld_scene_export_session_XXXXXX";
-    char output_root_template[] = "/tmp/ld_scene_export_output_XXXXXX";
+    char session_root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(session_root_template, sizeof(session_root_template), "ld_scene_export_session_XXXXXX"));
+    char output_root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(output_root_template, sizeof(output_root_template), "ld_scene_export_output_XXXXXX"));
     char* session_root = NULL;
     char* output_root = NULL;
     char session_scene_dir[512];
@@ -674,7 +674,7 @@ static bool test_scene_export_uses_output_root_even_with_active_scene_session(vo
 }
 
 static bool test_scene_menu_failed_load_keeps_list_open(void) {
-    char root_template[] = "/tmp/ld_scene_failed_click_menu_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_failed_click_menu_XXXXXX"));
     char* root = NULL;
     char direct_scene[512];
     UIPanelState* ui = NULL;
@@ -716,7 +716,7 @@ static bool test_scene_menu_failed_load_keeps_list_open(void) {
 }
 
 static bool test_legacy_scene_menu_click_loads_selection_and_stays_open(void) {
-    char root_template[] = "/tmp/ld_scene_legacy_click_menu_XXXXXX";
+    char root_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root_template, sizeof(root_template), "ld_scene_legacy_click_menu_XXXXXX"));
     char* root = NULL;
     char legacy_scene[512];
     UIPanelState* ui = NULL;
@@ -760,8 +760,8 @@ static bool test_legacy_scene_menu_click_loads_selection_and_stays_open(void) {
 }
 
 static bool test_scene_folder_selection_rejects_invalid_root_without_clobbering_input_root(void) {
-    char baseline_template[] = "/tmp/ld_scene_menu_stable_root_XXXXXX";
-    char invalid_template[] = "/tmp/ld_scene_menu_invalid_root_XXXXXX";
+    char baseline_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(baseline_template, sizeof(baseline_template), "ld_scene_menu_stable_root_XXXXXX"));
+    char invalid_template[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(invalid_template, sizeof(invalid_template), "ld_scene_menu_invalid_root_XXXXXX"));
     char* baseline_root = NULL;
     char* invalid_root = NULL;
 

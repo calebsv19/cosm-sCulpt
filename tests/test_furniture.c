@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "UI/shared_special.h"
 #include <unistd.h>
 #include "test_layout_internal.h"
@@ -370,7 +371,7 @@ static bool test_sink_removed_material_sections_checks_export(void) {
     TEST_ASSERT(owner[64*W+64]==-1 && rgba[(64*W+64)*4+3]==0);
     Layout_Free(&only);
     /* One board ID exports as one mesh dependency with the same evaluated surface. */
-    char root[]="/tmp/ld_f34_export_XXXXXX";TEST_ASSERT(mkdtemp(root));
+    char root[PATH_MAX]; TEST_ASSERT(ld_test_artifact_temp_path(root, sizeof(root), "ld_f34_export_XXXXXX"));TEST_ASSERT(mkdtemp(root));
     LineDrawingSceneExportPaths paths; char diagnostics[256]={0};
     TEST_ASSERT(LineDrawingSceneExport_ExportLayoutToOutputRoot(&s->layout,"f34.layout.json",root,&paths,diagnostics,sizeof(diagnostics)));
     TEST_ASSERT(paths.dependency_count==3);

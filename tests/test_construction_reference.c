@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "test_layout_internal.h"
 #include "Layout/layout_construction_reference.h"
 #include "Layout/layout_scene_collections.h"
@@ -18,12 +19,12 @@ static bool analytic_model(void){TEST_ASSERT(setup());Layout* l=&Global_Get()->l
     TEST_ASSERT(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(part,"cornersFrame_m"))==8);
     TEST_ASSERT(Layout_SetEntityHidden(&l->objectStore,"@scene.pilot",true));cJSON* hidden=Layout_ConstructionReference(l,"@scene.pilot");TEST_ASSERT(hidden&&cJSON_Compare(spec,hidden,true));cJSON_Delete(hidden);
     char* after=Layout_SaveToString(l);TEST_ASSERT(!strcmp(before,after));free(before);free(after);cJSON_Delete(spec);ld_test_shutdown_runtime();return true;}
-static bool export_create_only_escape_snapshot(void){TEST_ASSERT(setup());Layout* l=&Global_Get()->layout;char dir[256];snprintf(dir,256,"/tmp/sculpt_reference_test_%ld",(long)getpid());char msg[160];char* before=Layout_SaveToString(l);
+static bool export_create_only_escape_snapshot(void){TEST_ASSERT(setup());Layout* l=&Global_Get()->layout;char dir[512];TEST_ASSERT(ld_test_artifact_temp_path(dir, sizeof(dir), "sculpt_reference_test_%ld",(long)getpid()));char msg[160];char* before=Layout_SaveToString(l);
     TEST_ASSERT(Layout_ExportConstructionReference(l,"@scene.pilot","source<&",dir,msg,sizeof(msg)));TEST_ASSERT(!Layout_ExportConstructionReference(l,"@scene.pilot","",dir,msg,sizeof(msg)));
-    char path[300];snprintf(path,300,"%s/reference_sheets.html",dir);FILE* f=fopen(path,"rb");TEST_ASSERT(f);char* html=calloc(100000,1);TEST_ASSERT(html);size_t n=fread(html,1,99999,f);html[n]=0;fclose(f);TEST_ASSERT(strstr(html,"&lt;script&gt;bad &amp; label&lt;/script&gt;")&&!strstr(html,"<script>"));free(html);
-    Layout loaded={0};Layout_Init(&loaded,.05f);snprintf(path,300,"%s/source_snapshot.layout.json",dir);TEST_ASSERT(Layout_LoadFromFile(&loaded,path));char* readback=Layout_SaveToString(&loaded);TEST_ASSERT(readback&&!strcmp(before,readback));free(readback);Layout_Free(&loaded);
+    char path[1024];snprintf(path,sizeof(path),"%s/reference_sheets.html",dir);FILE* f=fopen(path,"rb");TEST_ASSERT(f);char* html=calloc(100000,1);TEST_ASSERT(html);size_t n=fread(html,1,99999,f);html[n]=0;fclose(f);TEST_ASSERT(strstr(html,"&lt;script&gt;bad &amp; label&lt;/script&gt;")&&!strstr(html,"<script>"));free(html);
+    Layout loaded={0};Layout_Init(&loaded,.05f);snprintf(path,sizeof(path),"%s/source_snapshot.layout.json",dir);TEST_ASSERT(Layout_LoadFromFile(&loaded,path));char* readback=Layout_SaveToString(&loaded);TEST_ASSERT(readback&&!strcmp(before,readback));free(readback);Layout_Free(&loaded);
     char* after=Layout_SaveToString(l);TEST_ASSERT(!strcmp(before,after));free(before);free(after);
-    const char* leaves[]={"reference_sheets.html","view_uv.svg","view_un.svg","view_vn.svg","specification.json","source_snapshot.layout.json","COMPLETE.txt"};for(size_t i=0;i<7;++i){snprintf(path,300,"%s/%s",dir,leaves[i]);TEST_ASSERT(!unlink(path));}TEST_ASSERT(!rmdir(dir));ld_test_shutdown_runtime();return true;}
+    const char* leaves[]={"reference_sheets.html","view_uv.svg","view_un.svg","view_vn.svg","specification.json","source_snapshot.layout.json","COMPLETE.txt"};for(size_t i=0;i<7;++i){snprintf(path,sizeof(path),"%s/%s",dir,leaves[i]);TEST_ASSERT(!unlink(path));}TEST_ASSERT(!rmdir(dir));ld_test_shutdown_runtime();return true;}
 static bool failures_and_invalid_measurement(void){TEST_ASSERT(setup());Layout* l=&Global_Get()->layout;TEST_ASSERT(!Layout_ConstructionReference(l,"absent"));Object3D* o=(Object3D*)Layout_InspectionObject(l,"panel_A");o->transform.scale.x=2;TEST_ASSERT(!Layout_ConstructionReference(l,"@scene.pilot"));o->transform.scale.x=1;
     LayoutSavedMeasurement m={.kind=3};snprintf(m.id,64,"broken");snprintf(m.name,96,"Missing datum");snprintf(m.collection,64,"@scene.pilot");snprintf(m.a.entity_id,64,"absent");snprintf(m.b.entity_id,64,"panel_A");l->objectStore.measurements[0]=m;l->objectStore.measurement_count=1;
     cJSON* spec=Layout_ConstructionReference(l,"@scene.pilot");TEST_ASSERT(spec);cJSON* value=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(spec,"measurements"),0);TEST_ASSERT(!cJSON_GetObjectItemCaseSensitive(value,"value_m"));cJSON_Delete(spec);

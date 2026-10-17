@@ -1,3 +1,4 @@
+#include "test_artifact_helpers.h"
 #include "test_layout_internal.h"
 #include "Layout/layout_spatial.h"
 #include "UI/ui_panel_spatial.h"
@@ -83,7 +84,10 @@ static bool test_rules_assembly_history_bounds_report(void) {
     TEST_ASSERT(Layout_CheckSpatial(layout(),results,1)==1 && results[0].severity==LAYOUT_SPATIAL_PASS);
     TEST_ASSERT(Editor_Undo(&Global_Get()->editor,layout()) && Layout_CheckSpatial(layout(),results,1)==1 && results[0].severity==LAYOUT_SPATIAL_ERROR);
     cJSON* report=Layout_SpatialReportJson(layout());TEST_ASSERT(report && !cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(report,"truncated")));cJSON_Delete(report);
-    TEST_ASSERT(Layout_SaveToFile(layout(),"/private/tmp/ld-s3bc-cli-layout.json"));
+    char saved_path[PATH_MAX];
+    TEST_ASSERT(ld_test_artifact_temp_path(saved_path, sizeof(saved_path), "ld-s3bc-cli-layout.json"));
+    TEST_ASSERT(Layout_SaveToFile(layout(), saved_path));
+    TEST_ASSERT(unlink(saved_path) == 0);
     LayoutSpatialRule duplicate=rule("B",id,.1);char* before=Layout_SaveToString(layout());
     TEST_ASSERT(!Layout_EditSpatialRule(layout(),&duplicate,NULL,NULL,NULL) && same(before));duplicate=rule("A","missing",0);TEST_ASSERT(!Layout_EditSpatialRule(layout(),&duplicate,NULL,NULL,NULL) && same(before));Layout_FreeString(before);
     TEST_ASSERT(Layout_EditSpatialRule(layout(),NULL,"spatial_1",Layout_GeometryHistory,NULL));
