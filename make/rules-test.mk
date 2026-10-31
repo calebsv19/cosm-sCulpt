@@ -8,7 +8,7 @@ run-daw-theme: $(APP_TARGET)
 	LINE_DRAWING3D_USE_SHARED_THEME_FONT=1 LINE_DRAWING3D_USE_SHARED_THEME=1 LINE_DRAWING3D_USE_SHARED_FONT=1 LINE_DRAWING3D_THEME_PRESET=daw_default LINE_DRAWING3D_FONT_PRESET=daw_default $(APP_TARGET)
 
 test: $(TEST_TARGET) test-folder-picker test-package-release
-	$(TEST_TARGET) $(ARGS)
+	python3 -B tests/run_host_tests.py "$(abspath $(TEST_TARGET))" $(ARGS)
 
 .PHONY: test-package-release
 test-package-release:

@@ -65,15 +65,11 @@ prepare_runtime_lanes
 MOLTENVK_DYLIB="$APP_CONTENTS_DIR/Frameworks/libMoltenVK.dylib"
 
 write_icd_file() {
-    cat >"$ICD_FILE" <<EOF
-{
-  "file_format_version": "1.0.0",
-  "ICD": {
-    "library_path": "$MOLTENVK_DYLIB",
-    "api_version": "1.3.0"
-  }
-}
-EOF
+    # A signed launcher may not inherit the shell's temporary-directory selector.
+    # printf writes directly to the owned runtime lane without a here-document file.
+    printf '%s\n' '{' '  "file_format_version": "1.0.0",' '  "ICD": {' \
+        "    \"library_path\": \"$MOLTENVK_DYLIB\"," \
+        '    "api_version": "1.3.0"' '  }' '}' >"$ICD_FILE"
 }
 
 ICD_FILE="$RUNTIME_DIR/vk/MoltenVK_icd.json"
