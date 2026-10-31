@@ -51,7 +51,9 @@ bool VanNavigationProof_Run(AppContext* app,const AppCallbacks* c,const char* pa
     CoreTimeNs load_start=core_time_now_ns();
     if(!Layout_LoadFromFile(&s->layout,path))return false;
     double layout_load_ms=core_time_diff_ns(core_time_now_ns(),load_start)*1e-6;
-    Global_OnLayoutLoaded(path);s->previewMode=LINE_DRAWING_PREVIEW_MODE_MATERIAL;
+    Global_OnLayoutLoaded(path);
+    s->inspectionView=getenv("LINE_DRAWING_NAVIGATION_PROOF_INSPECTION")!=NULL;
+    s->previewMode=LINE_DRAWING_PREVIEW_MODE_MATERIAL;
     UIPanel_SetActiveRightTab(UIPanel_Get(),UI_PANEL_RIGHT_TAB_VIEW);
     if(!CameraView_Enter(s,false) || !frame_proof(s))return false;
     char* before=Layout_SaveToString(&s->layout);
@@ -74,7 +76,7 @@ bool VanNavigationProof_Run(AppContext* app,const AppCallbacks* c,const char* pa
     LayoutMeshPreviewCacheStats cold=Layout_MeshPreviewCacheRead();
     /* Loading duration must not change the final camera used by parity runs. */
     if(!frame_proof(s)) {free(before);return false;}
-    double durations[90];uint64_t raster=0,upload=0;
+    double durations[90];uint64_t raster=0,upload=0;size_t moving_peak=0;bool moving_bounded=true;
     for(size_t i=0;i<90;++i) {
         SDL_Event event={.type=SDL_MOUSEMOTION};
         event.motion.x=(int)(s->cameraView.viewport[0]+s->cameraView.viewport[2]*.5f);
@@ -86,6 +88,8 @@ bool VanNavigationProof_Run(AppContext* app,const AppCallbacks* c,const char* pa
         if(!App_RenderOnce(app,c->handleRender)) {free(before);return false;}
         durations[i]=core_time_diff_ns(core_time_now_ns(),start)*1e-6;
         LayoutMeshSolidPreviewFrameStats frame=Layout_MeshSolidPreviewReadStats();raster+=frame.raster_ns;upload+=frame.upload_ns;
+        if(frame.plannedTriangles>moving_peak)moving_peak=frame.plannedTriangles;
+        moving_bounded=moving_bounded && frame.interactiveQuality && !frame.detailBudgetOverflow && frame.plannedTriangles<=32000;
     }
     LayoutMeshPreviewCacheStats warm=Layout_MeshPreviewCacheRead();
     LayoutMeshSolidPreviewFrameStats warm_rendering=Layout_MeshSolidPreviewReadStats();
@@ -103,10 +107,11 @@ bool VanNavigationProof_Run(AppContext* app,const AppCallbacks* c,const char* pa
     s->authoringGuides=false;Layout_SceneAuthoringState_ClearSelection(&s->layout.sceneAuthoring);
     char capture[4096];snprintf(capture,sizeof(capture),"%s/navigation.bmp",root);
     bool image=vk_renderer_request_capture(app->renderer,capture)==VK_SUCCESS && App_RenderOnce(app,c->handleRender);
-    SDL_Delay(180);
+    SDL_Delay(1150);
     snprintf(capture,sizeof(capture),"%s/settled.bmp",root);
     image=image && vk_renderer_request_capture(app->renderer,capture)==VK_SUCCESS && App_RenderOnce(app,c->handleRender);
-    bool settled_detail=!Layout_MeshSolidPreviewReadStats().interactiveQuality;
+    LayoutMeshSolidPreviewFrameStats settled=Layout_MeshSolidPreviewReadStats();
+    bool settled_detail=settled.qualityStage==2 && !settled.interactiveQuality && !settled.detailBudgetOverflow;
     bool camera_only=getenv("LINE_DRAWING_NAVIGATION_PROOF_CAMERA_ONLY")!=NULL;
     fprintf(stderr,"Native proof camera frames complete: warm p95 pending sort, instances %zu, planned %zu\n",s->layout.objectStore.count,warm_rendering.plannedTriangles);
     CameraView_Exit(s);
@@ -140,8 +145,16 @@ bool VanNavigationProof_Run(AppContext* app,const AppCallbacks* c,const char* pa
 #else
     uint64_t peak_bytes=(uint64_t)usage.ru_maxrss*1024;
 #endif
+    char policy_report[4096];snprintf(policy_report,sizeof(policy_report),"%s/quality.json",root);
+    FILE* policy=fopen(policy_report,"wx");
+    if(!policy)return false;
+    fprintf(policy,"{\"inspection\":%s,\"moving_peak_planned_triangles\":%zu,\"all_moving_frames_bounded\":%s,\"settled_stage\":%u,\"settled_planned_triangles\":%zu,\"settled_frame_ms\":%.3f,\"settled_budget_overflow\":%s}\n",
+        s->inspectionView?"true":"false",moving_peak,moving_bounded?"true":"false",settled.qualityStage,
+        settled.plannedTriangles,settled.frame_ns*1e-6,settled.detailBudgetOverflow?"true":"false");
+    if(fclose(policy))return false;
     char report[4096];snprintf(report,sizeof(report),"%s/navigation.json",root);FILE* f=fopen(report,"wx");
-    bool ok=unchanged && guides_hidden_in_view && guides_on && guides_off && settled_detail && image &&
+    bool ok=moving_bounded && unchanged && guides_hidden_in_view && guides_on && guides_off && settled_detail && image &&
+        !warm_rendering.detailBudgetOverflow && warm_rendering.plannedTriangles<=32000 &&
         !warm.pending_jobs && warm.ui_decode_calls==0 && warm.loads==cold.loads && warm.lod_builds==cold.lod_builds;
     if(f) {
         fprintf(f,"{\"schema\":\"sculpt_navigation_proof_v1\",\"passed\":%s,\"objects\":%zu,\"frames\":90,\"cold_ms\":%.3f,\"warm_mean_ms\":%.3f,\"warm_p95_ms\":%.3f,\"raster_mean_ms\":%.3f,\"upload_mean_ms\":%.3f,\"resident_assets\":%zu,\"resident_bytes\":%zu,\"budget_bytes\":%zu,\"cold_loads\":%llu,\"warm_loads\":%llu,\"cold_lod_builds\":%llu,\"warm_lod_builds\":%llu,\"hits\":%llu,\"document_unchanged\":%s,\"guides_hidden_in_view\":%s,\"degraded_meshes\":%zu}\n",

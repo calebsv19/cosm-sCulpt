@@ -212,7 +212,17 @@ static bool conservative_bounds_lod_and_scene_budget(void) {
     char* before=Layout_SaveToString(&l);
     const LayoutMeshViewPlan* p=Layout_MeshViewPlanBuild(&l,&v,&grid,clip,false,false,selected,120000);TEST_ASSERT(p);
     TEST_ASSERT(p->entries[0].tier==3 && p->planned_triangles<=120000 && !p->budget_overflow);
-    p=Layout_MeshViewPlanBuild(&l,&v,&grid,clip,true,true,selected,120000);TEST_ASSERT(p && p->budget_overflow && p->entries[20].tier==3);
+    p=Layout_MeshViewPlanBuild(&l,&v,&grid,clip,true,true,selected,120000);
+    TEST_ASSERT(p && !p->budget_overflow && p->planned_triangles<=32000);
+    for(size_t i=0;i<p->count;++i)if(p->entries[i].visible)TEST_ASSERT(p->entries[i].tier<=1 || p->entries[i].tier==4);
+    /* Van-sized inventory retains coherent surfaces, including the selected part. */
+    l.objectStore.count=95;
+    p=Layout_MeshViewPlanBuild(&l,&v,&grid,clip,true,true,selected,120000);
+    TEST_ASSERT(p && p->planned_triangles<=32000 && !p->budget_overflow);
+    for(size_t i=0;i<p->count;++i)if(p->entries[i].visible)TEST_ASSERT(p->entries[i].tier<=1);
+    p=Layout_MeshViewPlanBuild(&l,&v,&grid,clip,false,true,selected,500000);
+    TEST_ASSERT(p && p->planned_triangles<=500000 && !p->budget_overflow);
+    l.objectStore.count=1000;
     char* after=Layout_SaveToString(&l);TEST_ASSERT(before && after && !strcmp(before,after));free(before);free(after);
     for(size_t i=0;i<l.objectStore.count;++i)l.objectStore.items[i].transform.position.y=-20;
     LayoutAssembly assembly={.frame={.axisU={1,0,0},.axisV={0,1,0},.normal={0,0,1}}};

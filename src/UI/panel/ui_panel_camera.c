@@ -22,7 +22,7 @@ static bool facing_details;
 static bool facing_part;
 static char facing_message[128];
 static int camera_rows(void) {
-    return Global_Get() && Global_Get()->cameraView.active ? 10 + (details ? 4 : 0) : 3;
+    return Global_Get() && Global_Get()->cameraView.active ? 11 + (details ? 4 : 0) : 4;
 }
 static const char* facing_target(void) {
     const GlobalState* s=Global_Get();
@@ -229,6 +229,12 @@ void UIPanel_RenderCamera(SDL_Renderer *renderer) {
     paint(renderer,rect(UI_CAMERA_GUIDES),LDVisibilityTree_State(&s->layout.objectStore,"@guides")?"Guides: on":"Guides: off",true,s->authoringGuides,true);
     render_inspection(renderer);
     UIPanel_CameraPathRender(renderer,path_y());
+    size_t hidden=0;
+    for(size_t i=0;i<s->layout.objectStore.count;++i)
+        if(!Layout_ObjectShown(&s->layout.objectStore,&s->layout.objectStore.items[i]) &&
+           !Layout_EntityIsSpatialGuide(&s->layout.objectStore.items[i].info))++hidden;
+    snprintf(label,sizeof(label),"Hidden parts: %zu | see Visibility",hidden);
+    paint(renderer,line(camera_rows()-1),label,false,false,true);
     if (!c->active) {
         if(!CameraPath_Selected(s)) paint(renderer, line(2), "Explore frames scene; Enter uses saved camera.", false, false, true);
         return;
@@ -254,9 +260,9 @@ void UIPanel_RenderCamera(SDL_Renderer *renderer) {
     else {
         LayoutMeshPreviewCacheStats cache=Layout_MeshPreviewCacheRead();
         LayoutMeshSolidPreviewFrameStats frame=Layout_MeshSolidPreviewReadStats();
-        snprintf(label,sizeof(label),"Assets %zu | preparing %zu | %.1f ms | proxies %zu%s",cache.resident_assets,
-            cache.pending_jobs,frame.frame_ns*1e-6,frame.degradedMeshes+frame.lodTiers[4],
-            frame.detailBudgetOverflow?" | detail limit":"");
+        snprintf(label,sizeof(label),"%s | %zuk tris | %.0f ms | loading %zu",
+            frame.qualityStage==0?"Moving":frame.qualityStage==1?"Balanced":"Detail",
+            frame.plannedTriangles/1000,frame.frame_ns*1e-6,cache.pending_jobs);
         paint(renderer,line(details?13:9),label,false,false,true);
     }
 }

@@ -27,6 +27,7 @@ typedef struct {
     size_t rasterBufferBytes, textureBytesEstimate, plannerBytes;
     bool detailBudgetOverflow;
     bool interactiveQuality;
+    unsigned qualityStage; /* 0 moving, 1 balanced, 2 detail. */
     uint64_t raster_ns, upload_ns, frame_ns;
 } LayoutMeshSolidPreviewFrameStats;
 
@@ -83,9 +84,8 @@ bool Layout_MeshSolidPreviewUsesInteractiveQuality(uint64_t nowNs,
 bool Layout_MeshSolidPreviewInvalidationResetsQuality(
     LayoutMeshSolidPreviewInvalidation invalidation);
 
-// Return true only when a view-context change alters the viewing direction.
-// Camera target changes are pans, and construction-plane offset changes do not
-// change the projected face orientation, so neither should lower mesh quality.
+// Camera orientation and target changes restart cheap navigation quality.
+// Grid pan/zoom changes are covered by projection-signature invalidation.
 bool Layout_MeshSolidPreviewViewChangeResetsQuality(
     const SpaceViewContext* previous,
     const SpaceViewContext* current);

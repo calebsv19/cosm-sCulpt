@@ -155,7 +155,7 @@ package-desktop-main-edit-self-test: package-desktop-main-edit
 		--product sCulpt \
 		--version "$(RELEASE_VERSION)"
 	@set -e; \
-	fake_home="$(CURDIR)/$(MAIN_EDIT_SELF_TEST_DIR)/home"; \
+	fake_home="$(abspath $(MAIN_EDIT_SELF_TEST_DIR))/home"; \
 	rm -rf "$$fake_home"; \
 	mkdir -p "$$fake_home"; \
 	HOME="$$fake_home" "$(MAIN_EDIT_APP_DIR)/Contents/MacOS/line-drawing-launcher" --self-test; \

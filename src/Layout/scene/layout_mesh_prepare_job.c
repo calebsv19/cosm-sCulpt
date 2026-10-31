@@ -7,6 +7,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <pthread/qos.h>
+#endif
 #define JOB_LIMIT 8u
 #define SOURCE_LIMIT (8u*1024u*1024u)
 #define RESULT_LIMIT (8u*1024u*1024u)
@@ -30,6 +33,10 @@ static size_t bytes(const CoreMeshPreviewLodMesh* m) {
 }
 static bool canceled(LayoutMeshPrepareJob* j) {return atomic_load(&j->canceled);}
 static void* prepare(void* data) {
+#ifdef __APPLE__
+    /* Asset preparation yields to interactive apps; retain the single worker bound. */
+    (void)pthread_set_qos_class_self_np(QOS_CLASS_UTILITY,0);
+#endif
     LayoutMeshPrepareJob* j=data;CoreTimeNs start=core_time_now_ns();
     j->delta.background_jobs=1;j->delta.ui_decode_calls=pthread_equal(owner_thread,pthread_self())?1:0;
     char key[1024],verified[1024];char *input=NULL,*checked=NULL;bool keyed=false,loaded=false;struct stat stamp;size_t result_bytes=0;

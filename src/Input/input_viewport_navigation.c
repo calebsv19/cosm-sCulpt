@@ -13,6 +13,7 @@
 
 static Uint8 s_gesture_button = 0;
 static bool s_orbit_active = false;
+bool InputViewportNavigation_IsActive(void) {return s_gesture_button!=0;}
 
 static bool input_viewport_navigation_drag_conflict_active(void) {
     return draggingAnchor || draggingHandle || draggingSelectionBox || draggingGizmo ||

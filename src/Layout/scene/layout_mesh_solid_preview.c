@@ -3,6 +3,8 @@
 #include "Layout/layout_inspection.h"
 #include "Layout/layout_section.h"
 #include "Core/global_state.h"
+#include "Core/camera_view.h"
+#include "Input/input_viewport_navigation.h"
 #include "Layout/scene/layout_mesh_solid_preview.h"
 #include "Layout/scene/layout_mesh_view_plan.h"
 #include "Layout/scene/layout_preview_quality.h"
@@ -25,7 +27,7 @@
 
 #define LD_MESH_SOLID_INTERACTIVE_TRIANGLES 8000u
 #define LD_MESH_SOLID_SETTLED_TRIANGLES 18000u
-#define LD_MESH_SOLID_SETTLE_NS 150000000ull
+#define LD_MESH_SOLID_SETTLE_NS 450000000ull
 #define LD_MESH_SOLID_INTERACTIVE_SCALE 0.50f
 #define LD_MESH_SOLID_SETTLED_SCALE 0.75f
 
@@ -51,6 +53,7 @@ typedef struct {
     bool appearanceSignatureValid;
     bool qualityViewContextValid;
     bool renderedInteractive;
+    LayoutPreviewQuality renderedQuality;
     bool pixelsValid;
     LayoutMeshSolidPreviewFrameStats lastStats;
     uint32_t detailFocus;
@@ -573,7 +576,7 @@ bool Layout_MeshSolidPreviewUsesInteractiveQuality(uint64_t nowNs,
 // Keep appearance and editor-overlay invalidation independent from LOD quality.
 bool Layout_MeshSolidPreviewInvalidationResetsQuality(
     LayoutMeshSolidPreviewInvalidation invalidation) {
-    return (invalidation & LAYOUT_MESH_SOLID_INVALIDATION_GEOMETRY) != 0;
+    return (invalidation & (LAYOUT_MESH_SOLID_INVALIDATION_GEOMETRY | LAYOUT_MESH_SOLID_INVALIDATION_PROJECTION)) != 0;
 }
 
 bool Layout_MeshSolidPreviewViewChangeResetsQuality(
@@ -585,7 +588,8 @@ bool Layout_MeshSolidPreviewViewChangeResetsQuality(
     if (previous->camera.enabled != current->camera.enabled) return true;
     if (current->camera.enabled) {
         return previous->camera.yawDeg != current->camera.yawDeg ||
-               previous->camera.pitchDeg != current->camera.pitchDeg;
+               previous->camera.pitchDeg != current->camera.pitchDeg ||
+               memcmp(&previous->camera.target,&current->camera.target,sizeof(current->camera.target))!=0;
     }
     return previous->plane.axis != current->plane.axis;
 }
@@ -657,7 +661,8 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
     g_solidPreview.objectSignatureValid = true;
     g_solidPreview.qualityViewContext = *viewContext;
     g_solidPreview.qualityViewContextValid = true;
-    if (Layout_MeshSolidPreviewInvalidationResetsQuality(invalidation)) {
+    if (Layout_MeshSolidPreviewInvalidationResetsQuality(invalidation) ||
+        InputViewportNavigation_IsActive() || CameraView_NextUpdateDelayMs(Global_Get())>=0) {
         g_solidPreview.qualityChangedAt = now;
     }
     if (appearanceChanged) {
@@ -667,7 +672,8 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
     interactive = Layout_MeshSolidPreviewUsesInteractiveQuality(
         now,
         g_solidPreview.qualityChangedAt);
-    needsRaster = surfaceChanged || appearanceChanged || !g_solidPreview.pixelsValid ||
+    LayoutPreviewQuality quality=Layout_PreviewQuality(now,g_solidPreview.qualityChangedAt);
+    needsRaster = quality!=g_solidPreview.renderedQuality || surfaceChanged || appearanceChanged || !g_solidPreview.pixelsValid ||
                   interactive != g_solidPreview.renderedInteractive;
 
     CoreTimeNs rasterStart=core_time_now_ns();
@@ -675,18 +681,19 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
         LayoutMeshSolidPreviewFrameStats stats = {0};
         const GlobalState* planningState=Global_Get();
         const LayoutMeshViewPlan* meshPlan=Layout_MeshViewPlanBuild(layout,viewContext,grid,clip,interactive,
-            viewContext->inspection || planningState->sectionView.mode!=LAYOUT_SECTION_OFF,focus,120000);
+            viewContext->inspection || planningState->sectionView.mode!=LAYOUT_SECTION_OFF,focus,Layout_PreviewTriangleBudget(quality));
         if(meshPlan) {stats.culledObjects=meshPlan->culled_objects;stats.culledAssemblies=meshPlan->culled_assemblies;
             stats.plannedTriangles=meshPlan->planned_triangles;stats.detailBudgetOverflow=meshPlan->budget_overflow;stats.plannerBytes=meshPlan->scratch_bytes;}
         float dpi=screenWidth>0?(float)vk->context.swapchain.extent.width/(float)screenWidth:1;
         rasterScale=Layout_PreviewRasterScale(clip.w,clip.h,dpi,interactive);
         if(getenv("LINE_DRAWING_PREVIEW_LEGACY_QUALITY"))rasterScale=interactive?.5f:.75f;
         /* Thin panel sections need full screen resolution; mesh preview LOD stays unchanged. */
-        if (Global_Get() && Global_Get()->sectionView.mode != LAYOUT_SECTION_OFF) rasterScale = 1.0f;
+        if (!interactive && Global_Get()->sectionView.mode != LAYOUT_SECTION_OFF) rasterScale = 1.0f;
         rasterWidth = (int)ceilf((float)clip.w * rasterScale);
         rasterHeight = (int)ceilf((float)clip.h * rasterScale);
         if (!LayoutMeshSolid_PrepareBuffers(rasterWidth, rasterHeight)) return false;
         stats.interactiveQuality = interactive;
+        stats.qualityStage = (unsigned)quality;
         int selected=-1,hovered=-1;
         const GlobalState* state=Global_Get();
         if(state)for(size_t i=0;i<layout->objectStore.count;++i) {
@@ -713,7 +720,7 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
                     Layout_InspectionOutlined(&layout->objectStore,object,viewContext)!=near ||
                     (reference_filter>=0 && object->info.reference!=(reference_filter==1))) continue;
                 if(meshPlan && !meshPlan->entries[i].visible)continue;
-                unsigned tier=meshPlan?meshPlan->entries[i].tier:interactive?2:3;
+                unsigned tier=meshPlan?meshPlan->entries[i].tier:0;
                 ++stats.lodTiers[tier];
                 const LayoutMeshSolidPreviewLod* lod=tier<4?Layout_MeshPreviewCacheGetTier(object->meshInstance.runtimePath,tier):NULL;
                 CoreObjectVec3 fallbackVertices[8];
@@ -745,13 +752,14 @@ bool Layout_RenderMeshSolidPreview(SDL_Renderer* renderer,
         size_t allocatedPixels=(size_t)g_solidPreview.rasterWidth*(size_t)g_solidPreview.rasterHeight;
         stats.rasterBufferBytes=allocatedPixels*12u*(g_solidPreview.inspectionRgba?2u:1u);
         stats.textureBytesEstimate=allocatedPixels*4u;
-        if(stats.submittedTriangles>120000)stats.detailBudgetOverflow=true;
+        if(stats.submittedTriangles>Layout_PreviewTriangleBudget(quality))stats.detailBudgetOverflow=true;
         CoreTimeNs uploadStart=core_time_now_ns();
         if (!LayoutMeshSolid_UpdateTexture(vk, rasterWidth, rasterHeight)) return false;
         stats.upload_ns=core_time_diff_ns(core_time_now_ns(),uploadStart);
         g_solidPreview.renderer = vk;
         g_solidPreview.lastStats = stats;
         g_solidPreview.renderedInteractive = interactive;
+        g_solidPreview.renderedQuality = quality;
         g_solidPreview.pixelsValid = true;
         g_solidPreview.clip=clip;
         g_solidPreview.rasterScale=rasterScale;
@@ -804,10 +812,8 @@ void Layout_MeshSolidPreviewShutdown(SDL_Renderer* renderer) {
 
 int Layout_MeshSolidPreviewNextUpdateDelayMs(void) {
     if(Layout_MeshPreviewCacheRead().pending_jobs)return 16;
-    if (!g_solidPreview.pixelsValid || !g_solidPreview.renderedInteractive) return -1;
-    uint64_t elapsed = core_time_diff_ns(core_time_now_ns(), g_solidPreview.qualityChangedAt);
-    if (elapsed >= LD_MESH_SOLID_SETTLE_NS) return 0;
-    return (int)((LD_MESH_SOLID_SETTLE_NS - elapsed + 999999u) / 1000000u);
+    if (!g_solidPreview.pixelsValid) return -1;
+    return Layout_PreviewRefinementDelayMs(core_time_now_ns(),g_solidPreview.qualityChangedAt);
 }
 
 LayoutMeshSolidPreviewFrameStats Layout_MeshSolidPreviewReadStats(void) {return g_solidPreview.lastStats;}

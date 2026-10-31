@@ -28,7 +28,18 @@ static bool hierarchy_collapsed_search_ancestor(void) {
     TEST_ASSERT(LDVisibilityTree_Build(&s->layout.objectStore,"roof")==3);LDVisibilityTree_Expand(parent);TEST_ASSERT(LDVisibilityTree_Build(&s->layout.objectStore,"")==1);LDVisibilityTree_Reset();ld_test_shutdown_runtime();return true;
 }
 static bool quality_edges_preserve_depth_and_owner(void) {
-    TEST_ASSERT(Layout_PreviewRasterScale(1000,700,2,true)==.5f);
+    const uint64_t changed=2000000000ull;
+    TEST_ASSERT(Layout_PreviewQuality(changed,changed)==LAYOUT_PREVIEW_MOVING);
+    TEST_ASSERT(Layout_PreviewQuality(changed+449999999ull,changed)==LAYOUT_PREVIEW_MOVING);
+    TEST_ASSERT(Layout_PreviewQuality(changed+450000000ull,changed)==LAYOUT_PREVIEW_BALANCED);
+    TEST_ASSERT(Layout_PreviewQuality(changed+1100000000ull,changed)==LAYOUT_PREVIEW_DETAIL);
+    TEST_ASSERT(Layout_PreviewRefinementDelayMs(changed,changed)==450);
+    TEST_ASSERT(Layout_PreviewRefinementDelayMs(changed+450000000ull,changed)==650);
+    TEST_ASSERT(Layout_PreviewRefinementDelayMs(changed+1100000000ull,changed)==-1);
+    TEST_ASSERT(Layout_PreviewTriangleBudget(LAYOUT_PREVIEW_MOVING)==32000);
+    TEST_ASSERT(Layout_PreviewRasterScale(1000,700,2,true)==.30f);
+    float large=Layout_PreviewRasterScale(7680,4320,2,true);
+    TEST_ASSERT(7680*4320*large*large<=180001);
     float scale=Layout_PreviewRasterScale(1000,700,2,false);TEST_ASSERT(scale>.75f&&ceilf(1000*scale)*ceilf(700*scale)<=900000);
     uint8_t rgba[100*4];float depth[100];int32_t owner[100];for(int i=0;i<100;++i){depth[i]=i%10<5?1:2;owner[i]=i%10<5?0:1;rgba[i*4]=100;rgba[i*4+1]=80;rgba[i*4+2]=50;rgba[i*4+3]=255;}
     float original_depth[100];int32_t original_owner[100];memcpy(original_depth,depth,sizeof(depth));memcpy(original_owner,owner,sizeof(owner));

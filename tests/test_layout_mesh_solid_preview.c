@@ -153,9 +153,9 @@ static bool test_mesh_solid_outline_only_clears_filled_interior(void) {
 static bool test_mesh_solid_adaptive_quality_settles_after_stable_interval(void) {
     const uint64_t changedAt = 1000000000ull;
     TEST_ASSERT(Layout_MeshSolidPreviewUsesInteractiveQuality(changedAt, changedAt));
-    TEST_ASSERT(Layout_MeshSolidPreviewUsesInteractiveQuality(changedAt + 149999999ull,
+    TEST_ASSERT(Layout_MeshSolidPreviewUsesInteractiveQuality(changedAt + 449999999ull,
                                                               changedAt));
-    TEST_ASSERT(!Layout_MeshSolidPreviewUsesInteractiveQuality(changedAt + 150000000ull,
+    TEST_ASSERT(!Layout_MeshSolidPreviewUsesInteractiveQuality(changedAt + 450000000ull,
                                                                changedAt));
     TEST_ASSERT(!Layout_MeshSolidPreviewUsesInteractiveQuality(0u, changedAt));
     return true;
@@ -168,7 +168,7 @@ static bool test_mesh_solid_quality_only_resets_for_geometry_changes(void) {
         LAYOUT_MESH_SOLID_INVALIDATION_APPEARANCE));
     TEST_ASSERT(!Layout_MeshSolidPreviewInvalidationResetsQuality(
         LAYOUT_MESH_SOLID_INVALIDATION_OVERLAY));
-    TEST_ASSERT(!Layout_MeshSolidPreviewInvalidationResetsQuality(
+    TEST_ASSERT(Layout_MeshSolidPreviewInvalidationResetsQuality(
         LAYOUT_MESH_SOLID_INVALIDATION_PROJECTION));
     TEST_ASSERT(!Layout_MeshSolidPreviewInvalidationResetsQuality(
         LAYOUT_MESH_SOLID_INVALIDATION_APPEARANCE |
@@ -197,7 +197,7 @@ static bool test_mesh_solid_view_quality_ignores_pan_and_plane_offset(void) {
 
     current.camera.target = (Vec3){9.0f, -4.0f, 2.0f};
     current.plane.offset = 12.0f;
-    TEST_ASSERT(!Layout_MeshSolidPreviewViewChangeResetsQuality(&previous, &current));
+    TEST_ASSERT(Layout_MeshSolidPreviewViewChangeResetsQuality(&previous, &current));
 
     current = previous;
     current.camera.yawDeg += 1.0f;
@@ -231,7 +231,7 @@ bool test_layout_mesh_solid_preview_run_tests(void) {
          test_mesh_solid_adaptive_quality_settles_after_stable_interval},
         {"MeshSolidQualityOnlyResetsForGeometryChanges",
          test_mesh_solid_quality_only_resets_for_geometry_changes},
-        {"MeshSolidViewQualityIgnoresPanAndPlaneOffset",
+        {"MeshSolidViewQualityDetectsPanAndIgnoresPlaneOffset",
          test_mesh_solid_view_quality_ignores_pan_and_plane_offset},
     };
     return run_test_cases("LayoutMeshSolidPreview", cases, sizeof(cases) / sizeof(cases[0]));

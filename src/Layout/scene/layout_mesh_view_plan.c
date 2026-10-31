@@ -77,6 +77,7 @@ static size_t cost(const Object3D* o,unsigned tier) {
 }
 const LayoutMeshViewPlan* Layout_MeshViewPlanBuild(const Layout* l,const SpaceViewContext* v,const Grid* g,
     SDL_Rect clip,bool moving,bool inspecting,uint32_t selected,size_t budget) {
+    if(moving && budget>32000)budget=32000;
     if(l->objectStore.count>16384 || l->objectStore.assembly_count>LAYOUT_MAX_ASSEMBLIES)return NULL;
     if(l->objectStore.count>capacity) {
         size_t n=l->objectStore.count;LayoutMeshViewEntry* e=calloc(n,sizeof(*e));History* h=calloc(n,sizeof(*h));Priority* p=calloc(n,sizeof(*p));
@@ -108,11 +109,12 @@ const LayoutMeshViewPlan* Layout_MeshViewPlanBuild(const Layout* l,const SpaceVi
         e->diameter=known?diameter(e->lo,e->hi,v,g):INFINITY;
         History* h=&history[i];if(h->id!=o->objectId)h->initialized=false;
         e->tier=Layout_MeshScreenTier(e->diameter,h->tier,h->initialized);h->id=o->objectId;h->tier=e->tier;h->initialized=true;
-        if(moving && e->tier>2)e->tier=2;
         if(o->objectId==selected || inspecting)e->tier=3;
-        if(oracle)e->tier=moving?2:3;
+        if(oracle)e->tier=3;
+        /* Motion takes precedence over Inspection, selection, and diagnostic detail. */
+        if(moving && e->tier>1)e->tier=1;
         e->triangles=cost(o,e->tier);plan.planned_triangles+=e->triangles;
-        if(o->objectId!=selected && !inspecting)order[priorities++]=(Priority){i,e->diameter};
+        order[priorities++]=(Priority){i,o->objectId==selected?FLT_MAX:e->diameter};
     }
     for(size_t j=0;j<l->objectStore.assembly_count;++j)if(!disable && group_found[j] && group_safe[j] &&
         !Layout_MeshBoundsVisible(group_lo[j],group_hi[j],v,g,clip)) {group_visible[j]=false;++plan.culled_assemblies;}
@@ -120,12 +122,16 @@ const LayoutMeshViewPlan* Layout_MeshViewPlanBuild(const Layout* l,const SpaceVi
         if(!group_visible[j] && Layout_IsDescendant(&l->objectStore,l->objectStore.items[i].info.parent_id,l->objectStore.assemblies[j].id)) {
             plan.entries[i].visible=false;plan.planned_triangles-=plan.entries[i].triangles;++plan.culled_objects;break;
         }
-    if(!oracle && plan.planned_triangles>budget) {
+    if((!oracle || moving) && plan.planned_triangles>budget) {
         qsort(order,priorities,sizeof(*order),priority_compare);
         for(size_t j=0;j<priorities && plan.planned_triangles>budget;++j) {
-            LayoutMeshViewEntry* e=&plan.entries[order[j].index];if(!e->visible)continue;
+            LayoutMeshViewEntry* e=&plan.entries[order[j].index];if(!e->visible || (!moving && l->objectStore.items[order[j].index].objectId==selected))continue;
             const Object3D* o=&l->objectStore.items[order[j].index];
             while(e->tier>0 && plan.planned_triangles>budget) {plan.planned_triangles-=e->triangles;e->triangles=cost(o,--e->tier);plan.planned_triangles+=e->triangles;}
+        }
+        /* Keep coherent coarse surfaces everywhere before resorting to bounds proxies. */
+        for(size_t j=0;j<priorities && plan.planned_triangles>budget;++j) {
+            LayoutMeshViewEntry* e=&plan.entries[order[j].index];if(!e->visible || (!moving && l->objectStore.items[order[j].index].objectId==selected))continue;
             if(plan.planned_triangles>budget && e->triangles>12) {plan.planned_triangles-=e->triangles;e->tier=4;e->triangles=12;plan.planned_triangles+=12;}
         }
     }

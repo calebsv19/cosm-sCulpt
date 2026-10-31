@@ -2,8 +2,21 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+LayoutPreviewQuality Layout_PreviewQuality(uint64_t now,uint64_t changed) {
+    uint64_t elapsed=now>=changed?now-changed:0;
+    return elapsed<450000000ull?LAYOUT_PREVIEW_MOVING:
+        elapsed<1100000000ull?LAYOUT_PREVIEW_BALANCED:LAYOUT_PREVIEW_DETAIL;
+}
+size_t Layout_PreviewTriangleBudget(LayoutPreviewQuality quality) {
+    return quality==LAYOUT_PREVIEW_MOVING?32000:quality==LAYOUT_PREVIEW_BALANCED?120000:500000;
+}
+int Layout_PreviewRefinementDelayMs(uint64_t now,uint64_t changed) {
+    uint64_t elapsed=now>=changed?now-changed:0;
+    uint64_t next=elapsed<450000000ull?450000000ull:1100000000ull;
+    return elapsed>=next?-1:(int)((next-elapsed+999999ull)/1000000ull);
+}
 float Layout_PreviewRasterScale(int w,int h,float dpi,bool moving) {
-    if(moving)return .5f;
+    if(moving)return w>0 && h>0?fminf(.30f,sqrtf(180000.0f/((float)w*h))):.30f;
     if(w<=0||h<=0)return .75f;
     float scale=fminf(1.25f,fmaxf(1,dpi));
     float cap=sqrtf(890000.0f/((float)w*(float)h));return fminf(scale,cap);
