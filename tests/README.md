@@ -8,6 +8,13 @@ Run in the contained verification lane described in `docs/ui_shared_specialized.
 
 # Tests
 
+`make test` runs the C host suite through `run_host_tests.py` in a fresh temporary
+working directory. Repository config, fixtures, source-contract inputs and fonts
+are copied there; saved runtime/theme/browser state never writes into the source
+checkout. Successful scratch is removed. Failures retain their exact working
+directory and print its path. Direct binary invocation remains available for
+callers that already provide an isolated working directory.
+
 The main test harness is a lightweight C executable that links against the app
 code minus the executable entry point. Each C test file exposes a
 `*_run_tests` function, which the shared runner calls and reports on. Shell and
