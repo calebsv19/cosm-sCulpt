@@ -1,6 +1,7 @@
 #include "ObjectAuthoring/object_authoring_persistence.h"
 
 #include "cjson/cJSON.h"
+#include "core_io.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,19 +47,6 @@ static char* ObjectAuthoringPersistence_ReadFile(const char* path) {
     text[len] = '\0';
     fclose(f);
     return text;
-}
-
-static bool ObjectAuthoringPersistence_WriteFile(const char* path, const char* text) {
-    FILE* f = NULL;
-    if (!path || !path[0] || !text) return false;
-    f = fopen(path, "wb");
-    if (!f) return false;
-    if (fwrite(text, 1u, strlen(text), f) != strlen(text)) {
-        fclose(f);
-        return false;
-    }
-    fclose(f);
-    return true;
 }
 
 static char* ObjectAuthoringPersistence_PrintJson(const cJSON* root) {
@@ -566,7 +554,7 @@ bool ObjectAuthoringDocument_SaveExtensionToFile(const ObjectAuthoringDocument* 
     cJSON_DeleteItemFromObjectCaseSensitive(line_drawing, kObjectAuthoringExtensionKey);
     cJSON_AddItemToObject(line_drawing, kObjectAuthoringExtensionKey, object_authoring);
     printed = ObjectAuthoringPersistence_PrintJson(root);
-    ok = printed && ObjectAuthoringPersistence_WriteFile(path, printed);
+    ok = printed && core_io_write_all_atomic(path, printed, strlen(printed)).code == CORE_OK;
     free(printed);
     cJSON_Delete(root);
     if (!ok) {

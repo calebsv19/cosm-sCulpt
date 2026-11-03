@@ -16,6 +16,9 @@
 #include "UI/ui_panel.h"
 
 #include <errno.h>
+#include <signal.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <string.h>
 #include <unistd.h>
@@ -1154,6 +1157,32 @@ static bool test_object_authoring_stable_face_refs_survive_save_load(void) {
         path,
         diagnostics,
         sizeof(diagnostics)));
+    /* Constrain the base write, then only the larger authoring extension.
+     * Failed writes (including buffered close) must leave the old asset intact. */
+    char* predecessor = ld_test_read_text_file(path);
+    TEST_ASSERT(predecessor != NULL);
+    struct stat before, after;
+    TEST_ASSERT(stat(path, &before) == 0 && before.st_size > 1);
+    for (int pass = 0; pass < 2; ++pass) {
+        pid_t child = fork();
+        TEST_ASSERT(child >= 0);
+        if (child == 0) {
+            struct rlimit limit = {.rlim_cur = pass ? (rlim_t)before.st_size - 1 : 1,
+                                   .rlim_max = (rlim_t)before.st_size};
+            signal(SIGXFSZ, SIG_IGN);
+            if (setrlimit(RLIMIT_FSIZE, &limit) != 0) _exit(2);
+            bool saved = LayoutObjectAssetMeshAuthoring_SaveWithAuthoring(
+                &state->layout, &state->objectAuthoring.document, path, diagnostics, sizeof(diagnostics));
+            _exit(saved ? 1 : 0);
+        }
+        int status;
+        TEST_ASSERT(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+        char* current = ld_test_read_text_file(path);
+        TEST_ASSERT(current && strcmp(current, predecessor) == 0);
+        TEST_ASSERT(stat(path, &after) == 0 && before.st_ino == after.st_ino);
+        free(current);
+    }
+    free(predecessor);
     TEST_ASSERT(LayoutObjectAssetMeshAuthoring_LoadWithAuthoring(&loaded_layout,
                                                                  &loaded_authoring,
                                                                  &has_authoring,

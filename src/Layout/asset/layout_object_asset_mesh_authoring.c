@@ -5,6 +5,8 @@
 #include "ObjectAuthoring/object_authoring_persistence.h"
 #include "core_mesh_asset.h"
 
+#include <stdlib.h>
+#include <unistd.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -193,7 +195,7 @@ static void LayoutObjectAsset_ComputePivot(const Layout* layout, CoreMeshAssetFr
     }
 }
 
-bool LayoutObjectAssetMeshAuthoring_Save(const Layout* layout,
+static bool save_base(const Layout* layout, const char* identity_path,
                                          const char* path,
                                          char* diagnostics,
                                          size_t diagnostics_size) {
@@ -214,7 +216,7 @@ bool LayoutObjectAssetMeshAuthoring_Save(const Layout* layout,
         return false;
     }
     core_mesh_asset_authoring_document_init(&document);
-    LayoutObjectAsset_BuildAssetIdFromPath(path, asset_id, sizeof(asset_id));
+    LayoutObjectAsset_BuildAssetIdFromPath(identity_path, asset_id, sizeof(asset_id));
     r = core_mesh_asset_authoring_contract_set_asset_id(&document.contract, asset_id);
     if (r.code != CORE_OK) {
         LayoutObjectAsset_SetDiagnostics(diagnostics, diagnostics_size, r.message);
@@ -296,6 +298,11 @@ bool LayoutObjectAssetMeshAuthoring_Save(const Layout* layout,
     }
     core_mesh_asset_authoring_document_free(&document);
     return true;
+}
+
+bool LayoutObjectAssetMeshAuthoring_Save(const Layout* layout, const char* path,
+                                        char* diagnostics, size_t diagnostics_size) {
+    return save_base(layout, path, path, diagnostics, diagnostics_size);
 }
 
 bool LayoutObjectAssetMeshAuthoring_Load(Layout* layout,
@@ -380,16 +387,26 @@ bool LayoutObjectAssetMeshAuthoring_SaveWithAuthoring(
     const char* path,
     char* diagnostics,
     size_t diagnostics_size) {
-    if (!LayoutObjectAssetMeshAuthoring_Save(layout, path, diagnostics, diagnostics_size)) {
+    if (!authoring_document || !authoring_document->operationCount)
+        return LayoutObjectAssetMeshAuthoring_Save(layout, path, diagnostics, diagnostics_size);
+
+    char stage[4096];
+    if (!path || !*path || snprintf(stage, sizeof(stage), "%s.stage-XXXXXX", path) >= (int)sizeof(stage))
+        return false;
+    int fd = mkstemp(stage);
+    if (fd < 0) {
+        LayoutObjectAsset_SetDiagnostics(diagnostics, diagnostics_size, "could not stage object asset");
         return false;
     }
-    if (!authoring_document || authoring_document->operationCount == 0u) {
-        return true;
+    bool ok = close(fd) == 0 &&
+              save_base(layout, path, stage, diagnostics, diagnostics_size) &&
+              ObjectAuthoringDocument_SaveExtensionToFile(authoring_document, stage, diagnostics, diagnostics_size);
+    if (ok && rename(stage, path) != 0) {
+        LayoutObjectAsset_SetDiagnostics(diagnostics, diagnostics_size, "could not publish complete object asset");
+        ok = false;
     }
-    return ObjectAuthoringDocument_SaveExtensionToFile(authoring_document,
-                                                       path,
-                                                       diagnostics,
-                                                       diagnostics_size);
+    if (!ok) unlink(stage);
+    return ok;
 }
 
 bool LayoutObjectAssetMeshAuthoring_LoadWithAuthoring(

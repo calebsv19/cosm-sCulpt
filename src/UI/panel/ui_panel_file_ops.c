@@ -542,9 +542,7 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
                 authoring_path,
                 sizeof(authoring_path),
                 diagnostics,
-                sizeof(diagnostics)) ||
-            !LineDrawingSceneDocument_CloneBundleForSaveAs(
-                source_path, scene_dir, diagnostics, sizeof(diagnostics))) {
+                sizeof(diagnostics))) {
             char status[320];
             snprintf(status, sizeof(status), "Save As failed: %s",
                      diagnostics[0] ? diagnostics : "scene clone error");
@@ -553,17 +551,9 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
             return false;
         }
         Layout_CompactDeletedElements(&state->layout);
-        if (!LineDrawingCanonicalScene_ExportLayoutToFile(
-                &state->layout, scene_id, authoring_path) ||
-            !SculptScenePackage_WriteManifest(scene_dir,
-                                              scene_id,
-                                              SCULPT_SCENE_PACKAGE_RUNTIME_MISSING,
-                                              SCULPT_SCENE_PACKAGE_RECEIPT_MISSING,
-                                              false,
-                                              diagnostics,
-                                              sizeof(diagnostics))) {
-            LineDrawingSceneDocument_RemoveClonedBundle(scene_dir);
-            UIPanel_SetFilePaneActionStatus("Save As failed: authoring package write error.");
+        if (!LineDrawingSceneDocument_SaveBundleAs(&state->layout, source_path, scene_dir, scene_id,
+                                                  diagnostics, sizeof(diagnostics))) {
+            UIPanel_SetFilePaneActionStatus(diagnostics);
             return false;
         }
         if (!UIPanel_DeriveLayoutHintFromScenePath(authoring_path,
@@ -597,7 +587,6 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
     }
 
     char path[256];
-    char fallback_path[256];
     char diagnostics[256];
     const bool object_workspace = UIPanel_IsObjectWorkspace();
     const char* save_root = object_workspace ? Global_GetObjectAssetRoot() : Global_GetInputRoot();
@@ -620,46 +609,14 @@ bool UIPanel_PerformSave(UIPanelState* ui) {
                       sizeof(diagnostics))
                 : Layout_SaveToFile(&state->layout, path)) {
             saved = true;
-        } else {
-            SDL_Log("[UI] Primary save failed at %s%s%s%s; trying legacy fallback.",
-                    path,
-                    diagnostics[0] ? " (" : "",
-                    diagnostics[0] ? diagnostics : "",
-                    diagnostics[0] ? ")" : "");
         }
     }
-
     if (!saved) {
-        if (!LineDrawingDataPaths_BuildPath(fallback_path, sizeof(fallback_path), k_legacy_layout_root, filename)) {
-            SDL_Log("[UI] Save failed: invalid legacy fallback path.");
-            UIPanel_SetFilePaneActionStatus("Save failed: invalid fallback path.");
-            return false;
-        }
-        if (!(object_workspace
-                  ? LayoutObjectAssetMeshAuthoring_SaveWithAuthoring(
-                        &state->layout,
-                        state->objectAuthoring.attached ? &state->objectAuthoring.document : NULL,
-                        fallback_path,
-                        diagnostics,
-                        sizeof(diagnostics))
-                  : Layout_SaveToFile(&state->layout, fallback_path))) {
-            SDL_Log("[UI] Failed to save %s to %s%s%s%s",
-                    object_workspace ? "object asset" : "layout",
-                    fallback_path,
-                    diagnostics[0] ? " (" : "",
-                    diagnostics[0] ? diagnostics : "",
-                    diagnostics[0] ? ")" : "");
-            {
-                char status[160];
-                snprintf(status,
-                         sizeof(status),
-                         "Save failed: %s",
-                         diagnostics[0] ? diagnostics : "write error");
-                UIPanel_SetFilePaneActionStatus(status);
-            }
-            return false;
-        }
-        snprintf(path, sizeof(path), "%s", fallback_path);
+        char status[320];
+        snprintf(status, sizeof(status), "Save failed: %s",
+                 diagnostics[0] ? diagnostics : "could not write the selected destination");
+        UIPanel_SetFilePaneActionStatus(status);
+        return false;
     }
 
     SDL_Log("[UI] %s saved to %s", object_workspace ? "Object asset" : "Layout", path);
@@ -741,8 +698,11 @@ bool UIPanel_SaveDocument(void) {
                                                               scene_id,
                                                               sizeof(scene_id)) ||
             !LineDrawingCanonicalScene_ExportLayoutToFile(
-                &state->layout, scene_id, active_scene_path) ||
-            !SculptScenePackage_WriteManifest(
+                &state->layout, scene_id, active_scene_path)) {
+            UIPanel_SetFilePaneActionStatus("Save failed: canonical authoring write error.");
+            return false;
+        }
+        if (!SculptScenePackage_WriteManifest(
                 package_paths.scene_dir,
                 scene_id,
                 package_paths.has_runtime ? SCULPT_SCENE_PACKAGE_RUNTIME_STALE
@@ -752,7 +712,7 @@ bool UIPanel_SaveDocument(void) {
                 false,
                 diagnostics,
                 sizeof(diagnostics))) {
-            UIPanel_SetFilePaneActionStatus("Save failed: canonical authoring write error.");
+            UIPanel_SetFilePaneActionStatus("Scene authoring saved; package manifest update failed.");
             return false;
         }
         Global_OnSceneLoaded(active_scene_path, layout_hint);

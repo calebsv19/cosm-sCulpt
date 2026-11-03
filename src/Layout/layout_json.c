@@ -1325,7 +1325,7 @@ bool Layout_SaveToFile(const Layout* layout, const char* path) {
     cJSON_Delete(root);
     if (!out) return false;
 
-    CoreResult write_result = core_io_write_all(path, out, strlen(out));
+    CoreResult write_result = core_io_write_all_atomic(path, out, strlen(out));
     Layout_FreeString(out);
     return write_result.code == CORE_OK;
 }

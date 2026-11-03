@@ -8,6 +8,7 @@
 #include "Layout/layout_coverings.h"
 #include "UI/ui_panel_internal.h"
 #include "vk_renderer.h"
+#include <errno.h>
 #include <fcntl.h>
 #include <math.h>
 #include <stdio.h>
@@ -47,11 +48,28 @@ static cJSON* state(AppContext* app,GlobalState* s) {
 static bool snapshot(GlobalState* s,const char* path) {
     if(path[0]!='/')return false;
     char* data=Layout_SaveToString(&s->layout);if(!data)return false;
-    int fd=open(path,O_WRONLY|O_CREAT|O_EXCL,0600);bool ok=fd>=0;
-    size_t offset=0,length=strlen(data);
-    while(ok&&offset<length){ssize_t n=write(fd,data+offset,length-offset);if(n<=0)ok=false;else offset+=(size_t)n;}
-    if(fd>=0){if(fsync(fd))ok=false;if(close(fd))ok=false;if(!ok)unlink(path);}
-    Layout_FreeString(data);return ok;
+    char stage[4096];
+    if (snprintf(stage,sizeof(stage),"%s.stage-XXXXXX",path) >= (int)sizeof(stage)) {
+        Layout_FreeString(data);
+        return false;
+    }
+    int fd = mkstemp(stage);
+    bool ok = fd >= 0;
+    size_t length = strlen(data);
+    for (size_t offset = 0; ok && offset < length;) {
+        ssize_t count = write(fd, data + offset, length - offset);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) ok = false;
+        else offset += (size_t)count;
+    }
+    if (fd >= 0) {
+        if (fsync(fd) != 0) ok = false;
+        if (close(fd) != 0) ok = false;
+        if (ok) ok = link(stage, path) == 0;
+        unlink(stage);
+    }
+    Layout_FreeString(data);
+    return ok;
 }
 char* SculptAgent_Command(AppContext* app,const char* input) {
     cJSON* q=cJSON_Parse(input);cJSON* r=cJSON_CreateObject();GlobalState* s=Global_Get();const char* error=NULL;
@@ -73,13 +91,15 @@ char* SculptAgent_Command(AppContext* app,const char* input) {
     }
     if(!error&&!strcmp(op,"state"))cJSON_AddItemToObject(r,"state",state(app,s));
     else if(!error&&(!strcmp(op,"snapshot")||!strcmp(op,"save_as"))) {
-        if(!snapshot(s,text(q,"path")))error="snapshot refused; use a new absolute path";
+        if(!strcmp(op,"save_as") && strlen(text(q,"path")) >= sizeof(s->currentConfigPath))
+            error="destination exceeds active document path capacity";
+        else if(!snapshot(s,text(q,"path")))error="snapshot refused; use a new absolute path";
         else if(!strcmp(op,"save_as"))Global_OnLayoutSaved(text(q,"path"));
     } else if(!error&&!strcmp(op,"open")) {
         const char* path=text(q,"path");
         if(!enter_editor)error="editor lifecycle is not ready";
         else if(Global_IsLayoutDirty()||UIPanel_IsCapturingKeyboard()||s->cameraView.path_modified)error="unsaved edits or active draft; save before switching documents";
-        else if(path[0]!='/'||!UIPanel_LoadLayoutFromPath(path))error="native load refused";
+        else if(path[0]!='/'||strlen(path)>=sizeof(s->currentConfigPath)||!UIPanel_LoadLayoutFromPath(path))error="native load refused";
         else enter_editor();
     } else if(!error&&!strcmp(op,"view")) {
         const char* view=text(q,"view_id");bool guides=false;

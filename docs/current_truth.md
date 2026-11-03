@@ -1,3 +1,17 @@
+## 2026-11-03 — document persistence in Main Edit
+
+Main Edit includes the handed-off text and live-control work and the canonical
+0.8.0 runner and launcher fixes. Object File Save publishes geometry and its
+authoring extension together. Layout and scene JSON replace their predecessors
+only after the complete sibling file closes. Scene Save As stages editable
+attachments, authoring JSON and the package manifest before exposing the new
+directory. Compiled runtime and receipts are regenerated. If a manifest update
+fails after an ordinary scene save, the file pane reports the saved authoring
+and the metadata failure separately. These local file operations qualify
+complete publication and process interruption. They carry no power-loss
+durability claim. See [live editor control](live_editor_mcp.md) for snapshot,
+Save As and retry behavior.
+
 ## 2026-10-31 — three-stage text-unification development
 
 Registered Main Edit over33674c0/VERSION0.7.0 adds atomic font banks, retained

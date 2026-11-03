@@ -1,4 +1,14 @@
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
 #include "Core/scene_document_lifecycle.h"
+#include "Core/sculpt_scene_package.h"
+#include "Tools/canonical_scene_export.h"
+#include <stdlib.h>
+#include <fcntl.h>
+#ifdef __linux__
+#include <sys/syscall.h>
+#endif
 
 #include <dirent.h>
 #include <errno.h>
@@ -211,10 +221,16 @@ static bool top_level_entry_is_authoring_owned(const char* name, const struct st
 static bool copy_directory(const char* source, const char* destination, unsigned depth) {
     DIR* dir = NULL;
     struct dirent* entry = NULL;
-    if (depth > 24u || mkdir(destination, 0755) != 0) return false;
+    if (depth > 24u || (depth && mkdir(destination, 0755) != 0)) return false;
     dir = opendir(source);
     if (!dir) return false;
-    while ((entry = readdir(dir)) != NULL) {
+    for (;;) {
+        errno = 0;
+        entry = readdir(dir);
+        if (!entry) {
+            bool complete = errno == 0;
+            return closedir(dir) == 0 && complete;
+        }
         char source_path[1024];
         char destination_path[1024];
         struct stat st;
@@ -245,7 +261,6 @@ static bool copy_directory(const char* source, const char* destination, unsigned
             return false;
         }
     }
-    return closedir(dir) == 0;
 }
 
 static void remove_directory_recursive(const char* path, unsigned depth) {
@@ -269,37 +284,48 @@ static void remove_directory_recursive(const char* path, unsigned depth) {
     (void)rmdir(path);
 }
 
-bool LineDrawingSceneDocument_CloneBundleForSaveAs(
-    const char* source_authoring_path,
-    const char* destination_scene_dir,
-    char* diagnostics,
-    size_t diagnostics_size) {
-    char source_scene_dir[1024];
-    const char* slash = NULL;
-    struct stat st;
-    if (diagnostics && diagnostics_size) diagnostics[0] = '\0';
-    if (!source_authoring_path || !destination_scene_dir ||
-        !(slash = strrchr(source_authoring_path, '/'))) {
-        write_diagnostics(diagnostics, diagnostics_size, "invalid scene bundle paths");
+bool LineDrawingSceneDocument_SaveBundleAs(const Layout* layout, const char* source_authoring_path,
+                                          const char* destination_scene_dir, const char* scene_id,
+                                          char* diagnostics, size_t diagnostics_size) {
+    char source[1024], stage[1024], authoring[1100];
+    const char* leaf = source_authoring_path ? strrchr(source_authoring_path, '/') : NULL;
+    const char* dest = destination_scene_dir ? strrchr(destination_scene_dir, '/') : NULL;
+    if (!leaf || !dest || !dest[1] || !layout || !scene_id ||
+        (size_t)(leaf-source_authoring_path) >= sizeof(source) ||
+        (size_t)(dest-destination_scene_dir) >= sizeof(stage)-32)
+        return false;
+    struct stat occupant;
+    if (lstat(destination_scene_dir, &occupant) == 0 || errno != ENOENT) {
+        write_diagnostics(diagnostics, diagnostics_size, "destination unavailable or already exists");
         return false;
     }
-    errno = 0;
-    if (stat(destination_scene_dir, &st) == 0) {
-        write_diagnostics(diagnostics, diagnostics_size, "destination scene bundle already exists");
+    snprintf(source, sizeof(source), "%.*s", (int)(leaf-source_authoring_path), source_authoring_path);
+    snprintf(stage, sizeof(stage), "%.*s/.sculpt-save-XXXXXX",
+             (int)(dest-destination_scene_dir), destination_scene_dir);
+    if (!mkdtemp(stage)) {
+        write_diagnostics(diagnostics, diagnostics_size, "could not stage scene bundle");
         return false;
     }
-    if (errno != ENOENT || (size_t)(slash - source_authoring_path) >= sizeof(source_scene_dir)) {
-        write_diagnostics(diagnostics, diagnostics_size, "cannot inspect destination scene bundle");
-        return false;
+    snprintf(authoring, sizeof(authoring), "%s/scene_authoring.json", stage);
+    bool ok = copy_directory(source, stage, 0u) &&
+              LineDrawingCanonicalScene_ExportLayoutToFile(layout, scene_id, authoring) &&
+              SculptScenePackage_WriteManifest(stage, scene_id, SCULPT_SCENE_PACKAGE_RUNTIME_MISSING,
+                                               SCULPT_SCENE_PACKAGE_RECEIPT_MISSING, false,
+                                               diagnostics, diagnostics_size);
+    if (ok) {
+#if defined(__APPLE__)
+        ok = renameatx_np(AT_FDCWD, stage, AT_FDCWD, destination_scene_dir, RENAME_EXCL) == 0;
+#elif defined(__linux__) && defined(SYS_renameat2)
+        ok = syscall(SYS_renameat2, AT_FDCWD, stage, AT_FDCWD, destination_scene_dir, 1u) == 0;
+#else
+        ok = false;
+#endif
     }
-    memcpy(source_scene_dir, source_authoring_path, (size_t)(slash - source_authoring_path));
-    source_scene_dir[slash - source_authoring_path] = '\0';
-    if (!copy_directory(source_scene_dir, destination_scene_dir, 0u)) {
-        remove_directory_recursive(destination_scene_dir, 0u);
-        write_diagnostics(diagnostics, diagnostics_size, "could not clone scene bundle attachments");
-        return false;
+    if (!ok) {
+        remove_directory_recursive(stage, 0u);
+        write_diagnostics(diagnostics, diagnostics_size, "could not publish complete bundle at a new destination");
     }
-    return true;
+    return ok;
 }
 
 void LineDrawingSceneDocument_RemoveClonedBundle(const char* scene_dir) {

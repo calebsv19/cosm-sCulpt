@@ -2,6 +2,9 @@
 #include "test_layout_internal.h"
 #include "Core/agent_control.h"
 #include <unistd.h>
+#include <signal.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
 
 static void enter_stub(void) {}
 static cJSON* command(AppContext* app,const char* op,const char* id,const char* rev,const char* path) {
@@ -22,6 +25,18 @@ static bool guards_and_snapshot(void) {
     r=command(&app,"quit","unit-quit-dirty",rev,NULL);TEST_ASSERT(cJSON_IsFalse(cJSON_GetObjectItem(r,"ok"))&&!app.quit);cJSON_Delete(r);
     char path[1024];const char* temp=getenv("TMPDIR");snprintf(path,sizeof(path),"%s/sculpt-snapshot-XXXXXX",temp?temp:"/tmp");
     int fd=mkstemp(path);TEST_ASSERT(fd>=0);close(fd);unlink(path);
+    pid_t writer = fork();
+    TEST_ASSERT(writer >= 0);
+    if (writer == 0) {
+        struct rlimit limit = {0, 0};
+        signal(SIGXFSZ, SIG_DFL);
+        if (setrlimit(RLIMIT_FSIZE, &limit) != 0) _exit(2);
+        (void)command(&app, "save_as", "unit-interrupt", rev, path);
+        _exit(1);
+    }
+    int status;
+    TEST_ASSERT(waitpid(writer, &status, 0) == writer && WIFSIGNALED(status) &&
+                WTERMSIG(status) == SIGXFSZ && access(path, F_OK) != 0);
     r=command(&app,"snapshot","unit-snapshot",rev,path);TEST_ASSERT(cJSON_IsTrue(cJSON_GetObjectItem(r,"ok")));cJSON_Delete(r);
     TEST_ASSERT(Global_IsLayoutDirty());
     Layout check={0};Layout_Init(&check,.05f);TEST_ASSERT(Layout_LoadFromFile(&check,path));Layout_Free(&check);

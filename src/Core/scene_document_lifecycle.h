@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Layout/layout.h"
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -47,11 +48,11 @@ bool LineDrawingSceneDocument_BuildSiblingSaveAsPaths(
 
 /* Clones only authoring-owned assets/ and attachments/. Runtime, dependency,
  * receipt, cache, render, project, and package metadata are regenerated. */
-bool LineDrawingSceneDocument_CloneBundleForSaveAs(
-    const char* source_authoring_path,
-    const char* destination_scene_dir,
+bool LineDrawingSceneDocument_SaveBundleAs(
+    const Layout* layout, const char* source_authoring_path,
+    const char* destination_scene_dir, const char* scene_id,
     char* diagnostics,
     size_t diagnostics_size);
 
-/* Removes only a fresh destination created by CloneBundleForSaveAs. */
+/* Caller must own the entire directory being retired. */
 void LineDrawingSceneDocument_RemoveClonedBundle(const char* scene_dir);

@@ -6,6 +6,9 @@
 #include "UI/ui_panel_internal.h"
 
 #include <sys/stat.h>
+#include <signal.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
 #include <sys/time.h>
 #include <unistd.h>
 
@@ -92,6 +95,23 @@ static bool test_scene_document_open_save_save_as_export_reopen(void) {
     snprintf(ui->saveDialog.buffer, sizeof(ui->saveDialog.buffer), "source_scene_copy");
     ui->saveDialog.length = strlen(ui->saveDialog.buffer);
     ui->saveDialog.cursor = ui->saveDialog.length;
+    /* Kill the copy on its first attachment write. Only the private stage
+     * may survive. The same requested sibling must still be available. */
+    pid_t copier = fork();
+    TEST_ASSERT(copier >= 0);
+    if (copier == 0) {
+        struct rlimit limit = {0, 0};
+        signal(SIGXFSZ, SIG_DFL);
+        if (setrlimit(RLIMIT_FSIZE, &limit) != 0) _exit(2);
+        (void)UIPanel_PerformSave(ui);
+        _exit(1);
+    }
+    int status;
+    TEST_ASSERT(waitpid(copier, &status, 0) == copier);
+    TEST_ASSERT(WIFSIGNALED(status) && WTERMSIG(status) == SIGXFSZ);
+    TEST_ASSERT(snprintf(save_as_dir, sizeof(save_as_dir), "%s/source_scene_copy", source_root) < (int)sizeof(save_as_dir));
+    TEST_ASSERT(access(save_as_dir, F_OK) != 0 && Global_IsLayoutDirty());
+    TEST_ASSERT(strcmp(Global_GetCurrentSceneAuthoringPath(), source_paths.authoring_path) == 0);
     TEST_ASSERT(UIPanel_PerformSave(ui));
     TEST_ASSERT(LineDrawingSceneDocument_BuildSiblingSaveAsPaths(
         source_paths.authoring_path,
@@ -171,8 +191,9 @@ static bool test_scene_document_save_as_rejects_unsafe_or_existing_destination(v
     TEST_ASSERT(LineDrawingSceneDocument_BuildSiblingSaveAsPaths(
         source_paths.authoring_path, "source_scene", scene_dir, sizeof(scene_dir),
         authoring, sizeof(authoring), diagnostics, sizeof(diagnostics)));
-    TEST_ASSERT(!LineDrawingSceneDocument_CloneBundleForSaveAs(
-        source_paths.authoring_path, scene_dir, diagnostics, sizeof(diagnostics)));
+    Layout collision_layout = {0};
+    TEST_ASSERT(!LineDrawingSceneDocument_SaveBundleAs(
+        &collision_layout, source_paths.authoring_path, scene_dir, "scene_line_drawing_source_scene", diagnostics, sizeof(diagnostics)));
     LineDrawingSceneDocument_RemoveClonedBundle(source_paths.scene_dir);
     LineDrawingSceneDocument_RemoveClonedBundle(root);
     return true;

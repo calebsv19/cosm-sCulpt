@@ -1419,7 +1419,7 @@ bool LineDrawingCanonicalScene_ExportLayoutToFileWithOptions(
     cJSON_Delete(root);
     if (!out) return false;
 
-    write_result = core_io_write_all(outputPath, out, strlen(out));
+    write_result = core_io_write_all_atomic(outputPath, out, strlen(out));
     free(out);
     return write_result.code == CORE_OK;
 }

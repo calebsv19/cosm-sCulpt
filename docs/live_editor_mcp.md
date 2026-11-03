@@ -25,7 +25,10 @@ do not blindly submit under a new identity.
 
 Snapshots include current unsaved native geometry without changing the active
 document or its dirty state. Save As creates a new file and establishes it as the
-active saved document. Both refuse existing paths. Open and Quit refuse unsaved
+active saved document. Both write and sync a private sibling file, then link it at the requested
+new path. An interruption before linking can leave private staging debris.
+The final name only becomes visible with complete bytes. An existing path is
+refused. Parent-directory power-loss durability is outside this guarantee. Open and Quit refuse unsaved
 edits and active drafts. Snapshot is not a capture of uncommitted text-field or
 camera-path drafts. Native Open clears the old editor history, as ordinary Open
 does, so preserve a snapshot before switching. Original source files are never
