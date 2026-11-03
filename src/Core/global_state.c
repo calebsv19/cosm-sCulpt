@@ -411,6 +411,7 @@ bool Global_SetWorkspaceMode(LineDrawingWorkspaceMode mode) {
     if (!LineDrawingWorkspaceModeHandoff_Apply(global, mode)) {
         return false;
     }
+    ++global->documentGeneration;
     global->inspectionView = false;
     global->cameraExportClean = false;
     global->sectionView.mode = LAYOUT_SECTION_OFF;
@@ -787,6 +788,7 @@ void Global_RebuildHitboxesIfDirty(void) {
 void Global_OnLayoutSaved(const char* path) {
     GlobalState* state = Global_Get();
     if (!state) return;
+    if (path && *path && strcmp(path, state->currentConfigPath)) ++state->documentGeneration;
     if (path && *path) {
         strncpy(state->currentConfigPath, path, sizeof(state->currentConfigPath) - 1);
         state->currentConfigPath[sizeof(state->currentConfigPath) - 1] = '\0';
@@ -805,6 +807,7 @@ void Global_OnLayoutLoaded(const char* path) {
     UIPanel_VisibilityReset();
     GlobalState* state = Global_Get();
     if (!state) return;
+    ++state->documentGeneration;
     CameraView_Exit(state);
     Layout_MeshPreviewCacheReset();
     Layout_RestoreEntityVisibility(&state->layout.objectStore);
@@ -829,6 +832,7 @@ void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_p
     UIPanel_VisibilityReset();
     GlobalState* state = Global_Get();
     if (!state) return;
+    ++state->documentGeneration;
     CameraView_Exit(state);
     Layout_MeshPreviewCacheReset();
     Layout_RestoreEntityVisibility(&state->layout.objectStore);
@@ -863,6 +867,7 @@ void Global_OnSceneLoaded(const char* scene_authoring_path, const char* layout_p
 void Global_OnObjectAssetSaved(const char* path) {
     GlobalState* state = Global_Get();
     if (!state) return;
+    if (path && *path && strcmp(path, state->currentConfigPath)) ++state->documentGeneration;
     if (path && *path) {
         strncpy(state->currentObjectAssetPath, path, sizeof(state->currentObjectAssetPath) - 1);
         state->currentObjectAssetPath[sizeof(state->currentObjectAssetPath) - 1] = '\0';
@@ -882,6 +887,7 @@ void Global_OnObjectAssetSaved(const char* path) {
 void Global_OnObjectAssetLoaded(const char* path) {
     GlobalState* state = Global_Get();
     if (!state) return;
+    ++state->documentGeneration;
     if (path && *path) {
         strncpy(state->currentObjectAssetPath, path, sizeof(state->currentObjectAssetPath) - 1);
         state->currentObjectAssetPath[sizeof(state->currentObjectAssetPath) - 1] = '\0';

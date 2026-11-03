@@ -7,6 +7,7 @@
 #include "Layout/layout_collection_inspection.h"
 #include "Layout/layout_coverings.h"
 #include "UI/ui_panel_internal.h"
+#include "UI/workspace_authoring/line_drawing_workspace_authoring_host.h"
 #include "vk_renderer.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -28,16 +29,18 @@ static bool vector_valid(const cJSON* a) {
     for(int k=0;k<3;++k){const cJSON* v=cJSON_GetArrayItem(a,k);if(!cJSON_IsNumber(v)||!isfinite(v->valuedouble)||fabs(v->valuedouble)>10000)return false;}
     return true;
 }
-static void revision(Layout* layout,char out[32]) {
-    char* s=Layout_SaveToString(layout);uint64_t h=UINT64_C(14695981039346656037);
+static void revision(GlobalState* owner,char out[32]) {
+    char* s=Layout_SaveToString(&owner->layout);uint64_t h=UINT64_C(14695981039346656037) ^ owner->documentGeneration;
+    if (!s) { out[0]=0; return; }
     if(s){for(unsigned char* p=(unsigned char*)s;*p;++p){h^=*p;h*=UINT64_C(1099511628211);}Layout_FreeString(s);}
     snprintf(out,32,"%016llx",(unsigned long long)h);
 }
 static cJSON* state(AppContext* app,GlobalState* s) {
-    cJSON* r=cJSON_CreateObject();char rev[32];revision(&s->layout,rev);
+    cJSON* r=cJSON_CreateObject();char rev[32];revision(s,rev);
     cJSON_AddStringToObject(r,"revision",rev);cJSON_AddStringToObject(r,"path",Global_GetCurrentConfigPath());
     cJSON_AddBoolToObject(r,"dirty",Global_IsLayoutDirty());cJSON_AddNumberToObject(r,"pid",getpid());
     cJSON_AddNumberToObject(r,"parts",s->layout.objectStore.count);cJSON_AddNumberToObject(r,"presented_frames",(double)app->presented_frames);
+    cJSON_AddBoolToObject(r,"guides",s->authoringGuides);
     cJSON_AddBoolToObject(r,"camera_active",s->cameraView.active);cJSON_AddBoolToObject(r,"opaque",!s->inspectionView);
     cJSON* views=cJSON_AddArrayToObject(r,"views");
     for(size_t i=0;i<s->layout.objectStore.working_view_count;++i){const LayoutWorkingView* v=&s->layout.objectStore.working_views[i];cJSON* row=cJSON_CreateObject();cJSON_AddStringToObject(row,"id",v->id);cJSON_AddStringToObject(row,"name",v->name);cJSON_AddStringToObject(row,"only",v->only);cJSON_AddItemToArray(views,row);}
@@ -71,23 +74,48 @@ static bool snapshot(GlobalState* s,const char* path) {
     Layout_FreeString(data);
     return ok;
 }
+/* Evaluate the saved visibility masks before changing the live viewport. The
+ * preview borrows geometry; ApplyWorkingView only writes inline view state. */
+static bool working_bounds(const Layout* layout,const LayoutWorkingView* view,Vec3* lo,Vec3* hi) {
+    if(view->only[0]) {
+        LayoutCollectionInspection b=Layout_InspectCollection(layout,view->only,"");
+        if(b.status!=LAYOUT_MEASUREMENT_OK)return false;
+        double scale=Layout_WorldScale(layout);
+        *lo=(Vec3){b.world_min_meters[0]/scale,b.world_min_meters[1]/scale,b.world_min_meters[2]/scale};
+        *hi=(Vec3){b.world_max_meters[0]/scale,b.world_max_meters[1]/scale,b.world_max_meters[2]/scale};
+        return isfinite(lo->x)&&isfinite(lo->y)&&isfinite(lo->z)&&isfinite(hi->x)&&isfinite(hi->y)&&isfinite(hi->z);
+    }
+    LayoutObjectStore* preview=malloc(sizeof(*preview));
+    if(!preview)return false;
+    *preview=layout->objectStore;
+    bool ok=Layout_ApplyWorkingView(preview,view->id,NULL) && CameraView_FindBounds(preview,0,lo,hi);
+    Layout_SceneCollectionInvalidate();
+    free(preview);
+    return ok;
+}
 char* SculptAgent_Command(AppContext* app,const char* input) {
     cJSON* q=cJSON_Parse(input);cJSON* r=cJSON_CreateObject();GlobalState* s=Global_Get();const char* error=NULL;
     const char* op=text(q,"operation"),*id=text(q,"request_id");
     for(size_t i=0;i<8&&id[0];++i)if(receipts[i].id&&!strcmp(id,receipts[i].id)) {
-        if(!strcmp(input,receipts[i].request)){cJSON_Delete(q);cJSON_Delete(r);return strdup(receipts[i].response);}
+        if(!strcmp(input,receipts[i].request)){cJSON_Delete(q);cJSON_Delete(r);return receipts[i].response?strdup(receipts[i].response):NULL;}
         error="request_id reused with different bytes";
     }
     bool reading=!strcmp(op,"state")||!strcmp(op,"inspect");
     if(!q||!s)error="No active layout or malformed JSON";
     if(!reading&&!id[0])error="request_id required";
-    char rev[32];if(s)revision(&s->layout,rev);
-    if(!error&&!reading&&strcmp(text(q,"expected_revision"),rev))error="revision conflict; read current state";
+    char rev[32];if(s)revision(s,rev);
+    if(!error&&!reading&&(!rev[0]||strcmp(text(q,"expected_revision"),rev)))error="revision conflict; read current state";
     const cJSON* requested_eye=cJSON_GetObjectItemCaseSensitive(q,"eye_m");
     const cJSON* requested_target=cJSON_GetObjectItemCaseSensitive(q,"target_m");
     if(!error&&(requested_eye||requested_target)) {
         if(!vector_valid(requested_eye)||!vector_valid(requested_target))error="eye_m and target_m require three finite metres each";
         else {double distance=0;for(int k=0;k<3;++k){double d=cJSON_GetArrayItem(requested_eye,k)->valuedouble-cJSON_GetArrayItem(requested_target,k)->valuedouble;distance+=d*d;}if(distance<1e-10)error="camera eye and target coincide";}
+    }
+    char* saved_request=NULL;
+    char* saved_id=NULL;
+    if(!error&&!reading) {
+        saved_request=strdup(input);saved_id=strdup(id);
+        if(!saved_request||!saved_id)error="unable to reserve request identity";
     }
     if(!error&&!strcmp(op,"state"))cJSON_AddItemToObject(r,"state",state(app,s));
     else if(!error&&(!strcmp(op,"snapshot")||!strcmp(op,"save_as"))) {
@@ -109,17 +137,16 @@ char* SculptAgent_Command(AppContext* app,const char* input) {
         else if(!found)error="unknown working view";
         else {
             char only[64];snprintf(only,64,"%s",found->only);
-            LayoutCollectionInspection b=Layout_InspectCollection(&s->layout,only,"");
-            if(only[0]&&b.status!=LAYOUT_MEASUREMENT_OK)error="view has no valid inspection bounds";
+            Vec3 lo,hi;
+            if(s->workspaceMode!=LINE_DRAWING_WORKSPACE_MODE_SCENE || LineDrawingWorkspaceAuthoringHost_Active(s))error="scene viewport unavailable";
+            else if(!working_bounds(&s->layout,found,&lo,&hi))error="view has no valid inspection bounds";
             else if(!Layout_ApplyWorkingView(&s->layout.objectStore,view,&guides))error="view refused";
             else {
-                s->authoringGuides=false;s->inspectionView=false;s->editor.selectedObject3DId=0;s->editor.hoveredObject3DId=0;
+                s->authoringGuides=guides;s->inspectionView=false;s->editor.selectedObject3DId=0;s->editor.hoveredObject3DId=0;
                 Global_SetSpaceMode(SPACE_MODE_3D,false);Global_SetPreviewMode(LINE_DRAWING_PREVIEW_MODE_MATERIAL);
                 if(!s->cameraView.active)(void)CameraView_Enter(s,false);
                 double scale=Layout_WorldScale(&s->layout);
-                Vec3 lo={b.world_min_meters[0]/scale,b.world_min_meters[1]/scale,b.world_min_meters[2]/scale};
-                Vec3 hi={b.world_max_meters[0]/scale,b.world_max_meters[1]/scale,b.world_max_meters[2]/scale};
-                if(only[0]?!CameraView_FrameBounds(s,lo,hi):!CameraView_Frame(s,false))error="camera framing refused";
+                (void)CameraView_FrameBounds(s,lo,hi);
                 const cJSON* eye=cJSON_GetObjectItemCaseSensitive(q,"eye_m");
                 const cJSON* target=cJSON_GetObjectItemCaseSensitive(q,"target_m");
                 if(cJSON_IsArray(eye)&&cJSON_GetArraySize(eye)==3&&cJSON_IsArray(target)&&cJSON_GetArraySize(target)==3) {
@@ -143,8 +170,13 @@ char* SculptAgent_Command(AppContext* app,const char* input) {
         if(Global_IsLayoutDirty()||UIPanel_IsCapturingKeyboard()||s->cameraView.path_modified)error="unsaved edits or active draft; quit refused";else app->quit=true;
     } else if(!error&&!reading)error="unknown operation";
     if(error)cJSON_AddStringToObject(r,"error",error);
-    cJSON_AddBoolToObject(r,"ok",error==NULL);if(s){revision(&s->layout,rev);cJSON_AddStringToObject(r,"revision",rev);}
+    cJSON_AddBoolToObject(r,"ok",error==NULL);if(s){revision(s,rev);cJSON_AddStringToObject(r,"revision",rev);}
     cJSON_AddStringToObject(r,"request_id",id);char* output=cJSON_PrintUnformatted(r);
-    if(output&&id[0]&&!reading&&!error){size_t i=next_receipt++%8;free(receipts[i].request);free(receipts[i].response);free(receipts[i].id);receipts[i].request=strdup(input);receipts[i].response=strdup(output);receipts[i].id=strdup(id);}
+    if(!reading&&!error){
+        size_t i=next_receipt++%8;
+        free(receipts[i].request);free(receipts[i].response);free(receipts[i].id);
+        receipts[i].request=saved_request;receipts[i].id=saved_id;receipts[i].response=output;
+        output=output?strdup(output):NULL;
+    } else { free(saved_request);free(saved_id); }
     cJSON_Delete(q);cJSON_Delete(r);return output;
 }

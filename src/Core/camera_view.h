@@ -1,6 +1,7 @@
 #pragma once
 #include "Layout/scene/layout_scene_camera_authoring.h"
 #include "Layout/layout_section.h"
+#include "Layout/layout.h"
 #include <SDL2/SDL.h>
 #include <stdint.h>
 
@@ -37,6 +38,7 @@ int CameraView_NextUpdateDelayMs(const GlobalState *state);
 void CameraView_RenderMarkers(SDL_Renderer *renderer, const GlobalState *state);
 bool CameraView_HandleEvent(GlobalState *state, const SDL_Event *event);
 
+bool CameraView_FindBounds(const LayoutObjectStore* store, uint32_t selected_id, Vec3* minimum, Vec3* maximum);
 bool CameraView_Frame(GlobalState* state,bool selection);
 bool CameraView_FrameBounds(GlobalState* state,Vec3 minimum,Vec3 maximum);
 void CameraView_Drag(GlobalState* state,float dx,float dy,bool pan);

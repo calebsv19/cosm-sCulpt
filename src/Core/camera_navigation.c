@@ -4,13 +4,12 @@
 #include "Layout/layout_engineering.h"
 #include <float.h>
 /* Framing uses authoritative native corners, excluding spatial planning guides. */
-bool CameraView_Frame(GlobalState* s,bool selection) {
-    if(!s || !s->cameraView.active)return false;
+bool CameraView_FindBounds(const LayoutObjectStore* store,uint32_t selected_id,Vec3* minimum,Vec3* maximum) {
     Vec3 lo={FLT_MAX,FLT_MAX,FLT_MAX},hi={-FLT_MAX,-FLT_MAX,-FLT_MAX};bool found=false;
-    for(size_t i=0;i<s->layout.objectStore.count;++i) {
-        const Object3D* o=&s->layout.objectStore.items[i];Vec3 p[8];size_t n=8;
-        if(!Layout_ObjectShown(&s->layout.objectStore,o) || Layout_EntityIsSpatialGuide(&o->info) ||
-            (selection && o->objectId!=s->editor.selectedObject3DId))continue;
+    for(size_t i=0;i<store->count;++i) {
+        const Object3D* o=&store->items[i];Vec3 p[8];size_t n=8;
+        if(!Layout_ObjectShown(store,o) || Layout_EntityIsSpatialGuide(&o->info) ||
+            (selected_id && o->objectId!=selected_id))continue;
         bool ok=o->kind==OBJECT3D_KIND_PLANE ? (n=4,Layout_Object3D_ComputePlaneCorners(o,p)) :
             o->kind==OBJECT3D_KIND_RECT_PRISM ? Layout_Object3D_ComputeRectPrismCorners(o,p) :
             Layout_Object3D_ComputeMeshInstanceCorners(o,p);
@@ -21,7 +20,14 @@ bool CameraView_Frame(GlobalState* s,bool selection) {
         }
     }
     if(!found)return false;
-    return CameraView_FrameBounds(s,lo,hi);
+    *minimum=lo;*maximum=hi;
+    return true;
+}
+bool CameraView_Frame(GlobalState* s,bool selection) {
+    Vec3 lo,hi;
+    if(!s || !s->cameraView.active || (selection && !s->editor.selectedObject3DId))return false;
+    return CameraView_FindBounds(&s->layout.objectStore,selection?s->editor.selectedObject3DId:0,&lo,&hi) &&
+           CameraView_FrameBounds(s,lo,hi);
 }
 bool CameraView_FrameBounds(GlobalState* s,Vec3 lo,Vec3 hi) {
     if(!s||!s->cameraView.active||!isfinite(lo.x)||!isfinite(lo.y)||!isfinite(lo.z)||!isfinite(hi.x)||!isfinite(hi.y)||!isfinite(hi.z)||lo.x>hi.x||lo.y>hi.y||lo.z>hi.z)return false;

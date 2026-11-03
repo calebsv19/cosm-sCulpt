@@ -75,6 +75,7 @@ typedef struct GlobalState {
 
     bool layoutDirty;
     bool hitboxDirty;
+    uint64_t documentGeneration; /* Active document incarnation, even for identical bytes. */
 
     char currentConfigPath[LINE_DRAWING_PATH_CAP];
     char currentSceneAuthoringPath[LINE_DRAWING_PATH_CAP];

@@ -16,11 +16,15 @@ Tools: `sculpt_state`, `sculpt_inspect`, `sculpt_snapshot`, `sculpt_save_as`,
 `sculpt_open`, `sculpt_view`, `sculpt_capture`, and `sculpt_quit`.
 
 Read state first. Mutations require `expected_revision` and a unique
-`request_id`. The revision is a content token for the native serialized document,
-not a cryptographic authentication signature. Eight recent successful mutation
+`request_id`. Treat the revision as opaque and scope it to the connected editor. It covers
+the serialized layout and the active document incarnation. Opening identical
+bytes again, switching workspaces or saving under a new path invalidates the
+previous guard. Applying an existing working view preserves it. Eight recent successful mutation
 receipts are retained in process memory: exact same-byte retries reuse their
 response; conflicting reuse is refused. Receipts do not survive process exit.
-After an uncertain result, read current state and inspect the same destination;
+After eight later successes an old ID can execute again if its guard still
+matches. A cached response describes the original operation, including when
+the editor has since opened another document. After an uncertain result, read current state and inspect the same destination;
 do not blindly submit under a new identity.
 
 Snapshots include current unsaved native geometry without changing the active
@@ -35,7 +39,9 @@ does, so preserve a snapshot before switching. Original source files are never
 implicitly overwritten.
 
 View applies a saved working view, switches to opaque Material presentation,
-frames the relevant collection, and preserves native geometry and Undo. Existing
+applies its saved guide visibility, frames the relevant collection, and preserves
+native geometry and Undo. Failure to find frameable geometry leaves the current
+visibility, selection and camera intact. Existing
 whole-van working views are also supported. Optional `eye_m` and `target_m` set a
 temporary inspection camera; both must be valid finite three-element vectors.
 Capture schedules a real Vulkan frame to a new absolute BMP path. Its immediate
