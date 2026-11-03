@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/shared_special.h"
 #include "UI/ui_panel_measurement.h"
 #include "UI/ui_panel_parts.h"
@@ -133,7 +134,7 @@ static PartsPane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     UIPanelState* ui=UIPanel_Get();PartsPane p={.renderer=renderer,.font=FontManager_Get(FONT_DEFAULT),
         .body=ui->rightBodyRect,.x=x,.click_y=y,.wanted=wanted};
     (void)UIPanelVisual_ResolvePalette(&p.palette);
-    p.h=(p.font ? TTF_FontHeight(p.font) : 18)+8;p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui);
+    p.h=(p.font ? line_drawing_text_font_height(p.font) : 18)+8;p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui);
     if (ui->activeRightTab!=UI_PANEL_RIGHT_TAB_PARTS) return p;
     if (Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_SCENE) {note(&p,"Parts are edited in the Scene workspace.");return p;}
     p.y+=5;char text[256];LayoutObjectStore* store=&layout()->objectStore;

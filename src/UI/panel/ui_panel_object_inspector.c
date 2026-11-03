@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/ui_panel_object_inspector.h"
 
 #include "Core/global_state.h"
@@ -17,7 +18,7 @@
 static int UIPanelObjectInspector_FontHeight(void) {
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     int h = 14;
-    if (font) h = TTF_FontHeight(font);
+    if (font) h = line_drawing_text_font_height(font);
     if (h < 12) h = 12;
     return h;
 }
@@ -720,8 +721,8 @@ void Render_UIPanelObjectInspector(const UIPanelState* ui, SDL_Renderer* rendere
         }
         for (int i = 0; i < 8; ++i) {
             SDL_Rect box = i < 2 ? summary : details;
-            int y = box.y + 3 + (i < 2 ? i : i - 2) * (TTF_FontHeight(font) + (i < 2 ? 4 : 2));
-            UIPanelSummary_DrawTextClipped(renderer, font, lines[i], box.x + 4, y, box.w - 8, TTF_FontHeight(font), i == 0 ? accent_color : value_color);
+            int y = box.y + 3 + (i < 2 ? i : i - 2) * (line_drawing_text_font_height(font) + (i < 2 ? 4 : 2));
+            UIPanelSummary_DrawTextClipped(renderer, font, lines[i], box.x + 4, y, box.w - 8, line_drawing_text_font_height(font), i == 0 ? accent_color : value_color);
         }
         return;
     }

@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/ui_panel_spatial.h"
 #include "UI/ui_panel_parts_surface.h"
 #include "Layout/layout_motion.h"
@@ -295,7 +296,7 @@ void UIPanel_RenderMotionViewport(SDL_Renderer* renderer) {
     if (!renderer || !font || !LineDrawingPaneHost_GetViewportRect(&state->paneHost,&rect)) return;
     SDL_Rect old;bool clipped=SDL_RenderIsClipEnabled(renderer);SDL_RenderGetClipRect(renderer,&old);
     SDL_Rect clip={(int)rect.x,(int)rect.y,(int)rect.width,(int)rect.height};SDL_RenderSetClipRect(renderer,&clip);
-    int line_height=TTF_FontHeight(font)+8;
+    int line_height=line_drawing_text_font_height(font)+8;
     int visible=0;
     for (size_t i=0;i<state->layout.objectStore.motion_envelope_count;++i) {
         const LayoutMotionEnvelope* envelope=&state->layout.objectStore.motion_envelopes[i];

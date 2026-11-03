@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/shared_special.h"
 #include "UI/shared_controls.h"
 #include "UI/shared_text.h"
@@ -206,7 +207,7 @@ static void UIPanel_UpdateSideTabs(UIPanelTabButton* tabs,
         if (tabCount == UI_PANEL_RIGHT_TAB_COUNT &&
             (i == UI_PANEL_RIGHT_TAB_EDIT || i == UI_PANEL_RIGHT_TAB_PARTS)) continue;
         int width = (int)strlen(tabs[i].label) * 8;
-        if (font) (void)TTF_SizeUTF8(font, tabs[i].label, &width, NULL);
+        if (font) (void)line_drawing_text_size_utf8(font, tabs[i].label, &width, NULL);
         total += width + 8;
     }
     int available = contentW - spacing * (visible - 1);
@@ -220,7 +221,7 @@ static void UIPanel_UpdateSideTabs(UIPanelTabButton* tabs,
         if (tabCount == UI_PANEL_RIGHT_TAB_COUNT &&
             (i == UI_PANEL_RIGHT_TAB_EDIT || i == UI_PANEL_RIGHT_TAB_PARTS)) continue;
         int width = (int)strlen(tabs[i].label) * 8;
-        if (font) (void)TTF_SizeUTF8(font, tabs[i].label, &width, NULL);
+        if (font) (void)line_drawing_text_size_utf8(font, tabs[i].label, &width, NULL);
         width += 8;
         width = total > 0 ? width * available / total : 0;
         if (--remaining_tabs == 0) width = remaining;

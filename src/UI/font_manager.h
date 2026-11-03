@@ -39,3 +39,9 @@ bool FontManager_SetSharedFontPresetId(CoreFontPresetId preset_id);
 bool FontManager_SetSharedFontPresetName(const char* preset_name);
 bool FontManager_LoadPersistedPrefs(void);
 bool FontManager_SavePersistedPrefs(void);
+
+/* Prepare preset and zoom before publishing either semantic value. */
+bool FontManager_ApplyStyle(CoreFontPresetId preset, int zoom);
+/* Authoring retains exact entry fonts until accepted or cancelled. */
+void FontManager_PreviewBegin(void);
+void FontManager_PreviewEnd(bool accept);

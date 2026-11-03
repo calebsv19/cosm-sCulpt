@@ -30,6 +30,7 @@ bool VulkanAdapter_Init(AppContext* ctx, SDL_Window* window) {
     }
 
     ctx->renderer = &ctx->renderer_storage;
+    line_drawing_text_bind_renderer((SDL_Renderer*)ctx->renderer);
     return true;
 }
 

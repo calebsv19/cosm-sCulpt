@@ -107,3 +107,31 @@ visual-artifact-constraints: $(APP_TARGET)
 	@rm -f "$(VISUAL_ARTIFACT_PATH)"
 	@LINE_DRAWING_VISUAL_ARTIFACT="$(VISUAL_ARTIFACT_PATH)" LINE_DRAWING_VISUAL_ARTIFACT_MODE=$(CONSTRAINT_VISUAL_MODE) $(APP_TARGET)
 	@test -s "$(VISUAL_ARTIFACT_PATH)"
+
+# Standalone proofs link production owners while keeping their own main out of the unit runner.
+TEXT_SETTINGS_PROOF := $(HOST_TEST_BIN_DIR)/proof_text_settings
+TEXT_NATIVE_PROOF := $(HOST_TEST_BIN_DIR)/proof_text_pixels_native
+TEXT_SDL_PROOF := $(HOST_TEST_BIN_DIR)/proof_text_pixels_sdl
+$(TEXT_SETTINGS_PROOF): tests/proof_text_settings.c $(NON_APP_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $(APP_CFLAGS) $^ -o $@ $(LDFLAGS)
+$(TEXT_NATIVE_PROOF): tests/proof_text_pixels_native.c $(NON_APP_OBJS)
+	@mkdir -p $(dir $@)
+	$(CC) $(APP_CFLAGS) $^ -o $@ $(LDFLAGS)
+TEXT_DRAW_SRCS := src/UI/text_draw.c src/UI/text_draw_sdl.c src/UI/text_draw_native.c
+TEXT_SDL_OBJS := $(patsubst src/UI/%.c,$(HOST_OBJ_DIR)/text_sdl/%.o,$(TEXT_DRAW_SRCS))
+$(HOST_OBJ_DIR)/text_sdl/%.o: src/UI/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DUSE_VULKAN=0 -c $< -o $@
+$(TEXT_SDL_PROOF): tests/proof_text_pixels_sdl.c $(TEXT_SDL_OBJS) $(filter-out $(patsubst %.c,$(PROGRAM_OBJ_DIR)/%.o,$(TEXT_DRAW_SRCS)),$(NON_APP_OBJS))
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DUSE_VULKAN=0 $^ -o $@ $(LDFLAGS)
+build-text-proof: $(TEXT_SETTINGS_PROOF) $(TEXT_NATIVE_PROOF) $(TEXT_SDL_PROOF)
+
+test-text-source:
+	@python3 tools/verify-text-source.py --shared-root "$(SHARED_ROOT)" --canonical-shared-root "$(SHARED_WORKSPACE_DIR)"
+
+.PHONY: build-text-proof test-text-source test-text-settings
+test-text-settings: $(TEXT_SETTINGS_PROOF)
+	@python3 tools/verification/test_text_settings.py --binary "$(abspath $(TEXT_SETTINGS_PROOF))" --output-root "$(abspath $(BUILD_DIR)/text-settings)"
+test: test-text-settings test-text-source

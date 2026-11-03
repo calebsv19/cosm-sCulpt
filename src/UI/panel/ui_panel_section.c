@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/shared_special.h"
 #include "UI/ui_panel_section.h"
 #include "UI/ui_panel_visual_style.h"
@@ -17,7 +18,7 @@ static bool contains(SDL_Rect r, int x, int y) {
 }
 static int row_height(void) {
     TTF_Font* f = FontManager_Get(FONT_DEFAULT);
-    return (f ? TTF_FontHeight(f) : 16) + 8;
+    return (f ? line_drawing_text_font_height(f) : 16) + 8;
 }
 int UIPanel_SectionHeight(void) {
     UIPanelState* ui = UIPanel_Get();
@@ -178,11 +179,11 @@ void UIPanel_RenderSection(SDL_Renderer* renderer) {
             format_length(hi, right, sizeof(right));
             snprintf(limits, sizeof(limits), "Range: %s to %s", left, right);
             UIPanelSummary_DrawTextClipped(renderer, font, limits, note.x + 4, note.y + 2,
-                                           note.w - 8, TTF_FontHeight(font), palette.text_muted);
+                                           note.w - 8, line_drawing_text_font_height(font), palette.text_muted);
             UIPanelSummary_DrawWrappedText(renderer, font,
                 ui->sectionMessage[0] ? ui->sectionMessage :
                 "X/Y/Z: travel direction. Native solids; mesh cuts uncapped. View only.",
-                note.x + 4, note.y + row_height(), note.w - 8, TTF_FontHeight(font), 2, 2,
+                note.x + 4, note.y + row_height(), note.w - 8, line_drawing_text_font_height(font), 2, 2,
                 palette.text_muted);
         }
     }

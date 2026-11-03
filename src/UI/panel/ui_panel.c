@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/shared_overlay.h"
 #include "UI/shared_special.h"
 #include "UI/panel/ui_panel_collection_inspection.h"
@@ -151,7 +152,7 @@ static int UIPanel_FontHeightPx(void) {
     TTF_Font* font = UIPanel_GetLayoutFont();
     int h = 14;
     if (font) {
-        h = TTF_FontHeight(font);
+        h = line_drawing_text_font_height(font);
     }
     if (h < 12) h = 12;
     return h;
@@ -161,7 +162,7 @@ static int UIPanel_MeasureTextWidthPx(const char* text) {
     TTF_Font* font = UIPanel_GetLayoutFont();
     int width = 0;
     if (!text || !text[0]) return 0;
-    if (font && TTF_SizeUTF8(font, text, &width, NULL) == 0 && width > 0) {
+    if (font && line_drawing_text_size_utf8(font, text, &width, NULL) == 0 && width > 0) {
         return width;
     }
     return (int)strlen(text) * 8;

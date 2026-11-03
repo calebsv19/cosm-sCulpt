@@ -15,7 +15,10 @@ MESH_REQUEST="$LINE_DIR/tests/fixtures/agent_low_poly_mesh_sphere_request.json"
 IMPORTED_MATERIAL_OUT_DIR="$LINE_DIR/tmp/agent_imported_mesh_material_prompt/line_drawing"
 IMPORTED_MATERIAL_REQUEST="$LINE_DIR/tests/fixtures/agent_imported_mesh_material_prompt_request.json"
 TOOL_REL="$(make -s -C "$LINE_DIR" print-agent-scene-tool-bin)"
-TOOL="$LINE_DIR/$TOOL_REL"
+case "$TOOL_REL" in
+  /*) TOOL="$TOOL_REL" ;;
+  *) TOOL="$LINE_DIR/$TOOL_REL" ;;
+esac
 MODE="${1:-all}"
 
 if [[ -z "$TOOL_REL" || ! -x "$TOOL" ]]; then

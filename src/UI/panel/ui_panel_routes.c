@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/shared_special.h"
 #include "UI/ui_panel_routes.h"
 #include "Layout/layout_saved_views.h"
@@ -179,8 +180,8 @@ static void field(RoutePane* p,int action,const char* title,const char* value,bo
 static void note(RoutePane* p,const char* text) {
     int lines=UIPanelSummary_CountWrappedLines(p->font,text,p->body.w-38);
     if (p->renderer) UIPanelSummary_DrawWrappedText(p->renderer,p->font,text,p->body.x+13,p->y+5,p->body.w-38,
-        p->font?TTF_FontHeight(p->font):18,2,lines,p->palette.text_primary);
-    p->y+=lines*(p->font?TTF_FontHeight(p->font)+2:20)+12;
+        p->font?line_drawing_text_font_height(p->font):18,2,lines,p->palette.text_primary);
+    p->y+=lines*(p->font?line_drawing_text_font_height(p->font)+2:20)+12;
 }
 static void endpoint_label(const LayoutGeometricReference* ref,char* out,size_t capacity) {
     const LayoutEntityInfo* info=Layout_EntityInfo(&layout()->objectStore,ref->entity_id);
@@ -193,7 +194,7 @@ static RoutePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     UIPanelState* ui=UIPanel_Get();RoutePane p={.renderer=renderer,.font=FontManager_Get(FONT_DEFAULT),
         .body=ui->rightBodyRect,.x=x,.click_y=y,.wanted=wanted};
     (void)UIPanelVisual_ResolvePalette(&p.palette);
-    p.h=(p.font?TTF_FontHeight(p.font):18)+8;p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui);
+    p.h=(p.font?line_drawing_text_font_height(p.font):18)+8;p.y=p.body.y+8-(int)UIPanel_RightScrollOffset(ui);
     if (Global_GetWorkspaceMode()!=LINE_DRAWING_WORKSPACE_MODE_SCENE) {note(&p,"Routes are edited in the Scene workspace.");return p;}
     char text[256];LayoutObjectStore* store=&layout()->objectStore;
     if (ui->routes.chooser) {

@@ -1,4 +1,5 @@
 #include "test_framework.h"
+bool agent_control_run_tests(void);
 bool mesh_source_snapshot_run_tests(void);
 bool scene_collections_run_tests(void);
 bool collection_inspection_run_tests(void);
@@ -83,6 +84,7 @@ typedef struct TestGroup {
 
 bool appearance_tree_run_tests(void);
 static const TestGroup kTestGroups[] = {
+    {"AgentControl",agent_control_run_tests,true},
     {"SceneCollections",scene_collections_run_tests,true},
     {"CollectionInspection",collection_inspection_run_tests,true},
     {"ConstructionReference",construction_reference_run_tests,true},

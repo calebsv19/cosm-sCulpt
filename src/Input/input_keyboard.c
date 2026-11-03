@@ -248,11 +248,11 @@ void Input_KeyboardHandle(AppContext* ctx, SDL_Event* event) {
                 return;
             } else if ((mods & KMOD_SHIFT) && event->key.keysym.sym == SDLK_t) {
                 line_drawing3d_shared_theme_cycle_next();
-                line_drawing3d_shared_theme_save_persisted();
+                (void)FontManager_SavePersistedPrefs();
                 return;
             } else if ((mods & KMOD_SHIFT) && event->key.keysym.sym == SDLK_y) {
                 line_drawing3d_shared_theme_cycle_prev();
-                line_drawing3d_shared_theme_save_persisted();
+                (void)FontManager_SavePersistedPrefs();
                 return;
             } else if (event->key.keysym.sym == SDLK_z) {
                 if (mods & KMOD_SHIFT) {

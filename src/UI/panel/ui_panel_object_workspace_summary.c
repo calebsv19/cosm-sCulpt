@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/shared_special.h"
 #include "UI/ui_panel_object_workspace_summary.h"
 
@@ -54,7 +55,7 @@ static const char* UIPanelObjectWorkspace_OperationLabel(ObjectAuthoringOperatio
 
 static int UIPanelObjectWorkspace_FontHeight(TTF_Font* font) {
     int font_h = 14;
-    if (font && TTF_FontHeight(font) > 12) font_h = TTF_FontHeight(font);
+    if (font && line_drawing_text_font_height(font) > 12) font_h = line_drawing_text_font_height(font);
     if (font_h < 12) font_h = 12;
     return font_h;
 }

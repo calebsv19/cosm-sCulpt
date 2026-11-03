@@ -123,6 +123,7 @@ static void line_drawing_authoring_capture_baseline(GlobalState* state) {
     authoring->baseline_left_width = pane_host->target_left_width;
     authoring->baseline_right_width = pane_host->target_right_width;
     memcpy(authoring->baseline_nodes, pane_host->nodes, sizeof(authoring->baseline_nodes));
+    FontManager_PreviewBegin();
     authoring->draft_baseline_valid = 1u;
 }
 
@@ -146,12 +147,9 @@ static CoreResult line_drawing_authoring_restore_baseline(GlobalState* state) {
     (void)LineDrawingPaneHost_Rebuild(pane_host,
                                       (float)state->screenWidth,
                                       (float)state->screenHeight);
-    (void)FontManager_SetZoomStep(authoring->baseline_font_zoom_step);
+    FontManager_PreviewEnd(false);
     if (authoring->baseline_theme_preset[0]) {
         (void)line_drawing3d_shared_theme_set_preset(authoring->baseline_theme_preset);
-    }
-    if (authoring->baseline_font_preset[0]) {
-        (void)FontManager_SetSharedFontPresetName(authoring->baseline_font_preset);
     }
     Global_RefreshPaneLayout(NULL);
     return core_result_ok();
@@ -183,13 +181,11 @@ static void line_drawing_authoring_note_font_theme_status(GlobalState* state,
 }
 
 static CoreResult line_drawing_authoring_persist_accepted(GlobalState* state) {
-    bool theme_ok;
     bool font_ok;
     if (!state) return line_drawing_authoring_invalid("null global state");
-    theme_ok = line_drawing3d_shared_theme_save_persisted();
     font_ok = FontManager_SavePersistedPrefs();
-    if (!theme_ok || !font_ok) {
-        line_drawing_authoring_note_font_theme_status(state, "Accepted preference persistence failed.");
+    if (!font_ok) {
+        line_drawing_authoring_note_font_theme_status(state, "Apply failed; draft retained.");
         return line_drawing_authoring_invalid("accepted authoring persistence failed");
     }
     line_drawing_authoring_note_font_theme_status(state, "Accepted preferences persisted.");
@@ -218,7 +214,7 @@ static int line_drawing_authoring_apply_font_theme_button(
                 state->workspaceAuthoring.font_theme_button_click_count += 1u;
                 return 1;
             }
-            line_drawing_authoring_note_font_theme_status(state, "Text size is already at minimum.");
+            line_drawing_authoring_note_font_theme_status(state, "Font unchanged or unavailable; working fonts retained.");
             return 1;
         case KIT_WORKSPACE_AUTHORING_FONT_THEME_ACTION_TEXT_SIZE_INC:
             if (FontManager_AdjustZoomStep(1)) {
@@ -226,7 +222,7 @@ static int line_drawing_authoring_apply_font_theme_button(
                 state->workspaceAuthoring.font_theme_button_click_count += 1u;
                 return 1;
             }
-            line_drawing_authoring_note_font_theme_status(state, "Text size is already at maximum.");
+            line_drawing_authoring_note_font_theme_status(state, "Font unchanged or unavailable; working fonts retained.");
             return 1;
         case KIT_WORKSPACE_AUTHORING_FONT_THEME_ACTION_TEXT_SIZE_RESET:
             if (FontManager_SetZoomStep(0)) {
@@ -315,6 +311,8 @@ CoreResult LineDrawingWorkspaceAuthoringHost_Apply(GlobalState* state) {
 
     if (LineDrawingWorkspaceAuthoringHost_Active(state)) {
         persist_result = line_drawing_authoring_persist_accepted(state);
+        if (persist_result.code != CORE_OK) return persist_result;
+        FontManager_PreviewEnd(true);
         state->workspaceAuthoring.active = 0;
         line_drawing_authoring_clear_baseline(state);
         state->workspaceAuthoring.apply_count += 1u;

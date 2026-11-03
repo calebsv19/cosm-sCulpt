@@ -36,7 +36,7 @@ static void Placeholder_DrawCard(SDL_Renderer* renderer,
     if (!renderer || rect.w <= 0 || rect.h <= 0) return;
     font = FontManager_Get(FONT_DEFAULT);
     if (!font) return;
-    text_h = TTF_FontHeight(font);
+    text_h = line_drawing_text_font_height(font);
     if (text_h < 14) text_h = 14;
 
     if (line_drawing3d_shared_theme_resolve_palette(&palette)) {

@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "Core/global_state.h"
 #include "UI/font_manager.h"
 #include "UI/shared_special.h"
@@ -159,7 +160,7 @@ SDL_Rect LDInline_ValueRect(SDL_Rect box, const char *prefix) {
     int w = (int)strlen(prefix) * 8;
     TTF_Font *font = FontManager_Get(FONT_DEFAULT);
     if (font)
-        (void)TTF_SizeUTF8(font, prefix, &w, NULL);
+        (void)line_drawing_text_size_utf8(font, prefix, &w, NULL);
     box.x += w + 2;
     box.w -= w + 2;
     return box;

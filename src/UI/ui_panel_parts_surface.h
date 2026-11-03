@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #pragma once
 /* Shared Parts form layout/hit/render surface. Domain workflows remain in modules. */
 #include "UI/shared_special.h"
@@ -23,7 +24,7 @@ static inline void cell(PartsPane* p,int action,const char* title,const char* va
         int total = p->body.w - 24;
         int only_w = 48;
         TTF_Font* font = p->font ? p->font : FontManager_Get(FONT_DEFAULT);
-        if (font) (void)TTF_SizeUTF8(font, "Only", &only_w, NULL);
+        if (font) (void)line_drawing_text_size_utf8(font, "Only", &only_w, NULL);
         only_w += 18;
         /* The name absorbs spare width; Only remains a compact action. */
         if (only_w > total / 2) only_w = total / 2;
@@ -67,7 +68,7 @@ static inline void note(PartsPane* p,const char* text) {
     int max_width = p->body.w - 38;
     int old_height = p->h;
     TTF_Font* font = p->font ? p->font : FontManager_Get(FONT_DEFAULT);
-    if (font) p->h = TTF_FontHeight(font) + 5;
+    if (font) p->h = line_drawing_text_font_height(font) + 5;
     size_t start = 0, length = strlen(text);
     while (start < length) {
         size_t n = length - start;
@@ -76,7 +77,7 @@ static inline void note(PartsPane* p,const char* text) {
         for (;;) {
             snprintf(line, sizeof(line), "%.*s", (int)n, text + start);
             int width = (int)n * 9;
-            if (font) (void)TTF_SizeUTF8(font, line, &width, NULL);
+            if (font) (void)line_drawing_text_size_utf8(font, line, &width, NULL);
             if (width <= max_width || n == 1) break;
             --n;
         }

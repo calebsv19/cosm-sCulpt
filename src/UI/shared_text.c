@@ -31,7 +31,7 @@ static CoreResult measure(void* user,const char* text,float* width) {
         *width=(float)(scalars*8);return core_result_ok();
     }
     if (!line_drawing_text_measure_utf8(s->renderer,s->font,text,&w,NULL) &&
-        TTF_SizeUTF8(s->font,text,&w,NULL)!=0)
+        line_drawing_text_size_utf8(s->font,text,&w,NULL)!=0)
         return (CoreResult){CORE_ERR_IO,"text measurement failed"};
     *width=(float)w;return core_result_ok();
 }
@@ -95,13 +95,28 @@ static void paint(LDTextField* s,SDL_Color ink) {
     SDL_SetRenderDrawColor(s->renderer,red,green,blue,alpha);
 #endif
 }
+/* Keep a bounded preedit visible beside its caret without changing edit bytes or hit-test space. */
+static void reveal_preedit(KitUiTextPresentation* view) {
+    if (!view->composition_bytes || view->count != 1) return;
+    KitUiTextPresentationRow* row = &view->rows[0];
+    float right = view->options.viewport.x + view->options.viewport.width;
+    float shift = fmaxf(0, row->preedit.x + row->preedit.width - right);
+    shift = fminf(shift, fmaxf(0, view->caret.x - view->options.viewport.x));
+    row->origin.x -= shift;
+    row->selection.x -= shift;
+    row->preedit.x -= shift;
+    view->caret.x -= shift;
+    view->scroll_x += shift;
+}
+
 void LDText_Draw(LDTextField* s,SDL_Renderer* renderer,TTF_Font* font,SDL_Rect area,SDL_Color ink,bool active) {
     if(!s->edit.text || !renderer || !font || area.w<=0 || area.h<=0)return;
     s->renderer=renderer;s->font=font;s->bounds=area;
-    int height=TTF_FontHeight(font);(void)line_drawing_text_measure_utf8(renderer,font,"Mg",NULL,&height);
+    int height=line_drawing_text_font_height(font);(void)line_drawing_text_measure_utf8(renderer,font,"Mg",NULL,&height);
     KitUiTextPresentationOptions options={{area.x,area.y,area.w,area.h},height,1,0,0,active,active};
     s->ready=kit_ui_text_presentation_build(&s->view,&s->edit,&options,measure,s).code==CORE_OK;
     if(s->ready) {
+        reveal_preedit(&s->view);
         paint(s,ink);
         if(active && SDL_IsTextInputActive())
             (void)kit_ui_native_text_rect_sdl(SDL_GetKeyboardFocus(),&s->view,
@@ -136,7 +151,7 @@ static bool label_build(LDTextField* s,TTF_Font* font,const char* text,SDL_Rect 
     s->font=font;s->bounds=area;char wrapped[KIT_UI_TEXT_PRESENTATION_BYTES];
     if(wrap) {if(!wrap_words(s,text,area.w,wrapped,sizeof(wrapped)))return false;text=wrapped;}
     if(kit_ui_text_bind(&s->edit,(char*)text,strlen(text)+1,0).code!=CORE_OK)return false;
-    int height=font?TTF_FontHeight(font):14;if(font)(void)line_drawing_text_measure_utf8(s->renderer,font,"Mg",NULL,&height);
+    int height=font?line_drawing_text_font_height(font):14;if(font)(void)line_drawing_text_measure_utf8(s->renderer,font,"Mg",NULL,&height);
     KitUiTextPresentationOptions options={{area.x,area.y,area.w,area.h},advance>0?advance:height,1,0,wrap,0,0};
     bool accepted=kit_ui_text_presentation_build(&s->view,&s->edit,&options,measure,s).code==CORE_OK;
     s->edit.text=NULL; /* Presentation owns copied rows; wrapped storage is local. */

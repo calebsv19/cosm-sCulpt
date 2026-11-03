@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/panel/ui_panel_file_browser_internal.h"
 #include "UI/panel/ui_panel_stl_options.h"
 
@@ -142,7 +143,7 @@ void Render_UIPanelFileBrowser(const UIPanelState* ui, SDL_Renderer* renderer) {
         }
     }
 
-    font_h = TTF_FontHeight(font);
+    font_h = line_drawing_text_font_height(font);
     if (font_h < 12) font_h = 12;
     chip_font_h = font_h;
     {

@@ -106,3 +106,7 @@ APP_CFLAGS += -D__clang_version__=\"fisiCs\"
 LDFLAGS := $(filter-out $(ARCH_FLAGS),$(LDFLAGS))
 DEPFLAGS :=
 endif
+
+ifeq ($(UNAME_S),Darwin)
+LDFLAGS += -framework CoreText -framework CoreGraphics -framework CoreFoundation
+endif

@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/shared_special.h"
 #include "UI/ui_panel_measurement.h"
 #include "UI/panel/ui_panel_collection_inspection.h"
@@ -86,7 +87,7 @@ static void cell(MeasurePane* p,int action,const char* label,int column,int colu
     int arrow=dropdown_action(action) ? 18 : 0;
     if (p->font && p->wrap)
         UIPanelSummary_DrawWrappedText(p->renderer,p->font,label,rect.x+7,rect.y+3,
-            rect.w-14-arrow,TTF_FontHeight(p->font),2,p->wrap_lines,text);
+            rect.w-14-arrow,line_drawing_text_font_height(p->font),2,p->wrap_lines,text);
     else if (p->font) UIPanelSummary_DrawTextClipped(p->renderer,p->font,label,rect.x+7,rect.y+3,rect.w-14-arrow,rect.h-4,text);
     if(arrow) {
         int cx=rect.x+rect.w-12,cy=rect.y+rect.h/2;
@@ -101,7 +102,7 @@ static void row(MeasurePane* p,int action,const char* label,bool enabled) {
     if(action && lines>3)lines=3;
     p->wrap_lines=lines;
     p->wrap=lines>1;
-    if(p->wrap)p->h=lines*(p->font?TTF_FontHeight(p->font)+2:20)+12;
+    if(p->wrap)p->h=lines*(p->font?line_drawing_text_font_height(p->font)+2:20)+12;
     cell(p,action,label,0,1,enabled,false);p->y+=p->h;
     p->h=saved_height;p->wrap=false;
 }
@@ -195,7 +196,7 @@ static MeasurePane build(SDL_Renderer* renderer,int x,int y,int wanted) {
     UIPanelState* ui=UIPanel_Get();
     MeasurePane p={.renderer=renderer,.font=FontManager_Get(FONT_DEFAULT),.body=ui->rightBodyRect,.click_x=x,.click_y=y,.wanted=wanted};
     (void)UIPanelVisual_ResolvePalette(&p.palette);
-    p.h=p.font ? TTF_FontHeight(p.font)+8 : 30;
+    p.h=p.font ? line_drawing_text_font_height(p.font)+8 : 30;
     p.y=p.body.y+6-(int)UIPanel_RightScrollOffset(ui);
     bool has_primitive=false;
     const LayoutObjectStore* store=&Global_Get()->layout.objectStore;

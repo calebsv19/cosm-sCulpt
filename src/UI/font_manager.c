@@ -17,8 +17,8 @@ static char g_font_paths[FONT_COUNT][384];
 static int g_font_point_sizes[FONT_COUNT] = {0};
 static int g_font_kerning_enabled[FONT_COUNT] = {0};
 static int g_font_zoom_step = 0;
-static const char* k_font_preset_runtime_path = "data/runtime/font_preset.txt";
-static const char* k_font_zoom_runtime_path = "data/runtime/font_zoom_step.txt";
+
+
 
 static int FontManager_ClampZoomStep(int step) {
     if (step < -2) return -2;
@@ -33,52 +33,24 @@ static void FontManager_ConfigureFont(TTF_Font* font, int kerning_enabled) {
     TTF_SetFontKerning(font, kerning_enabled ? 1 : 0);
 }
 
-static bool FontManager_EnsureRuntimeDir(void) {
-    if (mkdir("data", 0755) != 0 && errno != EEXIST) {
-        return false;
-    }
-    if (mkdir("data/runtime", 0755) != 0 && errno != EEXIST) {
-        return false;
-    }
-    return true;
-}
+/* Retain the exact three-slot bank until a preview is accepted or cancelled. */
+static struct {
+    TTF_Font* fonts[FONT_COUNT];
+    char paths[FONT_COUNT][384];
+    int points[FONT_COUNT], kerning[FONT_COUNT], zoom;
+    CoreFontPresetId preset;
+    bool preview, pinned;
+} baseline;
 
-static void FontManager_TrimTrailingWhitespace(char* text) {
-    size_t len;
-    if (!text) {
-        return;
-    }
-    len = strlen(text);
-    while (len > 0u) {
-        char c = text[len - 1u];
-        if (c != '\n' && c != '\r' && c != '\t' && c != ' ') {
-            break;
+/* Release a retained baseline after acceptance or shutdown. */
+static void FontManager_ReleaseBaseline(void) {
+    for (int i = 0; i < FONT_COUNT; ++i) {
+        if (baseline.fonts[i]) {
+            line_drawing_text_unregister_font_source(baseline.fonts[i]);
+            TTF_CloseFont(baseline.fonts[i]);
         }
-        text[len - 1u] = '\0';
-        --len;
     }
-}
-
-static bool FontManager_ReadSmallTextFile(const char* path, char* out_text, size_t out_text_size) {
-    CoreBuffer file_data = {0};
-    CoreResult read_result;
-    size_t copy_len;
-    if (!path || !out_text || out_text_size == 0 || !core_io_path_exists(path)) {
-        return false;
-    }
-    read_result = core_io_read_all(path, &file_data);
-    if (read_result.code != CORE_OK || !file_data.data) {
-        return false;
-    }
-    copy_len = file_data.size;
-    if (copy_len >= out_text_size) {
-        copy_len = out_text_size - 1u;
-    }
-    memcpy(out_text, file_data.data, copy_len);
-    out_text[copy_len] = '\0';
-    core_io_buffer_free(&file_data);
-    FontManager_TrimTrailingWhitespace(out_text);
-    return out_text[0] != '\0';
+    memset(&baseline, 0, sizeof(baseline));
 }
 
 static void FontManager_ClearLoadedFonts(void) {
@@ -158,6 +130,7 @@ bool FontManager_Init(void) {
 
 void FontManager_Quit(void) {
     FontManager_ClearLoadedFonts();
+    FontManager_ReleaseBaseline();
     TTF_Quit();
 }
 
@@ -191,7 +164,15 @@ bool FontManager_ReloadFonts(void) {
         }
     }
 
-    FontManager_ClearLoadedFonts();
+    if (baseline.preview && !baseline.pinned) {
+        memcpy(baseline.fonts, fonts, sizeof(fonts));
+        memcpy(baseline.paths, g_font_paths, sizeof(g_font_paths));
+        memcpy(baseline.points, g_font_point_sizes, sizeof(g_font_point_sizes));
+        memcpy(baseline.kerning, g_font_kerning_enabled, sizeof(g_font_kerning_enabled));
+        baseline.pinned = true;
+    } else {
+        FontManager_ClearLoadedFonts();
+    }
     for (i = 0; i < FONT_COUNT; ++i) {
         fonts[i] = new_fonts[i];
         SDL_strlcpy(g_font_paths[i], new_paths[i], sizeof(g_font_paths[i]));
@@ -270,7 +251,6 @@ bool FontManager_SetZoomStep(int step) {
     g_font_zoom_step = clamped;
     if (!FontManager_ReloadFonts()) {
         g_font_zoom_step = previous;
-        (void)FontManager_ReloadFonts();
         return false;
     }
     return true;
@@ -298,7 +278,6 @@ bool FontManager_SetSharedFontPresetId(CoreFontPresetId preset_id) {
     }
     if (!FontManager_ReloadFonts()) {
         (void)line_drawing_font_bridge_set_preset_id(previous);
-        (void)FontManager_ReloadFonts();
         return false;
     }
     return true;
@@ -314,65 +293,47 @@ bool FontManager_SetSharedFontPresetName(const char* preset_name) {
     }
     if (!FontManager_ReloadFonts()) {
         (void)line_drawing_font_bridge_set_preset_id(previous);
-        (void)FontManager_ReloadFonts();
         return false;
     }
     return true;
 }
 
-bool FontManager_LoadPersistedPrefs(void) {
-    char preset_name[80];
-    char zoom_text[32];
-    bool loaded_any = false;
-
-    if (FontManager_ReadSmallTextFile(k_font_preset_runtime_path,
-                                      preset_name,
-                                      sizeof(preset_name))) {
-        loaded_any = line_drawing_font_bridge_set_preset_name(preset_name).code == CORE_OK
-                         ? true
-                         : loaded_any;
-    }
-    if (FontManager_ReadSmallTextFile(k_font_zoom_runtime_path,
-                                      zoom_text,
-                                      sizeof(zoom_text))) {
-        char* end = NULL;
-        long parsed = strtol(zoom_text, &end, 10);
-        if (end != zoom_text) {
-            g_font_zoom_step = FontManager_ClampZoomStep((int)parsed);
-            loaded_any = true;
-        }
-    }
-    return loaded_any;
-}
-
-bool FontManager_SavePersistedPrefs(void) {
-    const char* preset_name = FontManager_GetSharedFontPresetName();
-    char zoom_payload[32];
-    int written;
-    bool ok = true;
-
-    if (!FontManager_EnsureRuntimeDir()) {
+/* Exchange preset and zoom as one font-bank preparation, with semantic rollback. */
+bool FontManager_ApplyStyle(CoreFontPresetId preset, int zoom) {
+    CoreFontPresetId old_preset = FontManager_GetSharedFontPresetId();
+    int old_zoom = g_font_zoom_step;
+    if (line_drawing_font_bridge_set_preset_id(preset).code != CORE_OK) return false;
+    g_font_zoom_step = FontManager_ClampZoomStep(zoom);
+    if (!FontManager_ReloadFonts()) {
+        (void)line_drawing_font_bridge_set_preset_id(old_preset);
+        g_font_zoom_step = old_zoom;
         return false;
     }
-    if (preset_name && preset_name[0]) {
-        char preset_payload[96];
-        written = snprintf(preset_payload, sizeof(preset_payload), "%s\n", preset_name);
-        if (written <= 0 || (size_t)written >= sizeof(preset_payload) ||
-            core_io_write_all(k_font_preset_runtime_path,
-                              preset_payload,
-                              (size_t)written).code != CORE_OK) {
-            ok = false;
-        }
-    } else {
-        ok = false;
-    }
+    return true;
+}
 
-    written = snprintf(zoom_payload, sizeof(zoom_payload), "%d\n", FontManager_GetZoomStep());
-    if (written <= 0 || (size_t)written >= sizeof(zoom_payload) ||
-        core_io_write_all(k_font_zoom_runtime_path,
-                          zoom_payload,
-                          (size_t)written).code != CORE_OK) {
-        ok = false;
+/* Start a lazy pin before any authoring style replacement. */
+void FontManager_PreviewBegin(void) {
+    if (baseline.preview) return;
+    baseline.preview = true;
+    baseline.zoom = g_font_zoom_step;
+    baseline.preset = FontManager_GetSharedFontPresetId();
+}
+
+/* Cancel restores exact entry handles without reopening a font. */
+void FontManager_PreviewEnd(bool accept) {
+    if (!baseline.preview) return;
+    if (baseline.pinned && !accept) {
+        FontManager_ClearLoadedFonts();
+        memcpy(fonts, baseline.fonts, sizeof(fonts));
+        memcpy(g_font_paths, baseline.paths, sizeof(g_font_paths));
+        memcpy(g_font_point_sizes, baseline.points, sizeof(g_font_point_sizes));
+        memcpy(g_font_kerning_enabled, baseline.kerning, sizeof(g_font_kerning_enabled));
+        memset(baseline.fonts, 0, sizeof(baseline.fonts));
     }
-    return ok;
+    if (!accept) {
+        g_font_zoom_step = baseline.zoom;
+        (void)line_drawing_font_bridge_set_preset_id(baseline.preset);
+    }
+    FontManager_ReleaseBaseline();
 }

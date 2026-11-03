@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "Layout/layout_engineering.h"
 #include "UI/ui_panel_measurement.h"
 #include "UI/panel/ui_panel_collection_inspection.h"
@@ -134,7 +135,7 @@ static void travel_rail(SDL_Renderer* renderer, CorePaneRect rect, const LayoutC
         double value=limits[i];(void)core_units_convert(value,CORE_UNIT_METER,UIPanel_GetDisplayUnit(),&value);
         char text[64];snprintf(text,sizeof(text),"%s %.5g %s",i?"Max":"Min",value,UIPanel_GetDisplayUnitSymbol());
         int label_y=(int)points[i].y-18;
-        if(i && hypot(points[1].x-points[0].x,points[1].y-points[0].y)<48)label_y+=(font ? TTF_FontHeight(font)+6 : 26);
+        if(i && hypot(points[1].x-points[0].x,points[1].y-points[0].y)<48)label_y+=(font ? line_drawing_text_font_height(font)+6 : 26);
         if(font)UIPanelSummary_DrawText(renderer,font,text,(int)points[i].x+12,label_y,color);
     }
 }
@@ -254,7 +255,7 @@ void UIPanel_RenderConstraintViewport(SDL_Renderer* renderer) {
     SDL_Rect clip={(int)rect.x,(int)rect.y,(int)rect.width,(int)rect.height};
     SDL_RenderSetClipRect(renderer,&clip);
     TTF_Font* font=FontManager_Get(FONT_DEFAULT);
-    int h=font ? TTF_FontHeight(font)+6 : 24;
+    int h=font ? line_drawing_text_font_height(font)+6 : 24;
     int row=0,shown=0,total=0;
     int capacity=(clip.h-24)/h;
     if (capacity>6) capacity=6;

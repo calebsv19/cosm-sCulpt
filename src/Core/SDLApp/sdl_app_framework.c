@@ -2,6 +2,7 @@
 #include "sdl_app_window.h"
 #include <string.h>
 #include "Core/global_state.h"
+#include "Core/agent_control.h"
 #include "Core/SDLApp/sdl_app_loop_diag.h"
 #include "Core/SDLApp/sdl_app_loop_policy.h"
 #include "Render/vulkan_adapter.h"
@@ -111,6 +112,7 @@ bool App_Init(AppContext* ctx, const char* title, int width, int height, bool vs
 }
 
 void App_Run(AppContext* ctx, AppCallbacks* callbacks) {
+    SculptAgent_Start();
     uint64_t last_time_ns = core_time_now_ns();
     uint64_t perf_freq = SDL_GetPerformanceFrequency();
     SDL_Event event;
@@ -141,6 +143,7 @@ void App_Run(AppContext* ctx, AppCallbacks* callbacks) {
             else if (!suspended && timed_delay >= 0 && wait_ms >= timed_delay) timed_due = true;
         }
         while (SDL_PollEvent(&event)) frame_dirty |= app_process_event(ctx, callbacks, &event);
+        frame_dirty |= SculptAgent_Poll(ctx);
         if (ctx->quit) break;
 
         uint64_t now_ns = core_time_now_ns();
@@ -179,6 +182,7 @@ void App_Run(AppContext* ctx, AppCallbacks* callbacks) {
 }
 
 void App_Shutdown(AppContext* ctx) {
+    SculptAgent_Stop();
     SDLAppWindow_Shutdown(ctx);
     if (ctx->renderer) {
         VulkanAdapter_Shutdown(ctx);

@@ -110,7 +110,7 @@ static void line_drawing_authoring_draw_text(SDL_Renderer* renderer,
                                              SDL_Color color) {
     TTF_Font* font = FontManager_GetUIPanelFont();
     if (!renderer || !font || !text || !text[0]) return;
-    (void)LDText_Label(renderer,font,text,(SDL_Rect){x,y,Global_GetScreenWidth()-x-12,TTF_FontHeight(font)},color,false);
+    (void)LDText_Label(renderer,font,text,(SDL_Rect){x,y,Global_GetScreenWidth()-x-12,line_drawing_text_font_height(font)},color,false);
 }
 
 static void line_drawing_authoring_draw_button(SDL_Renderer* renderer,

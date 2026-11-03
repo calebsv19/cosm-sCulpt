@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/ui_panel_camera.h"
 #include "UI/shared_special.h"
 #include "UI/ui_panel_camera_path.h"
@@ -17,12 +18,12 @@ static bool shown,actions,editing,replace,dragging;
 static char text[64];
 static int row_height(void) {
     TTF_Font *font=FontManager_Get(FONT_DEFAULT);
-    return (font ? TTF_FontHeight(font) : 16)+8;
+    return (font ? line_drawing_text_font_height(font) : 16)+8;
 }
 static int columns(void) {
     TTF_Font *font=FontManager_Get(FONT_DEFAULT);
     int width=60,height=0;
-    if(font)(void)TTF_SizeUTF8(font,"Add after",&width,&height);
+    if(font)(void)line_drawing_text_size_utf8(font,"Add after",&width,&height);
     return UIPanel_Get()->rightBodyRect.w>=2*(width+8)+16 ? 2 : 1;
 }
 static bool expanded(void) {
@@ -164,7 +165,10 @@ bool UIPanel_CameraPathClick(int x,int y,int base) {
     if(action>=UI_PATH_POINT_BASE) (void)CameraPath_SelectPoint(s,(size_t)(action-UI_PATH_POINT_BASE));
     else switch(action) {
     case UI_PATH_SHOW:shown=!shown;break;
-    case UI_PATH_PREVIOUS: if(a)(void)CameraPath_SelectPoint(s,a-1);break;
+    case UI_PATH_PREVIOUS: {
+        if (a) (void)CameraPath_SelectPoint(s,a-1);
+        break;
+    }
     case UI_PATH_NEXT: (void)CameraPath_SelectPoint(s,a+1);break;
     case UI_PATH_VIEW: (void)CameraPath_ViewPoint(s,a);break;
     case UI_PATH_REVERT: s->cameraView.path_modified=false; (void)CameraPath_ViewPoint(s,a);break;

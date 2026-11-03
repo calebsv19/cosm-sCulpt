@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/shared_special.h"
 #include "UI/panel/ui_panel_collection_inspection.h"
 #include "UI/ui_panel_measurement.h"
@@ -31,14 +32,14 @@ static bool inside(SDL_Rect r,int x,int y) {return SDL_PointInRect(&(SDL_Point){
 static const char* part_label(const Object3D* o){return o?(o->info.label[0]?o->info.label:o->coreMeta.object_id):"Missing part";}
 static void row(Pane* p,int action,const char* label,bool enabled) {
     TTF_Font* font=FontManager_Get(FONT_DEFAULT);int lines=UIPanelSummary_CountWrappedLines(font,label,p->body.w-36);
-    if(lines<1)lines=1;if(lines>4)lines=4;int height=lines>1?lines*(font?TTF_FontHeight(font)+2:20)+12:28;
+    if(lines<1)lines=1;if(lines>4)lines=4;int height=lines>1?lines*(font?line_drawing_text_font_height(font)+2:20)+12:28;
     SDL_Rect box={p->body.x+7,p->y,p->body.w-26,height};p->y+=height+4;
     if(action==p->wanted)p->found=box;
     if(action&&enabled&&inside(box,p->x,p->y_click)&&inside(p->body,p->x,p->y_click))p->hit=action;
     LDSpecial_Record(23,action,label,box,&p->body,enabled);
     if(!p->renderer||!SDL_HasIntersection(&box,&p->body))return;
     if(action)UIPanelVisual_DrawFrame(p->renderer,box,action==INSPECT_SAVE?p->palette.button_fill_active:p->palette.button_fill,p->palette.button_border,0);
-    if(label_count<96){snprintf(labels[label_count],256,"%s",label);UIPanelSummary_DrawWrappedText(p->renderer,font,labels[label_count++],box.x+5,box.y+5,box.w-10,font?TTF_FontHeight(font):20,2,lines,enabled?p->palette.text_primary:p->palette.text_muted);}
+    if(label_count<96){snprintf(labels[label_count],256,"%s",label);UIPanelSummary_DrawWrappedText(p->renderer,font,labels[label_count++],box.x+5,box.y+5,box.w-10,font?line_drawing_text_font_height(font):20,2,lines,enabled?p->palette.text_primary:p->palette.text_muted);}
 }
 static LayoutSavedMeasurement preview(const Layout* l) {
     LayoutSavedMeasurement m=draft;snprintf(m.collection,64,"%s",scope);

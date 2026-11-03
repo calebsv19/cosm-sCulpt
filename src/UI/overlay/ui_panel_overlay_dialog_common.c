@@ -16,7 +16,7 @@ void UIPanelOverlay_DrawText(SDL_Renderer* renderer,
     if (!text || !*text) return;
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     if (!font) return;
-    (void)LDText_Label(renderer,font,text,(SDL_Rect){x,y,Global_GetScreenWidth()-x-12,TTF_FontHeight(font)},color,false);
+    (void)LDText_Label(renderer,font,text,(SDL_Rect){x,y,Global_GetScreenWidth()-x-12,line_drawing_text_font_height(font)},color,false);
 }
 
 void UIPanelOverlay_DrawTextClipped(SDL_Renderer* renderer,
@@ -26,5 +26,5 @@ void UIPanelOverlay_DrawTextClipped(SDL_Renderer* renderer,
                                     int max_width,
                                     SDL_Color color) {
     TTF_Font* font=FontManager_Get(FONT_DEFAULT);
-    if(font)(void)LDText_Label(renderer,font,text,(SDL_Rect){x,y,max_width,TTF_FontHeight(font)},color,false);
+    if(font)(void)LDText_Label(renderer,font,text,(SDL_Rect){x,y,max_width,line_drawing_text_font_height(font)},color,false);
 }

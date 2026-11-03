@@ -1,3 +1,17 @@
+## 2026-10-31 — three-stage text-unification development
+
+Registered Main Edit over33674c0/VERSION0.7.0 adds atomic font banks, retained
+Cancel, one atomic accepted font/zoom/theme record, density-matched measurement
+and native Vulkan/SDL text with macOS fallback. The bounded preedit reveal policy
+keeps long editable compositions visible. KitRender0.16.0 is the sole scoped
+shared-module update; other renderer/runtime pins are unchanged. Targeted normal,
+fault/reopen, native pixel, sanitizer and compact editor/navigation checks pass;
+641 cases/70 groups, package and scene-producer checks are retained in the private
+qualification record. Source is uncommitted. Canonical9e7f92e/VERSION0.8.0 and
+running installed sCulpt Main Edit are preserved; no installed refresh or release.
+See [text contract](text_unification.md). Older dated entries below retain their
+original checkpoint scope.
+
 ## 2026-10-15 — Shared UI rollout source checkpoint completed
 
 The shared window, launcher/menu/pane controls, UTF-8 text and editor fields,

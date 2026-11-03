@@ -3,7 +3,8 @@ KIT_RENDER_SRCS := \
 	$(KIT_RENDER_DIR)/src/kit_render_command_validation.c \
 	$(KIT_RENDER_DIR)/src/kit_render_backend_null.c \
 	$(KIT_RENDER_DIR)/src/kit_render_backend_vk.c \
-	$(KIT_RENDER_DIR)/src/kit_render_external_text.c
+	$(KIT_RENDER_DIR)/src/kit_render_external_text.c \
+	$(KIT_RENDER_DIR)/src/kit_render_native_font.c
 KIT_UI_TEXT_SRCS := $(KIT_UI_DIR)/src/kit_ui_text_edit.c $(KIT_UI_DIR)/src/kit_ui_text_edit_sdl.c $(KIT_UI_DIR)/src/kit_ui_text_presentation.c $(KIT_UI_DIR)/src/kit_ui_native_text_sdl.c
 KIT_UI_CONTROL_SRCS := $(KIT_UI_DIR)/src/kit_ui_interaction.c $(KIT_UI_DIR)/src/kit_ui_surface.c $(KIT_UI_DIR)/src/kit_ui_interaction_sdl.c
 KIT_UI_WINDOW_SRCS := $(KIT_UI_DIR)/src/kit_ui_window_sdl.c $(KIT_UI_DIR)/src/kit_ui_window_probe_sdl.c
@@ -35,7 +36,7 @@ CORE_SRCS += $(CORE_WORKERS_DIR)/src/core_workers.c $(CORE_QUEUE_DIR)/src/core_q
 
 ALL_SRCS := $(KIT_UI_TEXT_SRCS) $(KIT_UI_CONTROL_SRCS) $(KIT_UI_WINDOW_SRCS) $(APP_SRCS) $(VK_RUNTIME_SRCS) $(VK_RENDERER_SRCS) $(KIT_RENDER_SRCS) $(KIT_PANE_SRCS) $(KIT_VIEWPORT3D_SRCS) $(KIT_WORKSPACE_AUTHORING_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
 
-TEST_SRCS := $(filter-out $(TEST_DIR)/shared_theme_font_adapter_test.c $(TEST_DIR)/test_input_policy_entry.c $(TEST_DIR)/line_drawing_folder_picker_test.c,$(shell find $(TEST_DIR) -name '*.c'))
+TEST_SRCS := $(filter-out $(TEST_DIR)/proof_text_%.c $(TEST_DIR)/shared_theme_font_adapter_test.c $(TEST_DIR)/test_input_policy_entry.c $(TEST_DIR)/line_drawing_folder_picker_test.c,$(shell find $(TEST_DIR) -name '*.c'))
 SHARED_THEME_FONT_ADAPTER_TEST_SRCS := tests/shared_theme_font_adapter_test.c
 INPUT_POLICY_TEST_SRCS := tests/test_input_policy_entry.c tests/test_input_policy.c src/Input/input_routing_policy.c
 

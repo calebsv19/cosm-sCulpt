@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/font_manager.h"
 #include "UI/shared_overlay.h"
 #include "UI/shared_text.h"
@@ -10,7 +11,7 @@ bool LDOverlay_NoticeRect(const GlobalState *s, SDL_Rect *out) {
         return false;
     int width = (int)viewport.width - 24, height = (int)viewport.height - 24;
     TTF_Font *font = FontManager_Get(FONT_DEFAULT);
-    int line = font ? TTF_FontHeight(font) : 16;
+    int line = font ? line_drawing_text_font_height(font) : 16;
     if (width < 32 || height < line + 12)
         return false;
     int rows = LDText_CountLines(font, s->layout.geometryMessage, width - 12);
@@ -43,6 +44,6 @@ void LDOverlay_NoticeDraw(SDL_Renderer *renderer, const GlobalState *s) {
     TTF_Font *font = FontManager_Get(FONT_DEFAULT);
     (void)LDText_LabelRows(renderer, font, s->layout.geometryMessage,
                            (SDL_Rect){box.x + 6, box.y + 6, box.w - 12, box.h - 12}, p.text_primary,
-                           font ? TTF_FontHeight(font) + 2 : 18);
+                           font ? line_drawing_text_font_height(font) + 2 : 18);
     SDL_RenderSetClipRect(renderer, clipped ? &old : NULL);
 }

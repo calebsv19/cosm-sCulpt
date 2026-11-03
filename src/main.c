@@ -1,4 +1,5 @@
 #include "Core/mesh_shutdown_proof.h"
+#include "Core/agent_control.h"
 #include "Core/shared_hud_proof.h"
 #include "Core/shared_special_proof.h"
 #include "Core/van_navigation_proof.h"
@@ -446,7 +447,6 @@ static void LineDrawingRuntimeShutdown(AppContext* app) {
     if (LineDrawingWorkspaceAuthoringHost_Active(Global_Get())) {
         (void)LineDrawingWorkspaceAuthoringHost_Cancel(Global_Get());
     }
-    line_drawing3d_shared_theme_save_persisted();
     (void)FontManager_SavePersistedPrefs();
     FontManager_Quit();
     (void)mkdir("data",0755);
@@ -809,12 +809,13 @@ int line_drawing_app_main_legacy(int argc, char **argv) {
     line_drawing3d_shared_theme_load_persisted();
     if (!FontManager_Init()) return 1;
     (void)FontManager_LoadPersistedPrefs();
-    if (!FontManager_LoadFonts()) return 1;
+    if (!FontManager_LoadFonts()) { FontManager_Quit(); return 1; }
 
     // Initialize global program state (grid, layout, editor, etc.)
     Global_Init(initial_width, initial_height);
     (void)LineDrawingEditorPreferences_Load("data/runtime/editor_preferences.json");
     LineDrawingHostMenu_Init(&g_line_drawing_host_menu);
+    SculptAgent_SetEnterEditor(LineDrawingHostEnterEditor);
     LineDrawingHostEnterMenu();
 
     AppCallbacks cbs = {

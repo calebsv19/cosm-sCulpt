@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/ui_panel_visual_style.h"
 
 #include "UI/shared_theme_font_adapter.h"
@@ -13,7 +14,7 @@ UIPanelVisualMetrics UIPanelVisual_MakeMetrics(TTF_Font* font) {
     int font_h = 14;
 
     if (font) {
-        font_h = TTF_FontHeight(font);
+        font_h = line_drawing_text_font_height(font);
     }
     if (font_h < 12) font_h = 12;
 

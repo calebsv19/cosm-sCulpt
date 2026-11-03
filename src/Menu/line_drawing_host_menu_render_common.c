@@ -68,7 +68,7 @@ static const char* line_drawing_host_menu_browse_action_label(LineDrawingHostMen
 int line_drawing_host_menu_font_height(TTF_Font* font) {
     int height = 16;
     if (font) {
-        height = TTF_FontHeight(font);
+        height = line_drawing_text_font_height(font);
     }
     if (height < 14) height = 14;
     return height;

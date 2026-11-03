@@ -81,7 +81,7 @@ static bool ObjectViewportHud_ResolveLayout(const GlobalState* state,
     if (viewport.width < 60.0f || viewport.height < 60.0f) return false;
 
     TTF_Font* font=FontManager_Get(FONT_DEFAULT);int label_w=0;
-    if(font){(void)TTF_SizeUTF8(font,"Bottom",&label_w,NULL);button_h=TTF_FontHeight(font)+10;if(button_h<kButtonH)button_h=kButtonH;}
+    if(font){(void)line_drawing_text_size_utf8(font,"Bottom",&label_w,NULL);button_h=line_drawing_text_font_height(font)+10;if(button_h<kButtonH)button_h=kButtonH;}
     if(label_w+16>button_w)button_w=label_w+16;
     SDL_Rect notice;int reserved=LDOverlay_NoticeRect(state,&notice)?notice.h+8:0;
     int available_w=(int)viewport.width-28,available_h=(int)viewport.height-28-reserved;

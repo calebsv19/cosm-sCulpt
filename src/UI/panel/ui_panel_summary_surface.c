@@ -16,7 +16,7 @@ void UIPanelSummary_DrawText(SDL_Renderer* renderer,
     if (!renderer || !font || !text || !text[0]) return;
     SDL_Rect clip={0,0,Global_GetScreenWidth(),Global_GetScreenHeight()};
     if(SDL_RenderIsClipEnabled(renderer))SDL_RenderGetClipRect(renderer,&clip);
-    (void)LDText_Label(renderer,font,text,(SDL_Rect){x,y,clip.x+clip.w-x,TTF_FontHeight(font)},color,false);
+    (void)LDText_Label(renderer,font,text,(SDL_Rect){x,y,clip.x+clip.w-x,line_drawing_text_font_height(font)},color,false);
 }
 
 void UIPanelSummary_DrawTextClipped(SDL_Renderer* renderer,TTF_Font* font,const char* text,
@@ -29,7 +29,7 @@ int UIPanelSummary_CountWrappedLines(TTF_Font* font,const char* text,int max_wid
 int UIPanelSummary_DrawWrappedText(SDL_Renderer* renderer,TTF_Font* font,const char* text,
     int x,int y,int max_width,int line_height,int line_gap,int max_lines,SDL_Color color) {
     if(!font || max_lines==0)return 0;
-    if(line_height<=0)line_height=TTF_FontHeight(font);
+    if(line_height<=0)line_height=line_drawing_text_font_height(font);
     int count=LDText_CountLines(font,text,max_width);if(max_lines>0 && count>max_lines)count=max_lines;
     /* Shared rows use a measured line advance, including the host's spacing. */
     return LDText_LabelRows(renderer,font,text,(SDL_Rect){x,y,max_width,count*(line_height+line_gap)},color,line_height+line_gap)?count:0;

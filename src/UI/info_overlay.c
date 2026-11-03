@@ -29,7 +29,7 @@ static int InfoOverlay_FontHeightPx(void) {
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     int h = 14;
     if (font) {
-        h = TTF_FontHeight(font);
+        h = line_drawing_text_font_height(font);
     }
     if (h < 12) h = 12;
     return h;

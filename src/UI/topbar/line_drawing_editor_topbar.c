@@ -319,7 +319,7 @@ static void Topbar_DrawChip(SDL_Renderer* renderer,
                             const char* value,
                             bool active,
                             LineDrawingTopbarColors colors) {
-    int font_h = font ? TTF_FontHeight(font) : 14;
+    int font_h = font ? line_drawing_text_font_height(font) : 14;
     int label_w = 0;
     SDL_Rect text_clip = {bounds.x + 8, bounds.y + 2, bounds.w - 16, bounds.h - 4};
     SDL_Color fill = active ? colors.fill_active : colors.fill_alt;

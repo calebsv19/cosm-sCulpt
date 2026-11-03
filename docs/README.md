@@ -180,3 +180,5 @@ Current verification contract:
 - [C1–C3 camera navigation, inspection and path poses](camera_view.md): Main Edit controls, persistence, proof and C4 limits.
 
 - [Per-object render finishes and optiC camera handoff](surface_materials.md)
+
+- [Text and style transactions](text_unification.md) — Main Edit development checkpoint.

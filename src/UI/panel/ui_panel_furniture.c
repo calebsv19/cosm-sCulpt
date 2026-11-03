@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/shared_special.h"
 #include "UI/ui_panel_furniture.h"
 #include "UI/ui_panel_visual_style.h"
@@ -112,7 +113,7 @@ static int panel_count(void) {
 }
 static int sink_rows(void) { return form.observed.sink_opening ? 1 + (form.sink ? 5 : 0) : 0; }
 bool UIPanel_FurnitureEditing(void) { sync(); return form.valid && form.open; }
-static int h(void) { TTF_Font* f = FontManager_Get(FONT_DEFAULT); return (f ? TTF_FontHeight(f) : 16) + 10; }
+static int h(void) { TTF_Font* f = FontManager_Get(FONT_DEFAULT); return (f ? line_drawing_text_font_height(f) : 16) + 10; }
 int UIPanel_FurnitureHeight(void) {
     sync();
     if (!form.valid) return 0;

@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/shared_special.h"
 #include "UI/topbar/visibility_tree.h"
 #include "Layout/scene/layout_mesh_preview_cache.h"
@@ -36,7 +37,7 @@ static bool replace;
 static char text[96];
 static int height(void) {
     TTF_Font *f = FontManager_Get(FONT_DEFAULT);
-    return (f ? TTF_FontHeight(f) : 16) + 8;
+    return (f ? line_drawing_text_font_height(f) : 16) + 8;
 }
 static bool active(void) {
     return Global_Get() && Global_GetWorkspaceMode() == LINE_DRAWING_WORKSPACE_MODE_SCENE &&

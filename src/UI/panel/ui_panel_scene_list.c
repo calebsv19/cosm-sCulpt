@@ -1,3 +1,4 @@
+#include "UI/text_draw.h"
 #include "UI/shared_special.h"
 #include "Layout/layout_engineering.h"
 #include "Layout/layout_constraints.h"
@@ -30,7 +31,7 @@ enum {
 static int UIPanelSceneList_FontHeight(void) {
     TTF_Font* font = FontManager_Get(FONT_DEFAULT);
     int h = 14;
-    if (font) h = TTF_FontHeight(font);
+    if (font) h = line_drawing_text_font_height(font);
     if (h < 12) h = 12;
     return h;
 }

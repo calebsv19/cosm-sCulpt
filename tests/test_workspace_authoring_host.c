@@ -287,10 +287,15 @@ static bool test_authoring_persists_only_accepted_theme_draft(void) {
     TEST_ASSERT(line_drawing3d_shared_theme_set_preset("greyscale"));
     enter = authoring_key_event(SDL_KEYDOWN, SDL_SCANCODE_RETURN, SDLK_RETURN, KMOD_NONE);
     TEST_ASSERT(LineDrawingWorkspaceAuthoringHost_HandleSdlEvent(&state, &enter));
-    TEST_ASSERT(authoring_read_first_line("data/runtime/theme_preset.txt", value, sizeof(value)));
-    TEST_ASSERT(strcmp(value, "greyscale") == 0);
-    TEST_ASSERT(authoring_read_first_line("data/runtime/font_zoom_step.txt", value, sizeof(value)));
-    TEST_ASSERT(strcmp(value, "0") == 0);
+    FILE* style = fopen("data/runtime/ui_style.txt", "r");
+    char version[32], preset[64], theme[64];
+    int zoom;
+    TEST_ASSERT(style != NULL);
+    TEST_ASSERT(fscanf(style, "%31s %63s %d %63s", version, preset, &zoom, theme) == 4);
+    fclose(style);
+    TEST_ASSERT(strcmp(version, "sculpt-ui-style-v1") == 0);
+    TEST_ASSERT(strcmp(theme, "greyscale") == 0);
+    TEST_ASSERT(zoom == 0);
     return true;
 }
 
