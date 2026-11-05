@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#define STORE_VERSION 2u
+#define STORE_VERSION 3u
 const size_t Layout_MeshPreviewTriangleLimits[4]={256,2000,8000,18000};
 #define SOURCE_LIMIT (8u * 1024u * 1024u)
 #define FILE_LIMIT (8u * 1024u * 1024u)
@@ -20,6 +20,7 @@ typedef struct {
     uint64_t vertices[4], triangles[4], source_vertices[4], source_triangles[4];
     int32_t resolution[4];
     CoreObjectVec3 min[4], max[4];
+    char source_key[128];
     char digest[8][65];
 } Header;
 static const char* chunks[8]={"CVTX","CIDX","LVTX","LIDX","MVTX","MIDX","SVTX","SIDX"};
@@ -45,6 +46,16 @@ bool Layout_MeshPreparedStoreKey(const char* source,char path[1024]) {
     if(strlen(root)>900 || (mkdir(root,0700) && stat(root,&stamp)))return false;
     return snprintf(path,1024,"%s/v%u-256-2k-8k-18k-%zu-%s.pack",root,STORE_VERSION,sizeof(CoreObjectVec3),digest)<1024;
 }
+/* The generated basename includes source SHA-256 and the LOD/ABI policy.
+ * Bind it inside META so moving the store is safe but swapping entries is not. */
+static bool source_key(const char* path, char key[128]) {
+    const char* slash = strrchr(path, '/');
+    const char* name = slash ? slash + 1 : path;
+    size_t length = strlen(name);
+    if (!length || length >= 128) return false;
+    memcpy(key, name, length + 1);
+    return true;
+}
 static bool read_chunk(CorePackReader* r,int index,void* data,size_t size,const char digest[65]) {
     CorePackChunkInfo c;char actual[65];
     return core_pack_reader_find_chunk(r,chunks[index],0,&c).code==CORE_OK && c.size==size &&
@@ -54,14 +65,15 @@ static bool read_chunk(CorePackReader* r,int index,void* data,size_t size,const 
 bool Layout_MeshPreparedStoreLoad(const char* path,CoreMeshPreviewLodMesh meshes[4]) {
     struct stat st;if(stat(path,&st) || st.st_size<=0 || st.st_size>FILE_LIMIT)return false;
     CorePackReader r;Header h={0};CorePackChunkInfo c;char expected[65],actual[65];
-    if(core_pack_reader_open(path,&r).code!=CORE_OK)return false;
+    char key[sizeof(h.source_key)] = {0};
+    if(!source_key(path,key) || core_pack_reader_open(path,&r).code!=CORE_OK)return false;
     bool ok=core_pack_reader_chunk_count(&r)==10 &&
         core_pack_reader_find_chunk(&r,"META",0,&c).code==CORE_OK && c.size==sizeof(h) &&
         core_pack_reader_read_chunk_data(&r,&c,&h,sizeof(h)).code==CORE_OK &&
         core_pack_reader_find_chunk(&r,"HASH",0,&c).code==CORE_OK && c.size==sizeof(expected) &&
         core_pack_reader_read_chunk_data(&r,&c,expected,sizeof(expected)).code==CORE_OK &&
         core_scene_compile_sha256(&h,sizeof(h),actual).code==CORE_OK && !memcmp(expected,actual,65) &&
-        h.version==STORE_VERSION && h.endian==0x01020304 && h.vector_bytes==sizeof(CoreObjectVec3) &&
+        !memcmp(h.source_key,key,sizeof(key)) && h.version==STORE_VERSION && h.endian==0x01020304 && h.vector_bytes==sizeof(CoreObjectVec3) &&
         h.budgets[0]==256 && h.budgets[1]==2000 && h.budgets[2]==8000 && h.budgets[3]==18000;
     for(int i=0;i<4 && ok;++i) {
         CoreMeshPreviewLodMesh* m=&meshes[i];
@@ -93,6 +105,7 @@ static bool room(const char* path,size_t incoming) {
 bool Layout_MeshPreparedStoreSave(const char* path,const CoreMeshPreviewLodMesh meshes[4]) {
     for(int i=0;i<4;++i)if(!valid(&meshes[i]) || meshes[i].triangle_count>Layout_MeshPreviewTriangleLimits[i])return false;
     Header h={.version=STORE_VERSION,.endian=0x01020304,.vector_bytes=sizeof(CoreObjectVec3),.budgets={256,2000,8000,18000}};
+    if(!source_key(path,h.source_key))return false;
     const void* data[8];size_t sizes[8];size_t total=sizeof(h)+4096;
     for(int i=0;i<4;++i) {
         const CoreMeshPreviewLodMesh* m=&meshes[i];

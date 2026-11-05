@@ -126,9 +126,20 @@ static bool prepared_persistence_and_corruption(void) {
     }
     f=fopen(source,"a");TEST_ASSERT(f);fputs("\n",f);fclose(f);
     TEST_ASSERT(Layout_MeshPreparedStoreKey(source,replacement) && strcmp(path,replacement));
-    Layout_MeshPreviewCacheReset();TEST_ASSERT(cache_wait(source,true));TEST_ASSERT(Layout_MeshPreviewCacheRead().loads==1);
+    TEST_ASSERT(rename(path,replacement)==0);
+    Layout_MeshPreviewCacheReset();TEST_ASSERT(cache_wait(source,true));
+    TEST_ASSERT(Layout_MeshPreviewCacheRead().loads==1 && Layout_MeshPreviewCacheRead().prepared_hits==0);
+    TEST_ASSERT(Layout_MeshPreviewCacheRead().prepared_writes==1);
+    Layout_MeshPreviewCacheReset();TEST_ASSERT(cache_wait(source,true));
+    TEST_ASSERT(Layout_MeshPreviewCacheRead().prepared_hits==1);
+    char valid_key[1024]; strcpy(valid_key,replacement);
     f=fopen(source,"w");TEST_ASSERT(f);fputs("invalid runtime",f);fclose(f);
+    /* A self-consistent pack from the old mesh must not supply geometry for this input. */
+    TEST_ASSERT(Layout_MeshPreparedStoreKey(source,replacement) && strcmp(path,replacement));
+    TEST_ASSERT(rename(valid_key,replacement)==0);
     Layout_MeshPreviewCacheReset();TEST_ASSERT(!cache_wait(source,true));TEST_ASSERT(Layout_MeshPreviewCacheRead().prepared_writes==0);
+    TEST_ASSERT(Layout_MeshPreviewCacheRead().prepared_hits==0);
+
     f=fopen(source,"w");TEST_ASSERT(f);TEST_ASSERT(!ftruncate(fileno(f),65*1024*1024));fclose(f);
     Layout_MeshPreviewCacheReset();TEST_ASSERT(!cache_wait(source,true));
     TEST_ASSERT(Layout_MeshPreviewCacheRead().oversized_sources==1 && Layout_MeshPreviewCacheRead().loads==0);

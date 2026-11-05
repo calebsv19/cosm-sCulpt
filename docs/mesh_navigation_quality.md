@@ -23,6 +23,13 @@ interior cutaway intentionally hides the roof and separate door reference.
 
 Asset decoding and four coherent preview levels use the existing bounded single
 worker and source-keyed prepared store. On macOS that worker uses Utility QoS.
+Prepared preview packs use a versioned key derived from the source bytes and
+LOD policy. The worker compares the requested key with the key in the checked
+pack header before accepting its geometry. A pack filed under another mesh's
+key triggers a fresh build from the requested source. Unreadable mesh data
+keeps the proxy visible. Older v2 entries stay on disk as v3 entries are built
+on demand.
+
 Prepared native scenes avoid repeating STL import and mesh compilation. Loading
 an arbitrary monolithic STL still requires importing/compiling it before it can
 use this prepared scene path; navigation LOD does not make that initial import
