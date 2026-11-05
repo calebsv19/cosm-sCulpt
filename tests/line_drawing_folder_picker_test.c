@@ -2,6 +2,9 @@
 #include "UI/platform/line_drawing_folder_picker.h"
 #include "test_framework.h"
 
+#include <SDL2/SDL.h>
+#include <errno.h>
+#include <sys/wait.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -170,12 +173,64 @@ static bool test_missing_linux_picker_reports_unavailable(void) {
     return passed;
 }
 
+static Uint32 push_quit_when_started(Uint32 interval, void* marker) {
+    if (access(marker,F_OK)) return interval;
+    SDL_Event quit = {.type=SDL_QUIT};
+    (void)SDL_PushEvent(&quit);
+    return 0;
+}
+
+static bool stop_helper(bool close_stdout) {
+    char root[PATH_MAX], zenity[PATH_MAX], kdialog[PATH_MAX], marker[PATH_MAX], fallback[PATH_MAX];
+    TEST_ASSERT(setup_fixture(root,sizeof(root),zenity,kdialog,marker,fallback));
+    const char *script = "#!/bin/sh\n"
+        "trap '' TERM\n"
+        "printf '/wrong'\n"
+        "[ \"$CLOSE_OUTPUT\" = yes ] && exec 1>&-\n"
+        "echo $$ > \"$PID_MARKER\"\n"
+        "exec /bin/sleep 2\n";
+    TEST_ASSERT(write_fake_picker(zenity,script));
+    TEST_ASSERT(!setenv("PATH",root,1) && !setenv("PID_MARKER",marker,1));
+    TEST_ASSERT(!setenv("CLOSE_OUTPUT",close_stdout?"yes":"no",1));
+    SDL_TimerID timer=SDL_AddTimer(5,push_quit_when_started,marker); TEST_ASSERT(timer);
+    char path[256];
+    LineDrawingFolderPickerResult result=LineDrawing_FolderPicker_Select("stop",NULL,path,sizeof(path));
+    SDL_RemoveTimer(timer);
+    char pid_text[32]; TEST_ASSERT(read_text(marker,pid_text,sizeof(pid_text)));
+    pid_t pid=(pid_t)strtol(pid_text,NULL,10); TEST_ASSERT(pid>0);
+    int status; bool reaped=waitpid(pid,&status,WNOHANG)<0 && errno==ECHILD;
+    bool quit=SDL_HasEvent(SDL_QUIT); SDL_FlushEvent(SDL_QUIT);
+    remove_fixture(root,zenity,kdialog,marker,fallback);
+    TEST_ASSERT(reaped && quit && result==LINE_DRAWING_FOLDER_PICKER_CANCELLED && !path[0]);
+    return true;
+}
+static bool quit_during_output(void) {return stop_helper(false);}
+static bool quit_after_eof(void) {return stop_helper(true);}
+static bool oversized_reply_is_reaped(void) {
+    char root[PATH_MAX], zenity[PATH_MAX], kdialog[PATH_MAX], marker[PATH_MAX], fallback[PATH_MAX];
+    TEST_ASSERT(setup_fixture(root,sizeof(root),zenity,kdialog,marker,fallback));
+    TEST_ASSERT(write_fake_picker(zenity,"#!/bin/sh\necho $$ > \"$PID_MARKER\"\nprintf /longer-than-buffer\nexec /bin/sleep 2\n"));
+    TEST_ASSERT(!setenv("PATH",root,1) && !setenv("PID_MARKER",marker,1));
+    char path[8];
+    LineDrawingFolderPickerResult result=LineDrawing_FolderPicker_Select("overflow",NULL,path,sizeof(path));
+    char pid_text[32]; TEST_ASSERT(read_text(marker,pid_text,sizeof(pid_text)));
+    pid_t pid=(pid_t)strtol(pid_text,NULL,10); int status;
+    bool reaped=pid>0 && waitpid(pid,&status,WNOHANG)<0 && errno==ECHILD;
+    remove_fixture(root,zenity,kdialog,marker,fallback);
+    TEST_ASSERT(reaped && result==LINE_DRAWING_FOLDER_PICKER_FAILED && !path[0]);
+    return true;
+}
 int main(void) {
+    if (SDL_Init(SDL_INIT_EVENTS|SDL_INIT_TIMER)) return 2;
     const TestCase cases[] = {
         {"ZenitySelectedPathAndArguments", test_zenity_returns_selected_path_and_preserves_arguments},
         {"KdialogFallbackWhenZenityUnavailable", test_kdialog_fallback_runs_when_zenity_is_unavailable},
         {"CancelledZenityDoesNotOpenKdialog", test_cancelled_zenity_does_not_open_kdialog},
+        {"OversizedReplyReaped",oversized_reply_is_reaped},
+        {"QuitDuringOutput", quit_during_output},
+        {"QuitAfterEOF", quit_after_eof},
         {"MissingLinuxPickerReportsUnavailable", test_missing_linux_picker_reports_unavailable},
     };
-    return run_test_cases("LineDrawingFolderPicker", cases, sizeof(cases) / sizeof(cases[0])) ? 0 : 1;
+    bool ok=run_test_cases("LineDrawingFolderPicker", cases, sizeof(cases) / sizeof(cases[0]));
+    SDL_Quit(); return ok ? 0 : 1;
 }

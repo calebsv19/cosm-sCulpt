@@ -17,55 +17,7 @@
 #include <unistd.h>
 
 #if !LINE_DRAWING_FOLDER_PICKER_MACOS
-static void trim_dialog_newline(char* text) {
-    size_t length = 0u;
-    if (!text) return;
-    length = strlen(text);
-    while (length > 0u && (text[length - 1u] == '\n' || text[length - 1u] == '\r')) {
-        text[--length] = '\0';
-    }
-}
-
-static LineDrawingFolderPickerResult run_picker(const char* const argv[],
-                                                char* out_path,
-                                                size_t out_path_size) {
-    int pipe_fds[2] = {-1, -1};
-    pid_t child = 0;
-    ssize_t bytes_read = 0;
-    size_t used = 0u;
-    int wait_status = 0;
-
-    if (pipe(pipe_fds) != 0) return LINE_DRAWING_FOLDER_PICKER_FAILED;
-    child = fork();
-    if (child < 0) {
-        (void)close(pipe_fds[0]);
-        (void)close(pipe_fds[1]);
-        return LINE_DRAWING_FOLDER_PICKER_FAILED;
-    }
-    if (child == 0) {
-        (void)close(pipe_fds[0]);
-        if (dup2(pipe_fds[1], STDOUT_FILENO) < 0) _exit(126);
-        (void)close(pipe_fds[1]);
-        execvp(argv[0], (char* const*)argv);
-        _exit(errno == ENOENT ? 127 : 126);
-    }
-
-    (void)close(pipe_fds[1]);
-    while (used + 1u < out_path_size &&
-           (bytes_read = read(pipe_fds[0], out_path + used, out_path_size - used - 1u)) > 0) {
-        used += (size_t)bytes_read;
-    }
-    (void)close(pipe_fds[0]);
-    out_path[used] = '\0';
-    if (waitpid(child, &wait_status, 0) < 0) return LINE_DRAWING_FOLDER_PICKER_FAILED;
-    if (!WIFEXITED(wait_status)) return LINE_DRAWING_FOLDER_PICKER_FAILED;
-    if (WEXITSTATUS(wait_status) == 127) return LINE_DRAWING_FOLDER_PICKER_UNAVAILABLE;
-    if (WEXITSTATUS(wait_status) == 1) return LINE_DRAWING_FOLDER_PICKER_CANCELLED;
-    if (WEXITSTATUS(wait_status) != 0) return LINE_DRAWING_FOLDER_PICKER_FAILED;
-    trim_dialog_newline(out_path);
-    return out_path[0] ? LINE_DRAWING_FOLDER_PICKER_SELECTED : LINE_DRAWING_FOLDER_PICKER_CANCELLED;
-}
-
+#include "UI/platform/line_drawing_picker_process.h"
 #endif
 
 #if LINE_DRAWING_FOLDER_PICKER_MACOS
@@ -140,9 +92,9 @@ static LineDrawingFolderPickerResult select_linux_folder(const char* prompt,
     } else {
         kdialog_argv[2] = ".";
     }
-    result = run_picker(zenity_argv, out_path, out_path_size);
+    result = LineDrawing_PickerProcess_Run(zenity_argv, out_path, out_path_size);
     if (result != LINE_DRAWING_FOLDER_PICKER_UNAVAILABLE) return result;
-    return run_picker(kdialog_argv, out_path, out_path_size);
+    return LineDrawing_PickerProcess_Run(kdialog_argv, out_path, out_path_size);
 }
 #endif
 

@@ -36,7 +36,7 @@ CORE_SRCS += $(CORE_WORKERS_DIR)/src/core_workers.c $(CORE_QUEUE_DIR)/src/core_q
 
 ALL_SRCS := $(KIT_UI_TEXT_SRCS) $(KIT_UI_CONTROL_SRCS) $(KIT_UI_WINDOW_SRCS) $(APP_SRCS) $(VK_RUNTIME_SRCS) $(VK_RENDERER_SRCS) $(KIT_RENDER_SRCS) $(KIT_PANE_SRCS) $(KIT_VIEWPORT3D_SRCS) $(KIT_WORKSPACE_AUTHORING_SRCS) $(SHAPE_LIB_SRCS) $(SHAPE_BRIDGE_SRCS) $(EXT_SRCS) $(CORE_SRCS) $(TIMER_HUD_SRCS)
 
-TEST_SRCS := $(filter-out $(TEST_DIR)/proof_text_%.c $(TEST_DIR)/shared_theme_font_adapter_test.c $(TEST_DIR)/test_input_policy_entry.c $(TEST_DIR)/line_drawing_folder_picker_test.c,$(shell find $(TEST_DIR) -name '*.c'))
+TEST_SRCS := $(filter-out $(TEST_DIR)/proof_text_%.c $(TEST_DIR)/shared_theme_font_adapter_test.c $(TEST_DIR)/test_input_policy_entry.c $(TEST_DIR)/line_drawing_folder_picker_test.c $(TEST_DIR)/line_drawing_live_control_test.c,$(shell find $(TEST_DIR) -name '*.c'))
 SHARED_THEME_FONT_ADAPTER_TEST_SRCS := tests/shared_theme_font_adapter_test.c
 INPUT_POLICY_TEST_SRCS := tests/test_input_policy_entry.c tests/test_input_policy.c src/Input/input_routing_policy.c
 

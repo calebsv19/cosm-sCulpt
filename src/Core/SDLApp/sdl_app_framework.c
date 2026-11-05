@@ -143,6 +143,7 @@ void App_Run(AppContext* ctx, AppCallbacks* callbacks) {
             else if (!suspended && timed_delay >= 0 && wait_ms >= timed_delay) timed_due = true;
         }
         while (SDL_PollEvent(&event)) frame_dirty |= app_process_event(ctx, callbacks, &event);
+        if (ctx->quit) break;
         frame_dirty |= SculptAgent_Poll(ctx);
         if (ctx->quit) break;
 

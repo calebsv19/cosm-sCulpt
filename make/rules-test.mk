@@ -79,10 +79,10 @@ $(INPUT_POLICY_TEST_BIN): $(INPUT_POLICY_TEST_SRCS) tests/test_framework.c
 test-input-policy: $(INPUT_POLICY_TEST_BIN)
 	@$(INPUT_POLICY_TEST_BIN) || (echo "input policy test failed."; exit 1)
 
-$(FOLDER_PICKER_TEST_BIN): tests/line_drawing_folder_picker_test.c src/UI/platform/line_drawing_folder_picker.c tests/test_framework.c
+$(FOLDER_PICKER_TEST_BIN): tests/line_drawing_folder_picker_test.c src/UI/platform/line_drawing_folder_picker.c src/UI/platform/line_drawing_picker_process.c tests/test_framework.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -DLINE_DRAWING_FOLDER_PICKER_FORCE_LINUX=1 -Isrc -Itests \
-		tests/line_drawing_folder_picker_test.c src/UI/platform/line_drawing_folder_picker.c tests/test_framework.c \
+		tests/line_drawing_folder_picker_test.c src/UI/platform/line_drawing_folder_picker.c src/UI/platform/line_drawing_picker_process.c tests/test_framework.c \
 		-o $(FOLDER_PICKER_TEST_BIN) $(LDFLAGS)
 
 test-folder-picker: $(FOLDER_PICKER_TEST_BIN)
@@ -135,3 +135,12 @@ test-text-source:
 test-text-settings: $(TEXT_SETTINGS_PROOF)
 	@python3 tools/verification/test_text_settings.py --binary "$(abspath $(TEXT_SETTINGS_PROOF))" --output-root "$(abspath $(BUILD_DIR)/text-settings)"
 test: test-text-settings test-text-source
+
+# Real private Unix endpoint; run separately on hosts permitting local IPC.
+.PHONY: test-live-control-stop
+test-live-control-stop: $(HOST_TEST_BIN_DIR)/live_control_stop
+	$(HOST_TEST_BIN_DIR)/live_control_stop
+
+$(HOST_TEST_BIN_DIR)/live_control_stop: tests/line_drawing_live_control_test.c src/Core/agent_control.c tests/test_framework.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -Isrc -Itests $^ -o $@ $(LDFLAGS)

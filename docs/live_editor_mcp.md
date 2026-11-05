@@ -64,3 +64,27 @@ request-ID collision and Vulkan captures are retained in
 `_private_workspace_artifacts/sculpt-live-control-20261102/attempt-02/`.
 This is a bounded document/view control surface, not a promise that every editor
 feature has an MCP command. Existing typed offline authoring remains available.
+
+
+## Shutdown and pending replies
+
+The SDL owner stops accepting queued commands once it has observed quit. The
+listener returns `editor_stopping` for an admitted command awaiting execution.
+An already executed command keeps its original reply, including a successful
+quit command. Reply sends are nonblocking. Shutdown can abandon a stalled
+transfer so the listener joins before its mutex, condition and reply storage
+are destroyed. A truncated reply or disconnect requires reconciliation through
+the existing document and destination rules above.
+
+The Linux folder-picker path polls the dialog pipe and child status while
+preserving an SDL quit event for the main loop. Quit or an oversized/failed
+reply stops the private picker process group and reaps its direct child,
+including when the helper has closed stdout but continues running. An ordinary
+selection or user cancellation also reaps the child. macOS uses the existing
+in-process Cocoa panel.
+
+`test-live-control-stop` uses a separate process and its own PID endpoint to
+check pending refusal, completed replies, backpressure, disconnect and restart.
+`test-folder-picker` exercises the subprocess implementation with private
+fixture helpers, including quit during output, quit after EOF and oversized
+output. On macOS the latter compiles the Linux branch explicitly.
