@@ -9,6 +9,8 @@ typedef struct {
     uint64_t generation, background_jobs, ui_decode_calls, stale_results, queue_rejections, source_checks;
     size_t pending_jobs, pending_result_reservation_bytes;
 } LayoutMeshPreviewCacheStats;
+/* Borrow for immediate owner-thread use only, before any call that can evict,
+ * reset or shut down the cache. These pointers are not polled job handles. */
 const CoreMeshPreviewLodMesh* Layout_MeshPreviewCacheGetTier(const char* path, unsigned tier);
 const CoreMeshPreviewLodMesh* Layout_MeshPreviewCacheGet(const char* path, bool interactive);
 /* Drop unreferenced scene assets and detect replacement/removal, even at rest. */

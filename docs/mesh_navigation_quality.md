@@ -40,3 +40,15 @@ Regression coverage: VanUsability, LayoutMeshSolidPreview, AppearanceTree and
 ViewportNavigationParity. The native navigation proof accepts
 `LINE_DRAWING_NAVIGATION_PROOF_INSPECTION=1` and reports every motion frame's
 budget plus final settled quality in `quality.json`.
+
+Eight mesh preparation jobs can be outstanding across the worker and its
+consumers. Polling transfers a job and its private LOD storage to the caller.
+That result stays readable across cancellation, shutdown and pool restart, and
+continues to occupy a slot until the caller frees it. Cancellation before poll
+invalidates even a completed result. Shutdown joins the worker before freeing
+jobs still on its list. Stats distinguish pending deliveries from reserved
+result bytes, which also cover results held by consumers.
+
+The preview cache moves accepted levels into its own resident budget and frees
+the job. Its mesh getters lend pointers for immediate synchronous rasterization.
+A cache reset, eviction or shutdown ends that borrow.

@@ -127,5 +127,5 @@ void Layout_MeshPreviewCacheShutdown(void) {Layout_MeshPreviewCacheReset();Layou
 void Layout_MeshPreviewCacheSetBudget(size_t budget) {Layout_MeshPreviewCacheReset();stats.budget_bytes=budget;}
 LayoutMeshPreviewCacheStats Layout_MeshPreviewCacheRead(void) {
     LayoutMeshPreviewCacheStats result=stats;result.generation=generation;result.pending_jobs=Layout_MeshPreparePending();
-    result.pending_result_reservation_bytes=result.pending_jobs*8u*1024u*1024u;return result;
+    result.pending_result_reservation_bytes=Layout_MeshPrepareReservedBytes();return result;
 }

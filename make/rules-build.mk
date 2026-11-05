@@ -60,7 +60,16 @@ $(HOST_TEST_OBJ_DIR)/%.o: $(TEST_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CLANG_CC) $(CFLAGS) -Isrc -Iexternal -MMD -MP -c $< -o $@
 
-$(TEST_TARGET): $(NON_APP_OBJS) $(TEST_OBJS)
+# The host suite can stop the real worker at the snapshot boundary. Production
+# and the standalone proof tools keep the normal job object.
+MESH_JOB_SRC := src/Layout/scene/layout_mesh_prepare_job.c
+MESH_JOB_TEST_OBJ := $(HOST_TEST_OBJ_DIR)/mesh_prepare_gated.o
+$(MESH_JOB_TEST_OBJ): $(MESH_JOB_SRC)
+	@mkdir -p $(dir $@)
+	$(CLANG_CC) $(CFLAGS) -DLayout_MeshSourceSnapshot=ld_test_mesh_snapshot -MMD -MP -c $< -o $@
+-include $(MESH_JOB_TEST_OBJ:.o=.d)
+
+$(TEST_TARGET): $(filter-out $(PROGRAM_OBJ_DIR)/$(MESH_JOB_SRC:.c=.o),$(NON_APP_OBJS)) $(MESH_JOB_TEST_OBJ) $(TEST_OBJS)
 	@mkdir -p $(dir $@)
 	$(CLANG_CC) $^ -o $@ $(LDFLAGS) $(FISICS_MEMCHECK_LINK_LIBS)
 

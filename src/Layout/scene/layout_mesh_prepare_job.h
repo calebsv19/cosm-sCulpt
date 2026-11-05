@@ -13,11 +13,14 @@ typedef struct LayoutMeshPrepareJob {
     CoreMeshPreviewLodMesh levels[4];
     LayoutMeshPreviewCacheStats delta;
 } LayoutMeshPrepareJob;
-/* Main-thread APIs; workers write their private job until done release-publication. */
+/* Main-thread APIs. Submit returns a borrowed identity. Poll transfers one
+ * completed job to its caller; only that caller frees the result. Its slot
+ * stays reserved until Free, across cancel, shutdown and pool restart. */
 LayoutMeshPrepareJob* Layout_MeshPrepareSubmit(const char* path, uint64_t generation);
 LayoutMeshPrepareJob* Layout_MeshPreparePoll(void);
 void Layout_MeshPrepareCancelAll(void);
 void Layout_MeshPrepareFree(LayoutMeshPrepareJob* job);
 size_t Layout_MeshPreparePending(void);
+size_t Layout_MeshPrepareReservedBytes(void);
 void Layout_MeshPrepareShutdown(void);
 bool Layout_MeshSourceStampSame(const struct stat* a,const struct stat* b);

@@ -17,7 +17,8 @@ static CoreWorkers pool;
 static pthread_t thread[1];
 static CoreWorkerTask tasks[JOB_LIMIT];
 static LayoutMeshPrepareJob* jobs;
-static size_t count;
+/* Includes jobs transferred to consumers, even after the pool shuts down. */
+static size_t retained_jobs;
 static pthread_t owner_thread;
 bool Layout_MeshSourceStampSame(const struct stat* a,const struct stat* b) {
 #ifdef __APPLE__
@@ -76,25 +77,41 @@ complete:
     atomic_store_explicit(&j->done,true,memory_order_release);return NULL;
 }
 LayoutMeshPrepareJob* Layout_MeshPrepareSubmit(const char* path,uint64_t generation) {
-    if(count>=JOB_LIMIT || !path || strlen(path)>=512)return NULL;
+    if(retained_jobs>=JOB_LIMIT || !path || strlen(path)>=512)return NULL;
     if(!pool.initialized) {owner_thread=pthread_self();if(!core_workers_init(&pool,thread,1,tasks,JOB_LIMIT,NULL))return NULL;}
     LayoutMeshPrepareJob* j=calloc(1,sizeof(*j));if(!j)return NULL;
     strcpy(j->path,path);j->generation=generation;atomic_init(&j->canceled,false);atomic_init(&j->done,false);
     if(!core_workers_submit(&pool,prepare,j)) {free(j);return NULL;}
-    j->next=jobs;jobs=j;++count;return j;
+    j->next=jobs;jobs=j;++retained_jobs;return j;
 }
 LayoutMeshPrepareJob* Layout_MeshPreparePoll(void) {
     for(LayoutMeshPrepareJob** p=&jobs;*p;p=&(*p)->next)if(atomic_load_explicit(&(*p)->done,memory_order_acquire)) {
-        LayoutMeshPrepareJob* j=*p;*p=j->next;--count;return j;
+        LayoutMeshPrepareJob* j = *p;
+        *p = j->next;
+        j->next = NULL;
+        /* Cancellation can arrive after the worker publishes its final check. */
+        if (canceled(j) && j->valid) {
+            j->valid = false;
+            for (int i = 0; i < 4; ++i) core_mesh_preview_lod_mesh_free(&j->levels[i]);
+        }
+        return j;
     }
     return NULL;
 }
 void Layout_MeshPrepareFree(LayoutMeshPrepareJob* j) {
-    if(!j)return;for(int i=0;i<4;++i)core_mesh_preview_lod_mesh_free(&j->levels[i]);free(j);
+    if (!j) return;
+    for (int i = 0; i < 4; ++i) core_mesh_preview_lod_mesh_free(&j->levels[i]);
+    free(j);
+    --retained_jobs;
 }
 void Layout_MeshPrepareCancelAll(void) {for(LayoutMeshPrepareJob* j=jobs;j;j=j->next)atomic_store(&j->canceled,true);}
-size_t Layout_MeshPreparePending(void) {return count;}
+size_t Layout_MeshPreparePending(void) {
+    size_t pending = 0;
+    for (LayoutMeshPrepareJob* j = jobs; j; j = j->next) ++pending;
+    return pending;
+}
+size_t Layout_MeshPrepareReservedBytes(void) { return retained_jobs * RESULT_LIMIT; }
 void Layout_MeshPrepareShutdown(void) {
     Layout_MeshPrepareCancelAll();if(pool.initialized)core_workers_shutdown(&pool);
-    while(jobs) {LayoutMeshPrepareJob* j=jobs;jobs=j->next;Layout_MeshPrepareFree(j);}count=0;
+    while(jobs) {LayoutMeshPrepareJob* j=jobs;jobs=j->next;Layout_MeshPrepareFree(j);}
 }
