@@ -64,12 +64,32 @@ $(HOST_TEST_OBJ_DIR)/%.o: $(TEST_DIR)/%.c
 # and the standalone proof tools keep the normal job object.
 MESH_JOB_SRC := src/Layout/scene/layout_mesh_prepare_job.c
 MESH_JOB_TEST_OBJ := $(HOST_TEST_OBJ_DIR)/mesh_prepare_gated.o
-$(MESH_JOB_TEST_OBJ): $(MESH_JOB_SRC)
+$(MESH_JOB_TEST_OBJ): $(MESH_JOB_SRC) make/rules-build.mk
 	@mkdir -p $(dir $@)
-	$(CLANG_CC) $(CFLAGS) -DLayout_MeshSourceSnapshot=ld_test_mesh_snapshot -MMD -MP -c $< -o $@
+	$(CLANG_CC) $(CFLAGS) -DLayout_MeshSourceSnapshot=ld_test_mesh_snapshot -Dcalloc=ld_proof_calloc -Dcore_workers_submit=ld_proof_submit -MMD -MP -c $< -o $@
 -include $(MESH_JOB_TEST_OBJ:.o=.d)
 
-$(TEST_TARGET): $(filter-out $(PROGRAM_OBJ_DIR)/$(MESH_JOB_SRC:.c=.o),$(NON_APP_OBJS)) $(MESH_JOB_TEST_OBJ) $(TEST_OBJS)
+MESH_PROOF_SRCS := src/Layout/scene/layout_mesh_prepared_store.c src/Layout/scene/layout_mesh_source_snapshot.c $(CORE_PACK_DIR)/src/core_pack.c $(CORE_MESH_PREVIEW_DIR)/src/core_mesh_preview_lod.c
+MESH_STORE_TEST_OBJ := $(HOST_TEST_OBJ_DIR)/mesh_store_fault.o
+MESH_SNAPSHOT_TEST_OBJ := $(HOST_TEST_OBJ_DIR)/mesh_snapshot_fault.o
+$(MESH_STORE_TEST_OBJ): src/Layout/scene/layout_mesh_prepared_store.c make/rules-build.mk
+	@mkdir -p $(dir $@)
+	$(CLANG_CC) $(CFLAGS) -Dmalloc=ld_proof_store_malloc -Drename=ld_proof_rename -MMD -MP -c $< -o $@
+$(MESH_SNAPSHOT_TEST_OBJ): src/Layout/scene/layout_mesh_source_snapshot.c make/rules-build.mk
+	@mkdir -p $(dir $@)
+	$(CLANG_CC) $(CFLAGS) -Dmalloc=ld_proof_snapshot_malloc -MMD -MP -c $< -o $@
+MESH_PACK_TEST_OBJ := $(HOST_TEST_OBJ_DIR)/mesh_pack_fault.o
+MESH_LOD_TEST_OBJ := $(HOST_TEST_OBJ_DIR)/mesh_lod_fault.o
+$(MESH_PACK_TEST_OBJ): $(CORE_PACK_DIR)/src/core_pack.c make/rules-build.mk
+	@mkdir -p $(dir $@)
+	$(CLANG_CC) $(CFLAGS) -Dcore_realloc=ld_proof_pack_realloc -Dfwrite=ld_proof_write -MMD -MP -c $< -o $@
+$(MESH_LOD_TEST_OBJ): $(CORE_MESH_PREVIEW_DIR)/src/core_mesh_preview_lod.c make/rules-build.mk
+	@mkdir -p $(dir $@)
+	$(CLANG_CC) $(CFLAGS) -Dcalloc=ld_proof_lod_calloc -MMD -MP -c $< -o $@
+-include $(MESH_PACK_TEST_OBJ:.o=.d) $(MESH_LOD_TEST_OBJ:.o=.d)
+-include $(MESH_STORE_TEST_OBJ:.o=.d) $(MESH_SNAPSHOT_TEST_OBJ:.o=.d)
+
+$(TEST_TARGET): $(filter-out $(addprefix $(PROGRAM_OBJ_DIR)/,$(MESH_JOB_SRC:.c=.o) $(MESH_PROOF_SRCS:.c=.o)),$(NON_APP_OBJS)) $(MESH_JOB_TEST_OBJ) $(MESH_STORE_TEST_OBJ) $(MESH_SNAPSHOT_TEST_OBJ) $(MESH_PACK_TEST_OBJ) $(MESH_LOD_TEST_OBJ) $(TEST_OBJS)
 	@mkdir -p $(dir $@)
 	$(CLANG_CC) $^ -o $@ $(LDFLAGS) $(FISICS_MEMCHECK_LINK_LIBS)
 

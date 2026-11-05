@@ -52,3 +52,20 @@ result bytes, which also cover results held by consumers.
 The preview cache moves accepted levels into its own resident budget and frees
 the job. Its mesh getters lend pointers for immediate synchronous rasterization.
 A cache reset, eviction or shutdown ends that borrow.
+
+## Mesh worker failure and publication qualification
+
+The host `MeshFailure` group injects job allocation and pool-submit refusal,
+snapshot path allocation failure, each of eight prepared-result allocations,
+and each of eight small-mesh LOD result allocations. Earlier accepted work and
+consumer-held results retain their identities and reservations. A refused
+prepared-result allocation can rebuild from the immutable snapshot. Failed
+worker results publish an invalid disposition with released partial geometry.
+
+Pack-writer allocation, partial write and rename failures leave no cache
+temporary file. They do not invalidate a usable in-memory mesh. Deterministic
+barriers immediately before and after rename prove that canceling the job
+rejects its consumer geometry while a completed content-keyed cache artifact
+remains readable and reusable. Cancellation does not undo cache publication.
+All eight job slots are reusable after final release. The adapters are compiled
+only into the host runner; the application retains the ordinary owner objects.

@@ -2,6 +2,7 @@
 bool agent_control_run_tests(void);
 bool mesh_source_snapshot_run_tests(void);
 bool mesh_job_pressure_run_tests(void);
+bool mesh_failure_run_tests(void);
 bool scene_collections_run_tests(void);
 bool collection_inspection_run_tests(void);
 bool construction_reference_run_tests(void);
@@ -93,6 +94,7 @@ static const TestGroup kTestGroups[] = {
     {"STLPhysicalImport", stl_physical_import_run_tests, true},
     {"CameraView", camera_view_run_tests, true},
     {"MeshJobPressure", mesh_job_pressure_run_tests, true},
+    {"MeshFailure", mesh_failure_run_tests, true},
     {"MeshSourceSnapshot", mesh_source_snapshot_run_tests, true},
     {"VanUsability", van_usability_run_tests, true},
     {"FoldingSupportV2",folding_support_v2_run_tests,true},
