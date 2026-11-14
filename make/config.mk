@@ -6,7 +6,7 @@ BUILD_TOOLCHAIN ?= clang
 PACKAGE_TOOLCHAIN ?= $(BUILD_TOOLCHAIN)
 CC := $(CLANG_CC)
 ifeq ($(BUILD_TOOLCHAIN),fisics)
-CC := $(FISICS_ENV) $(FISICS_BIN) --overlay=$(FISICS_OVERLAY)
+CC := $(FISICS_ENV) python3 tools/fisics_compile.py -- $(FISICS_BIN) --overlay=$(FISICS_OVERLAY)
 endif
 PKG_CONFIG ?= pkg-config
 DEBUG ?= 0

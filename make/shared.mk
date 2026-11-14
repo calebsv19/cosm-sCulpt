@@ -39,18 +39,6 @@ CORE_THEME_DIR := $(SHARED_ROOT)/core/core_theme
 CORE_FONT_DIR := $(SHARED_ROOT)/core/core_font
 TIMER_HUD_DIR := $(SHARED_ROOT)/timer_hud
 
-ifeq ($(wildcard $(CORE_SCENE_VIEW_DIR)/include/core_scene_view.h),)
-CORE_SCENE_VIEW_DIR := $(SHARED_WORKSPACE_DIR)/core/core_scene_view
-endif
-ifeq ($(wildcard $(CORE_VIEWPORT3D_DIR)/include/core_viewport3d.h),)
-CORE_VIEWPORT3D_DIR := $(SHARED_WORKSPACE_DIR)/core/core_viewport3d
-endif
-ifeq ($(wildcard $(CORE_SCREEN_PICK_DIR)/include/core_screen_pick.h),)
-CORE_SCREEN_PICK_DIR := $(SHARED_WORKSPACE_DIR)/core/core_screen_pick
-endif
-ifeq ($(wildcard $(KIT_VIEWPORT3D_DIR)/include/kit_viewport3d.h),)
-KIT_VIEWPORT3D_DIR := $(SHARED_WORKSPACE_DIR)/kit/kit_viewport3d
-endif
 
 SHAPE_SYNC_SCRIPT := $(SHAPE_DIR)/sync_exports.sh
 

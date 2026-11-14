@@ -33,3 +33,5 @@ print-agent-scene-tool-bin:
 
 print-imported-mesh-harness-bin:
 	@printf '%s\n' "$(IMPORTED_MESH_HARNESS_BIN)"
+
+include make/shared-adoption.mk

@@ -9,7 +9,7 @@ $(SHAPE_SANITY_BIN): src/Tools/shape_sanity_tool.c
 
 $(PROGRAM_BUILD_DIR)/tools/%.o: $(TOOLS_DIR)/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -Isrc -Isrc/Tools -MMD -MP -c $< -o $@
+	$(CC) $(CFLAGS) -Isrc -Isrc/Tools $(DEPFLAGS) -c $< -o $@
 
 $(SHAPE_TOOL_BIN): $(SHAPE_TOOL_OBJS) $(SHAPE_TOOL_SHARED_OBJS)
 	@mkdir -p $(dir $@)
