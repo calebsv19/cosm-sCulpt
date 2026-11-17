@@ -275,7 +275,7 @@ bool UIPanel_BeginPrismDimensionDialog(UIPrismDimensionDialogTarget target) {
     ui->prismDimensionDialog.objectId = object->objectId;
     snprintf(ui->prismDimensionDialog.buffer,
              sizeof(ui->prismDimensionDialog.buffer),
-             "%.4f",
+             "%.9g",
              displayValue);
     SanitizeBuffer(ui->prismDimensionDialog.buffer);
     ui->prismDimensionDialog.length = strlen(ui->prismDimensionDialog.buffer);

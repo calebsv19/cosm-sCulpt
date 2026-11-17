@@ -88,6 +88,7 @@ const CoreMeshPreviewLodMesh* Layout_MeshPreviewCacheGetTier(const char* path,un
     trim(a->bytes,NULL);a->next=assets;assets=a;
     unsigned bucket=(unsigned)(hash(path)%BUCKETS);a->hash_next=buckets[bucket];buckets[bucket]=a;
     stats.resident_bytes+=a->bytes;++stats.resident_assets;
+    reference_valid=false; /* Reconcile newly admitted assets even if the scene is unchanged. */
     return NULL; /* Render a proxy immediately; no decode/hash/LOD work on this thread. */
 }
 const CoreMeshPreviewLodMesh* Layout_MeshPreviewCacheGet(const char* path,bool interactive) {return Layout_MeshPreviewCacheGetTier(path,interactive?2:3);}
@@ -101,7 +102,7 @@ bool Layout_MeshPreviewCacheCheckChanges(void) {
     return changed;
 }
 bool Layout_MeshPreviewCacheSync(const Layout* layout) {
-    bool changed=Layout_MeshPreviewCachePoll();uint64_t signature=0;
+    bool changed=false;uint64_t signature=0;
     if(layout)for(size_t i=0;i<layout->objectStore.count;++i) {
         const Object3D* o=&layout->objectStore.items[i];
         if(!o->isDeleted && o->kind==OBJECT3D_KIND_MESH_ASSET_INSTANCE)signature=signature*1099511628211ull+hash(o->meshInstance.runtimePath);
@@ -115,6 +116,8 @@ bool Layout_MeshPreviewCacheSync(const Layout* layout) {
         for(Asset** p=&assets;*p;)if(!(*p)->referenced) {drop(p);changed=true;}else p=&(*p)->next;
         reference_signature=signature;reference_valid=true;
     }
+    /* Dropping the last scene reference retires its pending result before publication. */
+    changed=Layout_MeshPreviewCachePoll() || changed;
     if(core_time_diff_ns(core_time_now_ns(),checked_at)>=500000000ull)changed=Layout_MeshPreviewCacheCheckChanges() || changed;
     return changed;
 }

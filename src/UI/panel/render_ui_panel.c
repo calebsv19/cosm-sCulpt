@@ -663,12 +663,12 @@ static void DrawTabButton(SDL_Renderer* renderer, TTF_Font* font, const UIPanelT
         int textW = 0;
         int textH = 0;
         if (!line_drawing_text_measure_utf8(renderer, font, tab->label, &textW, &textH)) return;
-        DrawTextBasic(renderer,
-                      font,
-                      tab->label,
-                      tab->bounds.x + (tab->bounds.w - textW) / 2,
-                      tab->bounds.y + (tab->bounds.h - textH) / 2,
-                      text);
+        SDL_Rect caption = tab->bounds;
+        const int x_offset = (tab->bounds.w - textW) / 2;
+        const int y_offset = (tab->bounds.h - textH) / 2;
+        if (x_offset > 0) { caption.x += x_offset; caption.w -= x_offset; }
+        if (y_offset > 0) { caption.y += y_offset; caption.h -= y_offset; }
+        (void)LDText_Label(renderer, font, tab->label, caption, text, false);
     }
 }
 

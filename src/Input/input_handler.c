@@ -23,6 +23,10 @@
 //        Public input handler
 // ======================================
 void Input_Handle(AppContext *ctx, SDL_Event* event) {
+    // Escape cancels the scope that owns the first press. A repeat must not
+    // cancel a newly exposed tool or quit after a dialog closes.
+    if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE && event->key.repeat)
+        return;
     if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST)
         InputViewportNavigation_ResetGesture();
     if (UIPanel_SharedTextEvent(event)) return;

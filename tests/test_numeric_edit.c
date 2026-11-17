@@ -138,6 +138,30 @@ static bool test_scaled_document_and_plane_lock(void) {
     ld_test_shutdown_runtime();return true;
 }
 
+static bool test_dimension_dialog_preserves_untouched_precision(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    uint32_t id = create_prism(state);
+    TEST_ASSERT(id);
+    state->editor.selectedObject3DId = id;
+    Object3D* object = Layout_ObjectStore_Find(&state->layout.objectStore, id);
+    TEST_ASSERT(object);
+    const float precise_width = 1.234567f;
+    object->rectPrism.width = precise_width;
+    UIPanelState* panel = UIPanel_Get();
+    const CoreUnitKind units[] = {CORE_UNIT_METER, CORE_UNIT_INCH, CORE_UNIT_MILLIMETER};
+    for (size_t i = 0; i < sizeof(units) / sizeof(units[0]); ++i) {
+        panel->displayUnit = units[i];
+        TEST_ASSERT(UIPanel_BeginPrismDimensionDialog(UI_PRISM_DIMENSION_TARGET_WIDTH));
+        TEST_ASSERT(UIPanel_ApplyPrismDimensionDialog(panel));
+        TEST_ASSERT(!panel->prismDimensionDialog.active);
+        TEST_ASSERT(Layout_ObjectStore_Find(&state->layout.objectStore, id)->rectPrism.width == precise_width);
+        TEST_ASSERT(Editor_UndoCount(&state->editor) == 0);
+    }
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_dimension_dialog_suffix_and_visible_conflict(void) {
     ld_test_init_runtime();GlobalState* s=Global_Get();uint32_t id=create_prism(s);TEST_ASSERT(id);
     s->editor.selectedObject3DId=id;
@@ -172,6 +196,7 @@ bool numeric_edit_run_tests(void) {
         {"bounds_failure_atomicity",test_bounds_conflict_preserves_document_history_and_dirty_state},
         {"rejections_noop_preserve_redo",test_rejections_and_noop_preserve_redo},
         {"scaled_document_plane_lock",test_scaled_document_and_plane_lock},
+        {"dimension_dialog_untouched_precision",test_dimension_dialog_preserves_untouched_precision},
         {"dimension_dialog_suffix_conflict",test_dimension_dialog_suffix_and_visible_conflict}
     };
     return run_test_cases("NumericEdit",cases,sizeof(cases)/sizeof(cases[0]));

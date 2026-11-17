@@ -65,8 +65,7 @@ static int UIPanelSceneList_RowHeightForObject(const UIPanelState* ui, const Obj
 }
 
 static bool UIPanelSceneList_PointInRect(int x, int y, SDL_Rect rect) {
-    return x >= rect.x && x <= rect.x + rect.w &&
-           y >= rect.y && y <= rect.y + rect.h;
+    return SDL_PointInRect(&(SDL_Point){x, y}, &rect);
 }
 
 typedef enum {
@@ -356,7 +355,7 @@ static int UIPanelSceneList_RowIndexAtPoint(const UIPanelState* ui,
         float rowH = 0.0f;
         if (row.kind == UI_SCENE_LIST_ROW_NONE) break;
         rowH = (float)UIPanelSceneList_RowHeightForRow(ui, row);
-        if (contentY >= cursorY && contentY <= cursorY + rowH) {
+        if (contentY >= cursorY && contentY < cursorY + rowH) {
             return rowIndex;
         }
         cursorY += rowH + (float)rowGap;

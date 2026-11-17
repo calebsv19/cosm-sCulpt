@@ -384,6 +384,32 @@ static bool test_scene_list_cache_reuses_and_tracks_visibility(void) {
     return true;
 }
 
+static bool test_scene_list_right_clip_excludes_first_unpainted_pixel(void) {
+    ld_test_init_runtime();
+    GlobalState* state = Global_Get();
+    Global_SetWindowSize(1500, 1100);
+    UIPanelState* ui = UIPanel_Get();
+    RectPrismPrimitiveCreateParams prism = {.width=1, .height=1, .depth=1};
+    uint32_t object_id = 0;
+    bool adjusted = false;
+    TEST_ASSERT(Layout_CreateRectPrismPrimitive(&state->layout, &prism, &object_id, &adjusted));
+    ui->activeLeftTab = UI_PANEL_LEFT_TAB_SCENE;
+    UIPanel_OnWindowResized(state->screenWidth, state->screenHeight);
+    int x, y;
+    ld_test_scene_list_first_row_point(ui, &x, &y);
+    SDL_Rect list;
+    TEST_ASSERT(UIPanel_GetScenePaneRects(ui, NULL, &list, NULL, NULL));
+    const int content_inset = 3;
+    const int right_edge = list.x + list.w - content_inset;
+    (void)UIPanel_HandleSceneListClick(right_edge, y);
+    TEST_ASSERT(state->editor.selectedObject3DId == 0);
+    TEST_ASSERT(UIPanel_HandleSceneListClick(right_edge - 1, y));
+    TEST_ASSERT(state->editor.selectedObject3DId == object_id);
+    UIPanel_SceneListClearSelection();
+    ld_test_shutdown_runtime();
+    return true;
+}
+
 static bool test_unchanged_window_does_not_dirty_picking(void) {
     ld_test_init_runtime();
     GlobalState* state = Global_Get();
@@ -399,6 +425,7 @@ static bool test_unchanged_window_does_not_dirty_picking(void) {
 bool ui_panel_scene_list_run_tests(void) {
     const TestCase cases[] = {
         { "cache_reuse_and_visibility", test_scene_list_cache_reuses_and_tracks_visibility },
+        { "right_clip_excludes_unpainted_pixel", test_scene_list_right_clip_excludes_first_unpainted_pixel },
         { "unchanged_window_keeps_picking", test_unchanged_window_does_not_dirty_picking },
         { "scene_list_click_selects_first_object",
           test_scene_list_click_selects_first_object },
