@@ -20,7 +20,9 @@ This subtree owns the editor-local pane shell and pane-scoped controls.
 - File pane and persistent browser:
   - `ui_panel_file_*`
   - `ui_panel_load_menu.c`
-  - `ui_panel_file_browser_*`
+  - `ui_panel_file_browser_*`. The persistence module owns mode tokens and the
+    per-mode root and remembered-entry files. The load menu owns fallback root
+    selection, browser session restore, and import progress and placement.
   - `ui_panel_file_status.c` owns File-pane-local display basename, browser
     mode labels, summary mode labels, and prefixed browser/action status-line
     formatting shared by the File summary and expanded browser.

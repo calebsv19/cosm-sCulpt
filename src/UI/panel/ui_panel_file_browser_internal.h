@@ -17,6 +17,12 @@ int UIPanel_LoadMenuIndexAtPoint(const UIPanelState* ui, int mouseX, int mouseY)
 SDL_Rect UIPanel_GetLoadMenuRect(const UIPanelState* ui);
 SDL_Rect UIPanel_GetLoadMenuPaneClipRect(const UIPanelState* ui);
 
+bool UIPanel_ReadFileBrowserMode(UILoadMenuMode* out_mode);
+bool UIPanel_SaveFileBrowserMode(UILoadMenuMode mode);
+bool UIPanel_LoadBrowserRootPath(UILoadMenuMode mode, char* out_path, size_t out_path_size);
+bool UIPanel_SaveBrowserRootPath(UILoadMenuMode mode, const char* path);
+bool UIPanel_ClearRememberedEntryPath(UILoadMenuMode mode);
+
 bool UIPanel_LoadRememberedEntryPath(UILoadMenuMode mode,
                                      char* out_path,
                                      size_t out_path_size);

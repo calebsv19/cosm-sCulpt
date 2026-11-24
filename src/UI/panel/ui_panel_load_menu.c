@@ -20,24 +20,12 @@
 #include "UI/ui_panel_summary_surface.h"
 #include "UI/ui_panel_visual_style.h"
 
-#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
 
-static const char* k_runtime_file_browser_mode_path = "data/runtime/file_browser_mode.txt";
-static const char* k_runtime_json_root_path = "data/runtime/file_browser_json_root.txt";
-static const char* k_runtime_scene_root_path = "data/runtime/file_browser_scene_root.txt";
-static const char* k_runtime_object_root_path = "data/runtime/file_browser_object_root.txt";
-static const char* k_runtime_mesh_root_path = "data/runtime/file_browser_mesh_root.txt";
-static const char* k_runtime_stl_root_path = "data/runtime/file_browser_stl_root.txt";
-static const char* k_runtime_last_json_entry_path = "data/runtime/file_browser_last_json_entry.txt";
-static const char* k_runtime_last_scene_entry_path = "data/runtime/file_browser_last_scene_entry.txt";
-static const char* k_runtime_last_object_entry_path = "data/runtime/file_browser_last_object_entry.txt";
-static const char* k_runtime_last_mesh_entry_path = "data/runtime/file_browser_last_mesh_entry.txt";
-static const char* k_runtime_last_stl_entry_path = "data/runtime/file_browser_last_stl_entry.txt";
 static const Uint32 k_load_progress_finished_ttl_ms = 1400u;
 
 static bool UIPanel_PathIsDirectory(const char* path);
@@ -447,153 +435,6 @@ static bool UIPanel_CopyParentDirectoryPath(const char* path,
     return out_path[0] != '\0' && UIPanel_PathIsDirectory(out_path);
 }
 
-static bool UIPanel_FileBrowserEnsureRuntimeDir(void) {
-    if (mkdir("data", 0755) != 0 && errno != EEXIST) {
-        return false;
-    }
-    if (mkdir("data/runtime", 0755) != 0 && errno != EEXIST) {
-        return false;
-    }
-    return true;
-}
-
-static const char* UIPanel_FileBrowserModeToken(UILoadMenuMode mode) {
-    switch (mode) {
-        case UI_LOAD_MENU_MODE_JSON: return "json";
-        case UI_LOAD_MENU_MODE_SCENE: return "scene";
-        case UI_LOAD_MENU_MODE_OBJECT: return "object";
-        case UI_LOAD_MENU_MODE_RUNTIME_MESH: return "runtime_mesh";
-        case UI_LOAD_MENU_MODE_STL_IMPORT: return "stl_import";
-        case UI_LOAD_MENU_MODE_NONE:
-        default: return "none";
-    }
-}
-
-static UILoadMenuMode UIPanel_FileBrowserModeFromToken(const char* token) {
-    if (!token || !token[0]) return UI_LOAD_MENU_MODE_NONE;
-    if (strcasecmp(token, "json") == 0) return UI_LOAD_MENU_MODE_JSON;
-    if (strcasecmp(token, "scene") == 0) return UI_LOAD_MENU_MODE_SCENE;
-    if (strcasecmp(token, "object") == 0) return UI_LOAD_MENU_MODE_OBJECT;
-    if (strcasecmp(token, "runtime_mesh") == 0 || strcasecmp(token, "mesh") == 0) {
-        return UI_LOAD_MENU_MODE_RUNTIME_MESH;
-    }
-    if (strcasecmp(token, "stl_import") == 0 || strcasecmp(token, "stl") == 0) {
-        return UI_LOAD_MENU_MODE_STL_IMPORT;
-    }
-    return UI_LOAD_MENU_MODE_NONE;
-}
-
-static bool UIPanel_SaveFileBrowserMode(const UIPanelState* ui) {
-    FILE* file = NULL;
-    const char* token = NULL;
-    if (!ui) return false;
-    if (!UIPanel_FileBrowserEnsureRuntimeDir()) return false;
-    token = UIPanel_FileBrowserModeToken(ui->loadMenu.mode);
-    file = fopen(k_runtime_file_browser_mode_path, "wb");
-    if (!file) return false;
-    if (fputs(token, file) == EOF || fputc('\n', file) == EOF) {
-        fclose(file);
-        return false;
-    }
-    fclose(file);
-    return true;
-}
-
-static const char* UIPanel_FileBrowserEntryStatePath(UILoadMenuMode mode) {
-    switch (mode) {
-        case UI_LOAD_MENU_MODE_JSON: return k_runtime_last_json_entry_path;
-        case UI_LOAD_MENU_MODE_SCENE: return k_runtime_last_scene_entry_path;
-        case UI_LOAD_MENU_MODE_OBJECT: return k_runtime_last_object_entry_path;
-        case UI_LOAD_MENU_MODE_RUNTIME_MESH: return k_runtime_last_mesh_entry_path;
-        case UI_LOAD_MENU_MODE_STL_IMPORT: return k_runtime_last_stl_entry_path;
-        case UI_LOAD_MENU_MODE_NONE:
-        default: return NULL;
-    }
-}
-
-static const char* UIPanel_FileBrowserRootStatePath(UILoadMenuMode mode) {
-    switch (mode) {
-        case UI_LOAD_MENU_MODE_JSON: return k_runtime_json_root_path;
-        case UI_LOAD_MENU_MODE_SCENE: return k_runtime_scene_root_path;
-        case UI_LOAD_MENU_MODE_OBJECT: return k_runtime_object_root_path;
-        case UI_LOAD_MENU_MODE_RUNTIME_MESH: return k_runtime_mesh_root_path;
-        case UI_LOAD_MENU_MODE_STL_IMPORT: return k_runtime_stl_root_path;
-        case UI_LOAD_MENU_MODE_NONE:
-        default: return NULL;
-    }
-}
-
-static bool UIPanel_SaveRememberedEntryPath(UILoadMenuMode mode, const char* path) {
-    FILE* file = NULL;
-    const char* state_path = UIPanel_FileBrowserEntryStatePath(mode);
-    if (!state_path || !path || !path[0]) return false;
-    if (!UIPanel_FileBrowserEnsureRuntimeDir()) return false;
-    file = fopen(state_path, "wb");
-    if (!file) return false;
-    if (fputs(path, file) == EOF || fputc('\n', file) == EOF) {
-        fclose(file);
-        return false;
-    }
-    fclose(file);
-    return true;
-}
-
-static bool UIPanel_ClearRememberedEntryPath(UILoadMenuMode mode) {
-    const char* state_path = UIPanel_FileBrowserEntryStatePath(mode);
-    if (!state_path) return false;
-    if (remove(state_path) == 0) return true;
-    return errno == ENOENT;
-}
-
-bool UIPanel_LoadRememberedEntryPath(UILoadMenuMode mode, char* out_path, size_t out_path_size) {
-    FILE* file = NULL;
-    const char* state_path = UIPanel_FileBrowserEntryStatePath(mode);
-    if (!state_path || !out_path || out_path_size == 0u) return false;
-    out_path[0] = '\0';
-    file = fopen(state_path, "rb");
-    if (!file) return false;
-    if (!fgets(out_path, (int)out_path_size, file)) {
-        fclose(file);
-        out_path[0] = '\0';
-        return false;
-    }
-    fclose(file);
-    out_path[strcspn(out_path, "\r\n")] = '\0';
-    return out_path[0] != '\0';
-}
-
-static bool UIPanel_SaveBrowserRootPath(UILoadMenuMode mode, const char* path) {
-    FILE* file = NULL;
-    const char* state_path = UIPanel_FileBrowserRootStatePath(mode);
-    if (!state_path || !path || !path[0]) return false;
-    if (!UIPanel_FileBrowserEnsureRuntimeDir()) return false;
-    file = fopen(state_path, "wb");
-    if (!file) return false;
-    if (fputs(path, file) == EOF || fputc('\n', file) == EOF) {
-        fclose(file);
-        return false;
-    }
-    fclose(file);
-    return true;
-}
-
-static bool UIPanel_LoadBrowserRootPath(UILoadMenuMode mode, char* out_path, size_t out_path_size) {
-    FILE* file = NULL;
-    const char* state_path = UIPanel_FileBrowserRootStatePath(mode);
-    if (!state_path || !out_path || out_path_size == 0u) return false;
-    out_path[0] = '\0';
-    file = fopen(state_path, "rb");
-    if (!file) return false;
-    if (!fgets(out_path, (int)out_path_size, file)) {
-        fclose(file);
-        out_path[0] = '\0';
-        return false;
-    }
-    fclose(file);
-    out_path[strcspn(out_path, "\r\n")] = '\0';
-    return out_path[0] != '\0';
-}
-
 static bool UIPanel_ResolveBrowserRootForMode(UILoadMenuMode mode,
                                               char* out_path,
                                               size_t out_path_size) {
@@ -624,10 +465,6 @@ static bool UIPanel_ApplyBrowserRootForMode(UILoadMenuMode mode,
     return UIPanel_SaveBrowserRootPath(mode, path);
 }
 
-void UIPanel_RememberLoadedEntry(UILoadMenuMode mode, const char* path) {
-    (void)UIPanel_SaveRememberedEntryPath(mode, path);
-}
-
 void UIPanel_SetFileBrowserVisible(UIPanelState* ui, bool visible) {
     if (!ui) return;
     ui->loadMenu.visible = visible;
@@ -642,18 +479,7 @@ void UIPanel_CloseFileBrowser(UIPanelState* ui) {
 }
 
 void UIPanel_LoadFileBrowserMode(UIPanelState* ui) {
-    FILE* file = NULL;
-    char line[32];
-    if (!ui) return;
-    file = fopen(k_runtime_file_browser_mode_path, "rb");
-    if (!file) return;
-    if (!fgets(line, sizeof(line), file)) {
-        fclose(file);
-        return;
-    }
-    fclose(file);
-    line[strcspn(line, "\r\n")] = '\0';
-    ui->loadMenu.mode = UIPanel_FileBrowserModeFromToken(line);
+    if (!ui || !UIPanel_ReadFileBrowserMode(&ui->loadMenu.mode)) return;
     UIPanel_SetFileBrowserVisible(ui, ui->loadMenu.mode != UI_LOAD_MENU_MODE_NONE);
 }
 
@@ -874,7 +700,7 @@ static void UIPanel_LoadMenuClose(UIPanelState* ui) {
     if (!ui) return;
     UIPanel_CloseFileBrowser(ui);
     ui->loadMenu.mode = UI_LOAD_MENU_MODE_NONE;
-    (void)UIPanel_SaveFileBrowserMode(ui);
+    (void)UIPanel_SaveFileBrowserMode(ui->loadMenu.mode);
 }
 
 static int UIPanel_CountEntriesForRoot(const char* root_path, UILoadMenuMode mode) {
@@ -935,7 +761,7 @@ static bool UIPanel_ShowFileBrowserForCurrentRoot(UILoadMenuMode mode,
     UIPanel_CloseSceneBoundsDialog(ui);
     UIPanel_CloseConstructionPlaneDialog(ui);
     UIPanel_CloseObjectTransformDialog(ui);
-    (void)UIPanel_SaveFileBrowserMode(ui);
+    (void)UIPanel_SaveFileBrowserMode(ui->loadMenu.mode);
     return true;
 }
 
@@ -1137,7 +963,7 @@ void UIPanel_ToggleLoadMenu(void) {
     ui->loadMenu.hoverIndex = -1;
     ui->loadMenu.scrollOffsetPx = 0.0f;
     UIPanel_LoadMenuClampScroll(ui);
-    (void)UIPanel_SaveFileBrowserMode(ui);
+    (void)UIPanel_SaveFileBrowserMode(ui->loadMenu.mode);
 }
 
 bool UIPanel_IsLoadMenuOpen(void) {
@@ -1258,7 +1084,7 @@ bool UIPanel_FocusFileBrowserOnActiveSession(void) {
     }
     if (ui->loadMenu.activeIndex < 0) return false;
     UIPanel_LoadMenuScrollIndexIntoView(ui, ui->loadMenu.activeIndex);
-    (void)UIPanel_SaveFileBrowserMode(ui);
+    (void)UIPanel_SaveFileBrowserMode(ui->loadMenu.mode);
     return true;
 }
 
