@@ -28,24 +28,38 @@ def bmp_size(path: Path) -> tuple[int, int]:
     return width, abs(height)
 
 
-# Verify the committed module without importing the shared workspace's dirty tree.
 def verify_text_source(root: Path, canonical: Path) -> None:
-    pin=json.loads((Path(__file__).parent / "text-render-source-pin.json").read_text())
-    commit=pin["commit"]
-    if not re.fullmatch(r"[0-9a-f]{40}",commit): raise SystemExit("invalid text source pin")
-    raw=subprocess.check_output(["git","-C",str(canonical),"archive",commit,"kit/kit_render"])
-    with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
-        names=set()
-        for item in archive.getmembers():
-            if not item.isfile(): continue
-            names.add(item.name)
-            path=root/item.name
-            if not path.is_file() or path.is_symlink() or path.read_bytes()!=archive.extractfile(item).read():
-                raise SystemExit("text source mismatch: "+item.name)
-            if hashlib.sha256(path.read_bytes()).hexdigest()!=pin["files"].get(item.name):
-                raise SystemExit("text pin manifest mismatch: "+item.name)
-    if names!=set(pin["files"]): raise SystemExit("text pin manifest file mismatch")
-    print("sCulpt text source contract: "+commit+" files="+str(len(names)))
+    pin = json.loads((Path(__file__).parent / "text-render-source-pin.json").read_text())
+    commit, files = pin["commit"], pin["files"]
+    if not re.fullmatch(r"[0-9a-f]{40}", commit) or not files:
+        raise SystemExit("invalid text source pin")
+    vendored = {}
+    for name, expected in files.items():
+        path = root / name
+        if (not name.startswith("kit/kit_render/") or not path.resolve().is_relative_to(root)
+                or path.is_symlink() or not path.is_file()):
+            raise SystemExit("missing or invalid pinned text source: " + name)
+        data = path.read_bytes()
+        if hashlib.sha256(data).hexdigest() != expected:
+            raise SystemExit("text pin manifest mismatch: " + name)
+        vendored[name] = data
+
+    # The release sandbox copies pinned inputs without the sibling Git history.
+    # When the checkout is present, also verify the pin against its exact commit.
+    evidence = "vendored-pin"
+    git_marker = canonical / ".git"
+    if git_marker.exists() or git_marker.is_symlink():
+        raw = subprocess.check_output(["git", "-C", str(canonical), "archive", commit, "kit/kit_render"])
+        with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
+            archived = {item.name: archive.extractfile(item).read()
+                        for item in archive.getmembers() if item.isfile()}
+        if archived.keys() != vendored.keys():
+            raise SystemExit("text pin manifest file mismatch")
+        for name, data in archived.items():
+            if data != vendored[name]:
+                raise SystemExit("text source mismatch: " + name)
+        evidence = "vendored-pin+git-archive"
+    print(f"sCulpt text source contract: {commit} files={len(vendored)} evidence={evidence}")
 
 
 if __name__ == "__main__":
